@@ -1,10 +1,12 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version='1.0' encoding='UTF-8'?>
 <!-- Created with Cambalache 0.91.0 -->
 <interface>
   <!-- interface-name window.ui -->
+  <!-- interface-authors Carey McLelland -->
   <requires lib="gtk" version="4.14"/>
   <requires lib="libadwaita" version="1.5"/>
-  <object class="AdwWindow">
+  <requires lib="gio" version="2.0"/>
+  <template class="WoesWindow" parent="AdwApplicationWindow">
     <property name="content">
       <object class="GtkBox">
         <property name="orientation">1</property>
@@ -16,13 +18,47 @@
                 <property name="stack">stack</property>
               </object>
             </property>
+            <child type="end">
+              <object class="GtkMenuButton">
+                <property name="icon-name">open-menu-symbolic</property>
+                <property name="menu-model">primary_menu</property>
+                <property name="primary">True</property>
+                <property name="tooltip-text" translatable="yes">Menu</property>
+                <style>
+                  <class name="GtkMenuButton"/>
+                </style>
+              </object>
+            </child>
           </object>
         </child>
         <child>
           <object class="AdwViewStack" id="stack">
             <property name="vexpand">true</property>
             <child>
-              <object class="AdwViewStackPage" id="page1">
+              <object class="AdwViewStackPage" id="curl_page">
+                <property name="child">
+                  <object class="AdwStatusPage">
+                    <property name="child">
+                      <object class="GtkBox">
+                        <property name="orientation">1</property>
+                        <property name="valign">3</property>
+                        <child>
+                          <object class="GtkGrid"/>
+                        </child>
+                      </object>
+                    </property>
+                    <property name="icon-name" bind-source="curl_page" bind-property="icon-name" bind-flags="sync-create"/>
+                    <property name="title" bind-source="curl_page" bind-property="title" bind-flags="sync-create"/>
+                  </object>
+                </property>
+                <property name="icon-name">network-transmit-receive-symbolic</property>
+                <property name="name">curl_page</property>
+                <property name="title" translatable="yes">cURL</property>
+                <property name="use-underline">true</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwViewStackPage" id="nmap_page">
                 <property name="child">
                   <object class="AdwStatusPage">
                     <property name="child">
@@ -43,50 +79,18 @@
                         </child>
                       </object>
                     </property>
-                    <property name="icon-name" bind-source="page1" bind-property="icon-name" bind-flags="sync-create"/>
-                    <property name="title" bind-source="page1" bind-property="title" bind-flags="sync-create"/>
+                    <property name="icon-name" bind-source="nmap_page" bind-property="icon-name" bind-flags="sync-create"/>
+                    <property name="title" bind-source="nmap_page" bind-property="title" bind-flags="sync-create"/>
                   </object>
                 </property>
-                <property name="icon-name">star-filled-rounded-symbolic</property>
-                <property name="name">page1</property>
-                <property name="title" translatable="yes">Favorites</property>
+                <property name="icon-name">face-devilish</property>
+                <property name="name">nmap_page</property>
+                <property name="title">Nmap</property>
                 <property name="use-underline">true</property>
               </object>
             </child>
             <child>
-              <object class="AdwViewStackPage" id="page2">
-                <property name="child">
-                  <object class="AdwStatusPage">
-                    <property name="child">
-                      <object class="GtkBox">
-                        <property name="orientation">1</property>
-                        <property name="valign">3</property>
-                        <child>
-                          <object class="GtkLinkButton">
-                            <property name="label" translatable="yes">API Reference</property>
-                            <property name="uri">https://gnome.pages.gitlab.gnome.org/libadwaita/doc/1.5/class.ViewSwitcher.html</property>
-                          </object>
-                        </child>
-                        <child>
-                          <object class="GtkLinkButton">
-                            <property name="label" translatable="yes">Human Interface Guidelines</property>
-                            <property name="uri">https://developer.gnome.org/hig/patterns/nav/view-switchers.html</property>
-                          </object>
-                        </child>
-                      </object>
-                    </property>
-                    <property name="icon-name" bind-source="page2" bind-property="icon-name" bind-flags="sync-create"/>
-                    <property name="title" bind-source="page2" bind-property="title" bind-flags="sync-create"/>
-                  </object>
-                </property>
-                <property name="icon-name">clock-alt-symbolic</property>
-                <property name="name">page2</property>
-                <property name="title" translatable="yes">Recents</property>
-                <property name="use-underline">true</property>
-              </object>
-            </child>
-            <child>
-              <object class="AdwViewStackPage" id="page3">
+              <object class="AdwViewStackPage" id="purger_page">
                 <property name="badge-number">0</property>
                 <property name="child">
                   <object class="AdwStatusPage">
@@ -105,19 +109,19 @@
                     </property>
                     <property name="margin-end">15</property>
                     <property name="margin-start">15</property>
-                    <property name="title" bind-source="page3" bind-property="title" bind-flags="sync-create"/>
+                    <property name="title" bind-source="purger_page" bind-property="title" bind-flags="sync-create"/>
                     <property name="valign">1</property>
                   </object>
                 </property>
-                <property name="icon-name">bell-outline-symbolic</property>
-                <property name="name">page3</property>
+                <property name="icon-name">user-trash-full</property>
+                <property name="name">purger_page</property>
                 <property name="needs-attention">true</property>
-                <property name="title" translatable="yes">Notifications</property>
+                <property name="title" translatable="yes">Purger</property>
                 <property name="use-underline">true</property>
               </object>
             </child>
             <child>
-              <object class="AdwViewStackPage" id="page4">
+              <object class="AdwViewStackPage" id="stats_page">
                 <property name="child">
                   <object class="AdwStatusPage">
                     <property name="child">
@@ -138,13 +142,13 @@
                         </child>
                       </object>
                     </property>
-                    <property name="icon-name" bind-source="page4" bind-property="icon-name" bind-flags="sync-create"/>
-                    <property name="title" bind-source="page4" bind-property="title" bind-flags="sync-create"/>
+                    <property name="icon-name" bind-source="stats_page" bind-property="icon-name" bind-flags="sync-create"/>
+                    <property name="title" bind-source="stats_page" bind-property="title" bind-flags="sync-create"/>
                   </object>
                 </property>
-                <property name="icon-name">person-symbolic</property>
-                <property name="name">page4</property>
-                <property name="title" translatable="yes">Account</property>
+                <property name="icon-name">face-cool</property>
+                <property name="name">stats_page</property>
+                <property name="title" translatable="yes">Stats</property>
                 <property name="use-underline">true</property>
               </object>
             </child>
@@ -168,6 +172,21 @@
         <setter object="switcher_bar" property="reveal">true</setter>
       </object>
     </child>
-  </object>
+  </template>
+  <menu id="primary_menu">
+    <section>
+      <item>
+        <attribute name="action">app.preferences</attribute>
+        <attribute name="label" translatable="yes">_Preferences</attribute>
+      </item>
+      <item>
+        <attribute name="action">win.show-help-overlay</attribute>
+        <attribute name="label" translatable="yes">_Keyboard Shortcuts</attribute>
+      </item>
+      <item>
+        <attribute name="action">app.about</attribute>
+        <attribute name="label" translatable="yes">_About AkamaiStaging</attribute>
+      </item>
+    </section>
+  </menu>
 </interface>
-

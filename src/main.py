@@ -1,27 +1,3 @@
-# MIT License
-#
-# Copyright (c) 2024 Carey McLelland
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
-#
-# SPDX-License-Identifier: MIT
-
 import sys
 import gi
 
@@ -30,14 +6,18 @@ gi.require_version('Adw', '1')
 
 from gi.repository import Gtk, Gio, Adw
 from .window import WoesWindow
+from .preferences import Preferences
 
 
 class WoesApplication(Adw.Application):
     """The main application singleton class."""
 
-    def __init__(self):
+    def __init__(self, version):
         super().__init__(application_id='ca.github.mclellac.WebOpsEvaluationSuite',
                          flags=Gio.ApplicationFlags.DEFAULT_FLAGS)
+        self.version = version
+        self.win = None # Store a reference to the main window
+
         self.create_action('quit', lambda *_: self.quit(), ['<primary>q'])
         self.create_action('about', self.on_about_action)
         self.create_action('preferences', self.on_preferences_action)
@@ -52,6 +32,7 @@ class WoesApplication(Adw.Application):
         if not win:
             win = WoesWindow(application=self)
         win.present()
+        self.win = win
 
     def on_about_action(self, widget, _):
         """Callback for the app.about action."""
@@ -66,7 +47,9 @@ class WoesApplication(Adw.Application):
 
     def on_preferences_action(self, widget, _):
         """Callback for the app.preferences action."""
-        print('app.preferences action activated')
+        preferences = Preferences(main_window=self.win)
+        preferences.set_transient_for(self.win)
+        preferences.present()
 
     def create_action(self, name, callback, shortcuts=None):
         """Add an application action.
@@ -86,5 +69,5 @@ class WoesApplication(Adw.Application):
 
 def main(version):
     """The application's entry point."""
-    app = WoesApplication()
+    app = WoesApplication(version)
     return app.run(sys.argv)
