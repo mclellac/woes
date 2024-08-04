@@ -3,14 +3,15 @@
     <id>com.github.mclellac.WebOpsEvaluationSuite</id>
     <metadata_license>CC0-1.0</metadata_license>
     <name>WebOps Evaluation Suite</name>
-    <summary>WebOps Evaluation Suite</summary>
     <description>A suite of tools for evaluating web servers and HTTP requests</description>
     <url type="homepage">https://github.com/mclellac/woes</url>
     <content_rating type="oars-1.1">G</content_rating>
-    <developer_name>Carey McLelland</developer_name>
-    <developer_url>https://github.com/mclellac</developer_url>
+    <developer>
+      <name>Carey McLelland</name>
+      <url>https://github.com/mclellac<url>
+    </developer>
     <categories>
-        <category>Utilities</category>
+        <category>Work</category>
     </categories>
     <launchable type="desktop-id">com.github.mclellac.WebOpsEvaluationSuite.desktop</launchable>
 </component>
