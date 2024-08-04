@@ -30,6 +30,11 @@
             "build-options": {
                 "python": "python3"
             },
+            "build-commands": [
+                "pip3 install requests",
+                "meson build",
+                "ninja -C build install"
+            ],
             "sources": [
                 {
                     "type": "git",
