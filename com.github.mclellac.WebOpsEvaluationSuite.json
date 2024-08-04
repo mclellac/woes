@@ -1,5 +1,6 @@
 {
     "app-id": "com.github.mclellac.WebOpsEvaluationSuite",
+    "metainfo": "data/com.github.mclellac.WebOpsEvaluationSuite.metainfo.xml.in",
     "runtime": "org.gnome.Platform",
     "runtime-version": "master",
     "sdk": "org.gnome.Sdk",
@@ -32,25 +33,15 @@
             },
             "sources": [
                 {
-			"type": "git",
-			"url": "https://github.com/mclellac/woes.git"
-		}
-            ]
-        },
-        {
-            "name": "python3-requests",
-            "buildsystem": "simple",
-            "build-commands": [
-                "pip3 install requests"
-            ],
-            "sources": [
-                {
-                    "type": "shell",
-                    "commands": [
-                        "pip3 install requests"
-                    ]
+                    "type": "git",
+                    "url": "https://github.com/mclellac/woes.git",
+                    "branch": "main"
                 }
             ]
         }
-    ]
+    ],
+    "runtime-dependencies": [
+        "python3-requests"
+    ],
+    "output": "com.github.mclellac.WebOpsEvaluationSuite"
 }

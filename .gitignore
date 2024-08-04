@@ -9,6 +9,8 @@ __pycache__/
 # Distribution / packaging
 .Python
 build/
+build-dir/
+.flatpak-builder/
 develop-eggs/
 dist/
 downloads/
@@ -68,7 +70,6 @@ instance/
 # Scrapy stuff:
 .scrapy
 
-build/
 
 
 # Sphinx documentation
