@@ -31,6 +31,7 @@ woes_sources = [
   'main.py',
   'window.py',
   'preferences.py',
+  'http_util.py',
 ]
 
 install_data(woes_sources, install_dir: moduledir)

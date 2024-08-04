@@ -32,7 +32,12 @@
                     "type" : "git",
                     "url" : "file:///home/mclellac/Projects/src/github.com/mclellac"
                 }
-            ]
+            ],
+	    "dependencies": [
+	    {
+	      "name": "python3-requests"
+	    }
+	  ]
         }
     ]
 }

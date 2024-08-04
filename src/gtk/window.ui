@@ -1,11 +1,11 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<!-- Created with Cambalache 0.91.0 -->
+<!-- Created with Cambalache 0.91.1 -->
 <interface>
   <!-- interface-name window.ui -->
-  <!-- interface-authors Carey McLelland -->
+  <!-- interface-authors Carey McLelland <careymclelland@gmail.com> -->
+  <requires lib="gio" version="2.0"/>
   <requires lib="gtk" version="4.14"/>
   <requires lib="libadwaita" version="1.5"/>
-  <requires lib="gio" version="2.0"/>
   <template class="WoesWindow" parent="AdwApplicationWindow">
     <property name="content">
       <object class="GtkBox">
@@ -33,27 +33,105 @@
         </child>
         <child>
           <object class="AdwViewStack" id="stack">
-            <property name="vexpand">true</property>
             <child>
-              <object class="AdwViewStackPage" id="curl_page">
+              <object class="AdwViewStackPage" id="http_page">
                 <property name="child">
                   <object class="AdwStatusPage">
-                    <property name="child">
-                      <object class="GtkBox">
-                        <property name="orientation">1</property>
-                        <property name="valign">3</property>
+                    <property name="description">Fetch HTTP headers from a URL</property>
+                    <property name="halign">baseline-fill</property>
+                    <property name="icon-name" bind-source="http_page" bind-property="icon-name" bind-flags="sync-create"/>
+                    <property name="title" bind-source="http_page" bind-property="title" bind-flags="sync-create"/>
+                    <child>
+                      <object class="AdwClampScrollable">
+                        <property name="maximum-size">800</property>
+                        <property name="unit">px</property>
                         <child>
-                          <object class="GtkGrid"/>
+                          <object class="GtkBox">
+                            <property name="halign">baseline-fill</property>
+                            <property name="orientation">vertical</property>
+                            <child>
+                              <object class="GtkListBox">
+                                <property name="activate-on-single-click">False</property>
+                                <property name="hexpand">True</property>
+                                <property name="selection-mode">0</property>
+                                <property name="valign">baseline-center</property>
+                                <property name="vexpand">True</property>
+                                <child>
+                                  <object class="AdwEntryRow" id="http_entry_row">
+                                    <property name="input-purpose">url</property>
+                                    <property name="show-apply-button">True</property>
+                                    <property name="title" translatable="yes">URL to fetch HTTP headers from</property>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="AdwSwitchRow" id="pragma_switch_row">
+                                    <property name="subtitle" translatable="yes">Enable Akamai Pragma request headers</property>
+                                    <property name="title" translatable="yes">Akamai Pragma</property>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="AdwComboRow" id="json_payloads_drop_down">
+                                    <property name="enable-search">true</property>
+                                    <property name="model">
+                                      <object class="GtkStringList" id="list">
+                                        <items>
+                                          <item>SinglePage</item>
+                                          <item>Live Radio</item>
+                                        </items>
+                                      </object>
+                                    </property>
+                                    <property name="subtitle">Select a payload if path is /graphql</property>
+                                    <property name="title">JSON payloads</property>
+                                  </object>
+                                </child>
+                                <style>
+                                  <class name="boxed-list"/>
+                                </style>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkFrame">
+                                <child>
+                                  <object class="GtkColumnView" id="column_view">
+                                    <property name="enable-rubberband">True</property>
+                                    <property name="margin-bottom">10</property>
+                                    <property name="margin-end">10</property>
+                                    <property name="margin-start">10</property>
+                                    <property name="margin-top">10</property>
+                                    <property name="show-column-separators">true</property>
+                                    <property name="show-row-separators">true</property>
+                                    <child>
+                                      <object class="GtkColumnViewColumn" id="header_name_col">
+                                        <property name="expand">True</property>
+                                        <property name="factory">
+                                          <object class="GtkSignalListItemFactory"/>
+                                        </property>
+                                        <property name="title" translatable="yes">HTTP Header</property>
+                                      </object>
+                                    </child>
+                                    <child>
+                                      <object class="GtkColumnViewColumn" id="header_value_col">
+                                        <property name="expand">True</property>
+                                        <property name="factory">
+                                          <object class="GtkSignalListItemFactory"/>
+                                        </property>
+                                        <property name="resizable">True</property>
+                                        <property name="title" translatable="yes">Header Value</property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                          </object>
                         </child>
                       </object>
-                    </property>
-                    <property name="icon-name" bind-source="curl_page" bind-property="icon-name" bind-flags="sync-create"/>
-                    <property name="title" bind-source="curl_page" bind-property="title" bind-flags="sync-create"/>
+                    </child>
                   </object>
                 </property>
                 <property name="icon-name">network-transmit-receive-symbolic</property>
-                <property name="name">curl_page</property>
-                <property name="title" translatable="yes">cURL</property>
+                <property name="name">http_page</property>
+                <property name="title" translatable="yes">HTTP Request</property>
                 <property name="use-underline">true</property>
               </object>
             </child>
@@ -65,18 +143,6 @@
                       <object class="GtkBox">
                         <property name="orientation">1</property>
                         <property name="valign">3</property>
-                        <child>
-                          <object class="GtkLinkButton">
-                            <property name="label" translatable="yes">API Reference</property>
-                            <property name="uri">https://gnome.pages.gitlab.gnome.org/libadwaita/doc/1.5/class.ViewSwitcher.html</property>
-                          </object>
-                        </child>
-                        <child>
-                          <object class="GtkLinkButton">
-                            <property name="label" translatable="yes">Human Interface Guidelines</property>
-                            <property name="uri">https://developer.gnome.org/hig/patterns/nav/view-switchers.html</property>
-                          </object>
-                        </child>
                       </object>
                     </property>
                     <property name="icon-name" bind-source="nmap_page" bind-property="icon-name" bind-flags="sync-create"/>
@@ -97,14 +163,6 @@
                     <property name="child">
                       <object class="AdwClamp">
                         <property name="maximum-size">500</property>
-                        <child>
-                          <object class="GtkListBox" id="notification_list">
-                            <property name="halign">4</property>
-                            <style>
-                              <class name="boxed-list"/>
-                            </style>
-                          </object>
-                        </child>
                       </object>
                     </property>
                     <property name="margin-end">15</property>
@@ -128,18 +186,6 @@
                       <object class="GtkBox">
                         <property name="orientation">1</property>
                         <property name="valign">3</property>
-                        <child>
-                          <object class="GtkLinkButton">
-                            <property name="label" translatable="yes">API Reference</property>
-                            <property name="uri">https://gnome.pages.gitlab.gnome.org/libadwaita/doc/1.5/class.ViewSwitcher.html</property>
-                          </object>
-                        </child>
-                        <child>
-                          <object class="GtkLinkButton">
-                            <property name="label" translatable="yes">Human Interface Guidelines</property>
-                            <property name="uri">https://developer.gnome.org/hig/patterns/nav/view-switchers.html</property>
-                          </object>
-                        </child>
                       </object>
                     </property>
                     <property name="icon-name" bind-source="stats_page" bind-property="icon-name" bind-flags="sync-create"/>
@@ -156,6 +202,7 @@
         </child>
         <child>
           <object class="AdwViewSwitcherBar" id="switcher_bar">
+            <property name="halign">baseline-fill</property>
             <property name="stack">stack</property>
           </object>
         </child>
