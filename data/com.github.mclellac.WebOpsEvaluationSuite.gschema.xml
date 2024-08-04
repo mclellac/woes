@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist gettext-domain="woes">
-	<schema id="com.github.mclellac.WebOpsEvaluationSuite" path="/ca/github/mclellac/WebOpsEvaluationSuite/">
+	<schema id="com.github.mclellac.WebOpsEvaluationSuite" path="/com/github/mclellac/WebOpsEvaluationSuite/">
     <key name="font-size" type="i">
       <default>12</default>
       <range min="8" max="24"/>

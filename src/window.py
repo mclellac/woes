@@ -4,7 +4,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk, Gdk, Gio
 from . import http_util  # Import http_util from the same folder
 
-@Gtk.Template(resource_path='/ca/github/mclellac/WebOpsEvaluationSuite/gtk/window.ui')
+@Gtk.Template(resource_path='/com/github/mclellac/WebOpsEvaluationSuite/gtk/window.ui')
 class WoesWindow(Adw.ApplicationWindow):
   __gtype_name__ = 'WoesWindow'
 
