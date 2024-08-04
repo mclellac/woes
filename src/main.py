@@ -13,7 +13,7 @@ class WoesApplication(Adw.Application):
     """The main application singleton class."""
 
     def __init__(self, version):
-        super().__init__(application_id='ca.github.mclellac.WebOpsEvaluationSuite',
+        super().__init__(application_id='com.github.mclellac.WebOpsEvaluationSuite',
                          flags=Gio.ApplicationFlags.DEFAULT_FLAGS)
         self.version = version
         self.win = None # Store a reference to the main window
@@ -38,7 +38,7 @@ class WoesApplication(Adw.Application):
         """Callback for the app.about action."""
         about = Adw.AboutWindow(transient_for=self.props.active_window,
                                 application_name='woes',
-                                application_icon='ca.github.mclellac.WebOpsEvaluationSuite',
+                                application_icon='com.github.mclellac.WebOpsEvaluationSuite',
                                 developer_name='Carey McLelland',
                                 version='0.1.0',
                                 developers=['Carey McLelland'],

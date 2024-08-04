@@ -1,6 +1,6 @@
-data/ca.github.mclellac.WebOpsEvaluationSuite.desktop.in
-data/ca.github.mclellac.WebOpsEvaluationSuite.metainfo.xml.in
-data/ca.github.mclellac.WebOpsEvaluationSuite.gschema.xml
+data/com.github.mclellac.WebOpsEvaluationSuite.desktop.in
+data/com.github.mclellac.WebOpsEvaluationSuite.metainfo.xml.in
+data/com.github.mclellac.WebOpsEvaluationSuite.gschema.xml
 src/main.py
 src/window.py
 src/window.ui

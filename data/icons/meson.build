@@ -1,4 +1,4 @@
-application_id = 'ca.github.mclellac.WebOpsEvaluationSuite'
+application_id = 'com.github.mclellac.WebOpsEvaluationSuite'
 
 scalable_dir = 'hicolor' / 'scalable' / 'apps'
 install_data(

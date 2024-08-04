@@ -78,14 +78,14 @@ class Preferences(Adw.PreferencesWindow):
 
     def save_preferences(self):
         """Save preferences using Gio.Settings."""
-        settings = Gio.Settings(schema_id='ca.github.mclellac.WebOpsEvaluationSuite')
+        settings = Gio.Settings(schema_id='com.github.mclellac.WebOpsEvaluationSuite')
         settings.set_int('font-size', self.font_size_adjustment.get_value())
         settings.set_boolean('dark-theme', self.theme_switch.get_active())
 
 
     def load_preferences(self):
         """Load preferences using Gio.Settings."""
-        settings = Gio.Settings(schema_id='ca.github.mclellac.WebOpsEvaluationSuite')
+        settings = Gio.Settings(schema_id='com.github.mclellac.WebOpsEvaluationSuite')
         font_size = settings.get_int('font-size')
         self.font_size_adjustment.set_value(font_size)
         dark_theme_enabled = settings.get_boolean('dark-theme')

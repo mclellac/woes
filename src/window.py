@@ -20,7 +20,7 @@ class WoesWindow(Adw.ApplicationWindow):
     # Existing code for applying font size and theme preferences
     self.style_manager = Adw.StyleManager.get_default()
 
-    self.settings = Gio.Settings(schema_id='ca.github.mclellac.WebOpsEvaluationSuite')
+    self.settings = Gio.Settings(schema_id='com.github.mclellac.WebOpsEvaluationSuite')
 
     font_size = self.settings.get_int('font-size')
     self.apply_font_size(font_size)
