@@ -8,7 +8,7 @@
   <requires lib="libadwaita" version="1.5"/>
   <template class="WoesWindow" parent="AdwApplicationWindow">
     <property name="content">
-      <object class="GtkBox">
+      <object class="GtkBox" id="main_box">
         <property name="orientation">1</property>
         <child>
           <object class="AdwHeaderBar" id="header_bar">
@@ -19,7 +19,7 @@
               </object>
             </property>
             <child type="end">
-              <object class="GtkMenuButton">
+              <object class="GtkMenuButton" id="menu_button">
                 <property name="icon-name">open-menu-symbolic</property>
                 <property name="menu-model">primary_menu</property>
                 <property name="primary">True</property>
@@ -36,21 +36,21 @@
             <child>
               <object class="AdwViewStackPage" id="http_page">
                 <property name="child">
-                  <object class="AdwStatusPage">
+                  <object class="AdwStatusPage" id="http_status_page">
                     <property name="description">Fetch HTTP headers from a URL</property>
                     <property name="halign">baseline-fill</property>
                     <property name="icon-name" bind-source="http_page" bind-property="icon-name" bind-flags="sync-create"/>
                     <property name="title" bind-source="http_page" bind-property="title" bind-flags="sync-create"/>
                     <child>
-                      <object class="AdwClampScrollable">
+                      <object class="AdwClampScrollable" id="http_clamp_scrollable">
                         <property name="maximum-size">800</property>
                         <property name="unit">px</property>
                         <child>
-                          <object class="GtkBox">
+                          <object class="GtkBox" id="http_box">
                             <property name="halign">baseline-fill</property>
                             <property name="orientation">vertical</property>
                             <child>
-                              <object class="GtkListBox">
+                              <object class="GtkListBox" id="http_list_box">
                                 <property name="activate-on-single-click">False</property>
                                 <property name="hexpand">True</property>
                                 <property name="selection-mode">0</property>
@@ -90,7 +90,7 @@
                               </object>
                             </child>
                             <child>
-                              <object class="GtkFrame">
+                              <object class="GtkFrame" id="frame">
                                 <child>
                                   <object class="GtkColumnView" id="column_view">
                                     <property name="enable-rubberband">True</property>
@@ -138,9 +138,9 @@
             <child>
               <object class="AdwViewStackPage" id="nmap_page">
                 <property name="child">
-                  <object class="AdwStatusPage">
+                  <object class="AdwStatusPage" id="nmap_status_page">
                     <property name="child">
-                      <object class="GtkBox">
+                      <object class="GtkBox" id="nmap_box">
                         <property name="orientation">1</property>
                         <property name="valign">3</property>
                       </object>
@@ -159,9 +159,9 @@
               <object class="AdwViewStackPage" id="purger_page">
                 <property name="badge-number">0</property>
                 <property name="child">
-                  <object class="AdwStatusPage">
+                  <object class="AdwStatusPage" id="purger_status_page">
                     <property name="child">
-                      <object class="AdwClamp">
+                      <object class="AdwClamp" id="purger_clamp">
                         <property name="maximum-size">500</property>
                       </object>
                     </property>
@@ -181,9 +181,9 @@
             <child>
               <object class="AdwViewStackPage" id="stats_page">
                 <property name="child">
-                  <object class="AdwStatusPage">
+                  <object class="AdwStatusPage" id="stats_status_page">
                     <property name="child">
-                      <object class="GtkBox">
+                      <object class="GtkBox" id="stats_box">
                         <property name="orientation">1</property>
                         <property name="valign">3</property>
                       </object>

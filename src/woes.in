@@ -29,6 +29,7 @@ import sys
 import signal
 import locale
 import gettext
+import requests
 
 VERSION = '@VERSION@'
 pkgdatadir = '@pkgdatadir@'

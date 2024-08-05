@@ -1,0 +1,63 @@
+[MASTER]
+
+################### OUTPUT #################################
+
+# Verbosity level: 0 (default)
+output-format = colorized
+
+# Include message-level information in output.
+msg-template = {path}:{line}: [{msg_id}({symbol}), {obj}] {msg}
+
+# Enable showing the source code generating the error/warning.
+reports = no
+
+# Count the number of occurrences of each error/warning code and print a report.
+persistent = yes
+
+
+################### FILE PATTERNS ##########################
+
+# Exclude directories from checks
+ignore-patterns =
+    .git/,
+    __pycache__/,
+    .pytest_cache/,
+    .mypy_cache/,
+    .venv/,
+    build/,
+    dist/,
+    data/,
+    po/,
+    images/,
+    .flatpak-builder/
+
+
+################### LINTING ################################
+
+# Options
+max-line-length = 120
+max-module-lines = 1000
+max-attributes = 10
+max-locals = 15
+max-returns = 6
+max-branches = 12
+max-statements = 50
+max-parents = 7
+max-public-methods = 20
+
+
+# Rules
+disable =
+    E0401,
+    E0611,
+    missing-docstring,
+    invalid-name
+
+# Enable all error and warning messages.
+enable = all
+
+
+# Enable extensions
+load-plugins =
+    pylint.extensions.docparams
+
