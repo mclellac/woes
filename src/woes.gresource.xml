@@ -2,7 +2,15 @@
 <gresources>
   <gresource prefix="/com/github/mclellac/WebOpsEvaluationSuite">
     <file preprocess="xml-stripblanks">gtk/window.ui</file>
+    <file preprocess="xml-stripblanks">gtk/preferences.ui</file>
     <file preprocess="xml-stripblanks">gtk/help-overlay.ui</file>
+    <file preprocess="xml-stripblanks">../data/icons/hicolor/symbolic/apps/com.github.mclellac.WebOpsEvaluationSuite-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">../data/icons/hicolor/symbolic/emotes/face-angel-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">../data/icons/hicolor/symbolic/emotes/face-angry-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">../data/icons/hicolor/symbolic/emotes/face-cool-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">../data/icons/hicolor/symbolic/emotes/face-devilish-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">../data/icons/hicolor/symbolic/emotes/face-glasses-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">../data/icons/hicolor/symbolic/emotes/face-shutmouth-symbolic.svg</file>
   </gresource>
 </gresources>
 

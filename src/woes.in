@@ -23,13 +23,13 @@
 # SOFTWARE.
 #
 # SPDX-License-Identifier: MIT
-
 import os
 import sys
 import signal
 import locale
 import gettext
 import requests
+import platform
 
 VERSION = '@VERSION@'
 pkgdatadir = '@pkgdatadir@'
@@ -37,8 +37,15 @@ localedir = '@localedir@'
 
 sys.path.insert(1, pkgdatadir)
 signal.signal(signal.SIGINT, signal.SIG_DFL)
-locale.bindtextdomain('woes', localedir)
-locale.textdomain('woes')
+
+# Use gettext on macOS, otherwise bindtext
+if platform.system() == 'Darwin':
+    gettext.bindtextdomain('woes', localedir)
+    gettext.textdomain('woes')
+else:
+    locale.bindtextdomain('woes', localedir)
+    locale.textdomain('woes')
+
 gettext.install('woes', localedir)
 
 if __name__ == '__main__':

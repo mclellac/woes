@@ -1,111 +1,76 @@
 import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Gtk, Adw, Gio
+from gi.repository import Adw, Gtk, Gio
 
+@Gtk.Template(resource_path='/com/github/mclellac/WebOpsEvaluationSuite/gtk/preferences.ui')
 class Preferences(Adw.PreferencesWindow):
+    __gtype_name__ = 'Preferences'
+
+    # Define template children with proper IDs
+    font_size_row = Gtk.Template.Child('font_size_row')
+    font_size_scale = Gtk.Template.Child('font_size_scale')
+    theme_row = Gtk.Template.Child('theme_row')
+    theme_switch = Gtk.Template.Child('theme_switch')
+    payloads_row = Gtk.Template.Child('payloads_row')
+    payloads_combo = Gtk.Template.Child('payloads_combo')
+
     def __init__(self, main_window=None):
-        super().__init__()
-        self.main_window = main_window
-        self.set_modal(True)
-        self.set_title("Preferences")
+        super().__init__(modal=True)
+        self.set_transient_for(main_window)
+        self.load_ui()
 
-        self.page = Adw.PreferencesPage()
-        self.add(self.page)
+    def load_ui(self):
+        # Ensure all template children are loaded
+        if not all([self.font_size_row, self.font_size_scale, self.theme_row, self.theme_switch, self.payloads_row, self.payloads_combo]):
+            raise RuntimeError("One or more template children are not loaded")
 
-        self.create_font_size_group()
-        self.create_theme_group()
-        self.create_payloads_group()
+        # Connect signals
+        self.font_size_scale.connect('value-changed', self.on_font_size_changed)
+        self.theme_switch.connect('state-set', self.on_theme_switch_changed)
+        self.payloads_combo.connect('changed', self.on_payloads_combo_changed)
 
+        # Load preferences
         self.load_preferences()
-
-    def create_font_size_group(self):
-        self.font_size_group = Adw.PreferencesGroup()
-        self.page.add(self.font_size_group)
-
-        self.font_size_row = Adw.ActionRow(title="Font Size")
-        self.font_size_adjustment = Gtk.Adjustment(
-            value=12, lower=8, upper=32, step_increment=1
-        )
-        self.font_size_scale = Gtk.Scale(
-            orientation=Gtk.Orientation.HORIZONTAL, adjustment=self.font_size_adjustment
-        )
-        self.font_size_scale.set_digits(0)
-        self.font_size_scale.set_hexpand(True)
-        self.font_size_scale.connect("value-changed", self.on_font_size_changed)
-        self.font_size_row.add_suffix(self.font_size_scale)
-
-        self.font_size_group.add(self.font_size_row)
-
-    def create_theme_group(self):
-        self.theme_group = Adw.PreferencesGroup()
-        self.page.add(self.theme_group)
-
-        self.theme_row = Adw.ActionRow()
-        self.theme_switch = Gtk.Switch()
-        self.theme_switch.set_active(True)
-        self.theme_switch.set_valign(Gtk.Align.CENTER)
-        self.theme_switch.set_halign(Gtk.Align.END)
-        self.theme_switch.connect("state-set", self.on_theme_switch_changed)
-
-        self.theme_label = Gtk.Label(label="Dark Theme")
-        self.theme_label.set_halign(Gtk.Align.START)
-
-        self.theme_row.add_prefix(self.theme_label)
-        self.theme_row.add_suffix(self.theme_switch)
-
-        self.theme_group.add(self.theme_row)
-
-    def create_payloads_group(self):
-        self.payloads_group = Adw.PreferencesGroup()
-        self.page.add(self.payloads_group)
-
-        self.payloads_row = Adw.ActionRow(title="JSON Payloads")
-
-        self.payloads_list = Gtk.ListStore(str)
-        self.payloads_list.append(['SinglePage'])
-        self.payloads_list.append(['Live Radio'])
-
-        self.payloads_combo = Gtk.ComboBox()
-        self.payloads_combo.set_model(self.payloads_list)
-        self.payloads_combo.set_entry_text_column(0)
-
-        self.payloads_row.add_prefix(Gtk.Label(label="Payload:"))
-        self.payloads_row.add_suffix(self.payloads_combo)
-
-        self.payloads_group.add(self.payloads_row)
 
     def on_font_size_changed(self, scale):
         font_size = scale.get_value()
-        if self.main_window is not None:
+        if self.main_window:
             self.main_window.apply_font_size(font_size)
         self.save_preferences()
 
     def on_theme_switch_changed(self, switch, gparam):
         theme_enabled = switch.get_active()
-        self.main_window.apply_theme(theme_enabled)
+        if self.main_window:
+            self.main_window.apply_theme(theme_enabled)
         self.save_preferences()
+
+    def on_payloads_combo_changed(self, combo):
+        selected_item = combo.get_active()
+        if selected_item:
+            payload = selected_item.get_label()
+            self.get_title_bar().set_subtitle(f"Selected payload: {payload}")
+            self.save_preferences()
 
     def save_preferences(self):
         settings = Gio.Settings(schema_id='com.github.mclellac.WebOpsEvaluationSuite')
-        settings.set_int('font-size', self.font_size_adjustment.get_value())
+        settings.set_int('font-size', self.font_size_scale.get_value())
         settings.set_boolean('dark-theme', self.theme_switch.get_active())
-
-        active_iter = self.payloads_combo.get_active_iter()
-        if active_iter is not None:
-            selected_payload = self.payloads_list[active_iter][0]
-            settings.set_string('json-payload', selected_payload)
+        selected_payload = self.payloads_combo.get_active()
+        if selected_payload:
+            settings.set_string('json-payload', selected_payload.get_label())
 
     def load_preferences(self):
         settings = Gio.Settings(schema_id='com.github.mclellac.WebOpsEvaluationSuite')
         font_size = settings.get_int('font-size')
-        self.font_size_adjustment.set_value(font_size)
+        self.font_size_scale.set_value(font_size)
         dark_theme_enabled = settings.get_boolean('dark-theme')
         self.theme_switch.set_active(dark_theme_enabled)
 
         selected_payload = settings.get_string('json-payload')
         if selected_payload:
-            for i, row in enumerate(self.payloads_list):
+            model = self.payloads_combo.get_model()
+            for i, row in enumerate(model):
                 if row[0] == selected_payload:
                     self.payloads_combo.set_active(i)
                     break

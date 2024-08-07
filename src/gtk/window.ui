@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<!-- Created with Cambalache 0.91.1 -->
+<!-- Created with Cambalache 0.91.0 -->
 <interface>
   <!-- interface-name window.ui -->
   <!-- interface-authors Carey McLelland <careymclelland@gmail.com> -->
@@ -92,8 +92,7 @@
                             <child>
                               <object class="GtkFrame" id="frame">
                                 <child>
-                                  <object class="GtkColumnView" id="column_view">
-                                    <property name="enable-rubberband">True</property>
+                                  <object class="GtkColumnView" id="http_column_view">
                                     <property name="margin-bottom">10</property>
                                     <property name="margin-end">10</property>
                                     <property name="margin-start">10</property>
