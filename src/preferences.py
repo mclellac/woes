@@ -1,7 +1,7 @@
 import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gtk, Gio
+from gi.repository import Adw, Gtk, Gio, Gdk
 
 @Gtk.Template(resource_path='/com/github/mclellac/WebOpsEvaluationSuite/gtk/preferences.ui')
 class Preferences(Adw.PreferencesWindow):
@@ -17,7 +17,9 @@ class Preferences(Adw.PreferencesWindow):
 
     def __init__(self, main_window=None):
         super().__init__(modal=True)
+        self.main_window = main_window
         self.set_transient_for(main_window)
+        self.settings = Gio.Settings(schema_id='com.github.mclellac.WebOpsEvaluationSuite')
         self.load_ui()
 
     def load_ui(self):
@@ -33,16 +35,39 @@ class Preferences(Adw.PreferencesWindow):
         # Load preferences
         self.load_preferences()
 
+    def apply_font_size(self, font_size: int):
+        """
+        Apply the given font size to all widgets.
+        """
+        css_provider = Gtk.CssProvider()
+        css = f"""
+        * {{ font-size: {font_size}pt; }}  /* Apply to all widgets */
+        """
+        css_provider.load_from_data(css.encode())
+        Gtk.StyleContext.add_provider_for_display(
+            Gdk.Display.get_default(),
+            css_provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+        )
+
+
+    def apply_theme(self, dark_theme_enabled: bool):
+        """
+        Apply the theme based on the dark-theme setting.
+        """
+        if dark_theme_enabled:
+            Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.PREFER_DARK)
+        else:
+            Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.PREFER_LIGHT)
+
     def on_font_size_changed(self, scale):
         font_size = scale.get_value()
-        if self.main_window:
-            self.main_window.apply_font_size(font_size)
+        Preferences.apply_font_size(self.settings, font_size)
         self.save_preferences()
 
     def on_theme_switch_changed(self, switch, gparam):
         theme_enabled = switch.get_active()
-        if self.main_window:
-            self.main_window.apply_theme(theme_enabled)
+        Preferences.apply_theme(self.settings, theme_enabled)
         self.save_preferences()
 
     def on_payloads_combo_changed(self, combo):
@@ -55,10 +80,12 @@ class Preferences(Adw.PreferencesWindow):
     def save_preferences(self):
         settings = Gio.Settings(schema_id='com.github.mclellac.WebOpsEvaluationSuite')
         settings.set_int('font-size', self.font_size_scale.get_value())
-        settings.set_boolean('dark-theme', self.theme_switch.get_active())
-        selected_payload = self.payloads_combo.get_active()
-        if selected_payload:
-            settings.set_string('json-payload', selected_payload.get_label())
+        Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.PREFER_DARK if self.theme_switch.get_active() else Adw.ColorScheme.PREFER_LIGHT)
+        selected_payload_index = self.payloads_combo.get_active()
+        if selected_payload_index != -1:
+            model = self.payloads_combo.get_model()
+            selected_payload = model[selected_payload_index][0]
+            settings.set_string('json-payload', selected_payload)
 
     def load_preferences(self):
         settings = Gio.Settings(schema_id='com.github.mclellac.WebOpsEvaluationSuite')

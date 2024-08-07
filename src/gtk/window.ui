@@ -3,7 +3,7 @@
 <interface>
   <!-- interface-name window.ui -->
   <!-- interface-authors Carey McLelland <careymclelland@gmail.com> -->
-  <requires lib="gio" version="2.0"/>
+  <requires lib="gio" version="2.44"/>
   <requires lib="gtk" version="4.14"/>
   <requires lib="libadwaita" version="1.5"/>
   <template class="WoesWindow" parent="AdwApplicationWindow">
@@ -14,6 +14,7 @@
           <object class="AdwHeaderBar" id="header_bar">
             <property name="title-widget">
               <object class="AdwViewSwitcher" id="switcher_title">
+                <property name="halign">baseline-fill</property>
                 <property name="policy">wide</property>
                 <property name="stack">stack</property>
               </object>
@@ -37,7 +38,7 @@
               <object class="AdwViewStackPage" id="http_page">
                 <property name="child">
                   <object class="AdwStatusPage" id="http_status_page">
-                    <property name="description">Fetch HTTP headers from a URL</property>
+                    <property name="description">Enter the URL in the provided input field and press Enter or click the button in the entry row to fetch the headers in a structured format. Optionally, toggle the Akamai Debug switch to include Akamai-specific headers. This tool is ideal for developers, as well as systems and network administrators, who need to inspect HTTP headers for debugging, troubleshooting, and security analysis.</property>
                     <property name="halign">baseline-fill</property>
                     <property name="icon-name" bind-source="http_page" bind-property="icon-name" bind-flags="sync-create"/>
                     <property name="title" bind-source="http_page" bind-property="title" bind-flags="sync-create"/>
@@ -65,8 +66,8 @@
                                 </child>
                                 <child>
                                   <object class="AdwSwitchRow" id="pragma_switch_row">
-                                    <property name="subtitle" translatable="yes">Enable Akamai Pragma request headers</property>
-                                    <property name="title" translatable="yes">Akamai Pragma</property>
+                                    <property name="subtitle" translatable="yes">Enable this to send Akamai Praga headers in your request</property>
+                                    <property name="title" translatable="yes">Akamai Debug Headers</property>
                                   </object>
                                 </child>
                                 <child>
@@ -91,21 +92,29 @@
                             </child>
                             <child>
                               <object class="GtkFrame" id="frame">
+                                <property name="halign">baseline-fill</property>
+                                <property name="margin-bottom">5</property>
+                                <property name="margin-end">5</property>
+                                <property name="margin-start">5</property>
+                                <property name="margin-top">5</property>
                                 <child>
                                   <object class="GtkColumnView" id="http_column_view">
+                                    <property name="halign">start</property>
                                     <property name="margin-bottom">10</property>
                                     <property name="margin-end">10</property>
                                     <property name="margin-start">10</property>
                                     <property name="margin-top">10</property>
                                     <property name="show-column-separators">true</property>
                                     <property name="show-row-separators">true</property>
+                                    <property name="valign">start</property>
                                     <child>
                                       <object class="GtkColumnViewColumn" id="header_name_col">
-                                        <property name="expand">True</property>
                                         <property name="factory">
                                           <object class="GtkSignalListItemFactory"/>
                                         </property>
+                                        <property name="fixed-width">0</property>
                                         <property name="title" translatable="yes">HTTP Header</property>
+                                        <property name="visible">False</property>
                                       </object>
                                     </child>
                                     <child>
@@ -114,8 +123,9 @@
                                         <property name="factory">
                                           <object class="GtkSignalListItemFactory"/>
                                         </property>
-                                        <property name="resizable">True</property>
+                                        <property name="fixed-width">0</property>
                                         <property name="title" translatable="yes">Header Value</property>
+                                        <property name="visible">False</property>
                                       </object>
                                     </child>
                                   </object>
@@ -130,7 +140,7 @@
                 </property>
                 <property name="icon-name">network-transmit-receive-symbolic</property>
                 <property name="name">http_page</property>
-                <property name="title" translatable="yes">HTTP Request</property>
+                <property name="title">HTTP Headers</property>
                 <property name="use-underline">true</property>
               </object>
             </child>
@@ -207,6 +217,8 @@
         </child>
       </object>
     </property>
+    <property name="default-height">1000</property>
+    <property name="default-width">1450</property>
     <property name="height-request">360</property>
     <property name="title" translatable="yes">AdwViewSwitcher Demo</property>
     <property name="width-request">360</property>
