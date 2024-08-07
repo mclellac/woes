@@ -1,0 +1,93 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Created with Cambalache 0.91.0 -->
+<interface>
+  <!-- interface-name preferences.ui -->
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="libadwaita" version="1.5"/>
+  <template class="Preferences" parent="AdwPreferencesWindow">
+    <property name="modal">true</property>
+    <property name="title">Preferences</property>
+    <child>
+      <object class="AdwPreferencesPage" id="preferences_page">
+        <child>
+          <object class="AdwPreferencesGroup" id="font_size_group">
+            <child>
+              <object class="AdwActionRow" id="font_size_row">
+                <property name="title">Font Size</property>
+                <child type="suffix">
+                  <object class="GtkScale" id="font_size_scale">
+                    <property name="adjustment">
+                      <object class="GtkAdjustment">
+                        <property name="lower">8</property>
+                        <property name="step-increment">1</property>
+                        <property name="upper">32</property>
+                        <property name="value">12</property>
+                      </object>
+                    </property>
+                    <property name="digits">0</property>
+                    <property name="hexpand">true</property>
+                    <property name="orientation">horizontal</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="AdwPreferencesGroup" id="theme_group">
+            <child>
+              <object class="AdwActionRow" id="theme_row">
+                <child type="prefix">
+                  <object class="GtkLabel" id="theme_label">
+                    <property name="halign">start</property>
+                    <property name="label">Dark Theme</property>
+                  </object>
+                </child>
+                <child type="suffix">
+                  <object class="GtkSwitch" id="theme_switch">
+                    <property name="halign">end</property>
+                    <property name="valign">center</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="AdwPreferencesGroup" id="payloads_group">
+            <child>
+              <object class="AdwActionRow" id="payloads_row">
+                <property name="title">JSON Payloads</property>
+                <child type="prefix">
+                  <object class="GtkLabel" id="payload_label">
+                    <property name="label">Payload:</property>
+                  </object>
+                </child>
+                <child type="suffix">
+                  <object class="GtkComboBox" id="payloads_combo">
+                    <property name="entry-text-column">0</property>
+                    <property name="model">
+                      <object class="GtkListStore" id="payloads_list">
+                        <columns>
+                          <column type="gchararray"/>
+                        </columns>
+                        <data>
+                          <row>
+                            <col id="0">SinglePage</col>
+                          </row>
+                          <row>
+                            <col id="0">Live Radio</col>
+                          </row>
+                        </data>
+                      </object>
+                    </property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+</interface>
