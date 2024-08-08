@@ -2,6 +2,7 @@
 <!-- Created with Cambalache 0.91.0 -->
 <interface>
   <!-- interface-name window.ui -->
+  <!-- interface-copyright (c) 2024 -->
   <!-- interface-authors Carey McLelland <careymclelland@gmail.com> -->
   <requires lib="gio" version="2.44"/>
   <requires lib="gtk" version="4.14"/>
@@ -38,7 +39,7 @@
               <object class="AdwViewStackPage" id="http_page">
                 <property name="child">
                   <object class="AdwStatusPage" id="http_status_page">
-                    <property name="description">Enter the URL in the provided input field and press Enter or click the button in the entry row to fetch the headers in a structured format. Optionally, toggle the Akamai Debug switch to include Akamai-specific headers. This tool is ideal for developers, as well as systems and network administrators, who need to inspect HTTP headers for debugging, troubleshooting, and security analysis.</property>
+                    <property name="description">This tool is ideal for developers, as well as systems and network administrators, who need to inspect HTTP headers for debugging, troubleshooting, and security analysis.</property>
                     <property name="halign">baseline-fill</property>
                     <property name="icon-name" bind-source="http_page" bind-property="icon-name" bind-flags="sync-create"/>
                     <property name="title" bind-source="http_page" bind-property="title" bind-flags="sync-create"/>
@@ -180,9 +181,8 @@
                     <property name="valign">1</property>
                   </object>
                 </property>
-                <property name="icon-name">user-trash-full</property>
+                <property name="icon-name">user-trash-symbolic</property>
                 <property name="name">purger_page</property>
-                <property name="needs-attention">true</property>
                 <property name="title" translatable="yes">Purger</property>
                 <property name="use-underline">true</property>
               </object>
@@ -213,6 +213,12 @@
           <object class="AdwViewSwitcherBar" id="switcher_bar">
             <property name="halign">baseline-fill</property>
             <property name="stack">stack</property>
+            <child>
+              <object class="AdwViewSwitcherBar" id="switcher_bar_2">
+                <property name="halign">baseline-fill</property>
+                <property name="stack">stack</property>
+              </object>
+            </child>
           </object>
         </child>
       </object>

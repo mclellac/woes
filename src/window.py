@@ -50,7 +50,6 @@ class WoesWindow(Adw.ApplicationWindow):
         self.json_payloads_drop_down.connect("notify::selected-item", self.on_json_payloads_drop_down_changed)
         self.switcher_title.connect("notify::selected-page", self.on_page_switched)
 
-
     def on_http_entry_row_activated(self, entry_row):
         url = self.http_entry_row.get_text().strip()
 
@@ -64,7 +63,6 @@ class WoesWindow(Adw.ApplicationWindow):
             logging.error("Invalid URL format.")
             self.update_column_view(None)
             return
-
 
         use_akamai_pragma = self.pragma_switch_row.get_active()
         headers = self.fetch_headers(url, use_akamai_pragma)

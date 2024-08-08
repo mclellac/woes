@@ -2,7 +2,7 @@
 <!DOCTYPE cambalache-project SYSTEM "cambalache-project.dtd">
 <cambalache-project version="0.17.3" target_tk="gtk-4.0">
   <ui>
-	(1,1,"window.ui","window.ui",None,None,"Carey McLelland &lt;careymclelland@gmail.com&gt;",None,None,None,None)
+	(1,1,"window.ui","window.ui",None,"(c) 2024","Carey McLelland &lt;careymclelland@gmail.com&gt;",None,None,None,None)
   </ui>
   <ui_library>
 	(1,"gio","2.44",None),
@@ -46,7 +46,8 @@
 	(1,34,"(section)",None,33,None,None,None,None,None,None),
 	(1,35,"(item)",None,34,None,None,None,None,None,None),
 	(1,36,"(item)",None,34,None,None,None,1,None,None),
-	(1,37,"(item)",None,34,None,None,None,2,None,None)
+	(1,37,"(item)",None,34,None,None,None,2,None,None),
+	(1,38,"AdwViewSwitcherBar","switcher_bar_2",31,None,None,None,None,None,None)
   </object>
   <object_property>
 	(1,1,"AdwApplicationWindow","content",None,None,None,None,None,2,None,None,None,None),
@@ -69,7 +70,7 @@
 	(1,7,"AdwViewStackPage","name","http_page",None,None,None,None,None,None,None,None,None),
 	(1,7,"AdwViewStackPage","title","HTTP Headers",None,None,None,None,None,None,None,None,None),
 	(1,7,"AdwViewStackPage","use-underline","true",None,None,None,None,None,None,None,None,None),
-	(1,8,"AdwStatusPage","description","Enter the URL in the provided input field and press Enter or click the button in the entry row to fetch the headers in a structured format. Optionally, toggle the Akamai Debug switch to include Akamai-specific headers. This tool is ideal for developers, as well as systems and network administrators, who need to inspect HTTP headers for debugging, troubleshooting, and security analysis.",None,None,None,None,None,None,None,None,None),
+	(1,8,"AdwStatusPage","description","This tool is ideal for developers, as well as systems and network administrators, who need to inspect HTTP headers for debugging, troubleshooting, and security analysis.",None,None,None,None,None,None,None,None,None),
 	(1,8,"AdwStatusPage","icon-name",None,None,None,None,None,None,7,"AdwViewStackPage","icon-name","sync-create"),
 	(1,8,"AdwStatusPage","title",None,None,None,None,None,None,7,"AdwViewStackPage","title","sync-create"),
 	(1,8,"GtkWidget","halign","baseline-fill",None,None,None,None,None,None,None,None,None),
@@ -125,9 +126,8 @@
 	(1,24,"GtkWidget","valign","3",None,None,None,None,None,None,None,None,None),
 	(1,25,"AdwViewStackPage","badge-number","0",None,None,None,None,None,None,None,None,None),
 	(1,25,"AdwViewStackPage","child",None,None,None,None,None,26,None,None,None,None),
-	(1,25,"AdwViewStackPage","icon-name","user-trash-full",None,None,None,None,None,None,None,None,None),
+	(1,25,"AdwViewStackPage","icon-name","user-trash-symbolic",None,None,None,None,None,None,None,None,None),
 	(1,25,"AdwViewStackPage","name","purger_page",None,None,None,None,None,None,None,None,None),
-	(1,25,"AdwViewStackPage","needs-attention","true",None,None,None,None,None,None,None,None,None),
 	(1,25,"AdwViewStackPage","title","Purger",1,None,None,None,None,None,None,None,None),
 	(1,25,"AdwViewStackPage","use-underline","true",None,None,None,None,None,None,None,None,None),
 	(1,26,"AdwStatusPage","child",None,None,None,None,None,27,None,None,None,None),
@@ -153,7 +153,9 @@
 	(1,36,"(item)","action","win.show-help-overlay",None,None,None,None,None,None,None,None,None),
 	(1,36,"(item)","label","_Keyboard Shortcuts",1,None,None,None,None,None,None,None,None),
 	(1,37,"(item)","action","app.about",None,None,None,None,None,None,None,None,None),
-	(1,37,"(item)","label","_About AkamaiStaging",1,None,None,None,None,None,None,None,None)
+	(1,37,"(item)","label","_About AkamaiStaging",1,None,None,None,None,None,None,None,None),
+	(1,38,"AdwViewSwitcherBar","stack","6",None,None,None,None,None,None,None,None,None),
+	(1,38,"GtkWidget","halign","baseline-fill",None,None,None,None,None,None,None,None,None)
   </object_property>
   <object_data>
 	(1,5,"GtkWidget",1,1,None,None,None,None,None,None),
