@@ -64,7 +64,8 @@ woes_sources = files(
   'main.py',
   'window.py',
   'preferences.py',
-  'http_util.py',
+  'http_page.py',
+  'nmap_page.py',
 )
 
 # Install the Python source files

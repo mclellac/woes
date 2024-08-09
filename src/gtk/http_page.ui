@@ -1,0 +1,90 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Created with Cambalache 0.91.1 -->
+<interface>
+  <requires lib="gtk" version="4.12"/>
+  <requires lib="libadwaita" version="1.4"/>
+  <template class="HttpPage" parent="GtkBox">
+    <property name="halign">baseline-fill</property>
+    <property name="margin-top">20</property>
+    <property name="orientation">vertical</property>
+    <child>
+      <object class="GtkListBox" id="http_list_box">
+        <property name="activate-on-single-click">False</property>
+        <property name="hexpand">True</property>
+        <property name="selection-mode">0</property>
+        <property name="valign">baseline-center</property>
+        <property name="vexpand">True</property>
+        <child>
+          <object class="AdwEntryRow" id="http_entry_row">
+            <property name="input-purpose">url</property>
+            <property name="show-apply-button">True</property>
+            <property name="title" translatable="yes">URL to fetch HTTP headers from</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwSwitchRow" id="pragma_switch_row">
+            <property name="subtitle" translatable="yes">Enable this to send Akamai Praga headers in your request</property>
+            <property name="title" translatable="yes">Akamai Debug Headers</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwComboRow" id="json_payloads_drop_down">
+            <property name="enable-search">true</property>
+            <property name="model">
+              <object class="GtkStringList" id="list">
+                <items>
+                  <item>SinglePage</item>
+                  <item>Live Radio</item>
+                </items>
+              </object>
+            </property>
+            <property name="subtitle">Select a payload if path is /graphql</property>
+            <property name="title">JSON payloads</property>
+          </object>
+        </child>
+        <style>
+          <class name="boxed-list"/>
+        </style>
+      </object>
+    </child>
+    <child>
+      <object class="GtkFrame" id="frame">
+        <property name="halign">baseline-fill</property>
+        <property name="margin-top">20</property>
+        <child>
+          <object class="GtkColumnView" id="http_column_view">
+            <property name="halign">start</property>
+            <property name="margin-bottom">10</property>
+            <property name="margin-end">10</property>
+            <property name="margin-start">10</property>
+            <property name="margin-top">10</property>
+            <property name="show-column-separators">true</property>
+            <property name="show-row-separators">true</property>
+            <property name="valign">start</property>
+            <child>
+              <object class="GtkColumnViewColumn" id="header_name_col">
+                <property name="factory">
+                  <object class="GtkSignalListItemFactory"/>
+                </property>
+                <property name="fixed-width">0</property>
+                <property name="title" translatable="yes">HTTP Header</property>
+                <property name="visible">False</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkColumnViewColumn" id="header_value_col">
+                <property name="expand">True</property>
+                <property name="factory">
+                  <object class="GtkSignalListItemFactory"/>
+                </property>
+                <property name="fixed-width">0</property>
+                <property name="title" translatable="yes">Header Value</property>
+                <property name="visible">False</property>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+</interface>

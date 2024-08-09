@@ -2,6 +2,8 @@
 <gresources>
   <gresource prefix="/com/github/mclellac/WebOpsEvaluationSuite">
     <file preprocess="xml-stripblanks">gtk/window.ui</file>
+    <file preprocess="xml-stripblanks">gtk/http_page.ui</file>
+    <file preprocess="xml-stripblanks">gtk/nmap_page.ui</file>
     <file preprocess="xml-stripblanks">gtk/preferences.ui</file>
     <file preprocess="xml-stripblanks">gtk/help-overlay.ui</file>
     <file preprocess="xml-stripblanks">../data/icons/hicolor/symbolic/apps/com.github.mclellac.WebOpsEvaluationSuite-symbolic.svg</file>

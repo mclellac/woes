@@ -1,0 +1,100 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Created with Cambalache 0.91.1 -->
+<interface>
+  <requires lib="gtk" version="4.12"/>
+  <requires lib="libadwaita" version="1.4"/>
+  <template class="NmapPage" parent="GtkBox">
+    <property name="halign">baseline-fill</property>
+    <property name="hexpand">True</property>
+    <property name="margin-top">20</property>
+    <property name="orientation">vertical</property>
+    <child>
+      <object class="GtkListBox" id="nmap_list_box">
+        <property name="activate-on-single-click">False</property>
+        <property name="hexpand">True</property>
+        <property name="selection-mode">0</property>
+        <property name="valign">baseline-center</property>
+        <property name="vexpand">True</property>
+        <child>
+          <object class="AdwEntryRow" id="target_entry_row">
+            <property name="input-purpose">url</property>
+            <property name="show-apply-button">True</property>
+            <property name="title" translatable="yes">IP/CIDR/FQDN to scan</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwSwitchRow" id="fingerprint_switch_row">
+            <property name="subtitle" translatable="yes">Enable this to attempt detection target OS</property>
+            <property name="title" translatable="yes">OS Fingerprinting (requires root)</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwComboRow" id="nmap_scripts_drop_down">
+            <property name="enable-search">true</property>
+            <property name="model">
+              <object class="GtkStringList" id="nmap_list">
+                <items>
+                  <item>vuln</item>
+                  <item>geolocation</item>
+                </items>
+              </object>
+            </property>
+            <property name="subtitle">Select script to use if needed</property>
+            <property name="title">Nmap Scripts</property>
+          </object>
+        </child>
+        <style>
+          <class name="boxed-list"/>
+        </style>
+      </object>
+    </child>
+    <child>
+      <object class="GtkFrame" id="nmap_frame">
+        <property name="halign">baseline-fill</property>
+        <property name="margin-top">20</property>
+        <property name="valign">baseline-fill</property>
+        <property name="vexpand">True</property>
+        <child>
+          <object class="GtkColumnView" id="scan_column_view">
+            <property name="halign">baseline-fill</property>
+            <property name="margin-bottom">10</property>
+            <property name="margin-end">10</property>
+            <property name="margin-start">10</property>
+            <property name="margin-top">10</property>
+            <property name="show-column-separators">true</property>
+            <property name="show-row-separators">true</property>
+            <property name="valign">baseline-fill</property>
+            <child>
+              <object class="GtkColumnViewColumn" id="target_col">
+                <property name="factory">
+                  <object class="GtkSignalListItemFactory"/>
+                </property>
+                <property name="fixed-width">0</property>
+                <property name="title" translatable="yes">Target</property>
+                <property name="visible">False</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkColumnViewColumn" id="results_col">
+                <property name="expand">True</property>
+                <property name="factory">
+                  <object class="GtkSignalListItemFactory"/>
+                </property>
+                <property name="fixed-width">0</property>
+                <property name="title">Results</property>
+                <property name="visible">False</property>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="GtkProgressBar" id="nmap_progress">
+        <property name="margin-bottom">10</property>
+        <property name="margin-top">10</property>
+        <property name="text">scanning</property>
+      </object>
+    </child>
+  </template>
+</interface>
