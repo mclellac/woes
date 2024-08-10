@@ -8,14 +8,15 @@ A graphical user interface for various web operations tasks, built with GTK 4 an
 # Features
 
 * Fetch and display HTTP headers for a given URL
-* Toggle Akamai pragma header for header fetching
-* Select JSON payloads from a dropdown menu
-* Switch between pages in the application
+* Enable Akamai debug headers.
+* ~~Select JSON payloads from a dropdown menu~~
+* Port Scan, OS fingerprint detection, NSE Scripts
 
 # Requirements
 
 * GTK 4/ libadwaita
 * Python 3
 * requests
+* nmap
 
-This is in very early development and not working yet.
+This is in very early development still. Only the HTTP Headers and Nmap status pages are functional currently.
