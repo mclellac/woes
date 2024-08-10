@@ -68,9 +68,9 @@
               <object class="AdwViewStackPage" id="nmap_page">
                 <property name="child">
                   <object class="AdwStatusPage" id="nmap_status_page">
-                    <property name="description">This tool is designed to facilitate network scanning and reconnaissance using Nmap, a powerful network scanning tool. This page provides a user-friendly interface for performing Nmap scans and viewing their results.</property>
+                    <property name="description"> This tool is designed to facilitate network scanning and reconnaissance using Nmap, a powerful network scanning tool. This page provides a user-friendly interface for performing Nmap scans and viewing their results.</property>
                     <property name="icon-name" bind-source="nmap_page" bind-property="icon-name" bind-flags="sync-create"/>
-                    <property name="title" bind-source="nmap_page" bind-property="title" bind-flags="sync-create">Nmap</property>
+                    <property name="title" bind-source="nmap_page" bind-property="title" bind-flags="sync-create">Port Scanning (Nmap)</property>
                     <child>
                       <object class="AdwClampScrollable">
                         <child>

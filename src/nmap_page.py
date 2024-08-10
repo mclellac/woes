@@ -2,7 +2,8 @@ import gi
 import logging
 import subprocess
 import re
-from typing import Dict, List
+import threading
+from typing import Dict, List, Optional
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
@@ -28,173 +29,184 @@ class NmapPage(Gtk.Box):
     target_entry_row = Gtk.Template.Child('target_entry_row')
     scan_column_view = Gtk.Template.Child('scan_column_view')
     fingerprint_switch_row = Gtk.Template.Child('fingerprint_switch_row')
+    scan_all_ports_switch_row = Gtk.Template.Child('scan_all_ports_switch_row')
     nmap_scripts_drop_down = Gtk.Template.Child('nmap_scripts_drop_down')
     nmap_progress = Gtk.Template.Child('nmap_progress')
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.scan_all_ports_enabled = False
+        self.os_fingerprinting_enabled = False
+        self.selected_script = None
         self.init_ui()
 
     def init_ui(self):
+        """Initialize UI components and connect signals."""
         self.target_entry_row.connect("entry-activated", self.on_target_entry_row_activated)
         self.target_entry_row.connect("apply", self.on_target_entry_row_activated)
         self.fingerprint_switch_row.connect("notify::active", self.on_fingerprint_switch_row_toggled)
+        self.scan_all_ports_switch_row.connect("notify::active", self.on_scan_all_ports_switch_row_toggled)
         self.nmap_scripts_drop_down.connect("notify::selected-item", self.on_nmap_scripts_drop_down_changed)
 
     def on_target_entry_row_activated(self, entry_row):
-        logging.debug("Entry activated")
-
-        self.target_entry_row.set_sensitive(False)
+        """Handle the target entry row activation event."""
         target = entry_row.get_text().strip()
+        logging.debug(f"Entry activated with text: {target}")
 
         if not target:
             logging.error("Target is empty.")
             self.update_nmap_column_view(None)
-            self.target_entry_row.set_sensitive(True)
+            GLib.idle_add(self.target_entry_row.set_sensitive, True)
             return
+
+        self.target_entry_row.set_sensitive(False)  # Disable entry row
 
         os_fingerprinting = self.fingerprint_switch_row.get_active()
         selected_item = self.nmap_scripts_drop_down.get_selected_item()
-        scripts = selected_item if isinstance(selected_item, str) else None
+        scripts = selected_item.get_string() if isinstance(selected_item, Gtk.StringObject) else None
 
         self.update_nmap_progress(0.0, "Starting scan...")
-        GLib.idle_add(self.run_nmap_scan, target, os_fingerprinting, scripts)
+
+        scan_thread = threading.Thread(target=self.run_nmap_scan, args=(target, os_fingerprinting, scripts))
+        scan_thread.start()
 
     def on_fingerprint_switch_row_toggled(self, widget, gparam):
-        if self.target_entry_row.get_text().strip():
-            self.on_target_entry_row_activated(self.target_entry_row)
+        """Handle the fingerprint switch row toggle event."""
+        self.os_fingerprinting_enabled = self.fingerprint_switch_row.get_active()
+        logging.debug(f"OS Fingerprinting enabled: {self.os_fingerprinting_enabled}")
+
+    def on_scan_all_ports_switch_row_toggled(self, widget, gparam):
+        """Handle the scan all ports switch row toggle event."""
+        self.scan_all_ports_enabled = self.scan_all_ports_switch_row.get_active()
+        logging.debug(f"Scan all ports enabled: {self.scan_all_ports_enabled}")
 
     def on_nmap_scripts_drop_down_changed(self, widget, gparam):
+        """Handle the Nmap scripts dropdown change event."""
         selected_item = self.nmap_scripts_drop_down.get_selected_item()
-        logging.debug(f"Selected item type: {type(selected_item)}")
-        script = selected_item if isinstance(selected_item, str) else None
-        logging.debug(f"Selected script: {script}")
+        self.selected_script = selected_item.get_string() if isinstance(selected_item, Gtk.StringObject) else None
+        logging.debug(f"Selected script: {self.selected_script}")
 
-    def run_nmap_scan(self, target: str, os_fingerprinting: bool, scripts: str):
-        command = ["nmap", "-sV", "-P0-65535", "--stats-every", "2s"]
+    def copy_to_clipboard(self, text: str):
+        """Copy the given text to the clipboard."""
+        clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+        clipboard.set_text(text, -1)
+        clipboard.store()
+        logging.debug("Copied to clipboard")
+
+    def run_nmap_scan(self, target: str, os_fingerprinting: bool, scripts: Optional[str]):
+        command = ["nmap", "-sV", "--stats-every", "2s"]
 
         if os_fingerprinting:
-            command.append("-O")
+            command.append("-A")
+        if self.scan_all_ports_enabled:
+            command.append("-p-")
+        else:
+            command.extend(["--top-ports", "200"])
+
         if scripts:
-            command.extend(["--script", scripts])
+            command.extend(["-Pn", "--script", scripts])
         command.append(target)
 
+        logging.debug(f"Running command: {' '.join(command)}")
+
         try:
-            logging.debug(f"Running command: {' '.join(command)}")
             process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             nmap_output = ""
-            for line in iter(process.stdout.readline, ''):
-                logging.debug(f"Nmap Output: {line.strip()}")
-                self.get_nmap_progress(line)
-                nmap_output += line
 
-            stdout, stderr = process.communicate()
-            logging.debug(f"Process return code: {process.returncode}")
+            for line in iter(process.stdout.readline, ''):
+                if line.startswith("Stats:") or line.startswith("NSE Timing:"):
+                    continue
+                nmap_output += line
+                self.get_nmap_progress(line)
+                logging.debug(f"Output: {line.strip()}")
+
+            process.wait()  # Ensure the process has finished
 
             if process.returncode == 0:
                 results = self.get_nmap_results(nmap_output)
-                self.update_nmap_progress(1.0, "Scan complete")
+                GLib.idle_add(self.update_nmap_progress, 1.0, "Scan complete")
             else:
-                results = {target: f"Error: {stderr}"}
-                self.update_nmap_progress(1.0, "Scan completed with errors")
+                results = {target: f"Error: {process.stderr.read().strip()}"}
+                GLib.idle_add(self.update_nmap_progress, 1.0, "Scan completed with errors")
 
         except Exception as e:
             results = {target: f"Exception: {str(e)}"}
-            self.update_nmap_progress(1.0, "Scan failed")
+            logging.error(f"Exception occurred: {str(e)}")
+            GLib.idle_add(self.update_nmap_progress, 1.0, "Scan failed")
 
-        GLib.idle_add(self.update_nmap_column_view, results)
-        GLib.idle_add(self.target_entry_row.set_sensitive, True)
+        finally:
+            GLib.idle_add(self.update_nmap_column_view, results)
+            GLib.idle_add(self.target_entry_row.set_sensitive, True)
 
-    def get_nmap_progress(self, line: str):
-        # Adjust this pattern based on actual Nmap output format
-        stats_pattern = re.compile(r'SYN Stealth Scan Timing: About (\d+(\.\d+)?)% done')
-        match = stats_pattern.search(line)
-        if match:
-            progress_percent = float(match.group(1))
-            fraction = progress_percent / 100.0
-            self.update_nmap_progress(fraction, f"Scanning... {progress_percent}% done")
+    def update_nmap_progress(self, fraction: float, text: str):
+        """Update the progress bar and text."""
+        logging.debug(f"Updating progress: {fraction*100}% - {text}")
+        self.nmap_progress.set_fraction(fraction)
+        self.nmap_progress.set_text(text)
 
-    def get_nmap_results(self, output):
+    def get_nmap_results(self, output: str) -> Dict[str, str]:
+        """Parse Nmap output and return results as a dictionary."""
         results = {}
-        host = None
+        target_host = None
         for line in output.splitlines():
             if line.startswith("Stats:") or line.startswith("NSE Timing:"):
                 continue
             if "Nmap scan report for" in line:
-                host = line.split()[-1].strip('()')
-                results[host] = []
-            elif host is not None:
-                results[host].append(line.strip())
-        for host, lines in results.items():
-            formatted_output = "\n".join(lines)
-            results[host] = formatted_output
+                target_host = line.split()[-1].strip('()')
+                results[target_host] = []
+            elif target_host:
+                results[target_host].append(line.strip())
+        for target_host, lines in results.items():
+            results[target_host] = "\n".join(lines)
+        logging.debug(f"Nmap results: {results}")
         return results
 
-    def update_nmap_progress(self, fraction, text="Scanning"):
-        logging.debug(f"Updating progress: {fraction*100}% - {text}")
-        GLib.idle_add(self._update_nmap_progress_bar, fraction, text)
+    def get_nmap_progress(self, line: str):
+        """Extract and update progress from Nmap output line."""
+        stats_pattern = re.compile(r'About (\d+(\.\d+)?)% done')
+        match = stats_pattern.search(line)
+        if match:
+            progress_percent = float(match.group(1))
+            fraction = progress_percent / 100.0
+            logging.debug(f"Extracted progress: {progress_percent}%")
+            self.update_nmap_progress(fraction, f"Scanning... {progress_percent}% done")
 
-    def _update_nmap_progress_bar(self, fraction, text):
-        self.nmap_progress.set_fraction(fraction)
-        self.nmap_progress.set_text(text)
-
-    def update_nmap_column_view(self, results):
-        logging.debug("update_nmap_column_view called with results:")
+    def update_nmap_column_view(self, results: Optional[Dict[str, str]]):
+        """Update the ColumnView with Nmap scan results."""
+        logging.debug("Updating ColumnView with results:")
         logging.debug(results)
 
+        # Create a ListStore with the NmapItem model
+        list_store = Gio.ListStore.new(NmapItem)
         if results:
-            logging.debug("Results are not empty, creating ListStore")
-            list_store = Gio.ListStore.new(NmapItem)
             for key, value in results.items():
-                logging.debug(f"Adding target: {key}, output: {value}")
                 list_store.append(NmapItem(key=key, value=value))
 
-            logging.debug("Setting ListStore as model for ColumnView")
             selection_model = Gtk.SingleSelection.new(list_store)
             self.scan_column_view.set_model(selection_model)
 
-            logging.debug("Clearing existing columns")
+            # Remove existing columns, if any
             for column in self.scan_column_view.get_columns():
-                if column:
+                if column is not None:
                     self.scan_column_view.remove_column(column)
 
-            logging.debug("Creating and adding columns")
-            def create_factory(attr_name):
+            # Define a factory function to create ListItemFactories
+            def create_factory(attr_name: str) -> Gtk.SignalListItemFactory:
                 factory = Gtk.SignalListItemFactory()
                 factory.connect("setup", lambda factory, list_item: list_item.set_child(Gtk.Label(xalign=0)))
                 factory.connect("bind", lambda factory, list_item: list_item.get_child().set_text(getattr(list_item.get_item(), attr_name)))
                 return factory
 
-            target_factory = create_factory('key')
-            output_factory = create_factory('value')
+            key_factory = create_factory("key")
+            value_factory = create_factory("value")
 
-            target_column = Gtk.ColumnViewColumn.new("Target")
-            output_column = Gtk.ColumnViewColumn.new("Output")
+            key_column = Gtk.ColumnViewColumn(title="Target", factory=key_factory)
+            value_column = Gtk.ColumnViewColumn(title="Output", factory=value_factory)
 
-            target_column.set_factory(target_factory)
-            output_column.set_factory(output_factory)
-
-            self.scan_column_view.append_column(target_column)
-            self.scan_column_view.append_column(output_column)
-
-            logging.debug("Results successfully displayed in ColumnView.")
+            self.scan_column_view.append_column(key_column)
+            self.scan_column_view.append_column(value_column)
         else:
-            logging.debug("No results found, setting column view model to None")
             self.scan_column_view.set_model(None)
 
-    def setup_nmap_factory(self, factory, list_item):
-        text_view = Gtk.TextView()
-        text_view.set_wrap_mode(Gtk.WrapMode.WORD)
-        list_item.set_child(text_view)
-        list_item.text_view = text_view  # Store the text view in the list item
+        self.scan_column_view.show()
 
-    def bind_nmap_target_factory(self, list_item, item):
-        buffer = list_item.text_view.get_buffer()
-        buffer.set_text(item.key)
-        logging.debug(f"bind_nmap_target_factory: item.key = {item.key}")
-
-    def bind_nmap_factory(self, list_item, item):
-        buffer = list_item.text_view.get_buffer()
-        text = "\n".join(item.value)
-        buffer.set_text(text)
-        logging.debug(f"bind_nmap_factory: item.value = {item.value}")

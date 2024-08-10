@@ -9,6 +9,18 @@
     <property name="margin-top">20</property>
     <property name="orientation">vertical</property>
     <child>
+      <object class="GtkSpinner"/>
+    </child>
+    <child>
+      <object class="GtkProgressBar" id="nmap_progress">
+        <property name="margin-bottom">10</property>
+        <property name="margin-end">30</property>
+        <property name="margin-start">30</property>
+        <property name="margin-top">10</property>
+        <property name="text">scanning</property>
+      </object>
+    </child>
+    <child>
       <object class="GtkListBox" id="nmap_list_box">
         <property name="activate-on-single-click">False</property>
         <property name="hexpand">True</property>
@@ -24,23 +36,39 @@
         </child>
         <child>
           <object class="AdwSwitchRow" id="fingerprint_switch_row">
-            <property name="subtitle" translatable="yes">Enable this to attempt detection target OS</property>
+            <property name="subtitle" translatable="yes">Enable this to attempt detection of the target OS</property>
             <property name="title" translatable="yes">OS Fingerprinting (requires root)</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwSwitchRow" id="scan_all_ports_switch_row">
+            <property name="subtitle">This will scan all ports between 0-65535 </property>
+            <property name="subtitle-lines">2</property>
+            <property name="title" translatable="yes">Scan all ports (default is the top 200)</property>
           </object>
         </child>
         <child>
           <object class="AdwComboRow" id="nmap_scripts_drop_down">
             <property name="enable-search">true</property>
+            <property name="hexpand">True</property>
+            <property name="hexpand-set">True</property>
+            <property name="icon-name">emblem-documents-symbolic</property>
             <property name="model">
               <object class="GtkStringList" id="nmap_list">
                 <items>
+                  <item>default</item>
                   <item>vuln</item>
-                  <item>geolocation</item>
+                  <item>discovery</item>
+                  <item>broadcast</item>
+                  <item>exploit</item>
                 </items>
               </object>
             </property>
-            <property name="subtitle">Select script to use if needed</property>
+            <property name="selected">0</property>
+            <property name="subtitle">Select script to use if desired</property>
+            <property name="subtitle-lines">1</property>
             <property name="title">Nmap Scripts</property>
+            <property name="valign">baseline-fill</property>
           </object>
         </child>
         <style>
@@ -51,7 +79,7 @@
     <child>
       <object class="GtkFrame" id="nmap_frame">
         <property name="halign">baseline-fill</property>
-        <property name="margin-top">20</property>
+        <property name="margin-top">5</property>
         <property name="valign">baseline-fill</property>
         <property name="vexpand">True</property>
         <child>
@@ -87,13 +115,6 @@
             </child>
           </object>
         </child>
-      </object>
-    </child>
-    <child>
-      <object class="GtkProgressBar" id="nmap_progress">
-        <property name="margin-bottom">10</property>
-        <property name="margin-top">10</property>
-        <property name="text">scanning</property>
       </object>
     </child>
   </template>
