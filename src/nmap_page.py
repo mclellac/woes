@@ -10,7 +10,8 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk, Gio, GObject, GLib
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
+logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
 
 class NmapItem(GObject.Object):
     """Represents an Nmap scan result item."""
@@ -91,7 +92,7 @@ class NmapPage(Gtk.Box):
         clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
         clipboard.set_text(text, -1)
         clipboard.store()
-        logging.debug("Copied to clipboard")
+        logging.info("Copied to clipboard")
 
     def run_nmap_scan(self, target: str, os_fingerprinting: bool, scripts: Optional[str]):
         command = ["nmap", "-sV", "--stats-every", "2s"]
@@ -103,7 +104,7 @@ class NmapPage(Gtk.Box):
         else:
             command.extend(["--top-ports", "200"])
 
-        if scripts:
+        if self.selected_script:
             command.extend(["-Pn", "--script", scripts])
         command.append(target)
 
@@ -130,9 +131,10 @@ class NmapPage(Gtk.Box):
                 GLib.idle_add(self.update_nmap_progress, 1.0, "Scan completed with errors")
 
         except Exception as e:
-            results = {target: f"Exception: {str(e)}"}
             logging.error(f"Exception occurred: {str(e)}")
+            results = {target: f"Exception: {str(e)}"}
             GLib.idle_add(self.update_nmap_progress, 1.0, "Scan failed")
+            raise  # Re-raise the exception
 
         finally:
             GLib.idle_add(self.update_nmap_column_view, results)
@@ -176,6 +178,10 @@ class NmapPage(Gtk.Box):
         logging.debug("Updating ColumnView with results:")
         logging.debug(results)
 
+        # Remove all existing columns
+        while self.scan_column_view.get_columns():
+            self.scan_column_view.remove_column(self.scan_column_view.get_columns()[0])
+
         # Create a ListStore with the NmapItem model
         list_store = Gio.ListStore.new(NmapItem)
         if results:
@@ -185,11 +191,6 @@ class NmapPage(Gtk.Box):
             selection_model = Gtk.SingleSelection.new(list_store)
             self.scan_column_view.set_model(selection_model)
 
-            # Remove existing columns, if any
-            for column in self.scan_column_view.get_columns():
-                if column is not None:
-                    self.scan_column_view.remove_column(column)
-
             # Define a factory function to create ListItemFactories
             def create_factory(attr_name: str) -> Gtk.SignalListItemFactory:
                 factory = Gtk.SignalListItemFactory()
@@ -198,15 +199,13 @@ class NmapPage(Gtk.Box):
                 return factory
 
             key_factory = create_factory("key")
-            value_factory = create_factory("value")
-
             key_column = Gtk.ColumnViewColumn(title="Target", factory=key_factory)
-            value_column = Gtk.ColumnViewColumn(title="Output", factory=value_factory)
-
             self.scan_column_view.append_column(key_column)
+
+            value_factory = create_factory("value")
+            value_column = Gtk.ColumnViewColumn(title="Output", factory=value_factory)
             self.scan_column_view.append_column(value_column)
         else:
             self.scan_column_view.set_model(None)
 
         self.scan_column_view.show()
-
