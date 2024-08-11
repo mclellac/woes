@@ -1,0 +1,13 @@
+columnview label {
+    color: #373b39;
+}
+
+.label-target {
+    color: #373b39;
+    font-weight: bold;
+}
+
+.label-output {
+    color: #333333;
+    font-style: italic;
+}

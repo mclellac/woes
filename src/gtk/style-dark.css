@@ -1,0 +1,9 @@
+.label-target {
+    font-weight: bold;
+    color: #79aaff; 
+}
+
+.label-output {
+    font-style: italic;
+    color: #cccccc;
+}

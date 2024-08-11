@@ -35,6 +35,12 @@ if requests_dep.returncode() != 0
     error('Python3 requests module not found or cannot be imported. Please install it using pip. Output: ' + requests_dep.stderr().strip())
 endif
 
+# Check for 'python3-nmap' module
+nmap_dep = run_command(python3, ['-c', 'import nmap; print(nmap.__version__)'], check: false)
+if nmap_dep.returncode() != 0
+    error('Python3 nmap module not found or cannot be imported. Please install it using pip. Output: ' + nmap_dep.stderr().strip())
+endif
+
 prefix = get_option('prefix')
 
 bindir = join_paths(prefix, get_option('bindir'))

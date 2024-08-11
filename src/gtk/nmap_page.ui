@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='UTF-8'?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!-- Created with Cambalache 0.91.1 -->
 <interface>
   <requires lib="gtk" version="4.12"/>
@@ -9,15 +9,50 @@
     <property name="margin-top">20</property>
     <property name="orientation">vertical</property>
     <child>
-      <object class="GtkSpinner"/>
-    </child>
-    <child>
-      <object class="GtkProgressBar" id="nmap_progress">
-        <property name="margin-bottom">10</property>
-        <property name="margin-end">30</property>
-        <property name="margin-start">30</property>
-        <property name="margin-top">10</property>
-        <property name="text">scanning</property>
+      <object class="GtkGrid" id="nmap_grid">
+        <property name="column-homogeneous">True</property>
+        <property name="halign">baseline-center</property>
+        <property name="row-homogeneous">True</property>
+        <child>
+          <object class="GtkSpinner" id="nmap_spinner">
+            <property name="halign">start</property>
+            <property name="margin-start">5</property>
+            <property name="spinning">True</property>
+            <property name="valign">center</property>
+            <property name="visible">False</property>
+            <layout>
+              <property name="column">1</property>
+              <property name="row">2</property>
+            </layout>
+          </object>
+        </child>
+        <child>
+          <object class="GtkLabel" id="nmap_status">
+            <property name="halign">end</property>
+            <property name="justify">right</property>
+            <property name="label">Scanning...</property>
+            <property name="valign">center</property>
+            <property name="visible">False</property>
+            <layout>
+              <property name="column">0</property>
+              <property name="row">2</property>
+              <property name="row-span">1</property>
+            </layout>
+          </object>
+        </child>
+        <child>
+          <object class="GtkLabel">
+              <property name="label" translatable="yes">&lt;b&gt;WARNING:&lt;/b&gt; Only scan hosts or networks with explicit, written permission from the owner or authorized representative. Unauthorized scanning is illegal and may have severe consequences.</property>
+              <property name="use-markup">True</property>
+              <property name="wrap">True</property>
+            <layout>
+              <property name="column">0</property>
+              <property name="column-span">2</property>
+              <property name="row">0</property>
+              <property name="row-span">2</property>
+            </layout>
+          </object>
+        </child>
       </object>
     </child>
     <child>
@@ -61,6 +96,16 @@
                   <item>discovery</item>
                   <item>broadcast</item>
                   <item>exploit</item>
+                  <item>http-grep</item>
+                  <item>http-enum</item>
+                  <item>http-config-backup</item>
+                  <item>http-wordpress-enum</item>
+                  <item>http-cors</item>
+                  <item>http-csrf</item>
+                  <item>http-cross-domain-policy</item>
+                  <item>mysql-users</item>
+                  <item>vulscan/vulscan</item>
+                  <item>firewalk</item>
                 </items>
               </object>
             </property>
@@ -85,6 +130,7 @@
         <child>
           <object class="GtkColumnView" id="scan_column_view">
             <property name="halign">baseline-fill</property>
+            <property name="hexpand">True</property>
             <property name="margin-bottom">10</property>
             <property name="margin-end">10</property>
             <property name="margin-start">10</property>
@@ -119,3 +165,4 @@
     </child>
   </template>
 </interface>
+
