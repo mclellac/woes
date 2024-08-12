@@ -20,7 +20,7 @@ class HeaderItem(GObject.Object):
         self.key = key
         self.value = value
 
-@Gtk.Template(resource_path=f'{RESOURCE_PREFIX}http_page.ui')
+@Gtk.Template(resource_path=f'{RESOURCE_PREFIX}/http_page.ui')
 class HttpPage(Gtk.Box):
     __gtype_name__ = 'HttpPage'
 
@@ -109,7 +109,7 @@ class HttpPage(Gtk.Box):
         if headers and 'error' not in headers:
             list_store = Gio.ListStore.new(HeaderItem)
             for key, value in headers.items():
-                if key in ['Content-Security-Policy', 'Set-Cookie', 'X-Akamai-Session-Info']:
+                if key in ['Content-Security-Policy', 'Content-Security-Policy-Report-Only', 'Set-Cookie', 'X-Akamai-Session-Info']:
                     value = self.split_header_value(value, key)
                 elif key in ['X-Cache', 'X-Cache-Remote']:
                     value = value.replace(' (', '\n(')
@@ -145,7 +145,7 @@ class HttpPage(Gtk.Box):
     @staticmethod
     def split_header_value(header_value: str, header_type: str) -> str:
         """Format a header value by splitting it into separate lines."""
-        if header_type not in ['Content-Security-Policy', 'Set-Cookie', 'X-Akamai-Session-Info']:
+        if header_type not in ['Content-Security-Policy', 'Content-Security-Policy-Report-Only', 'Set-Cookie', 'X-Akamai-Session-Info']:
             return ""
 
         formatted_header = []

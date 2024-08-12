@@ -27,7 +27,7 @@
     ],
     "modules": [
         {
-            "name": "python3-nmap",
+            "name": "python-nmap",
             "buildsystem": "simple",
             "build-commands": [
                 "pip3 install --no-cache-dir --prefix=/app ."
@@ -35,8 +35,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://files.pythonhosted.org/packages/0f/77/ba47aafa6361a5b59224562612ac3e3c3741808048e587afe662ae448571/python3-nmap-1.6.0.tar.gz",
-                    "sha256": "892b5091cde429fabfb8ba63382b2db8fd795193ba147558d0a7d5534c956255"
+                    "url": "https://files.pythonhosted.org/packages/f7/1b/8e6b3d1461331e4e8600faf099e7c62ba3c1603987dafdd558681fb8ba37/python-nmap-0.7.1.tar.gz",
+                    "sha256": "f75af6b91dd8e3b0c31f869db32163f62ada686945e5b7c25f84bc0f7fad3b64"
                 }
             ],
             "build-options": {

@@ -6,7 +6,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk, Gio, Gdk
 
-@Gtk.Template(resource_path=f'{RESOURCE_PREFIX}preferences.ui')
+@Gtk.Template(resource_path=f'{RESOURCE_PREFIX}/preferences.ui')
 class Preferences(Adw.PreferencesWindow):
     __gtype_name__ = 'Preferences'
 

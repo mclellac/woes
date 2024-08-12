@@ -13,7 +13,7 @@ from .constants import APP_ID, RESOURCE_PREFIX, THEME_LIGHT, THEME_DARK
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
-@Gtk.Template(resource_path=f'{RESOURCE_PREFIX}window.ui')
+@Gtk.Template(resource_path=f'{RESOURCE_PREFIX}/window.ui')
 class WoesWindow(Adw.ApplicationWindow):
     __gtype_name__ = 'WoesWindow'
 
@@ -43,7 +43,7 @@ class WoesWindow(Adw.ApplicationWindow):
     def load_css(self):
         style_provider = Gtk.CssProvider()
         css_file = THEME_DARK if self.style_manager.get_dark() else THEME_LIGHT
-        style_provider.load_from_resource(f'{RESOURCE_PREFIX}{css_file}')
+        style_provider.load_from_resource(f'{RESOURCE_PREFIX}/{css_file}')
         Gtk.StyleContext.add_provider_for_display(
             Gdk.Display.get_default(), style_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         )

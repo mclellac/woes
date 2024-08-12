@@ -24,7 +24,7 @@ class NmapItem(GObject.Object):
         self.key = key
         self.value = value
 
-@Gtk.Template(resource_path=f'{RESOURCE_PREFIX}nmap_page.ui')
+@Gtk.Template(resource_path=f'{RESOURCE_PREFIX}/nmap_page.ui')
 class NmapPage(Gtk.Box):
     __gtype_name__ = 'NmapPage'
 
@@ -172,23 +172,28 @@ class NmapPage(Gtk.Box):
         indent = '    ' * indent_level
         lines = []
 
-        if isinstance(data, dict):
+        if isinstance(data, list):
+            for item in data:
+                if isinstance(item, dict):
+                    lines.append(self.format_nested_dict(item, indent_level))
+                else:
+                    lines.append(f"{indent}{item}")
+        elif isinstance(data, dict):
             for key, value in data.items():
-                if isinstance(value, dict):
+                if value is None or value == '':
+                    lines.append(f"{indent}{key}:")
+                elif isinstance(value, dict):
                     lines.append(f"{indent}{key}:")
                     lines.append(self.format_nested_dict(value, indent_level + 1))
                 elif isinstance(value, list):
                     lines.append(f"{indent}{key}:")
-                    lines.append(self.format_list(value, indent_level + 1))
+                    for item in value:
+                        if isinstance(item, dict):
+                            lines.append(self.format_nested_dict(item, indent_level + 1))
+                        else:
+                            lines.append(f"{indent}    {item}")
                 else:
-                    # Ensure proper formatting for key-value pairs
-                    wrapped_value = self.wrap_text(str(value))
-                    lines.append(f"{indent}{key}: {wrapped_value}")
-        elif isinstance(data, list):
-            lines.append(self.format_list(data, indent_level))
-        else:
-            wrapped_data = self.wrap_text(str(data))
-            lines.append(f"{indent}{wrapped_data}")
+                    lines.append(f"{indent}{key}: {value}")
 
         return "\n".join(lines)
 
@@ -202,9 +207,10 @@ class NmapPage(Gtk.Box):
                 lines.append(self.format_nested_dict(item, indent_level))
             else:
                 wrapped_item = self.wrap_text(str(item))
-                lines.append(f"{indent}- {wrapped_item}")
+                logging.debug(f"Wrapped item: {wrapped_item}")
+                lines.append(f"{indent}- {wrapped_item}")  # Add a dash before each list item
 
-        return "\n".join(lines)
+        return "\n".join([line for line in lines if line.strip()])
 
     def wrap_text(self, text, width=100):
         """Wrap text at the next space character for lines longer than `width`."""
@@ -221,7 +227,6 @@ class NmapPage(Gtk.Box):
 
         lines.append(text)
         return "\n".join(lines)
-
 
     def update_nmap_column_view(self, results: Optional[Dict[str, str]]):
         """Update the ColumnView with Nmap scan results."""
@@ -258,4 +263,3 @@ class NmapPage(Gtk.Box):
             logging.debug("Columns added to ColumnView.")
         else:
             logging.warning("No results to display.")
-
