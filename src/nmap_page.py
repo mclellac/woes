@@ -1,7 +1,9 @@
+# nmap_page.py
 import gi
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Optional
+from .constants import RESOURCE_PREFIX
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
@@ -22,7 +24,7 @@ class NmapItem(GObject.Object):
         self.key = key
         self.value = value
 
-@Gtk.Template(resource_path='/com/github/mclellac/WebOpsEvaluationSuite/gtk/nmap_page.ui')
+@Gtk.Template(resource_path=f'{RESOURCE_PREFIX}nmap_page.ui')
 class NmapPage(Gtk.Box):
     __gtype_name__ = 'NmapPage'
 
@@ -50,7 +52,6 @@ class NmapPage(Gtk.Box):
         self.scan_all_ports_switch_row.connect("notify::active", self.on_scan_all_ports_switch_row_toggled)
         self.nmap_scripts_drop_down.connect("notify::selected-item", self.on_nmap_scripts_drop_down_changed)
 
-        # Initialize spinner and status label visibility
         self.nmap_spinner.set_visible(False)
         self.nmap_status.set_visible(False)
 
@@ -65,7 +66,7 @@ class NmapPage(Gtk.Box):
             GLib.idle_add(self.target_entry_row.set_sensitive, True)
             return
 
-        self.target_entry_row.set_sensitive(False) # Disable when scan runs
+        self.target_entry_row.set_sensitive(False)
 
         os_fingerprinting = self.fingerprint_switch_row.get_active()
         selected_item = self.nmap_scripts_drop_down.get_selected_item()
@@ -108,9 +109,6 @@ class NmapPage(Gtk.Box):
         elif progress == 1.0:
             self.nmap_spinner.set_visible(False)
             self.nmap_status.set_visible(False)
-        else:
-            # Handle intermediate progress updates if needed
-            pass
 
     def build_nmap_options(self, os_fingerprinting: bool, scripts: Optional[str]) -> str:
         """Build the Nmap command options based on user selection."""
@@ -155,19 +153,15 @@ class NmapPage(Gtk.Box):
             host_info = []
             host_data = nm[host]
 
-            # Iterate over the keys in the host data
             for key, value in host_data.items():
                 formatted_key = key.capitalize() if isinstance(key, str) else str(key)
                 if isinstance(value, (dict, list)):
-                    # Format nested dictionaries or lists
                     info_lines = [f"{formatted_key}: {self.format_nested_dict(value)}"]
                     host_info.extend(info_lines)
                 else:
-                    # Handle simple key-value pairs
                     info_lines = [f"{formatted_key}: {value}"]
                     host_info.extend(info_lines)
 
-            # Combine host information into a single string
             results[host] = "\n".join(host_info)
 
         logging.debug(f"Nmap results: {results}")
@@ -180,10 +174,9 @@ class NmapPage(Gtk.Box):
 
         lines = []
         while len(text) > width:
-            # Find the first space after width
             wrap_index = text.find(' ', width)
             if wrap_index == -1:
-                wrap_index = len(text)  # No space, break at end of text
+                wrap_index = len(text)
 
             lines.append(text[:wrap_index].rstrip())
             text = text[wrap_index:].lstrip()
@@ -228,14 +221,13 @@ class NmapPage(Gtk.Box):
                 wrapped_item = self.wrap_text(str(item))
                 lines.append(f"{indent}- {wrapped_item}")
 
-        return "\n".join(lines)
+        return "\n.join(lines)"
 
     def update_nmap_column_view(self, results: Optional[Dict[str, str]]):
         """Update the ColumnView with Nmap scan results."""
         logging.debug("Updating ColumnView with results:")
         logging.debug(results)
 
-        # Remove all existing columns
         while self.scan_column_view.get_columns():
             self.scan_column_view.remove_column(self.scan_column_view.get_columns()[0])
 
@@ -245,7 +237,6 @@ class NmapPage(Gtk.Box):
                 logging.debug(f"Adding item to list store: key={key}, value={value}")
                 list_store.append(NmapItem(key=key, value=value))
 
-            # Set the model
             selection_model = Gtk.SingleSelection.new(list_store)
             self.scan_column_view.set_model(selection_model)
 
@@ -257,7 +248,6 @@ class NmapPage(Gtk.Box):
                     list_item.get_child().set_text(getattr(list_item.get_item(), attr_name, "")))
                 return factory
 
-            # Create and append columns
             target_column = Gtk.ColumnViewColumn.new("Target", create_factory("key"))
             self.scan_column_view.append_column(target_column)
 

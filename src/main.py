@@ -1,3 +1,4 @@
+# main.py
 import sys
 import gi
 
@@ -7,16 +8,17 @@ gi.require_version('Adw', '1')
 from gi.repository import Gtk, Gio, Adw
 from .window import WoesWindow
 from .preferences import Preferences
+from .constants import APP_ID, DEFAULT_VERSION
 
 
 class WoesApplication(Adw.Application):
     """The main application singleton class."""
 
-    def __init__(self, version):
-        super().__init__(application_id='com.github.mclellac.WebOpsEvaluationSuite',
+    def __init__(self, version=DEFAULT_VERSION):
+        super().__init__(application_id=APP_ID,
                          flags=Gio.ApplicationFlags.DEFAULT_FLAGS)
         self.version = version
-        self.win = None # Store a reference to the main window
+        self.win = None  # Store a reference to the main window
 
         self.create_action('quit', lambda *_: self.quit(), ['<primary>q'])
         self.create_action('about', self.on_about_action)
@@ -38,9 +40,9 @@ class WoesApplication(Adw.Application):
         """Callback for the app.about action."""
         about = Adw.AboutWindow(transient_for=self.props.active_window,
                                 application_name='woes',
-                                application_icon='com.github.mclellac.WebOpsEvaluationSuite',
+                                application_icon=APP_ID,
                                 developer_name='Carey McLelland',
-                                version='0.1.0',
+                                version=self.version,
                                 developers=['Carey McLelland'],
                                 copyright='© 2024 Carey McLelland')
         about.present()
@@ -52,14 +54,7 @@ class WoesApplication(Adw.Application):
         preferences.present()
 
     def create_action(self, name, callback, shortcuts=None):
-        """Add an application action.
-
-        Args:
-            name: the name of the action
-            callback: the function to be called when the action is
-              activated
-            shortcuts: an optional list of accelerators
-        """
+        """Add an application action."""
         action = Gio.SimpleAction.new(name, None)
         action.connect("activate", callback)
         self.add_action(action)
@@ -67,7 +62,8 @@ class WoesApplication(Adw.Application):
             self.set_accels_for_action(f"app.{name}", shortcuts)
 
 
-def main(version):
+def main(version=DEFAULT_VERSION):
     """The application's entry point."""
     app = WoesApplication(version)
     return app.run(sys.argv)
+
