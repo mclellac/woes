@@ -27,25 +27,41 @@
     ],
     "modules": [
         {
-            "name": "python3-requests",
+            "name": "python3-nmap",
             "buildsystem": "simple",
             "build-commands": [
-                "pip3 install --prefix=/app git+https://github.com/psf/requests.git"
+                "pip3 install --no-cache-dir --prefix=/app ."
+            ],
+            "sources": [
+                {
+                    "type": "archive",
+                    "url": "https://files.pythonhosted.org/packages/0f/77/ba47aafa6361a5b59224562612ac3e3c3741808048e587afe662ae448571/python3-nmap-1.6.0.tar.gz",
+                    "sha256": "892b5091cde429fabfb8ba63382b2db8fd795193ba147558d0a7d5534c956255"
+                }
             ],
             "build-options": {
                 "build-args": [
                     "--share=network"
-                ],
-                "env": {
-                    "FLATPAK_BUILD": "1"
-                }
+                ]
+            }
+        },
+        {
+            "name": "python3-requests",
+            "buildsystem": "simple",
+            "build-commands": [
+                "pip3 install --no-cache-dir --prefix=/app git+https://github.com/psf/requests.git"
+            ],
+            "build-options": {
+                "build-args": [
+                    "--share=network"
+                ]
             }
         },
         {
             "name": "nmap",
             "buildsystem": "simple",
             "build-commands": [
-                "./configure --prefix=/app --without-zenmap --without-nping --without-ndiff --without-ncat",
+                "./configure --prefix=/app --without-zenmap --without-ndiff --without-nping --without-ncat",
                 "make",
                 "make install"
             ],
@@ -74,10 +90,7 @@
             "build-options": {
                 "build-args": [
                     "--share=network"
-                ],
-                "env": {
-                    "FLATPAK_BUILD": "1"
-                }
+                ]
             }
         }
     ]

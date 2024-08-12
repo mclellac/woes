@@ -88,7 +88,7 @@
                 </property>
                 <property name="icon-name">face-devilish</property>
                 <property name="name">nmap_page</property>
-                <property name="title">Nmap</property>
+                <property name="title">Port Scan</property>
                 <property name="use-underline">true</property>
               </object>
             </child>
@@ -110,7 +110,7 @@
                 </property>
                 <property name="icon-name">user-trash-symbolic</property>
                 <property name="name">purger_page</property>
-                <property name="title" translatable="yes">Purger</property>
+                <property name="title" translatable="yes">Cache Purge</property>
                 <property name="use-underline">true</property>
               </object>
             </child>

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version='1.0' encoding='UTF-8'?>
 <!-- Created with Cambalache 0.91.1 -->
 <interface>
   <requires lib="gtk" version="4.12"/>
@@ -8,53 +8,6 @@
     <property name="hexpand">True</property>
     <property name="margin-top">20</property>
     <property name="orientation">vertical</property>
-    <child>
-      <object class="GtkGrid" id="nmap_grid">
-        <property name="column-homogeneous">True</property>
-        <property name="halign">baseline-center</property>
-        <property name="row-homogeneous">True</property>
-        <child>
-          <object class="GtkSpinner" id="nmap_spinner">
-            <property name="halign">start</property>
-            <property name="margin-start">5</property>
-            <property name="spinning">True</property>
-            <property name="valign">center</property>
-            <property name="visible">False</property>
-            <layout>
-              <property name="column">1</property>
-              <property name="row">2</property>
-            </layout>
-          </object>
-        </child>
-        <child>
-          <object class="GtkLabel" id="nmap_status">
-            <property name="halign">end</property>
-            <property name="justify">right</property>
-            <property name="label">Scanning...</property>
-            <property name="valign">center</property>
-            <property name="visible">False</property>
-            <layout>
-              <property name="column">0</property>
-              <property name="row">2</property>
-              <property name="row-span">1</property>
-            </layout>
-          </object>
-        </child>
-        <child>
-          <object class="GtkLabel">
-              <property name="label" translatable="yes">&lt;b&gt;WARNING:&lt;/b&gt; Only scan hosts or networks with explicit, written permission from the owner or authorized representative. Unauthorized scanning is illegal and may have severe consequences.</property>
-              <property name="use-markup">True</property>
-              <property name="wrap">True</property>
-            <layout>
-              <property name="column">0</property>
-              <property name="column-span">2</property>
-              <property name="row">0</property>
-              <property name="row-span">2</property>
-            </layout>
-          </object>
-        </child>
-      </object>
-    </child>
     <child>
       <object class="GtkListBox" id="nmap_list_box">
         <property name="activate-on-single-click">False</property>
@@ -122,6 +75,59 @@
       </object>
     </child>
     <child>
+      <object class="GtkGrid" id="nmap_grid">
+        <property name="column-homogeneous">True</property>
+        <property name="halign">baseline-center</property>
+        <property name="row-homogeneous">True</property>
+        <child>
+          <object class="GtkSpinner" id="nmap_spinner">
+            <property name="halign">start</property>
+            <property name="margin-start">5</property>
+            <property name="spinning">True</property>
+            <property name="valign">center</property>
+            <property name="visible">False</property>
+            <layout>
+              <property name="column">1</property>
+              <property name="row">2</property>
+            </layout>
+          </object>
+        </child>
+        <child>
+          <object class="GtkLabel" id="nmap_status">
+            <property name="halign">end</property>
+            <property name="justify">right</property>
+            <property name="label">Scanning...</property>
+            <property name="valign">center</property>
+            <property name="visible">False</property>
+            <layout>
+              <property name="column">0</property>
+              <property name="row">2</property>
+              <property name="row-span">1</property>
+            </layout>
+          </object>
+        </child>
+        <child>
+          <object class="GtkLabel">
+            <property name="label">&lt;b&gt;WARNING:&lt;/b&gt; Do not use this tool on any hosts or networks &lt;u&gt;you do not explicitely have permission&lt;/u&gt; to scan.</property>
+            <property name="margin-bottom">10</property>
+            <property name="margin-end">10</property>
+            <property name="margin-start">10</property>
+            <property name="margin-top">10</property>
+            <property name="natural-wrap-mode">word</property>
+            <property name="use-markup">True</property>
+            <property name="width-chars">25</property>
+            <property name="wrap">True</property>
+            <layout>
+              <property name="column">0</property>
+              <property name="column-span">2</property>
+              <property name="row">0</property>
+              <property name="row-span">2</property>
+            </layout>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
       <object class="GtkFrame" id="nmap_frame">
         <property name="halign">baseline-fill</property>
         <property name="margin-top">5</property>
@@ -165,4 +171,3 @@
     </child>
   </template>
 </interface>
-
