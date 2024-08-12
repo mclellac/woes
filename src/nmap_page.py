@@ -167,25 +167,8 @@ class NmapPage(Gtk.Box):
         logging.debug(f"Nmap results: {results}")
         return results
 
-    def wrap_text(self, text, width=100):
-        """Wrap text at the next space character for lines longer than `width`."""
-        if len(text) <= width:
-            return text
-
-        lines = []
-        while len(text) > width:
-            wrap_index = text.find(' ', width)
-            if wrap_index == -1:
-                wrap_index = len(text)
-
-            lines.append(text[:wrap_index].rstrip())
-            text = text[wrap_index:].lstrip()
-
-        lines.append(text)
-        return "\n".join(lines)
-
     def format_nested_dict(self, data, indent_level=0) -> str:
-        """Format a nested dictionary into a YAML-like string with line wrapping."""
+        """Format a nested dictionary into a YAML-like string with proper line breaks and indentation."""
         indent = '    ' * indent_level
         lines = []
 
@@ -198,6 +181,7 @@ class NmapPage(Gtk.Box):
                     lines.append(f"{indent}{key}:")
                     lines.append(self.format_list(value, indent_level + 1))
                 else:
+                    # Ensure proper formatting for key-value pairs
                     wrapped_value = self.wrap_text(str(value))
                     lines.append(f"{indent}{key}: {wrapped_value}")
         elif isinstance(data, list):
@@ -209,19 +193,35 @@ class NmapPage(Gtk.Box):
         return "\n".join(lines)
 
     def format_list(self, data, indent_level=0) -> str:
-        """Format a list into a YAML-like string with line wrapping."""
+        """Format a list into a YAML-like string with proper line breaks and indentation."""
         indent = '    ' * indent_level
         lines = []
 
         for item in data:
             if isinstance(item, dict):
-                lines.append(f"{indent}-")
-                lines.append(self.format_nested_dict(item, indent_level + 1))
+                lines.append(self.format_nested_dict(item, indent_level))
             else:
                 wrapped_item = self.wrap_text(str(item))
                 lines.append(f"{indent}- {wrapped_item}")
 
-        return "\n.join(lines)"
+        return "\n".join(lines)
+
+    def wrap_text(self, text, width=100):
+        """Wrap text at the next space character for lines longer than `width`."""
+        if len(text) <= width:
+            return text
+
+        lines = []
+        while len(text) > width:
+            wrap_index = text.rfind(' ', 0, width)
+            if wrap_index == -1:
+                wrap_index = width
+            lines.append(text[:wrap_index])
+            text = text[wrap_index:].lstrip()
+
+        lines.append(text)
+        return "\n".join(lines)
+
 
     def update_nmap_column_view(self, results: Optional[Dict[str, str]]):
         """Update the ColumnView with Nmap scan results."""
