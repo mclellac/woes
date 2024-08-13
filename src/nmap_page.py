@@ -58,7 +58,7 @@ class NmapPage(Gtk.Box):
     def validate_target_input(self, target: str) -> bool:
         """Validate the target input to ensure it is an IP, FQDN, CIDR, or 'localhost'."""
         ip_regex = r'^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'
-        fqdn_regex = r'^(?!-)[A-Za-z0-9-]{1,63}(?<!-)\.([A-Za-z]{2,6}\.?|[A-Za-z0-9-]{2,}\.?)$'
+        fqdn_regex = r'^(?=.{1,253}$)(?!-)[A-Za-z0-9-]{1,63}(?<!-)(\.[A-Za-z0-9-]{1,63})*(\.[A-Za-z]{2,})$'
         cidr_regex = r'^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])\.(?!$)|\d{1,3}(?<!$))*(\/([0-9]|[1-2][0-9]|3[0-2]))$'
         localhost_regex = r'^localhost$'
 
@@ -201,7 +201,8 @@ class NmapPage(Gtk.Box):
                 if isinstance(item, dict):
                     lines.append(self.format_nested_dict(item, indent_level))
                 else:
-                    lines.append(f"{indent}{item}")
+                    wrapped_item = self.wrap_text(str(item))
+                    lines.append(f"{indent}{wrapped_item}")
         elif isinstance(data, dict):
             for key, value in data.items():
                 if value is None or value == '':
@@ -215,11 +216,28 @@ class NmapPage(Gtk.Box):
                         if isinstance(item, dict):
                             lines.append(self.format_nested_dict(item, indent_level + 1))
                         else:
-                            lines.append(f"{indent}    {item}")
+                            wrapped_item = self.wrap_text(str(item))
+                            lines.append(f"{indent}    {wrapped_item}")
                 else:
-                    lines.append(f"{indent}{key}: {value}")
+                    wrapped_value = self.wrap_text(str(value))
+                    lines.append(f"{indent}{key}: {wrapped_value}")
 
         return "\n".join(lines)
+
+    def format_list(self, data, indent_level=0) -> str:
+        """Format a list into a YAML-like string with proper line breaks and indentation."""
+        indent = '    ' * indent_level
+        lines = []
+
+        for item in data:
+            if isinstance(item, dict):
+                lines.append(self.format_nested_dict(item, indent_level))
+            else:
+                wrapped_item = self.wrap_text(str(item))
+                lines.append(f"{indent}{wrapped_item}")
+
+        return "\n".join([line for line in lines if line.strip()])
+
 
     def format_list(self, data, indent_level=0) -> str:
         """Format a list into a YAML-like string with proper line breaks and indentation."""
@@ -237,20 +255,27 @@ class NmapPage(Gtk.Box):
         return "\n".join([line for line in lines if line.strip()])
 
     def wrap_text(self, text, width=100):
-        """Wrap text at the next space character for lines longer than `width`."""
-        if len(text) <= width:
-            return text
-
+        """Wrap text at the next space character after reaching the specified width, but only if the line is longer than `width`."""
         lines = []
-        while len(text) > width:
-            wrap_index = text.rfind(' ', 0, width)
-            if wrap_index == -1:
-                wrap_index = width
-            lines.append(text[:wrap_index])
-            text = text[wrap_index:].lstrip()
+        paragraphs = text.splitlines()
 
-        lines.append(text)
+        for paragraph in paragraphs:
+            while len(paragraph) > width:
+                # Find the space after the specified width
+                wrap_index = paragraph.find(' ', width)
+                if wrap_index == -1:
+                    # If no space is found, add the entire paragraph as is
+                    break
+
+                # Add the line up to the wrap point and strip leading spaces from the remaining text
+                lines.append(paragraph[:wrap_index])
+                paragraph = paragraph[wrap_index + 1:].lstrip()  # Skip the space and trim leading spaces
+
+            # Add the final part of the paragraph (or the entire paragraph if it was short)
+            lines.append(paragraph)
+
         return "\n".join(lines)
+
 
     def update_nmap_column_view(self, results: Optional[Dict[str, str]]):
         """Update the ColumnView with Nmap scan results."""
@@ -287,5 +312,3 @@ class NmapPage(Gtk.Box):
             logging.debug("Columns added to ColumnView.")
         else:
             logging.warning("No results to display.")
-
-
