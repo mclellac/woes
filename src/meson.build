@@ -16,6 +16,7 @@ localedir = join_paths(get_option('prefix'), 'share', 'locale')
 pkgdatadir = join_paths(get_option('prefix'), 'share', 'woes')
 datadir_option = join_paths(get_option('prefix'), get_option('datadir'))
 pkgschemadir = join_paths(get_option('prefix'), 'share', meson.project_name())
+gsettings_schemadir = join_paths(get_option('prefix'), 'share', 'glib-2.0', 'schemas')
 
 # Prepare configuration data
 conf = configuration_data()
@@ -24,6 +25,7 @@ conf.set('VERSION', meson.project_version())
 conf.set('LOCALEDIR', localedir)
 conf.set('WOESDIR', site_packages_dir)
 conf.set('APPID', meson.project_name())
+conf.set('GSETTINGSSCHEMADIR', gsettings_schemadir)  # Add this line
 
 # Set paths conditionally based on whether it is a Flatpak build
 if is_flatpak_build
