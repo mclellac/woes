@@ -1,6 +1,6 @@
-# nmap_page.py
 import gi
 import logging
+import re
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Optional
 from .constants import RESOURCE_PREFIX
@@ -55,10 +55,31 @@ class NmapPage(Gtk.Box):
         self.nmap_spinner.set_visible(False)
         self.nmap_status.set_visible(False)
 
+    def validate_target_input(self, target: str) -> bool:
+        """Validate the target input to ensure it is an IP, FQDN, CIDR, or 'localhost'."""
+        ip_regex = r'^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'
+        fqdn_regex = r'^(?!-)[A-Za-z0-9-]{1,63}(?<!-)\.([A-Za-z]{2,6}\.?|[A-Za-z0-9-]{2,}\.?)$'
+        cidr_regex = r'^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])\.(?!$)|\d{1,3}(?<!$))*(\/([0-9]|[1-2][0-9]|3[0-2]))$'
+        localhost_regex = r'^localhost$'
+
+        targets = re.split(r'[ ,]+', target)
+        for t in targets:
+            if not (re.match(ip_regex, t) or re.match(fqdn_regex, t) or re.match(cidr_regex, t) or re.match(localhost_regex, t)):
+                logging.debug(f"Invalid target detected: {t}")
+                return False
+        return True
+
     def on_target_entry_row_activated(self, entry_row):
         """Handle the target entry row activation event."""
         target = entry_row.get_text().strip()
         logging.debug(f"Entry activated with text: {target}")
+
+        if not self.validate_target_input(target):
+            logging.error("Invalid target input.")
+            entry_row.get_style_context().add_class('error')
+            return
+        else:
+            entry_row.get_style_context().remove_class('error')
 
         if not target:
             logging.error("Target is empty.")
@@ -117,17 +138,19 @@ class NmapPage(Gtk.Box):
             options += " -O"
         if self.scan_all_ports_enabled:
             options += " -p-"
-        if scripts:
+        if self.selected_script:
             options += f" --script={scripts}"
         return options
 
     def run_nmap_scan(self, target: str, os_fingerprinting: bool, scripts: Optional[str]):
         """Run the Nmap scan in a separate thread."""
         options = self.build_nmap_options(os_fingerprinting, scripts)
+        logging.debug(f"Running Nmap scan with options: {options} on target: {target}")
 
         try:
             nm = nmap.PortScanner()
             nm.scan(hosts=target, arguments=options)
+            logging.debug(f"Nmap scan completed. Hosts found: {nm.all_hosts()}")
             self.process_scan_results(nm)
         except nmap.PortScannerError as e:
             logging.error(f"Nmap scan failed with PortScannerError: {e}")
@@ -140,9 +163,8 @@ class NmapPage(Gtk.Box):
 
     def process_scan_results(self, nm: nmap.PortScanner):
         """Process and update UI with Nmap scan results."""
-        output = nm.csv()
-        logging.debug(f"Raw Nmap output: {output}")
         results = self.get_nmap_results(nm)
+        logging.debug(f"Processed Nmap results: {results}")
         GLib.idle_add(self.update_nmap_column_view, results)
         GLib.idle_add(self.set_scan_status, 1.0, "Scan complete")
 
@@ -150,10 +172,12 @@ class NmapPage(Gtk.Box):
         """Parse Nmap results and return them as a dictionary."""
         results = {}
         for host in nm.all_hosts():
+            logging.debug(f"Processing host: {host}")
             host_info = []
             host_data = nm[host]
 
             for key, value in host_data.items():
+                logging.debug(f"Processing key: {key} with value: {value}")
                 formatted_key = key.capitalize() if isinstance(key, str) else str(key)
                 if isinstance(value, (dict, list)):
                     info_lines = [f"{formatted_key}: {self.format_nested_dict(value)}"]
@@ -164,7 +188,7 @@ class NmapPage(Gtk.Box):
 
             results[host] = "\n".join(host_info)
 
-        logging.debug(f"Nmap results: {results}")
+        logging.debug(f"Final Nmap results: {results}")
         return results
 
     def format_nested_dict(self, data, indent_level=0) -> str:
@@ -263,3 +287,5 @@ class NmapPage(Gtk.Box):
             logging.debug("Columns added to ColumnView.")
         else:
             logging.warning("No results to display.")
+
+

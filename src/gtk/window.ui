@@ -170,7 +170,7 @@
       </item>
       <item>
         <attribute name="action">app.about</attribute>
-        <attribute name="label" translatable="yes">_About AkamaiStaging</attribute>
+        <attribute name="label" translatable="yes">_About WebOps Evaluation Suite</attribute>
       </item>
     </section>
   </menu>

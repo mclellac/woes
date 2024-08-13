@@ -11,3 +11,10 @@ columnview label {
     color: #333333;
     font-style: italic;
 }
+
+nmap_warn_label {
+  background-color: #f57f7f;
+  color: white;
+  padding: 10px;
+  border-radius: 5px;
+}
