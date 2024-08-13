@@ -1,6 +1,7 @@
 import gi
 import logging
 import re
+import yaml
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Optional
 from .constants import RESOURCE_PREFIX
@@ -163,119 +164,38 @@ class NmapPage(Gtk.Box):
 
     def process_scan_results(self, nm: nmap.PortScanner):
         """Process and update UI with Nmap scan results."""
-        results = self.get_nmap_results(nm)
-        logging.debug(f"Processed Nmap results: {results}")
-        GLib.idle_add(self.update_nmap_column_view, results)
+        yaml_results = self.convert_results_to_yaml(nm)
+        logging.debug(f"Processed Nmap results in YAML: {yaml_results}")
+        GLib.idle_add(self.update_nmap_column_view, yaml_results)
         GLib.idle_add(self.set_scan_status, 1.0, "Scan complete")
 
-    def get_nmap_results(self, nm: nmap.PortScanner) -> Dict[str, str]:
-        """Parse Nmap results and return them as a dictionary."""
+    def convert_results_to_yaml(self, nm: nmap.PortScanner) -> Dict[str, str]:
+        """Convert the Nmap results to YAML format."""
         results = {}
         for host in nm.all_hosts():
-            logging.debug(f"Processing host: {host}")
-            host_info = []
             host_data = nm[host]
 
-            for key, value in host_data.items():
-                logging.debug(f"Processing key: {key} with value: {value}")
-                formatted_key = key.capitalize() if isinstance(key, str) else str(key)
-                if isinstance(value, (dict, list)):
-                    info_lines = [f"{formatted_key}: {self.format_nested_dict(value)}"]
-                    host_info.extend(info_lines)
-                else:
-                    info_lines = [f"{formatted_key}: {value}"]
-                    host_info.extend(info_lines)
+            # Convert nmap.PortScannerHostDict and other complex objects to plain dicts
+            plain_dict = self.to_plain_dict(host_data)
 
-            results[host] = "\n".join(host_info)
+            # Convert to YAML
+            yaml_output = yaml.safe_dump({host: plain_dict}, default_flow_style=False)
 
-        logging.debug(f"Final Nmap results: {results}")
+            # Store the YAML output in the results dictionary
+            results[host] = yaml_output
+
         return results
 
-    def format_nested_dict(self, data, indent_level=0) -> str:
-        """Format a nested dictionary into a YAML-like string with proper line breaks and indentation."""
-        indent = '    ' * indent_level
-        lines = []
-
-        if isinstance(data, list):
-            for item in data:
-                if isinstance(item, dict):
-                    lines.append(self.format_nested_dict(item, indent_level))
-                else:
-                    wrapped_item = self.wrap_text(str(item))
-                    lines.append(f"{indent}{wrapped_item}")
+    def to_plain_dict(self, data):
+        """Recursively convert an Nmap result to a plain Python dictionary."""
+        if isinstance(data, nmap.PortScannerHostDict):
+            return {k: self.to_plain_dict(v) for k, v in data.items()}
+        elif isinstance(data, list):
+            return [self.to_plain_dict(item) for item in data]
         elif isinstance(data, dict):
-            for key, value in data.items():
-                if value is None or value == '':
-                    lines.append(f"{indent}{key}:")
-                elif isinstance(value, dict):
-                    lines.append(f"{indent}{key}:")
-                    lines.append(self.format_nested_dict(value, indent_level + 1))
-                elif isinstance(value, list):
-                    lines.append(f"{indent}{key}:")
-                    for item in value:
-                        if isinstance(item, dict):
-                            lines.append(self.format_nested_dict(item, indent_level + 1))
-                        else:
-                            wrapped_item = self.wrap_text(str(item))
-                            lines.append(f"{indent}    {wrapped_item}")
-                else:
-                    wrapped_value = self.wrap_text(str(value))
-                    lines.append(f"{indent}{key}: {wrapped_value}")
-
-        return "\n".join(lines)
-
-    def format_list(self, data, indent_level=0) -> str:
-        """Format a list into a YAML-like string with proper line breaks and indentation."""
-        indent = '    ' * indent_level
-        lines = []
-
-        for item in data:
-            if isinstance(item, dict):
-                lines.append(self.format_nested_dict(item, indent_level))
-            else:
-                wrapped_item = self.wrap_text(str(item))
-                lines.append(f"{indent}{wrapped_item}")
-
-        return "\n".join([line for line in lines if line.strip()])
-
-
-    def format_list(self, data, indent_level=0) -> str:
-        """Format a list into a YAML-like string with proper line breaks and indentation."""
-        indent = '    ' * indent_level
-        lines = []
-
-        for item in data:
-            if isinstance(item, dict):
-                lines.append(self.format_nested_dict(item, indent_level))
-            else:
-                wrapped_item = self.wrap_text(str(item))
-                logging.debug(f"Wrapped item: {wrapped_item}")
-                lines.append(f"{indent}- {wrapped_item}")  # Add a dash before each list item
-
-        return "\n".join([line for line in lines if line.strip()])
-
-    def wrap_text(self, text, width=100):
-        """Wrap text at the next space character after reaching the specified width, but only if the line is longer than `width`."""
-        lines = []
-        paragraphs = text.splitlines()
-
-        for paragraph in paragraphs:
-            while len(paragraph) > width:
-                # Find the space after the specified width
-                wrap_index = paragraph.find(' ', width)
-                if wrap_index == -1:
-                    # If no space is found, add the entire paragraph as is
-                    break
-
-                # Add the line up to the wrap point and strip leading spaces from the remaining text
-                lines.append(paragraph[:wrap_index])
-                paragraph = paragraph[wrap_index + 1:].lstrip()  # Skip the space and trim leading spaces
-
-            # Add the final part of the paragraph (or the entire paragraph if it was short)
-            lines.append(paragraph)
-
-        return "\n".join(lines)
-
+            return {k: self.to_plain_dict(v) for k, v in data.items()}
+        else:
+            return data
 
     def update_nmap_column_view(self, results: Optional[Dict[str, str]]):
         """Update the ColumnView with Nmap scan results."""
