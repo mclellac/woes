@@ -10,7 +10,8 @@
   <template class="WoesWindow" parent="AdwApplicationWindow">
     <property name="content">
       <object class="GtkBox" id="main_box">
-        <property name="orientation">1</property>
+        <property name="halign">baseline-fill</property>
+        <property name="orientation">vertical</property>
         <child>
           <object class="AdwHeaderBar" id="header_bar">
             <property name="title-widget">
@@ -70,9 +71,9 @@
               <object class="AdwViewStackPage" id="nmap_page">
                 <property name="child">
                   <object class="AdwStatusPage" id="nmap_status_page">
-                    <property name="description"> This tool is designed to facilitate network scanning and reconnaissance using Nmap, a powerful network scanning tool. This page provides a user-friendly interface for performing Nmap scans and viewing their results.</property>
+                    <property name="description">This tool is designed to facilitate network scanning, reconnaissance, and exploit detection using Nmap, a powerful network scanning tool. This interface provides the capability to perform various types of scans, including &lt;b&gt;service detection&lt;/b&gt;, &lt;b&gt;OS fingerprinting&lt;/b&gt;, &lt;b&gt;port scanning&lt;/b&gt;, and &lt;b&gt;vulnerability assessments&lt;/b&gt; using the &lt;i&gt;Nmap Scripting Engine (NSE)&lt;/i&gt;.</property>
                     <property name="icon-name" bind-source="nmap_page" bind-property="icon-name" bind-flags="sync-create"/>
-                    <property name="title" bind-source="nmap_page" bind-property="title" bind-flags="sync-create">Port Scanning (Nmap)</property>
+                    <property name="title" bind-source="nmap_page" bind-property="title" bind-flags="sync-create">Port Scanning</property>
                     <property name="vexpand">True</property>
                     <property name="vexpand-set">True</property>
                     <child>
@@ -85,7 +86,6 @@
                             <property name="height-request">1000</property>
                             <property name="hexpand">True</property>
                             <property name="hexpand-set">True</property>
-                            <property name="orientation">vertical</property>
                             <property name="valign">3</property>
                             <property name="vexpand">True</property>
                             <property name="vexpand-set">True</property>
@@ -102,7 +102,7 @@
                 </property>
                 <property name="icon-name">face-devilish</property>
                 <property name="name">nmap_page</property>
-                <property name="title">Port Scan</property>
+                <property name="title">Nmap</property>
                 <property name="use-underline">true</property>
               </object>
             </child>

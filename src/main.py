@@ -30,14 +30,14 @@ class WoesApplication(Adw.Application):
     def do_activate(self):
         """Called when the application is activated.
 
-        We raise the application's main window, creating it if
-        necessary.
+        We raise the application's main window, creating it if necessary.
         """
         win = self.props.active_window
         if not win:
             win = WoesWindow(application=self)
         win.present()
         self.win = win
+
 
     def on_about_action(self, widget, _):
         """Callback for the app.about action."""

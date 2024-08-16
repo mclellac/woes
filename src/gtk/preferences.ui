@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version='1.0' encoding='UTF-8'?>
 <!-- Created with Cambalache 0.91.0 -->
 <interface>
   <!-- interface-name preferences.ui -->
@@ -24,7 +24,7 @@
               </object>
             </child>
             <child>
-              <object class="AdwComboRow" id="color_scheme_combo_row">
+              <object class="AdwComboRow" id="source_style_scheme_combo_row">
                 <property name="halign">baseline-fill</property>
                 <property name="model">
                   <object class="GtkStringList" id="color_scheme_list">

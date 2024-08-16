@@ -94,6 +94,8 @@
         </child>
         <child>
           <object class="GtkLabel" id="nmap_status">
+            <property name="can-focus">False</property>
+            <property name="can-target">False</property>
             <property name="halign">end</property>
             <property name="justify">right</property>
             <property name="label">&lt;b&gt;&lt;i&gt;Scanning...&lt;/i&gt;&lt;/b&gt;</property>
@@ -130,12 +132,10 @@
     </child>
     <child>
       <object class="GtkGrid" id="results_grid">
-        <property name="column-homogeneous">True</property>
         <property name="halign">baseline-fill</property>
         <property name="hexpand">True</property>
         <property name="margin-bottom">10</property>
         <property name="margin-top">10</property>
-        <property name="row-homogeneous">True</property>
         <property name="valign">baseline-fill</property>
         <property name="vexpand">True</property>
         <property name="vexpand-set">True</property>

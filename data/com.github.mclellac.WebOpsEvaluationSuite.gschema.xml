@@ -12,8 +12,8 @@
             <summary>Dark theme</summary>
             <description>Enable dark theme</description>
         </key>
-        <key name="color-scheme" type="s">
-            <default>'Classic'</default>
+        <key name="source-style-scheme" type="s">
+            <default>'Adwaita'</default>
             <summary>Syntax Highlighting Color Scheme</summary>
             <description>The color scheme used for syntax highlighting in the GtkSourceView</description>
         </key>

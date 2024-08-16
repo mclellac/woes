@@ -1,19 +1,15 @@
 import logging
-
 import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
+gi.require_version("GtkSource", "5")
 from gi.repository import Adw, Gdk, Gio, Gtk, GtkSource
 
 from . import HttpPage
 from .nmap_page import NmapPage
 from .constants import APP_ID, RESOURCE_PREFIX, THEME_DARK, THEME_LIGHT
-from .preferences import Preferences
-
-logging.basicConfig(
-    level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+from .style_utils import apply_font_size, apply_theme, apply_source_style_scheme
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/window.ui")
 class WoesWindow(Adw.ApplicationWindow):
@@ -40,8 +36,11 @@ class WoesWindow(Adw.ApplicationWindow):
 
         self.switcher_title.connect("notify::selected-page", self.on_page_switched)
 
+        # Initialize style managers
         self.style_manager = Adw.StyleManager.get_default()
+        self.source_style_manager = GtkSource.StyleSchemeManager.get_default()
 
+        # Apply CSS and user preferences
         self.load_css()
         self.apply_preferences()
 
@@ -63,46 +62,25 @@ class WoesWindow(Adw.ApplicationWindow):
 
     def apply_preferences(self):
         try:
-            font_size = self.settings.get_int("font-size")
-            Preferences.apply_font_size(self.settings, font_size)
-            logging.debug(f"Font size set to: {font_size}")
+            color_scheme = self.settings.get_string("source-style-scheme")
+            logging.debug(f"Loaded source style scheme: {color_scheme}")
 
-            dark_theme_enabled = self.settings.get_boolean("dark-theme")
-            Preferences.apply_theme(self.settings, dark_theme_enabled)
-            logging.debug(f"Dark theme enabled: {dark_theme_enabled}")
+            if color_scheme not in ["Adwaita", "Adwaita-dark"]:
+                color_scheme = color_scheme.lower()
 
-            color_scheme = self.settings.get_string("color-scheme")
-            logging.debug(f"Applying color scheme across the application: {color_scheme}")
-            self.apply_color_scheme(color_scheme)
-
-            # Connect the preferences window to handle color scheme changes
-            preferences = Preferences(main_window=self)
-            preferences.connect("color-scheme-changed", self.on_color_scheme_changed)
+            current_scheme = self.nmap_page.source_buffer.get_style_scheme()
+            if current_scheme is None or current_scheme.get_id().lower() != color_scheme:
+                scheme = self.source_style_manager.get_scheme(color_scheme)
+                if scheme:
+                    logging.debug(f"Applying scheme: {scheme.get_id()} to source view.")
+                    self.nmap_page.apply_style_scheme_to_source_view(scheme.get_id())
+                else:
+                    logging.warning(f"Scheme '{color_scheme}' not found. Reverting to 'Adwaita'.")
+                    self.nmap_page.apply_style_scheme_to_source_view("Adwaita")
 
         except Exception as e:
             logging.error(f"Error applying preferences: {e}")
 
-    def apply_color_scheme(self, scheme_name: str):
-        logging.debug(f"Applying color scheme: {scheme_name}")
-        style_manager = GtkSource.StyleSchemeManager.get_default()
-
-        if scheme_name not in ["Adwaita", "Adwaita-dark"]:
-            normalized_scheme_name = scheme_name.lower().replace(" ", "-")
-        else:
-            normalized_scheme_name = scheme_name
-
-        style_scheme = style_manager.get_scheme(normalized_scheme_name)
-
-        if style_scheme:
-            logging.debug(f"Color scheme found: {normalized_scheme_name}")
-            if hasattr(self.nmap_page, 'update_nmap_color_scheme'):
-                self.nmap_page.update_nmap_color_scheme(style_scheme)
-        else:
-            logging.error(f"Color scheme '{normalized_scheme_name}' not found. Available schemes: {style_manager.get_scheme_ids()}")
-
-    def on_color_scheme_changed(self, _, scheme_name: str):
-        logging.debug(f"Color scheme changed to: {scheme_name}")
-        self.apply_color_scheme(scheme_name)
 
     def on_page_switched(self, widget, gparam):
         selected_page = self.stack.get_visible_child()
