@@ -3,20 +3,20 @@
 ![woes](images/app.png)
 
 
-A graphical user interface for various web operations tasks, built with GTK 4 and Adw.
+WOES is a graphical user interface designed for performing various web operations tasks. Built with GTK 4 and Adwaita, it provides an intuitive and user-friendly interface for tasks such as fetching HTTP headers, performing port scans, and running OS fingerprint detection.
 
 # Features
-
-* Fetch and display HTTP headers for a given URL
-* Enable Akamai debug headers.
-* ~~Select JSON payloads from a dropdown menu~~
-* Port Scan, OS fingerprint detection, NSE Scripts
+* Fetch and Display HTTP Headers: Retrieve and view HTTP headers for any given URL, with the ability to enable Akamai debug headers.
+* Port Scanning: Perform port scans on specified targets with customizable options, including OS fingerprint detection and NSE scripts.
+* OS Fingerprint Detection: Detect operating systems on scanned targets as part of the port scanning process.
+* NSE Script Integration: Run Nmap Scripting Engine (NSE) scripts as part of the scanning process.
 
 # Requirements
+* `GTK 4` / `libadwaita`
+* `GtkSourceView`
+* `Python 3`
 
-* GTK 4/ libadwaita
-* Python 3
-* requests
-* nmap
+The following Python libraries are also required: `requests`, `pyYAML`, `python-nmap`
 
-This is in very early development still. Only the HTTP Headers and Nmap status pages are functional currently.
+# Development Status
+This application is currently in early development. The HTTP Headers and Nmap status pages are functional, with more features planned for future releases.
