@@ -12,11 +12,10 @@
             <summary>Dark theme</summary>
             <description>Enable dark theme</description>
         </key>
-        <key name="json-payload" type="s">
-            <default>'SinglePage'</default>
-            <summary>JSON Payload</summary>
-            <description>The selected JSON payload for the application</description>
+        <key name="color-scheme" type="s">
+            <default>'Classic'</default>
+            <summary>Syntax Highlighting Color Scheme</summary>
+            <description>The color scheme used for syntax highlighting in the GtkSourceView</description>
         </key>
     </schema>
 </schemalist>
-

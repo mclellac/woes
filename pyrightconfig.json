@@ -1,0 +1,47 @@
+{
+    "include": [
+        "**/*.py"
+    ],
+    "exclude": [
+        ".bzr",
+        ".direnv",
+        ".eggs",
+        ".git",
+        ".git-rewrite",
+        ".hg",
+        ".ipynb_checkpoints",
+        ".mypy_cache",
+        ".nox",
+        ".pants.d",
+        ".pyenv",
+        ".pytest_cache",
+        ".pytype",
+        ".ruff_cache",
+        ".svn",
+        ".tox",
+        ".venv",
+        ".vscode",
+        "__pypackages__",
+        "_build",
+        "buck-out",
+        "build",
+        "dist",
+        "node_modules",
+        "site-packages",
+        ".flatpak-builder",
+        "venv"
+    ],
+    "reportMissingTypeStubs": false,
+    "reportUnusedVariable": true,
+    "reportUnusedImport": true,
+    "reportUnusedFunction": true,
+    "reportImportCycles": false,
+    "reportOptionalSubscript": false,
+    "reportOptionalMemberAccess": false,
+    "reportPrivateUsage": false,
+    "pythonVersion": "3.8",
+    "venvPath": "./.venv",
+    "reportGeneralTypeIssues": true,
+    "useLibraryCodeForTypes": true
+}
+

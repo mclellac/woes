@@ -35,6 +35,8 @@
         </child>
         <child>
           <object class="AdwViewStack" id="stack">
+            <property name="vexpand">True</property>
+            <property name="vexpand-set">True</property>
             <child>
               <object class="AdwViewStackPage" id="http_page">
                 <property name="child">
@@ -45,7 +47,7 @@
                     <property name="title" bind-source="http_page" bind-property="title" bind-flags="sync-create"/>
                     <child>
                       <object class="AdwClampScrollable" id="http_clamp_scrollable">
-                        <property name="maximum-size">800</property>
+                        <property name="maximum-size">900</property>
                         <property name="unit">px</property>
                         <child>
                           <object class="GtkBox" id="HttpPage">
@@ -71,14 +73,26 @@
                     <property name="description"> This tool is designed to facilitate network scanning and reconnaissance using Nmap, a powerful network scanning tool. This page provides a user-friendly interface for performing Nmap scans and viewing their results.</property>
                     <property name="icon-name" bind-source="nmap_page" bind-property="icon-name" bind-flags="sync-create"/>
                     <property name="title" bind-source="nmap_page" bind-property="title" bind-flags="sync-create">Port Scanning (Nmap)</property>
+                    <property name="vexpand">True</property>
+                    <property name="vexpand-set">True</property>
                     <child>
                       <object class="AdwClampScrollable">
+                        <property name="maximum-size">900</property>
+                        <property name="unit">px</property>
+                        <property name="vexpand">True</property>
                         <child>
                           <object class="GtkBox" id="NmapPage">
-                            <property name="orientation">1</property>
+                            <property name="height-request">1000</property>
+                            <property name="hexpand">True</property>
+                            <property name="hexpand-set">True</property>
+                            <property name="orientation">vertical</property>
                             <property name="valign">3</property>
+                            <property name="vexpand">True</property>
+                            <property name="vexpand-set">True</property>
                             <child>
-                              <object class="NmapPage"/>
+                              <object class="NmapPage">
+                                <property name="vexpand">True</property>
+                              </object>
                             </child>
                           </object>
                         </child>
@@ -147,7 +161,7 @@
     <property name="default-height">1000</property>
     <property name="default-width">1450</property>
     <property name="height-request">360</property>
-    <property name="title" translatable="yes">AdwViewSwitcher Demo</property>
+    <property name="title" translatable="yes">WebOps Evaluation Suite</property>
     <property name="width-request">360</property>
     <child>
       <object class="AdwBreakpoint">

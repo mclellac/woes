@@ -13,7 +13,6 @@
         <property name="hexpand">True</property>
         <property name="selection-mode">browse</property>
         <property name="valign">baseline-center</property>
-        <property name="vexpand">True</property>
         <child>
           <object class="AdwEntryRow" id="http_entry_row">
             <property name="input-purpose">url</property>

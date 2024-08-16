@@ -1,20 +1,22 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <!-- Created with Cambalache 0.91.0 -->
 <interface>
-  <requires lib="gtk" version="4.12"/>
+  <requires lib="gtk" version="4.10"/>
   <requires lib="libadwaita" version="1.4"/>
   <template class="NmapPage" parent="GtkBox">
     <property name="halign">baseline-fill</property>
     <property name="hexpand">True</property>
+    <property name="hexpand-set">True</property>
     <property name="margin-top">20</property>
     <property name="orientation">vertical</property>
+    <property name="vexpand">True</property>
+    <property name="vexpand-set">True</property>
     <child>
       <object class="GtkListBox" id="nmap_list_box">
         <property name="activate-on-single-click">False</property>
-        <property name="hexpand">True</property>
+        <property name="halign">baseline-fill</property>
         <property name="selection-mode">0</property>
         <property name="valign">baseline-center</property>
-        <property name="vexpand">True</property>
         <child>
           <object class="AdwEntryRow" id="target_entry_row">
             <property name="input-purpose">url</property>
@@ -76,9 +78,7 @@
     </child>
     <child>
       <object class="GtkGrid" id="nmap_grid">
-        <property name="column-homogeneous">True</property>
         <property name="halign">baseline-center</property>
-        <property name="row-homogeneous">True</property>
         <child>
           <object class="GtkSpinner" id="nmap_spinner">
             <property name="halign">start</property>
@@ -129,43 +129,88 @@
       </object>
     </child>
     <child>
-      <object class="GtkFrame" id="nmap_frame">
+      <object class="GtkGrid" id="results_grid">
+        <property name="column-homogeneous">True</property>
         <property name="halign">baseline-fill</property>
-        <property name="margin-top">5</property>
+        <property name="hexpand">True</property>
+        <property name="margin-bottom">10</property>
+        <property name="margin-top">10</property>
+        <property name="row-homogeneous">True</property>
         <property name="valign">baseline-fill</property>
         <property name="vexpand">True</property>
+        <property name="vexpand-set">True</property>
         <child>
-          <object class="GtkColumnView" id="scan_column_view">
+          <object class="GtkFrame" id="nmap_target_frame">
             <property name="halign">baseline-fill</property>
             <property name="hexpand">True</property>
+            <property name="hexpand-set">True</property>
+            <property name="label">Targets</property>
+            <property name="label-xalign">0.5</property>
             <property name="margin-bottom">10</property>
-            <property name="margin-end">10</property>
-            <property name="margin-start">10</property>
+            <property name="margin-end">5</property>
             <property name="margin-top">10</property>
-            <property name="show-column-separators">true</property>
-            <property name="show-row-separators">true</property>
-            <property name="valign">baseline-fill</property>
+            <property name="vexpand">True</property>
+            <property name="vexpand-set">True</property>
             <child>
-              <object class="GtkColumnViewColumn" id="target_col">
-                <property name="factory">
-                  <object class="GtkSignalListItemFactory"/>
-                </property>
-                <property name="fixed-width">0</property>
-                <property name="title" translatable="yes">Target</property>
-                <property name="visible">False</property>
+              <object class="GtkScrolledWindow" id="nmap_target_scrolled_window">
+                <property name="has-frame">True</property>
+                <property name="margin-bottom">10</property>
+                <property name="margin-end">10</property>
+                <property name="margin-start">10</property>
+                <property name="margin-top">10</property>
+                <property name="vexpand">True</property>
+                <property name="vexpand-set">True</property>
+                <child>
+                  <object class="GtkListBox" id="target_list_box">
+                    <property name="vexpand">True</property>
+                    <property name="vexpand-set">True</property>
+                  </object>
+                </child>
               </object>
             </child>
+            <layout>
+              <property name="column">0</property>
+              <property name="column-span">1</property>
+              <property name="row">0</property>
+              <property name="row-span">10</property>
+            </layout>
+          </object>
+        </child>
+        <child>
+          <object class="GtkFrame" id="nmap_results_frame">
+            <property name="halign">baseline-fill</property>
+            <property name="hexpand">True</property>
+            <property name="hexpand-set">True</property>
+            <property name="label">Scan Results</property>
+            <property name="label-xalign">0.5</property>
+            <property name="margin-bottom">10</property>
+            <property name="margin-start">5</property>
+            <property name="margin-top">10</property>
+            <property name="vexpand">True</property>
+            <property name="vexpand-set">True</property>
             <child>
-              <object class="GtkColumnViewColumn" id="results_col">
-                <property name="expand">True</property>
-                <property name="factory">
-                  <object class="GtkSignalListItemFactory"/>
-                </property>
-                <property name="fixed-width">0</property>
-                <property name="title">Results</property>
-                <property name="visible">False</property>
+              <object class="GtkScrolledWindow" id="nmap_results_scolled_window">
+                <property name="halign">baseline-fill</property>
+                <property name="has-frame">True</property>
+                <property name="hexpand">True</property>
+                <property name="hexpand-set">True</property>
+                <property name="kinetic-scrolling">False</property>
+                <property name="margin-bottom">10</property>
+                <property name="margin-end">10</property>
+                <property name="margin-start">10</property>
+                <property name="margin-top">10</property>
+                <property name="max-content-width">150</property>
+                <property name="min-content-height">50</property>
+                <property name="vexpand">True</property>
+                <property name="vexpand-set">True</property>
               </object>
             </child>
+            <layout>
+              <property name="column">1</property>
+              <property name="column-span">5</property>
+              <property name="row">0</property>
+              <property name="row-span">10</property>
+            </layout>
           </object>
         </child>
       </object>
