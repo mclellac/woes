@@ -7,7 +7,7 @@ gi.require_version("GtkSource", "5")
 from gi.repository import Adw, Gio, Gtk, GObject
 
 from .constants import APP_ID, RESOURCE_PREFIX
-from .style_utils import apply_font_size, apply_theme  # Ensure this line is correct
+from .style_utils import apply_font_size, apply_theme  
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/preferences.ui")
