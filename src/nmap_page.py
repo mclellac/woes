@@ -13,6 +13,8 @@ gi.require_version("GtkSource", "5")
 from gi.repository import Gio, GLib, GObject, Gtk, GtkSource
 
 from .constants import RESOURCE_PREFIX
+from .style_utils import apply_source_style_scheme
+
 
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -27,6 +29,7 @@ class ScanStatus(Enum):
     COMPLETE = (1.0, "Scan complete")
     FAILED = (1.0, "Scan failed unexpectedly")
 
+# Define NmapItem class before using it
 class NmapItem(GObject.Object):
     key = GObject.Property(type=str)
     value = GObject.Property(type=str)
@@ -36,10 +39,12 @@ class NmapItem(GObject.Object):
         self.key = key
         self.value = value
 
+
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/nmap_page.ui")
 class NmapPage(Gtk.Box):
     __gtype_name__ = "NmapPage"
 
+    # Define template children
     target_entry_row = Gtk.Template.Child("target_entry_row")
     target_list_box = Gtk.Template.Child("target_list_box")
     nmap_results_scolled_window = Gtk.Template.Child("nmap_results_scolled_window")
@@ -64,6 +69,9 @@ class NmapPage(Gtk.Box):
         # Initialize SourceBuffer and SourceView
         self.source_buffer = self.init_source_buffer()
         self.source_view = self.init_source_view(self.source_buffer)
+
+        # Apply the user's preferred style scheme
+        self.apply_style_scheme()
 
         self.executor = ThreadPoolExecutor(max_workers=4)
         self.init_ui()
@@ -93,6 +101,16 @@ class NmapPage(Gtk.Box):
         source_view.set_vexpand(True)
         self.nmap_results_scolled_window.set_child(source_view)
         return source_view
+
+    def apply_style_scheme(self):
+        """Apply the user's preferred style scheme to the GtkSourceView."""
+        try:
+            settings = Gio.Settings.new("com.github.mclellac.WebOpsEvaluationSuite")
+            source_style_scheme = settings.get_string("source-style-scheme")
+            logging.debug(f"Applying style scheme: {source_style_scheme}")
+            apply_source_style_scheme(GtkSource.StyleSchemeManager.get_default(), self.source_buffer, source_style_scheme)
+        except Exception as e:
+            logging.error(f"Error applying style scheme: {e}")
 
     def set_visible(self, *widgets, visible: bool):
         for widget in widgets:
@@ -292,25 +310,6 @@ class NmapPage(Gtk.Box):
                 parent.queue_resize()
                 parent.queue_draw()
 
-    def apply_style_scheme_to_source_view(self, scheme_name: str):
-        scheme_manager = GtkSource.StyleSchemeManager.get_default()
-
-        if scheme_name not in ["Adwaita", "Adwaita-dark"]:
-            scheme_name = scheme_name.lower()
-
-        scheme = scheme_manager.get_scheme(scheme_name)
-
-        if scheme:
-            logging.debug(f"Applying scheme: {scheme.get_id()} to source view.")
-            self.source_buffer.set_style_scheme(scheme)
-        else:
-            logging.error(f"Style scheme '{scheme_name}' not found. Reverting to 'Adwaita'.")
-            default_scheme = scheme_manager.get_scheme("Adwaita")
-            if default_scheme:
-                self.source_buffer.set_style_scheme(default_scheme)
-            else:
-                logging.error("Default scheme 'Adwaita' not found.")
-
     def set_scan_status(self, progress: float, status_message: str):
         if progress == ScanStatus.IN_PROGRESS.value[0]:
             self.nmap_spinner.set_visible(True)
@@ -351,3 +350,4 @@ class NmapPage(Gtk.Box):
         row = Gtk.ListBoxRow()
         row.set_child(label)
         return row
+

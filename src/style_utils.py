@@ -1,4 +1,3 @@
-# style_utils.py
 import logging
 import gi
 
@@ -25,25 +24,35 @@ def apply_theme(style_manager: Adw.StyleManager, dark_theme_enabled: bool):
     else:
         style_manager.set_color_scheme(Adw.ColorScheme.PREFER_LIGHT)
 
-def apply_source_style_scheme(scheme_manager: GtkSource.StyleSchemeManager, buffer: GtkSource.Buffer, scheme_name: str):
-    # Convert scheme_name to lowercase except for "Adwaita" and "Adwaita-dark"
-    if scheme_name not in ["Adwaita", "Adwaita-dark"]:
-        scheme_name = scheme_name.lower()
+def apply_source_style_scheme(scheme_manager: GtkSource.StyleSchemeManager, buffer: GtkSource.Buffer, source_style_scheme: str):
+    logging.debug(f"apply_source_style_scheme: Called with source_style_scheme={source_style_scheme}")
 
-    # Log all available schemes
+    # Normalize scheme_name to lowercase except for "Adwaita" and "Adwaita-dark"
+    if source_style_scheme not in ["Adwaita", "Adwaita-dark"]:
+        source_style_scheme = source_style_scheme.lower()
+
+    logging.debug(f"apply_source_style_scheme: Normalized source_style_scheme={source_style_scheme}")
+
     available_schemes = scheme_manager.get_scheme_ids()
-    logging.debug(f"Available style schemes: {available_schemes}")
+    logging.debug(f"apply_source_style_scheme: Available style schemes={available_schemes}")
 
-    scheme = scheme_manager.get_scheme(scheme_name)
+    scheme = scheme_manager.get_scheme(source_style_scheme)
     if scheme:
-        logging.debug(f"Applying style scheme: {scheme.get_id()} to buffer.")
+        logging.debug(f"apply_source_style_scheme: Applying style scheme={scheme.get_id()} to buffer.")
         buffer.set_style_scheme(scheme)
 
-        # Log the current style scheme for debugging
+        # Verify the current style scheme applied
         applied_scheme = buffer.get_style_scheme()
         if applied_scheme:
-            logging.debug(f"Successfully applied scheme: {applied_scheme.get_id()}")
+            logging.debug(f"apply_source_style_scheme: Successfully applied scheme={applied_scheme.get_id()}")
         else:
-            logging.error("Failed to apply the style scheme.")
+            logging.error("apply_source_style_scheme: Failed to apply the style scheme.")
     else:
-        logging.error(f"Style scheme '{scheme_name}' not found in GtkSource.StyleSchemeManager.")
+        logging.error(f"apply_source_style_scheme: Style scheme '{source_style_scheme}' not found.")
+        default_scheme = scheme_manager.get_scheme("Adwaita")
+        if default_scheme:
+            buffer.set_style_scheme(default_scheme)
+            logging.debug("apply_source_style_scheme: Applied fallback scheme=Adwaita")
+        else:
+            logging.error("apply_source_style_scheme: Default scheme 'Adwaita' not found.")
+

@@ -14,8 +14,9 @@
         </key>
         <key name="source-style-scheme" type="s">
             <default>'Adwaita'</default>
-            <summary>Syntax Highlighting Color Scheme</summary>
-            <description>The color scheme used for syntax highlighting in the GtkSourceView</description>
+            <summary>Syntax Highlighting Colour Scheme</summary>
+            <description>The colour scheme used for syntax highlighting in the GtkSourceView</description>
         </key>
     </schema>
 </schemalist>
+
