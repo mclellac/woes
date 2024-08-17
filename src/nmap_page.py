@@ -13,7 +13,6 @@ gi.require_version("GtkSource", "5")
 from gi.repository import Gio, GLib, GObject, Gtk, GtkSource
 
 from .constants import RESOURCE_PREFIX
-from .style_utils import apply_source_style_scheme
 
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
 

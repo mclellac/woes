@@ -9,7 +9,6 @@ from gi.repository import Adw, Gdk, Gio, Gtk, GtkSource
 from . import HttpPage
 from .nmap_page import NmapPage
 from .constants import APP_ID, RESOURCE_PREFIX, THEME_DARK, THEME_LIGHT
-from .style_utils import apply_font_size, apply_theme, apply_source_style_scheme
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/window.ui")
 class WoesWindow(Adw.ApplicationWindow):

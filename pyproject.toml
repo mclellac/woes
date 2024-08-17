@@ -1,82 +1,59 @@
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
 exclude = [
-    ".bzr",
-    ".direnv",
-    ".eggs",
-    ".git",
-    ".git-rewrite",
-    ".hg",
-    ".ipynb_checkpoints",
-    ".mypy_cache",
-    ".nox",
-    ".pants.d",
-    ".pyenv",
-    ".pytest_cache",
-    ".pytype",
-    ".ruff_cache",
-    ".svn",
-    ".tox",
-    ".venv",
-    ".vscode",
-    "__pypackages__",
-    "_build",
-    "buck-out",
-    "build",
-    "dist",
-    "node_modules",
-    "site-packages",
-    "build",
-    ".flatpak-builder",
-    "venv",
+    ".bzr", ".direnv", ".eggs", ".git", ".git-rewrite", ".hg",
+    ".ipynb_checkpoints", ".mypy_cache", ".nox", ".pants.d",
+    ".pyenv", ".pytest_cache", ".pytype", ".ruff_cache", ".svn",
+    ".tox", ".venv", ".vscode", "__pypackages__", "_build", "buck-out",
+    "build", "dist", "node_modules", "site-packages", "build",
+    ".flatpak-builder", "venv",
 ]
 
-
+# General configuration options
 line-length = 100
 indent-width = 4
 
-# Assume Python 3.8
+# Target Python version
 target-version = "py38"
 
 [tool.ruff.lint]
-# Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`)  codes by default.
-# Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
-# McCabe complexity (`C901`) by default.
+# Enable Pyflakes (`F`) and a subset of pycodestyle (`E`) codes by default.
+# Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or McCabe complexity (`C901`) by default.
 select = ["E4", "E7", "E9", "F"]
 ignore = [
-    # Ignores that is not worth/too hard to fix
-    "RUF001", #  String contains ambiguous `！` (FULLWIDTH EXCLAMATION MARK). Did you mean `!` (EXCLAMATION MARK)? - used ,mostly on tests
-    "B028", # No explicit `stacklevel` keyword argument found - not sure why this is needed
-    "E402", # Module level import not at top of file - gtk stuff
-
-    # Ignores that should be fixed and removed
-    "RUF012", # Mutable class attributes should be annotated with `typing.ClassVar`
+    # Ignore warnings and errors that are not worth fixing or are too difficult to fix
+    "RUF001",  # String contains ambiguous `！` (FULLWIDTH EXCLAMATION MARK)
+    "B028",    # No explicit `stacklevel` keyword argument found
+    "E402",    # Module level import not at top of file (useful in GTK)
+    
+    # Ignore warnings and errors that should be fixed in the future
+    "RUF012",  # Mutable class attributes should be annotated with `typing.ClassVar`
     "PERF401", # Use a list comprehension to create a transformed list
-    "RUF100", # [*] Unused `noqa` directive (non-enabled: `C901`) - unused pylint/noqa directives that should be removed
-    "RUF013", # PEP 484 prohibits implicit `Optional`
+    "RUF100",  # Unused `noqa` directive (non-enabled: `C901`)
+    "RUF013",  # PEP 484 prohibits implicit `Optional`
     "PERF203", # `try`-`except` within a loop incurs performance overhead
-    "RUF015", #  Prefer `next(...)` over single element slice - opinionated, but some cases could be changed
-    "PERF102",# When using only the values of a dict use the `values()` method
-    "B011", # Do not `assert False` (`python -O` removes these calls), raise `AssertionError()`
-    "RUF005", # Consider iterable unpacking instead of concatenation
-    "A003", # Class attribute `id` is shadowing a Python builtin
-    "B024", # `DiscordRichPresenceBase` is an abstract base class, but it has no abstract methods
-    "B905", # `zip()` without an explicit `strict=` parameter
-    "ARG002", # Unused method argument: `mock_path_exists`
-    "E722", # Do not use bare `except`
-    "B904", # Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
-    "B008", # Do not perform function call `_try_import_moddb_library` in argument defaults; instead, perform the call within the function, or read the default from a module-level singleton variable
-    "ARG005", # Unused lambda argument: `e`
-    "ARG001", # Unused function argument: `args`
+    "RUF015",  # Prefer `next(...)` over single element slice
+    "PERF102", # When using only the values of a dict use the `values()` method
+    "B011",    # Do not `assert False` (`python -O` removes these calls), raise `AssertionError()`
+    "RUF005",  # Consider iterable unpacking instead of concatenation
+    "A003",    # Class attribute `id` is shadowing a Python builtin
+    "B024",    # Abstract base class has no abstract methods
+    "B905",    # `zip()` without an explicit `strict=` parameter
+    "ARG002",  # Unused method argument: `mock_path_exists`
+    "E722",    # Do not use bare `except`
+    "B904",    # Use `raise ... from err` in `except` clause
+    "B008",    # Do not perform function call in argument defaults
+    "ARG005",  # Unused lambda argument: `e`
+    "ARG001",  # Unused function argument: `args`
     "PERF402", # Use `list` or `list.copy` to create a copy of a list
-    "B009", # Do not call `getattr` with a constant attribute value. It is not any safer than normal property access.
-    "A002", # Argument `type` is shadowing a Python builtin
-    "ARG004", # Unused static method argument: `x`
-    "B020", # Loop control variable `upstream_runners` overrides iterable it iterates
-    "B018", # Found useless expression. Either assign it to a variable or remove it
+    "B009",    # Do not call `getattr` with a constant attribute value
+    "A002",    # Argument `type` is shadowing a Python builtin
+    "ARG004",  # Unused static method argument: `x`
+    "B020",    # Loop control variable overrides iterable it iterates
+    "B018",    # Found useless expression. Assign it to a variable or remove it
 ]
 
-# Allow fix for all enabled rules (when `--fix`) is provided.
+# Allow fixes for all enabled rules
 fixable = ["ALL"]
 unfixable = []
 
@@ -93,20 +70,12 @@ indent-style = "space"
 # Like Black, respect magic trailing commas.
 skip-magic-trailing-comma = false
 
-# Like Black, automatically detect the appropriate line ending.
+# Automatically detect the appropriate line ending.
 line-ending = "auto"
 
-# Enable auto-formatting of code examples in docstrings. Markdown,
-# reStructuredText code/literal blocks and doctests are all supported.
-#
-# This is currently disabled by default, but it is planned for this
-# to be opt-out in the future.
+# Enable auto-formatting of code examples in docstrings.
 docstring-code-format = false
 
-# Set the line length limit used when formatting code snippets in
-# docstrings.
-#
-# This only has an effect when the `docstring-code-format` setting is
-# enabled.
+# Set the line length limit used when formatting code snippets in docstrings.
 docstring-code-line-length = "dynamic"
 
