@@ -19,7 +19,7 @@ from .style_utils import apply_source_style_scheme
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
 
 class ScanOptions(Enum):
-    DEFAULT = "-sV -T4"
+    DEFAULT = "-T4"
     OS_FINGERPRINTING = "-A"
     ALL_PORTS = "-p-"
     SCRIPT = "--script="
@@ -45,15 +45,15 @@ class NmapPage(Gtk.Box):
     __gtype_name__ = "NmapPage"
 
     # Define template children
-    target_entry_row = Gtk.Template.Child("target_entry_row")
-    target_list_box = Gtk.Template.Child("target_list_box")
+    nmap_target_entryrow = Gtk.Template.Child("nmap_target_entryrow")
+    nmap_target_listbox = Gtk.Template.Child("nmap_target_listbox")
     nmap_results_scolled_window = Gtk.Template.Child("nmap_results_scolled_window")
     nmap_target_frame = Gtk.Template.Child("nmap_target_frame")
     nmap_results_frame = Gtk.Template.Child("nmap_results_frame")
     nmap_target_scrolled_window = Gtk.Template.Child("nmap_target_scrolled_window")
-    fingerprint_switch_row = Gtk.Template.Child("fingerprint_switch_row")
-    scan_all_ports_switch_row = Gtk.Template.Child("scan_all_ports_switch_row")
-    nmap_scripts_drop_down = Gtk.Template.Child("nmap_scripts_drop_down")
+    nmap_fingerprint_switchrow = Gtk.Template.Child("nmap_fingerprint_switchrow")
+    nmap_all_ports_switchrow = Gtk.Template.Child("nmap_all_ports_switchrow")
+    nmap_scripts_dropdown = Gtk.Template.Child("nmap_scripts_dropdown")
     nmap_spinner = Gtk.Template.Child("nmap_spinner")
     nmap_status = Gtk.Template.Child("nmap_status")
 
@@ -64,7 +64,7 @@ class NmapPage(Gtk.Box):
         self.os_fingerprinting_enabled = False
         self.selected_script = None
         self.results_by_host = {}
-        self.target_list_box_store = Gio.ListStore(item_type=NmapItem)
+        self.nmap_target_listbox_store = Gio.ListStore(item_type=NmapItem)
 
         # Initialize SourceBuffer and SourceView
         self.source_buffer = self.init_source_buffer()
@@ -123,7 +123,7 @@ class NmapPage(Gtk.Box):
         logging.debug("Initializing UI components.")
 
         # Bind the ListStore to the ListBox
-        self.target_list_box.bind_model(self.target_list_box_store, self.create_listbox_row)
+        self.nmap_target_listbox.bind_model(self.nmap_target_listbox_store, self.create_listbox_row)
 
         self.connect_signals()
 
@@ -133,7 +133,7 @@ class NmapPage(Gtk.Box):
             self.nmap_status,
             self.nmap_target_frame,
             self.nmap_results_frame,
-            self.target_list_box,
+            self.nmap_target_listbox,
             self.source_view,
             self.nmap_target_scrolled_window,
             visible=False,
@@ -143,65 +143,41 @@ class NmapPage(Gtk.Box):
 
     def connect_signals(self):
         try:
-            self.target_entry_row.connect("entry-activated", self.on_target_entry_row_activated)
-            self.target_entry_row.connect("apply", self.on_target_entry_row_activated)
-            self.fingerprint_switch_row.connect("notify::active", self.on_fingerprint_switch_row_toggled)
-            self.scan_all_ports_switch_row.connect("notify::active", self.on_scan_all_ports_switch_row_toggled)
-            self.nmap_scripts_drop_down.connect("notify::selected-item", self.on_nmap_scripts_drop_down_changed)
-            self.target_list_box.connect("row-selected", self.on_target_listbox_row_selected)
+            self.nmap_target_entryrow.connect("entry-activated", self.on_nmap_target_entryrow_activated)
+            self.nmap_target_entryrow.connect("apply", self.on_nmap_target_entryrow_activated)
+            self.nmap_fingerprint_switchrow.connect("notify::active", self.on_nmap_fingerprint_switchrow_toggled)
+            self.nmap_all_ports_switchrow.connect("notify::active", self.on_nmap_all_ports_switchrow_toggled)
+            self.nmap_scripts_dropdown.connect("notify::selected-item", self.on_nmap_scripts_dropdown_changed)
+            self.nmap_target_listbox.connect("row-selected", self.on_nmap_target_listbox_row_selected)
             logging.debug("Connected signals for UI components.")
         except Exception as e:
             logging.error(f"Error connecting signals for UI components: {e}")
 
     # Nmap Scan Operations
-    def on_target_entry_row_activated(self, entry_row: Gtk.Widget):
-        target = entry_row.get_text().strip()
-        if not self.validate_target_input(target):
-            entry_row.get_style_context().add_class("error")
-            return
-        else:
-            entry_row.get_style_context().remove_class("error")
-
-        if not target:
-            GLib.idle_add(self.clear_results)
-            GLib.idle_add(self.target_entry_row.set_sensitive, True)
-            return
-
-        # Delay setting the entry row as insensitive to ensure focus-out event is handled
-        GLib.idle_add(self.target_entry_row.set_sensitive, False)
-
-        self.os_fingerprinting_enabled = self.fingerprint_switch_row.get_active()
-        self.scan_all_ports_enabled = self.scan_all_ports_switch_row.get_active()
-        selected_item = self.nmap_scripts_drop_down.get_selected_item()
-        self.selected_script = (
-            selected_item.get_string()
-            if isinstance(selected_item, Gtk.StringObject)
-            else None
-        )
-
-        status_message = ScanStatus.IN_PROGRESS.value[1].format(target=target)
-        self.set_scan_status(ScanStatus.IN_PROGRESS.value[0], status_message)
-
-        self.executor.submit(self.run_nmap_scan, target, self.os_fingerprinting_enabled)
-
-        # Optionally grab focus on another widget
-        GLib.idle_add(self.nmap_spinner.grab_focus)
-
     def validate_target_input(self, target: str) -> bool:
-        ipv4_segment = r"(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)"
-        ipv4_address = fr"(?:{ipv4_segment}\.){3}{ipv4_segment}"
+        ipv4_segment = r"(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9]|0)"
+        ipv4_address = r"(?:{}\.{}\.{}\.{})".format(ipv4_segment, ipv4_segment, ipv4_segment, ipv4_segment)
         fqdn = r"(?:[A-Za-z0-9-]{1,63}\.)+[A-Za-z]{2,}"
-        cidr = r"(?:[0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}"
+        cidr = r"{}\/[0-9]{{1,2}}".format(ipv4_address)  # Escaping curly braces for the CIDR notation
 
         addr_regex = (
-            r"^(localhost|"  # Match 'localhost'
-            fr"{ipv4_address}|"
-            fr"{fqdn}|"
-            fr"{cidr})$"
+            r"^(localhost|"
+            r"{}|"
+            r"{}|"
+            r"{})$".format(ipv4_address, fqdn, cidr)
         )
 
         targets = re.split(r"[ ,]+", target.strip())
+
+        for t in targets:
+            if re.match(addr_regex, t):
+                logging.debug(f"Target '{t}' matched the pattern.")
+            else:
+                logging.debug(f"Target '{t}' did NOT match the pattern.")
+
         return all(re.match(addr_regex, t) for t in targets)
+
+
 
     def build_nmap_options(self, os_fingerprinting: bool) -> str:
         options = ScanOptions.DEFAULT.value
@@ -223,13 +199,17 @@ class NmapPage(Gtk.Box):
             logging.debug(f"Nmap scan completed with results: {nm.all_hosts()}")
             self.process_scan_results(nm)
         except nmap.PortScannerError as e:
-            logging.error(f"Nmap scan failed: {e}")
+            error_message = f"Nmap scan failed: {e}"
+            logging.error(error_message)
+            GLib.idle_add(self.handle_scan_error, target, error_message)
             GLib.idle_add(self.set_scan_status, ScanStatus.FAILED.value[0], "Nmap scan failed due to scanner error")
         except Exception as e:
-            logging.error(f"Unexpected error during scan: {e}")
+            error_message = f"Unexpected error during scan: {e}"
+            logging.error(error_message)
+            GLib.idle_add(self.handle_scan_error, target, error_message)
             GLib.idle_add(self.set_scan_status, ScanStatus.FAILED.value[0], "Scan failed unexpectedly")
         finally:
-            GLib.idle_add(self.target_entry_row.set_sensitive, True)
+            GLib.idle_add(self.nmap_target_entryrow.set_sensitive, True)
 
     def process_scan_results(self, nm: nmap.PortScanner):
         logging.debug(f"Processing Nmap scan results for hosts: {nm.all_hosts()}")
@@ -259,32 +239,17 @@ class NmapPage(Gtk.Box):
             return data
 
     # UI Updates
-    def update_nmap_results_view(self, args: tuple):
-        hosts, results = args
+    def handle_scan_error(self, target: str, error_message: str):
+        nmap_item = NmapItem(key=target, value=error_message)
+        self.nmap_target_listbox_store.append(nmap_item)
+        self.results_by_host[target] = error_message
 
-        self.target_list_box_store.remove_all()
-        self.source_buffer.set_text("")
-
-        self.results_by_host = {}
-        for target in hosts:
-            result_text = results.get(target, "No results available")
-            logging.debug(f"Updating listbox and source view with result for {target}: {result_text}")
-            nmap_item = NmapItem(key=target, value=result_text)
-            self.target_list_box_store.append(nmap_item)
-            self.results_by_host[target] = result_text
-
-        logging.debug(f"Total items in list store after update: {self.target_list_box_store.get_n_items()}")
-
-        # Automatically select the first host to display its results
-        if hosts:
-            first_host = self.target_list_box_store.get_item(0)
-            if first_host:
-                self.target_list_box.select_row(self.target_list_box.get_row_at_index(0))
-                self.source_buffer.set_text(self.results_by_host[first_host.key])
+        # Display the error message in the source view
+        self.source_buffer.set_text(error_message)
 
         self.set_visible(
             self.source_view,
-            self.target_list_box,
+            self.nmap_target_listbox,
             self.nmap_results_frame,
             self.nmap_target_frame,
             self.nmap_target_scrolled_window,
@@ -293,22 +258,87 @@ class NmapPage(Gtk.Box):
 
         self.refresh_source_view()
 
-    def on_target_listbox_row_selected(self, listbox: Gtk.ListBox, row: Gtk.ListBoxRow):
+    def on_nmap_target_listbox_row_selected(self, listbox: Gtk.ListBox, row: Gtk.ListBoxRow):
+        logging.debug("on_target_listbox_row_selected called")
+
         if row is not None:
             selected_target = row.get_child().get_label()
+            logging.debug(f"Selected target: {selected_target}")
+
             results = self.results_by_host.get(selected_target, "")
+            logging.debug(f"Results for {selected_target}: {results[:200]}")  # Log first 200 characters of results
+
             if results:
                 self.source_buffer.set_text(results)
                 self.refresh_source_view()
+                logging.debug(f"Source view updated with results for {selected_target}")
+            else:
+                logging.warning(f"No results found for {selected_target}")
+        else:
+            logging.debug("No row is currently selected.")
+
+
+    def update_nmap_results_view(self, args: tuple):
+        logging.debug("update_nmap_results_view called")
+        hosts, results = args
+
+        logging.debug(f"Hosts: {hosts}")
+        logging.debug(f"Results: {results}")
+
+        self.nmap_target_listbox_store.remove_all()
+        self.source_buffer.set_text("")
+
+        self.results_by_host = {}
+        for target in hosts:
+            result_text = results.get(target, "No results available")
+            logging.debug(f"Adding target: {target} with results: {result_text[:200]}")  # First 200 chars
+
+            nmap_item = NmapItem(key=target, value=result_text)
+            self.nmap_target_listbox_store.append(nmap_item)
+            self.results_by_host[target] = result_text
+
+        logging.debug(f"Total items in list store after update: {self.nmap_target_listbox_store.get_n_items()}")
+
+        if hosts:
+            first_host = self.nmap_target_listbox_store.get_item(0)
+            if first_host:
+                logging.debug(f"Automatically selecting first host: {first_host.key}")
+                self.nmap_target_listbox.select_row(self.nmap_target_listbox.get_row_at_index(0))
+                self.source_buffer.set_text(self.results_by_host[first_host.key])
+                logging.debug(f"Source view updated for first host: {first_host.key}")
+
+        self.set_visible(
+            self.source_view,
+            self.nmap_target_listbox,
+            self.nmap_results_frame,
+            self.nmap_target_frame,
+            self.nmap_target_scrolled_window,
+            visible=True,
+        )
+
+        self.refresh_source_view()
+
 
     def refresh_source_view(self):
-        logging.debug("Refreshing source view")
-        if self.source_view:
-            self.source_view.queue_draw()
-            parent = self.source_view.get_parent()
-            if parent:
-                parent.queue_resize()
-                parent.queue_draw()
+        logging.debug("Entering refresh_source_view")
+
+        if not self.source_view:
+            logging.error("Source view is None; cannot refresh")
+            return
+
+        # Force the source view to redraw
+        logging.debug("Queuing redraw for source view")
+        self.source_view.queue_draw()
+
+        parent = self.source_view.get_parent()
+        if parent:
+            logging.debug("Source view has a parent; queuing resize and redraw for the parent")
+            parent.queue_resize()
+            parent.queue_draw()
+        else:
+            logging.warning("Source view does not have a parent; skipping parent refresh")
+
+        logging.debug("Exiting refresh_source_view")
 
     def set_scan_status(self, progress: float, status_message: str):
         if progress == ScanStatus.IN_PROGRESS.value[0]:
@@ -320,25 +350,59 @@ class NmapPage(Gtk.Box):
             self.nmap_status.set_visible(False)
 
     def clear_results(self):
-        self.target_list_box_store.remove_all()
+        self.nmap_target_listbox_store.remove_all()
         self.source_buffer.set_text("")
         self.set_visible(
             self.nmap_results_frame,
             self.nmap_target_frame,
-            self.target_list_box,
+            self.nmap_target_listbox,
             self.source_view,
             visible=False,
         )
 
     # Signal Handlers
-    def on_fingerprint_switch_row_toggled(self, switch: Gtk.Switch, gparam: GObject.ParamSpec):
+    def on_nmap_target_entryrow_activated(self, entryrow: Gtk.Widget):
+        target = entryrow.get_text().strip()
+        if not self.validate_target_input(target):
+            entryrow.get_style_context().add_class("error")
+            return
+        else:
+            entryrow.get_style_context().remove_class("error")
+
+        if not target:
+            GLib.idle_add(self.clear_results)
+            GLib.idle_add(self.nmap_target_entryrow.set_sensitive, True)
+            return
+
+        # Delay setting the entry row as insensitive to ensure focus-out event is handled
+        GLib.idle_add(self.nmap_target_entryrow.set_sensitive, False)
+
+        self.os_fingerprinting_enabled = self.nmap_fingerprint_switchrow.get_active()
+        self.scan_all_ports_enabled = self.nmap_all_ports_switchrow.get_active()
+        selected_item = self.nmap_scripts_dropdown.get_selected_item()
+        self.selected_script = (
+            selected_item.get_string()
+            if isinstance(selected_item, Gtk.StringObject)
+            else None
+        )
+
+        status_message = ScanStatus.IN_PROGRESS.value[1].format(target=target)
+        self.set_scan_status(ScanStatus.IN_PROGRESS.value[0], status_message)
+
+        self.executor.submit(self.run_nmap_scan, target, self.os_fingerprinting_enabled)
+
+        # Optionally grab focus on another widget
+        GLib.idle_add(self.nmap_spinner.grab_focus)
+
+
+    def on_nmap_fingerprint_switchrow_toggled(self, switch: Gtk.Switch, gparam: GObject.ParamSpec):
         self.os_fingerprinting_enabled = switch.get_active()
 
-    def on_scan_all_ports_switch_row_toggled(self, switch: Gtk.Switch, gparam: GObject.ParamSpec):
+    def on_nmap_all_ports_switchrow_toggled(self, switch: Gtk.Switch, gparam: GObject.ParamSpec):
         self.scan_all_ports_enabled = switch.get_active()
 
-    def on_nmap_scripts_drop_down_changed(self):
-        selected_item = self.nmap_scripts_drop_down.get_selected_item()
+    def on_nmap_scripts_dropdown_changed(self):
+        selected_item = self.nmap_scripts_dropdown.get_selected_item()
         self.selected_script = (
             selected_item.get_string()
             if isinstance(selected_item, Gtk.StringObject)
@@ -349,5 +413,6 @@ class NmapPage(Gtk.Box):
         label = Gtk.Label(label=item.key)
         row = Gtk.ListBoxRow()
         row.set_child(label)
+        logging.debug(f"Created listbox row for item: {item.key}")
         return row
 

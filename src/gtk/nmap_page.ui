@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<!-- Created with Cambalache 0.91.0 -->
+<!-- Created with Cambalache 0.91.1 -->
 <interface>
   <requires lib="gtk" version="4.10"/>
   <requires lib="libadwaita" version="1.4"/>
@@ -12,33 +12,33 @@
     <property name="vexpand">True</property>
     <property name="vexpand-set">True</property>
     <child>
-      <object class="GtkListBox" id="nmap_list_box">
+      <object class="GtkListBox" id="nmap_listbox">
         <property name="activate-on-single-click">False</property>
         <property name="halign">baseline-fill</property>
         <property name="selection-mode">0</property>
         <property name="valign">baseline-center</property>
         <child>
-          <object class="AdwEntryRow" id="target_entry_row">
+          <object class="AdwEntryRow" id="nmap_target_entryrow">
             <property name="input-purpose">url</property>
             <property name="show-apply-button">True</property>
             <property name="title" translatable="yes">IP/CIDR/FQDN to scan</property>
           </object>
         </child>
         <child>
-          <object class="AdwSwitchRow" id="fingerprint_switch_row">
+          <object class="AdwSwitchRow" id="nmap_fingerprint_switchrow">
             <property name="subtitle" translatable="yes">Enable this to attempt detection of the target OS</property>
             <property name="title" translatable="yes">OS Fingerprinting (requires root)</property>
           </object>
         </child>
         <child>
-          <object class="AdwSwitchRow" id="scan_all_ports_switch_row">
+          <object class="AdwSwitchRow" id="nmap_all_ports_switchrow">
             <property name="subtitle">This will scan all ports between 0-65535 </property>
             <property name="subtitle-lines">2</property>
             <property name="title" translatable="yes">Scan all ports (default is the top 200)</property>
           </object>
         </child>
         <child>
-          <object class="AdwComboRow" id="nmap_scripts_drop_down">
+          <object class="AdwComboRow" id="nmap_scripts_dropdown">
             <property name="hexpand">True</property>
             <property name="hexpand-set">True</property>
             <property name="icon-name">emblem-documents-symbolic</property>
@@ -131,7 +131,7 @@
       </object>
     </child>
     <child>
-      <object class="GtkGrid" id="results_grid">
+      <object class="GtkGrid" id="nmap_results_grid">
         <property name="halign">baseline-fill</property>
         <property name="hexpand">True</property>
         <property name="margin-bottom">10</property>
@@ -153,7 +153,6 @@
             <property name="vexpand-set">True</property>
             <child>
               <object class="GtkScrolledWindow" id="nmap_target_scrolled_window">
-                <property name="has-frame">True</property>
                 <property name="margin-bottom">10</property>
                 <property name="margin-end">10</property>
                 <property name="margin-start">10</property>
@@ -161,7 +160,10 @@
                 <property name="vexpand">True</property>
                 <property name="vexpand-set">True</property>
                 <child>
-                  <object class="GtkListBox" id="target_list_box">
+                  <object class="GtkListBox" id="nmap_target_listbox">
+                    <property name="css-classes">card
+</property>
+                    <property name="selection-mode">none</property>
                     <property name="vexpand">True</property>
                     <property name="vexpand-set">True</property>
                   </object>
@@ -191,7 +193,6 @@
             <child>
               <object class="GtkScrolledWindow" id="nmap_results_scolled_window">
                 <property name="halign">baseline-fill</property>
-                <property name="has-frame">True</property>
                 <property name="hexpand">True</property>
                 <property name="hexpand-set">True</property>
                 <property name="kinetic-scrolling">False</property>

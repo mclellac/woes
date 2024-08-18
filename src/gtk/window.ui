@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<!-- Created with Cambalache 0.91.0 -->
+<!-- Created with Cambalache 0.91.1 -->
 <interface>
   <!-- interface-name window.ui -->
   <!-- interface-copyright (c) 2024 -->
@@ -48,7 +48,7 @@
                     <property name="title" bind-source="http_page" bind-property="title" bind-flags="sync-create"/>
                     <child>
                       <object class="AdwClampScrollable" id="http_clamp_scrollable">
-                        <property name="maximum-size">900</property>
+                        <property name="maximum-size">1400</property>
                         <property name="unit">px</property>
                         <child>
                           <object class="GtkBox" id="HttpPage">
@@ -78,7 +78,7 @@
                     <property name="vexpand-set">True</property>
                     <child>
                       <object class="AdwClampScrollable">
-                        <property name="maximum-size">900</property>
+                        <property name="maximum-size">1400</property>
                         <property name="unit">px</property>
                         <property name="vexpand">True</property>
                         <child>
@@ -161,6 +161,7 @@
     <property name="default-height">1000</property>
     <property name="default-width">1450</property>
     <property name="height-request">360</property>
+    <property name="overflow">hidden</property>
     <property name="title" translatable="yes">WebOps Evaluation Suite</property>
     <property name="width-request">360</property>
     <child>
