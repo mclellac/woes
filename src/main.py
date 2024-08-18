@@ -38,7 +38,6 @@ class WoesApplication(Adw.Application):
         win.present()
         self.win = win
 
-
     def on_about_action(self, widget, _):
         """Callback for the app.about action."""
         about = Adw.AboutWindow(

@@ -9,6 +9,7 @@ from . import HttpPage, NmapPage
 from .constants import APP_ID, RESOURCE_PREFIX, THEME_DARK, THEME_LIGHT
 from .style_utils import apply_font_size, apply_theme
 
+
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/window.ui")
 class WoesWindow(Adw.ApplicationWindow):
     __gtype_name__ = "WoesWindow"
@@ -42,7 +43,11 @@ class WoesWindow(Adw.ApplicationWindow):
         self.apply_preferences()
 
     def load_css(self):
-        css_file = THEME_DARK if self.style_manager.get_color_scheme() == Adw.ColorScheme.PREFER_DARK else THEME_LIGHT
+        css_file = (
+            THEME_DARK
+            if self.style_manager.get_color_scheme() == Adw.ColorScheme.PREFER_DARK
+            else THEME_LIGHT
+        )
         css_path = f"{RESOURCE_PREFIX}/{css_file}"
         style_provider = Gtk.CssProvider()
 
@@ -62,7 +67,9 @@ class WoesWindow(Adw.ApplicationWindow):
             font_size = self.settings.get_int("font-size")
             dark_theme_enabled = self.settings.get_boolean("dark-theme")
 
-            logging.debug(f"Applying preferences: font_size={font_size}, dark_theme_enabled={dark_theme_enabled}")
+            logging.debug(
+                f"Applying preferences: font_size={font_size}, dark_theme_enabled={dark_theme_enabled}"
+            )
             apply_font_size(self.settings, font_size)
             apply_theme(self.style_manager, dark_theme_enabled)
         except Exception as e:
@@ -71,4 +78,3 @@ class WoesWindow(Adw.ApplicationWindow):
     def on_page_switched(self, widget, gparam):
         selected_page = self.stack.get_visible_child()
         logging.debug(f"Page switched to: {selected_page.__class__.__name__}")
-
