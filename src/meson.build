@@ -68,6 +68,7 @@ woes_sources = files(
   'preferences.py',
   'style_utils.py',
   'http_page.py',
+  'nmap_scanner.py',
   'nmap_page.py',
   'constants.py',
 )
