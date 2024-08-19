@@ -20,18 +20,15 @@ class WoesWindow(Adw.ApplicationWindow):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        logging.debug("Initializing WoesWindow")
 
         self.settings = Gio.Settings(schema_id=APP_ID)
 
         # Initialize pages
         self.http_page = HttpPage()
         self.stack.add(self.http_page)
-        logging.debug("HttpPage added to stack")
 
         self.nmap_page = NmapPage()
         self.stack.add(self.nmap_page)
-        logging.debug("NmapPage added to stack")
 
         self.switcher_title.connect("notify::selected-page", self.on_page_switched)
 
@@ -58,23 +55,19 @@ class WoesWindow(Adw.ApplicationWindow):
                 style_provider,
                 Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
             )
-            logging.debug(f"CSS loaded and applied from: {css_path}")
         except Exception as e:
-            logging.error(f"Failed to load CSS from {css_path}: {e}")
+            print(f"Failed to load CSS from {css_path}: {e}")
 
     def apply_preferences(self):
         try:
             font_size = self.settings.get_int("font-size")
             dark_theme_enabled = self.settings.get_boolean("dark-theme")
 
-            logging.debug(
-                f"Applying preferences: font_size={font_size}, dark_theme_enabled={dark_theme_enabled}"
-            )
             apply_font_size(self.settings, font_size)
             apply_theme(self.style_manager, dark_theme_enabled)
         except Exception as e:
-            logging.error(f"Error applying preferences: {e}")
+            print(f"Error applying preferences: {e}")
 
     def on_page_switched(self, widget, gparam):
         selected_page = self.stack.get_visible_child()
-        logging.debug(f"Page switched to: {selected_page.__class__.__name__}")
+
