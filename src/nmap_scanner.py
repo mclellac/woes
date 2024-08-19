@@ -100,4 +100,3 @@ class NmapScanner:
             return {k: self.to_plain_dict(v) for k, v in data.items()}
         else:
             return data
-

@@ -220,7 +220,7 @@ class NmapPage(Gtk.Box):
         self.refresh_source_view()
 
     def on_nmap_target_listbox_row_selected(self, listbox: Gtk.ListBox, row: Gtk.ListBoxRow):
-        logging.debug("on_target_listbox_row_selected called")
+        logging.debug("on_nmap_target_listbox_row_selected called")
 
         if row is not None:
             child = row.get_child()
@@ -233,7 +233,7 @@ class NmapPage(Gtk.Box):
 
                 if results:
                     self.source_buffer.set_text(results)
-                    self.refresh_source_view()
+                    self.refresh_source_view()  # Ensure this is called after setting the buffer text
                     logging.debug(f"Source view updated with results for {selected_target}")
                 else:
                     logging.warning(f"No results found for {selected_target}")
@@ -241,6 +241,37 @@ class NmapPage(Gtk.Box):
                 logging.error("Row child is not a Gtk.Label, cannot retrieve target")
         else:
             logging.debug("No row is currently selected.")
+            self.source_buffer.set_text("")
+            self.refresh_source_view()
+            logging.debug("Cleared source view because no row is selected")
+
+    def refresh_source_view(self):
+        logging.debug("Entering refresh_source_view")
+
+        if not self.source_view:
+            logging.error("Source view is None; cannot refresh")
+            return
+
+        # Ensure the buffer text has been set correctly
+        buffer_text = self.source_buffer.get_text(
+            self.source_buffer.get_start_iter(),
+            self.source_buffer.get_end_iter(),
+            False
+        )
+        logging.debug(f"Source buffer text length: {len(buffer_text)}")
+
+        # Force the source view to redraw
+        self.source_view.queue_draw()
+
+        parent = self.source_view.get_parent()
+        if parent:
+            logging.debug("Source view has a parent; queuing resize and redraw for the parent")
+            parent.queue_resize()
+            parent.queue_draw()
+        else:
+            logging.warning("Source view does not have a parent; skipping parent refresh")
+
+        logging.debug("Exiting refresh_source_view")
 
     def update_nmap_results_view(self, args: tuple):
         logging.debug("update_nmap_results_view called")
