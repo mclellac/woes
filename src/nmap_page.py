@@ -1,4 +1,3 @@
-# nmap_page.py
 import logging
 import nmap
 import gi
@@ -253,12 +252,7 @@ class NmapPage(Gtk.Box):
             return
 
         # Ensure the buffer text has been set correctly
-        buffer_text = self.source_buffer.get_text(
-            self.source_buffer.get_start_iter(),
-            self.source_buffer.get_end_iter(),
-            False
-        )
-        logging.debug(f"Source buffer text length: {len(buffer_text)}")
+        logging.debug(f"Source buffer text length: {len(self.source_buffer.get_text(self.source_buffer.get_start_iter(), self.source_buffer.get_end_iter(), False))}")
 
         # Force the source view to redraw
         self.source_view.queue_draw()
@@ -316,30 +310,6 @@ class NmapPage(Gtk.Box):
         )
 
         self.refresh_source_view()
-
-    def refresh_source_view(self):
-        logging.debug("Entering refresh_source_view")
-
-        if not self.source_view:
-            logging.error("Source view is None; cannot refresh")
-            return
-
-        # Ensure the buffer text has been set correctly
-        logging.debug(f"Source buffer text length: {len(self.source_buffer.get_text(self.source_buffer.get_start_iter(), self.source_buffer.get_end_iter(), False))}")
-
-        # Force the source view to redraw
-        self.source_view.queue_draw()
-
-        parent = self.source_view.get_parent()
-        if parent:
-            logging.debug("Source view has a parent; queuing resize and redraw for the parent")
-            parent.queue_resize()
-            parent.queue_draw()
-        else:
-            logging.warning("Source view does not have a parent; skipping parent refresh")
-
-        logging.debug("Exiting refresh_source_view")
-
 
     def set_scan_status(self, progress: float, status_message: str):
         if progress == ScanStatus.IN_PROGRESS.value[0]:

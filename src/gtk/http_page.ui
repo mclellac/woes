@@ -8,13 +8,14 @@
     <property name="margin-top">20</property>
     <property name="orientation">vertical</property>
     <child>
-      <object class="GtkBox">
+      <object class="GtkBox" id="http_page_box">
         <property name="hexpand">True</property>
         <property name="margin-bottom">10</property>
         <property name="margin-end">10</property>
         <property name="margin-start">10</property>
         <property name="margin-top">10</property>
         <property name="orientation">vertical</property>
+        <property name="vexpand">True</property>
         <child>
           <object class="GtkListBox" id="http_list_box">
             <property name="activate-on-single-click">False</property>

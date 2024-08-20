@@ -45,15 +45,25 @@
                     <property name="description">This tool is ideal for developers, as well as systems and network administrators, who need to inspect HTTP headers for debugging, troubleshooting, and security analysis.</property>
                     <property name="halign">baseline-fill</property>
                     <property name="icon-name" bind-source="http_page" bind-property="icon-name" bind-flags="sync-create"/>
+                    <property name="overflow">hidden</property>
                     <property name="title" bind-source="http_page" bind-property="title" bind-flags="sync-create"/>
                     <child>
                       <object class="AdwClampScrollable" id="http_clamp_scrollable">
+                        <property name="hadjustment">
+                          <object class="GtkAdjustment"/>
+                        </property>
                         <property name="maximum-size">1400</property>
+                        <property name="tightening-threshold">500</property>
                         <property name="unit">px</property>
+                        <property name="vadjustment">
+                          <object class="GtkAdjustment"/>
+                        </property>
                         <child>
                           <object class="GtkBox" id="HttpPage">
                             <child>
-                              <object class="HttpPage"/>
+                              <object class="HttpPage">
+                                <property name="overflow">hidden</property>
+                              </object>
                             </child>
                           </object>
                         </child>
@@ -159,11 +169,11 @@
       </object>
     </property>
     <property name="default-height">1000</property>
-    <property name="default-width">1450</property>
-    <property name="height-request">360</property>
+    <property name="default-width">1000</property>
+    <property name="height-request">500</property>
     <property name="overflow">hidden</property>
     <property name="title" translatable="yes">WebOps Evaluation Suite</property>
-    <property name="width-request">360</property>
+    <property name="width-request">800</property>
     <child>
       <object class="AdwBreakpoint">
         <!-- Custom object fragments -->
