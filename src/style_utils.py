@@ -1,3 +1,4 @@
+# style_utils.py
 import logging
 import gi
 

@@ -1,3 +1,4 @@
+# preferences.py
 import logging
 import gi
 

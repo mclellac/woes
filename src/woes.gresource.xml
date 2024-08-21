@@ -20,5 +20,6 @@
     <file preprocess="xml-stripblanks">../data/icons/hicolor/symbolic/status/security-medium-rtl-symbolic.svg</file>
     <file preprocess="xml-stripblanks">../data/icons/hicolor/symbolic/status/security-medium-symbolic.svg</file>
     <file preprocess="xml-stripblanks">../data/icons/hicolor/symbolic/status/security-medium-symbolic-rtl.svg</file>
+    <file preprocess="xml-stripblanks">../data/icons/hicolor/symbolic/actions/globe-symbolic.svg</file>
   </gresource>
 </gresources>

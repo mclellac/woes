@@ -1,3 +1,4 @@
+# nmap_page.py
 import logging
 import nmap
 import gi

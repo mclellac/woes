@@ -74,6 +74,21 @@
         <child>
           <object class="AdwPreferencesGroup" id="advanced_group">
             <property name="title">Advanced</property>
+            <child>
+              <object class="AdwActionRow" id="dns_server_row">
+                <property name="subtitle">Change the DNS server used. Default is is your /etc/resolv.conf</property>
+                <property name="title">DNS Server</property>
+                <child>
+                  <object class="AdwEntryRow" id="dns_server_entry"/>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="AdwActionRow"/>
+            </child>
+            <child>
+              <object class="AdwActionRow"/>
+            </child>
           </object>
         </child>
       </object>

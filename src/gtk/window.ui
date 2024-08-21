@@ -43,10 +43,10 @@
                 <property name="child">
                   <object class="AdwStatusPage" id="http_status_page">
                     <property name="description">This tool is ideal for developers, as well as systems and network administrators, who need to inspect HTTP headers for debugging, troubleshooting, and security analysis.</property>
-                    <property name="halign">baseline-fill</property>
                     <property name="icon-name" bind-source="http_page" bind-property="icon-name" bind-flags="sync-create"/>
                     <property name="overflow">hidden</property>
                     <property name="title" bind-source="http_page" bind-property="title" bind-flags="sync-create"/>
+                    <property name="valign">start</property>
                     <child>
                       <object class="AdwClampScrollable" id="http_clamp_scrollable">
                         <property name="hadjustment">
@@ -117,44 +117,49 @@
               </object>
             </child>
             <child>
-              <object class="AdwViewStackPage" id="purger_page">
+              <object class="AdwViewStackPage" id="dns_page">
                 <property name="badge-number">0</property>
                 <property name="child">
-                  <object class="AdwStatusPage" id="purger_status_page">
-                    <property name="child">
-                      <object class="AdwClamp" id="purger_clamp">
-                        <property name="maximum-size">500</property>
-                      </object>
-                    </property>
+                  <object class="AdwStatusPage" id="dns_status_page">
+                    <property name="description">TODO</property>
+                    <property name="icon-name">org.gnome.Epiphany-symbolic</property>
                     <property name="margin-end">15</property>
                     <property name="margin-start">15</property>
-                    <property name="title" bind-source="purger_page" bind-property="title" bind-flags="sync-create"/>
+                    <property name="title" bind-source="dns_page" bind-property="title" bind-flags="sync-create">Domain Name Lookup</property>
                     <property name="valign">1</property>
+                    <child>
+                      <object class="AdwClampScrollable">
+                        <property name="maximum-size">1400</property>
+                        <property name="unit">px</property>
+                        <property name="vexpand">True</property>
+                      </object>
+                    </child>
                   </object>
                 </property>
-                <property name="icon-name">user-trash-symbolic</property>
-                <property name="name">purger_page</property>
-                <property name="title" translatable="yes">Cache Purge</property>
+                <property name="icon-name">org.gnome.Epiphany-symbolic</property>
+                <property name="title">DNS Lookup</property>
                 <property name="use-underline">true</property>
               </object>
             </child>
             <child>
-              <object class="AdwViewStackPage" id="stats_page">
+              <object class="AdwViewStackPage" id="webscan_page">
                 <property name="child">
-                  <object class="AdwStatusPage" id="stats_status_page">
+                  <object class="AdwStatusPage" id="webscan_status_page">
                     <property name="child">
-                      <object class="GtkBox" id="stats_box">
+                      <object class="GtkBox" id="webscan_box">
                         <property name="orientation">1</property>
                         <property name="valign">3</property>
                       </object>
                     </property>
-                    <property name="icon-name" bind-source="stats_page" bind-property="icon-name" bind-flags="sync-create"/>
-                    <property name="title" bind-source="stats_page" bind-property="title" bind-flags="sync-create"/>
+                    <property name="description">TODO</property>
+                    <property name="icon-name" bind-source="webscan_page" bind-property="icon-name" bind-flags="sync-create">org.gnome.Loupe-symbolic</property>
+                    <property name="title" bind-source="webscan_page" bind-property="title" bind-flags="sync-create">Web Scanner</property>
+                    <property name="valign">start</property>
                   </object>
                 </property>
                 <property name="icon-name">face-cool</property>
-                <property name="name">stats_page</property>
-                <property name="title" translatable="yes">Stats</property>
+                <property name="name">webscan_page</property>
+                <property name="title">Web Scan</property>
                 <property name="use-underline">true</property>
               </object>
             </child>

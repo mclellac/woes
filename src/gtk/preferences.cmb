@@ -19,7 +19,11 @@
 	(1,8,"AdwActionRow","font_size_row",3,None,None,None,2,None,None),
 	(1,9,"GtkScale","font_size_scale",8,None,"suffix",None,None,None,None),
 	(1,10,"GtkAdjustment",None,9,None,None,None,None,None,None),
-	(1,11,"AdwPreferencesGroup","advanced_group",2,None,None,None,1,None,None)
+	(1,11,"AdwPreferencesGroup","advanced_group",2,None,None,None,1,None,None),
+	(1,12,"AdwActionRow","dns_server_row",11,None,None,None,-1,None,None),
+	(1,13,"AdwActionRow",None,11,None,None,None,-1,None,None),
+	(1,14,"AdwActionRow",None,11,None,None,None,-1,None,None),
+	(1,15,"AdwEntryRow","dns_server_entry",12,None,None,None,None,None,None)
   </object>
   <object_property>
 	(1,1,"GtkWindow","modal","true",None,None,None,None,None,None,None,None,None),
@@ -43,7 +47,9 @@
 	(1,10,"GtkAdjustment","step-increment","1",None,None,None,None,None,None,None,None,None),
 	(1,10,"GtkAdjustment","upper","32",None,None,None,None,None,None,None,None,None),
 	(1,10,"GtkAdjustment","value","12",None,None,None,None,None,None,None,None,None),
-	(1,11,"AdwPreferencesGroup","title","Advanced",None,None,None,None,None,None,None,None,None)
+	(1,11,"AdwPreferencesGroup","title","Advanced",None,None,None,None,None,None,None,None,None),
+	(1,12,"AdwActionRow","subtitle","Change the DNS server used. Default is is your /etc/resolv.conf",None,None,None,None,None,None,None,None,None),
+	(1,12,"AdwPreferencesRow","title","DNS Server",None,None,None,None,None,None,None,None,None)
   </object_property>
   <object_data>
 	(1,7,"GtkStringList",1,1,None,None,None,None,None,None),

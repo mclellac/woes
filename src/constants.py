@@ -1,3 +1,4 @@
+# constants.py
 APP_ID = "com.github.mclellac.WebOpsEvaluationSuite"
 RESOURCE_PREFIX = "/com/github/mclellac/WebOpsEvaluationSuite/gtk"
 THEME_LIGHT = "style.css"

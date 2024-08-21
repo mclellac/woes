@@ -1,3 +1,4 @@
+# window.py
 import logging
 import gi
 
@@ -67,6 +68,12 @@ class WoesWindow(Adw.ApplicationWindow):
             apply_theme(self.style_manager, dark_theme_enabled)
         except Exception as e:
             print(f"Error applying preferences: {e}")
+
+    def setup_shortcuts(self):
+        # Add shortcuts for switching between pages
+        self.create_action("switch-to-http", lambda *_: self.stack.set_visible_child(self.http_page), ["<primary>1"])
+        self.create_action("switch-to-nmap", lambda *_: self.stack.set_visible_child(self.nmap_page), ["<primary>2"])
+
 
     def on_page_switched(self, widget, gparam):
         selected_page = self.stack.get_visible_child()
