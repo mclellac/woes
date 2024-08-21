@@ -112,7 +112,7 @@
                 </property>
                 <property name="icon-name">face-devilish</property>
                 <property name="name">nmap_page</property>
-                <property name="title">Nmap</property>
+                <property name="title">Port Scan</property>
                 <property name="use-underline">true</property>
               </object>
             </child>
@@ -137,7 +137,7 @@
                   </object>
                 </property>
                 <property name="icon-name">org.gnome.Epiphany-symbolic</property>
-                <property name="title">DNS Lookup</property>
+                <property name="title">DNS</property>
                 <property name="use-underline">true</property>
               </object>
             </child>
