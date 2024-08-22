@@ -80,7 +80,7 @@
 	(3,46,"GtkFrame","nmap_target_frame",45,None,None,None,None,None,None),
 	(3,47,"GtkFrame","nmap_results_frame",45,None,None,None,1,None,None),
 	(3,50,"GtkScrolledWindow","nmap_target_scrolled_window",46,None,None,None,-1,None,None),
-	(3,51,"GtkScrolledWindow","nmap_results_scolled_window",47,None,None,None,None,None,None),
+	(3,51,"GtkScrolledWindow","nmap_results_scrolled_window",47,None,None,None,None,None,None),
 	(3,53,"GtkListBox","nmap_target_listbox",50,None,None,None,-1,None,None)
   </object>
   <object_property>
@@ -308,6 +308,7 @@
 	(3,50,"GtkWidget","margin-top","10",None,None,None,None,None,None,None,None,None),
 	(3,50,"GtkWidget","vexpand","True",None,None,None,None,None,None,None,None,None),
 	(3,50,"GtkWidget","vexpand-set","True",None,None,None,None,None,None,None,None,None),
+	(3,51,"GtkScrolledWindow","has-frame","True",None,None,None,None,None,None,None,None,None),
 	(3,51,"GtkScrolledWindow","kinetic-scrolling","False",None,None,None,None,None,None,None,None,None),
 	(3,51,"GtkScrolledWindow","max-content-width","150",None,None,None,None,None,None,None,None,None),
 	(3,51,"GtkScrolledWindow","min-content-height","50",None,None,None,None,None,None,None,None,None),

@@ -23,9 +23,12 @@ class WoesApplication(Adw.Application):
         self.version = version
         self.win = None  # Store a reference to the main window
 
+        # Create actions and set accelerators
         self.create_action("quit", lambda *_: self.quit(), ["<primary>q"])
         self.create_action("about", self.on_about_action)
         self.create_action("preferences", self.on_preferences_action)
+        self.create_action("switch-to-http", self.switch_to_http, ["<primary>1"])
+        self.create_action("switch-to-nmap", self.switch_to_nmap, ["<primary>2"])
 
     def do_activate(self):
         """Called when the application is activated.
@@ -37,6 +40,14 @@ class WoesApplication(Adw.Application):
             win = WoesWindow(application=self)
         win.present()
         self.win = win
+
+    def switch_to_http(self, *args):
+        if self.win:
+            self.win.stack.set_visible_child(self.win.http_page)
+
+    def switch_to_nmap(self, *args):
+        if self.win:
+            self.win.stack.set_visible_child(self.win.nmap_page)
 
     def on_about_action(self, widget, _):
         """Callback for the app.about action."""
@@ -64,6 +75,7 @@ class WoesApplication(Adw.Application):
         self.add_action(action)
         if shortcuts:
             self.set_accels_for_action(f"app.{name}", shortcuts)
+
 
 
 def main(version=DEFAULT_VERSION):

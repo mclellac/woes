@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<!-- Created with Cambalache 0.91.0 -->
+<!-- Created with Cambalache 0.91.1 -->
 <interface>
   <requires lib="gtk" version="4.10"/>
   <requires lib="libadwaita" version="1.4"/>
@@ -190,8 +190,9 @@
             <property name="vexpand">True</property>
             <property name="vexpand-set">True</property>
             <child>
-              <object class="GtkScrolledWindow" id="nmap_results_scolled_window">
+              <object class="GtkScrolledWindow" id="nmap_results_scrolled_window">
                 <property name="halign">baseline-fill</property>
+                <property name="has-frame">True</property>
                 <property name="hexpand">True</property>
                 <property name="hexpand-set">True</property>
                 <property name="kinetic-scrolling">False</property>

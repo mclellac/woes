@@ -2,21 +2,18 @@
 import logging
 import requests
 import re
-
-from .constants import RESOURCE_PREFIX
-from typing import Dict, Optional
 from urllib.parse import urlparse
-
+from typing import Dict, Optional
 import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Gio, GObject, Gtk
+gi.require_version("GtkSource", "5")
+from gi.repository import Gio, GObject, Gtk, GLib
+from .constants import RESOURCE_PREFIX
+from .style_utils import set_widget_visibility
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 class HeaderItem(GObject.Object):
     key: str
@@ -47,11 +44,10 @@ class HttpPage(Gtk.Box):
         self.http_entry_row.connect("apply", self.http_page_on_entry_row_activated)
         self.http_pragma_switch_row.connect("notify::active", self.http_page_on_pragma_toggled)
         self.http_page_clear_error()
-        self.http_page_hide_column_view()
+        set_widget_visibility(False, self.http_header_frame, self.http_column_view)
 
     def http_page_on_entry_row_activated(self, entry_row: Gtk.Entry) -> None:
-        url = entry_row.get_text().strip()
-        url = self.http_page_ensure_scheme(url)
+        url = self.http_page_ensure_scheme(entry_row.get_text().strip())
 
         if not self.http_page_is_valid_url(url):
             self.http_page_display_error("<b>Invalid URL format:</b> Please enter a valid URL.")
@@ -59,8 +55,7 @@ class HttpPage(Gtk.Box):
             return
 
         self.http_page_clear_error()
-        use_akamai_pragma = self.http_pragma_switch_row.get_active()
-        headers = self.http_page_fetch_headers(url, use_akamai_pragma)
+        headers = self.http_page_fetch_headers(url, self.http_pragma_switch_row.get_active())
 
         if headers and "error" not in headers:
             self.http_page_update_column_view(headers)
@@ -70,13 +65,15 @@ class HttpPage(Gtk.Box):
             self.http_entry_row.add_css_class("error")
             self.http_page_update_column_view(None)
 
-    def http_page_ensure_scheme(self, url: str) -> str:
+    @staticmethod
+    def http_page_ensure_scheme(url: str) -> str:
         parsed_url = urlparse(url)
         if not parsed_url.scheme:
             url = "https://" + url
         return url
 
-    def http_page_is_valid_url(self, url: str) -> bool:
+    @staticmethod
+    def http_page_is_valid_url(url: str) -> bool:
         url_regex = re.compile(
             r'^(?:http|https)://'
             r'(?:\S+(?::\S*)?@)?'
@@ -87,6 +84,7 @@ class HttpPage(Gtk.Box):
             r'(?:/?|[/?]\S+)$', re.IGNORECASE)
 
         return re.match(url_regex, url) is not None and bool(urlparse(url).netloc)
+
 
     def http_page_fetch_headers(self, url: str, use_akamai_pragma: bool) -> Dict[str, str]:
         headers = {}
@@ -109,6 +107,7 @@ class HttpPage(Gtk.Box):
             response.raise_for_status()
             return dict(response.headers)
         except requests.exceptions.HTTPError as e:
+            # Maintain original HTTP error messages
             return {"error": self.http_page_format_http_error(e)}
         except requests.exceptions.ConnectionError:
             return {"error": "<b>Connection Error:</b> Failed to establish a connection."}
@@ -118,6 +117,7 @@ class HttpPage(Gtk.Box):
             return {"error": f"<b>Request Error:</b> {str(e)}"}
 
     def http_page_format_http_error(self, e: requests.exceptions.HTTPError) -> str:
+        # Maintain specific, custom HTTP error messages
         status_code = e.response.status_code
         if status_code == 404:
             return "<b>404 Not Found:</b> The requested URL was not found on this server."
@@ -133,8 +133,11 @@ class HttpPage(Gtk.Box):
 
     def http_page_update_column_view(self, headers: Optional[Dict[str, str]]) -> None:
         self.http_column_view.set_model(None)
+
+        # Remove all existing columns safely
         for column in list(self.http_column_view.get_columns()):
-            self.http_column_view.remove_column(column)
+            if column is not None:
+                self.http_column_view.remove_column(column)
 
         if headers and "error" not in headers:
             list_store = Gio.ListStore.new(HeaderItem)
@@ -162,39 +165,38 @@ class HttpPage(Gtk.Box):
         else:
             self.http_page_hide_column_view()
 
+    def http_page_show_column_view(self):
+        """Show the column view and related widgets."""
+        set_widget_visibility(True, self.http_header_frame, self.http_column_view)
+
+    def http_page_hide_column_view(self):
+        """Hide the column view and related widgets."""
+        set_widget_visibility(False, self.http_header_frame, self.http_column_view)
+
     def http_page_display_error(self, message: str) -> None:
         self.http_error_label.set_markup(message)
         self.http_error_label.set_visible(True)
         self.http_entry_row.add_css_class("error")
-        self.http_page_hide_column_view()
+        set_widget_visibility(False, self.http_header_frame, self.http_column_view)
 
     def http_page_clear_error(self) -> None:
         self.http_error_label.set_text("")
         self.http_error_label.set_visible(False)
         self.http_entry_row.remove_css_class("error")
 
-    def http_page_show_column_view(self) -> None:
-        self.http_header_frame.set_visible(True)
-        self.http_column_view.set_visible(True)
-
-    def http_page_hide_column_view(self) -> None:
-        self.http_header_frame.set_visible(False)
-        self.http_column_view.set_visible(False)
-
     @staticmethod
     def http_page_create_factory(attr_name: str, wrap_text: bool = False) -> Gtk.SignalListItemFactory:
         factory = Gtk.SignalListItemFactory()
 
-        def setup_func(factory: Gtk.SignalListItemFactory, list_item: Gtk.ListItem) -> None:
+        def setup_func(_, list_item: Gtk.ListItem) -> None:
             label = Gtk.Label(xalign=0)
             label.set_hexpand(True)
-            label.set_vexpand(True)
             if wrap_text:
                 label.set_wrap(True)
                 label.set_max_width_chars(80)
             list_item.set_child(label)
 
-        def bind_func(factory: Gtk.SignalListItemFactory, list_item: Gtk.ListItem) -> None:
+        def bind_func(_, list_item: Gtk.ListItem) -> None:
             label = list_item.get_child()
             item = list_item.get_item()
             text = getattr(item, attr_name, "")
