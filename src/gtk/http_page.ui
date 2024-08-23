@@ -59,23 +59,27 @@
             <child>
               <object class="GtkColumnView" id="http_column_view">
                 <property name="enable-rubberband">True</property>
-                <property name="halign">start</property>
+                <property name="halign">baseline-fill</property>
                 <property name="hexpand">True</property>
                 <property name="margin-bottom">10</property>
                 <property name="margin-end">10</property>
                 <property name="margin-start">10</property>
                 <property name="margin-top">10</property>
+                <property name="model">
+                  <object class="GtkMultiSelection"/>
+                </property>
                 <property name="reorderable">False</property>
                 <property name="show-column-separators">true</property>
                 <property name="show-row-separators">true</property>
                 <property name="valign">start</property>
+                <property name="vexpand">True</property>
                 <child>
                   <object class="GtkColumnViewColumn" id="header_name_column">
                     <property name="factory">
                       <object class="GtkSignalListItemFactory"/>
                     </property>
                     <property name="fixed-width">0</property>
-                    <property name="title" translatable="yes">HTTP Header</property>
+                    <property name="title" translatable="yes">Response Header</property>
                     <property name="visible">False</property>
                   </object>
                 </child>
@@ -85,11 +89,11 @@
                     <property name="factory">
                       <object class="GtkSignalListItemFactory"/>
                     </property>
-                    <property name="fixed-width">0</property>
+                    <property name="resizable">True</property>
                     <property name="sorter">
                       <object class="GtkColumnViewSorter"/>
                     </property>
-                    <property name="title" translatable="yes">Header Value</property>
+                    <property name="title" translatable="yes">Response Header Value</property>
                     <property name="visible">False</property>
                   </object>
                 </child>

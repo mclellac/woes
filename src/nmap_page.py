@@ -11,6 +11,7 @@ from .constants import RESOURCE_PREFIX
 from .nmap_scanner import NmapScanner, ScanStatus
 from .style_utils import apply_source_style_scheme
 
+
 logging.basicConfig(level=logging.WARN, format="%(asctime)s - %(levelname)s - %(message)s")
 
 class NmapItem(GObject.Object):
@@ -48,6 +49,8 @@ class NmapPage(Gtk.Box):
         self.source_view = self.init_source_view(self.source_buffer)
         self.apply_source_view_style()
         self.init_ui()
+
+
 
     def __del__(self):
         del self.scanner

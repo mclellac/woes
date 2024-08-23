@@ -12,6 +12,7 @@ gi.require_version("GtkSource", "5")
 from gi.repository import Gio, GObject, Gtk, GLib
 from .constants import RESOURCE_PREFIX
 from .style_utils import set_widget_visibility
+from .helper import Helper
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -38,13 +39,16 @@ class HttpPage(Gtk.Box):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.http_page_init_ui()
+        self.column_view_helper = Helper(self.http_column_view, self.get_root())
+
+
 
     def http_page_init_ui(self) -> None:
         self.http_entry_row.connect("entry-activated", self.http_page_on_entry_row_activated)
         self.http_entry_row.connect("apply", self.http_page_on_entry_row_activated)
         self.http_pragma_switch_row.connect("notify::active", self.http_page_on_pragma_toggled)
         self.http_page_clear_error()
-        set_widget_visibility(False, self.http_header_frame, self.http_column_view)
+
 
     def http_page_on_entry_row_activated(self, entry_row: Gtk.Entry) -> None:
         url = self.http_page_ensure_scheme(entry_row.get_text().strip())
@@ -145,18 +149,18 @@ class HttpPage(Gtk.Box):
                 wrapped_value = self.http_page_wrap_text(value)
                 list_store.append(HeaderItem(key, wrapped_value))
 
-            selection_model = Gtk.SingleSelection.new(list_store)
+            selection_model = Gtk.MultiSelection.new(list_store)
             self.http_column_view.set_model(selection_model)
 
-            header_name_column = Gtk.ColumnViewColumn.new("Header Name")
-            header_value_column = Gtk.ColumnViewColumn.new("Header Value")
+            header_name_column = Gtk.ColumnViewColumn.new("HTTP Response Header")
+            header_value_column = Gtk.ColumnViewColumn.new("Response Header Value")
 
             header_name_factory = self.http_page_create_factory("key")
             header_value_factory = self.http_page_create_factory("value", wrap_text=True)
 
             header_name_column.set_factory(header_name_factory)
             header_value_column.set_factory(header_value_factory)
-            header_value_column.set_expand(True)  # Ensure the column expands to fill available space
+            header_value_column.set_expand(True)
 
             self.http_column_view.append_column(header_name_column)
             self.http_column_view.append_column(header_value_column)
@@ -210,7 +214,7 @@ class HttpPage(Gtk.Box):
 
     @staticmethod
     def http_page_wrap_text(text: str) -> str:
-        max_line_length = 80
+        max_line_length = 120
         wrapped_lines = []
         for line in text.splitlines():
             while len(line) > max_line_length:
