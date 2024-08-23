@@ -24,7 +24,10 @@
             <property name="valign">baseline-center</property>
             <child>
               <object class="AdwEntryRow" id="http_entry_row">
+                <property name="activates-default">True</property>
+                <property name="focusable">True</property>
                 <property name="input-purpose">url</property>
+                <property name="max-width-chars">250</property>
                 <property name="show-apply-button">True</property>
                 <property name="title" translatable="yes">URL to fetch HTTP headers from</property>
               </object>

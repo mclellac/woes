@@ -1,6 +1,5 @@
 # helper.py
-import gi
-from gi.repository import Gtk, Gdk, Gio
+from gi.repository import Gtk, Gdk
 
 class Helper:
     """

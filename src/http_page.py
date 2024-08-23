@@ -9,7 +9,7 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 gi.require_version("GtkSource", "5")
-from gi.repository import Gio, GObject, Gtk, GLib
+from gi.repository import Gio, GObject, Gtk
 from .constants import RESOURCE_PREFIX
 from .style_utils import set_widget_visibility
 from .helper import Helper
@@ -136,7 +136,12 @@ class HttpPage(Gtk.Box):
             self.http_page_on_entry_row_activated(self.http_entry_row)
 
     def http_page_update_column_view(self, headers: Optional[Dict[str, str]]) -> None:
-        self.http_column_view.set_model(None)
+        # Clear the existing model if it exists
+        selection_model = self.http_column_view.get_model()
+        if selection_model:
+            list_store = selection_model.get_model()
+            if list_store:
+                list_store.remove_all()
 
         # Remove all existing columns safely
         for column in list(self.http_column_view.get_columns()):
@@ -149,9 +154,13 @@ class HttpPage(Gtk.Box):
                 wrapped_value = self.http_page_wrap_text(value)
                 list_store.append(HeaderItem(key, wrapped_value))
 
-            selection_model = Gtk.MultiSelection.new(list_store)
-            self.http_column_view.set_model(selection_model)
+            if selection_model:
+                selection_model.set_model(list_store)
+            else:
+                selection_model = Gtk.MultiSelection.new(list_store)
+                self.http_column_view.set_model(selection_model)
 
+            # Create new columns
             header_name_column = Gtk.ColumnViewColumn.new("HTTP Response Header")
             header_value_column = Gtk.ColumnViewColumn.new("Response Header Value")
 
@@ -168,6 +177,7 @@ class HttpPage(Gtk.Box):
             self.http_page_show_column_view()
         else:
             self.http_page_hide_column_view()
+
 
     def http_page_show_column_view(self):
         """Show the column view and related widgets."""
