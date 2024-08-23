@@ -53,9 +53,7 @@ class Preferences(Adw.PreferencesWindow):
             if self.main_window and hasattr(
                 self.main_window.nmap_page, "apply_source_style_scheme"
             ):
-                self.main_window.nmap_page.apply_source_style_scheme(
-                    source_style_scheme
-                )
+                self.main_window.nmap_page.apply_source_style_scheme(source_style_scheme)
             else:
                 logging.error("NmapPage does not have apply_source_style_scheme method")
 

@@ -1,20 +1,23 @@
 # http_page.py
-import logging
-import requests
-import re
-from urllib.parse import urlparse
-from typing import Dict, Optional
 import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 gi.require_version("GtkSource", "5")
 from gi.repository import Gio, GObject, Gtk
+import re
+import logging
+import requests
+
+from typing import Dict, Optional
+from urllib.parse import urlparse
+
 from .constants import RESOURCE_PREFIX
-from .style_utils import set_widget_visibility
 from .helper import Helper
+from .style_utils import set_widget_visibility
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
 
 class HeaderItem(GObject.Object):
     key: str
@@ -24,6 +27,7 @@ class HeaderItem(GObject.Object):
         super().__init__()
         self.key = key
         self.value = value
+
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/http_page.ui")
 class HttpPage(Gtk.Box):
@@ -41,14 +45,11 @@ class HttpPage(Gtk.Box):
         self.http_page_init_ui()
         self.column_view_helper = Helper(self.http_column_view, self.get_root())
 
-
-
     def http_page_init_ui(self) -> None:
         self.http_entry_row.connect("entry-activated", self.http_page_on_entry_row_activated)
         self.http_entry_row.connect("apply", self.http_page_on_entry_row_activated)
         self.http_pragma_switch_row.connect("notify::active", self.http_page_on_pragma_toggled)
         self.http_page_clear_error()
-
 
     def http_page_on_entry_row_activated(self, entry_row: Gtk.Entry) -> None:
         url = self.http_page_ensure_scheme(entry_row.get_text().strip())
@@ -65,7 +66,9 @@ class HttpPage(Gtk.Box):
             self.http_page_update_column_view(headers)
             self.http_entry_row.remove_css_class("error")
         else:
-            self.http_page_display_error(headers.get("error", "<b>Unknown error:</b> Failed to fetch headers."))
+            self.http_page_display_error(
+                headers.get("error", "<b>Unknown error:</b> Failed to fetch headers.")
+            )
             self.http_entry_row.add_css_class("error")
             self.http_page_update_column_view(None)
 
@@ -79,16 +82,17 @@ class HttpPage(Gtk.Box):
     @staticmethod
     def http_page_is_valid_url(url: str) -> bool:
         url_regex = re.compile(
-            r'^(?:http|https)://'
-            r'(?:\S+(?::\S*)?@)?'
-            r'(?:[A-Za-z0-9.-]+\.[A-Za-z]{2,}|localhost|'
-            r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|'
-            r'\[?[A-Fa-f0-9]*:[A-Fa-f0-9:]+\]?)'
-            r'(?::\d+)?'
-            r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+            r"^(?:http|https)://"
+            r"(?:\S+(?::\S*)?@)?"
+            r"(?:[A-Za-z0-9.-]+\.[A-Za-z]{2,}|localhost|"
+            r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|"
+            r"\[?[A-Fa-f0-9]*:[A-Fa-f0-9:]+\]?)"
+            r"(?::\d+)?"
+            r"(?:/?|[/?]\S+)$",
+            re.IGNORECASE,
+        )
 
         return re.match(url_regex, url) is not None and bool(urlparse(url).netloc)
-
 
     def http_page_fetch_headers(self, url: str, use_akamai_pragma: bool) -> Dict[str, str]:
         headers = {}
@@ -178,7 +182,6 @@ class HttpPage(Gtk.Box):
         else:
             self.http_page_hide_column_view()
 
-
     def http_page_show_column_view(self):
         """Show the column view and related widgets."""
         set_widget_visibility(True, self.http_header_frame, self.http_column_view)
@@ -199,7 +202,9 @@ class HttpPage(Gtk.Box):
         self.http_entry_row.remove_css_class("error")
 
     @staticmethod
-    def http_page_create_factory(attr_name: str, wrap_text: bool = False) -> Gtk.SignalListItemFactory:
+    def http_page_create_factory(
+        attr_name: str, wrap_text: bool = False
+    ) -> Gtk.SignalListItemFactory:
         factory = Gtk.SignalListItemFactory()
 
         def setup_func(_, list_item: Gtk.ListItem) -> None:
@@ -224,7 +229,7 @@ class HttpPage(Gtk.Box):
 
     @staticmethod
     def http_page_wrap_text(text: str) -> str:
-        max_line_length = 120
+        max_line_length = 80
         wrapped_lines = []
         for line in text.splitlines():
             while len(line) > max_line_length:

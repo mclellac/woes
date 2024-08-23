@@ -1,6 +1,7 @@
 # helper.py
 from gi.repository import Gtk, Gdk
 
+
 class Helper:
     """
     A helper class to add keyboard shortcuts and context menu functionality
@@ -121,4 +122,3 @@ class Helper:
                 clipboard = self.widget.get_clipboard()
                 content_provider = Gdk.ContentProvider.new_for_value(clipboard_text)
                 clipboard.set_content(content_provider)
-

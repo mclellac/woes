@@ -38,7 +38,11 @@ class WoesWindow(Adw.ApplicationWindow):
         self.stack.add(self.nmap_page)
 
     def load_css(self):
-        css_file = THEME_DARK if self.style_manager.get_color_scheme() == Adw.ColorScheme.PREFER_DARK else THEME_LIGHT
+        css_file = (
+            THEME_DARK
+            if self.style_manager.get_color_scheme() == Adw.ColorScheme.PREFER_DARK
+            else THEME_LIGHT
+        )
         css_path = f"{RESOURCE_PREFIX}/{css_file}"
         style_provider = Gtk.CssProvider()
 
@@ -65,4 +69,3 @@ class WoesWindow(Adw.ApplicationWindow):
     def on_page_switched(self, widget, gparam):
         selected_page = self.stack.get_visible_child()
         logging.debug(f"Switched to page: {selected_page}")
-

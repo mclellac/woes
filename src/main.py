@@ -17,9 +17,7 @@ class WoesApplication(Adw.Application):
     """The main application singleton class."""
 
     def __init__(self, version=DEFAULT_VERSION):
-        super().__init__(
-            application_id=APP_ID, flags=Gio.ApplicationFlags.DEFAULT_FLAGS
-        )
+        super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.DEFAULT_FLAGS)
         self.version = version
         self.win = None  # Store a reference to the main window
 
@@ -75,7 +73,6 @@ class WoesApplication(Adw.Application):
         self.add_action(action)
         if shortcuts:
             self.set_accels_for_action(f"app.{name}", shortcuts)
-
 
 
 def main(version=DEFAULT_VERSION):

@@ -38,9 +38,7 @@ class NmapScanner:
             ipv4_address
         )  # Escaping curly braces for the CIDR notation
 
-        addr_regex = (
-            r"^(localhost|" r"{}|" r"{}|" r"{})$".format(ipv4_address, fqdn, cidr)
-        )
+        addr_regex = r"^(localhost|" r"{}|" r"{}|" r"{})$".format(ipv4_address, fqdn, cidr)
 
         targets = re.split(r"[ ,]+", target.strip())
 
@@ -52,7 +50,9 @@ class NmapScanner:
 
         return all(re.match(addr_regex, t) for t in targets)
 
-    def build_nmap_options(self, os_fingerprinting: bool, scan_all_ports: bool, selected_script: str) -> str:
+    def build_nmap_options(
+        self, os_fingerprinting: bool, scan_all_ports: bool, selected_script: str
+    ) -> str:
         options = ScanOptions.DEFAULT.value
         if os_fingerprinting:
             options += f" {ScanOptions.OS_FINGERPRINTING.value}"
@@ -63,7 +63,9 @@ class NmapScanner:
         logging.debug(f"Nmap options constructed: {options}")
         return options
 
-    def run_nmap_scan(self, target: str, os_fingerprinting: bool, scan_all_ports: bool, selected_script: str):
+    def run_nmap_scan(
+        self, target: str, os_fingerprinting: bool, scan_all_ports: bool, selected_script: str
+    ):
         logging.debug(
             f"Running Nmap scan for target: {target} with options: {self.build_nmap_options(os_fingerprinting, scan_all_ports, selected_script)}"
         )
