@@ -44,6 +44,10 @@ class Preferences(Adw.PreferencesWindow):
         apply_theme(Adw.StyleManager.get_default(), theme_enabled)
         self.settings.set_boolean("dark-theme", theme_enabled)
 
+        # Here, we access the main_window instance and call reload_css
+        if self.main_window and hasattr(self.main_window, "reload_css"):
+            self.main_window.reload_css()
+
     def on_source_style_scheme_changed(self, combo_row, gparam):
         selected_item = combo_row.get_selected_item()
         if isinstance(selected_item, Gtk.StringObject):

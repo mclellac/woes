@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 class ScanOptions(Enum):
     DEFAULT = "-T4"
-    OS_FINGERPRINTING = "-A"
+    OS_FINGERPRINTING = "-O -A"
     ALL_PORTS = "-p-"
     SCRIPT = "--script="
 

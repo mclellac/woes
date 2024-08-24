@@ -1,7 +1,7 @@
 {
     "app-id": "com.github.mclellac.WebOpsEvaluationSuite",
     "runtime": "org.gnome.Platform",
-    "runtime-version": "master",
+    "runtime-version": "47beta",
     "sdk": "org.gnome.Sdk",
     "command": "woes",
     "finish-args": [

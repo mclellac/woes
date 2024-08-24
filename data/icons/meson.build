@@ -47,3 +47,16 @@ foreach icon : status_icons
     install_dir: get_option('datadir') / 'icons/hicolor/symbolic/status'
   )
 endforeach
+
+# Install the action icons
+action_icons = [
+  'globe-symbolic.svg',
+  'globe-alt-symbolic.svg'
+]
+
+foreach icon : action_icons
+  install_data(
+    'hicolor/symbolic/actions/' / icon,
+    install_dir: get_option('datadir') / 'icons/hicolor/symbolic/actions'
+  )
+endforeach

@@ -6,7 +6,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, Gio, Gtk
 from . import HttpPage, NmapPage
-from .constants import APP_ID, RESOURCE_PREFIX, THEME_DARK, THEME_LIGHT
+from .constants import APP_ID, RESOURCE_PREFIX
 from .style_utils import apply_font_size, apply_theme
 
 
@@ -38,10 +38,11 @@ class WoesWindow(Adw.ApplicationWindow):
         self.stack.add(self.nmap_page)
 
     def load_css(self):
+        # Determine which CSS file to use based on the current theme
         css_file = (
-            THEME_DARK
+            "style-dark.css"
             if self.style_manager.get_color_scheme() == Adw.ColorScheme.PREFER_DARK
-            else THEME_LIGHT
+            else "style.css"
         )
         css_path = f"{RESOURCE_PREFIX}/{css_file}"
         style_provider = Gtk.CssProvider()
@@ -53,8 +54,13 @@ class WoesWindow(Adw.ApplicationWindow):
                 style_provider,
                 Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
             )
+            logging.debug(f"Loaded CSS from {css_path}")
         except Exception as e:
             logging.error(f"Failed to load CSS from {css_path}: {e}")
+
+    def reload_css(self):
+        logging.debug("Reloading CSS based on theme preference.")
+        self.load_css()
 
     def apply_preferences(self):
         try:
