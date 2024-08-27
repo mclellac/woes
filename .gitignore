@@ -12,6 +12,7 @@ build/
 build-dir/
 .ruff_cache/
 .flatpak-builder/
+flatpak/*.json
 develop-eggs/
 dist/
 downloads/

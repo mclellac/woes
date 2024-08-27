@@ -2,109 +2,79 @@
 import os
 import subprocess
 import shutil
+import sys
 
-def run_command(command, cwd=None):
-    """Run a shell command and print its output."""
-    result = subprocess.run(command, shell=True, cwd=cwd, capture_output=True, text=True)
-    if result.returncode != 0:
-        print(f"Error: Command '{command}' failed with error:\n{result.stderr}")
-        exit(1)
-    else:
-        print(result.stdout)
+# Constants
+FLATPAK_MANIFEST = "com.github.mclellac.WebOpsEvaluationSuite.json"
+BUILD_DIR = "build-dir"
+REPO_DIR = "repo"
+FLATPAK_DIR = "flatpak"
+FLATPAK_BUNDLE = "WebOpsEvaluationSuite.flatpak"
 
-def is_installed(command):
-    """Check if a command is installed."""
-    result = subprocess.run(f"command -v {command}", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    return result.returncode == 0
-
-def install_package(package_name):
-    """Install the specified package using the appropriate package manager."""
+def run_command(command, check=True):
+    """Run a shell command with error handling and verbosity."""
     try:
-        distro = get_distro()
+        print(f"Running command: {' '.join(command)}")
+        subprocess.run(command, check=check, stdout=sys.stdout, stderr=sys.stderr)
+    except subprocess.CalledProcessError as e:
+        print(f"Error: Command '{' '.join(command)}' failed with return code {e.returncode}")
+        sys.exit(1)
+
+def ensure_flatpak_installed():
+    """Ensure that flatpak and flatpak-builder are installed."""
+    try:
+        subprocess.run(["flatpak", "--version"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        subprocess.run(["flatpak-builder", "--version"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    except subprocess.CalledProcessError:
+        print("Flatpak or flatpak-builder not installed. Installing...")
+        distro = os.popen("lsb_release -is").read().strip().lower()
+
         if distro in ["arch", "manjaro"]:
-            run_command(f"sudo pacman -Sy --noconfirm {package_name}")
-        elif distro in ["fedora", "rhel", "centos"]:
-            run_command(f"sudo dnf install -y {package_name}")
-        elif distro in ["debian", "ubuntu", "kali"]:
-            run_command(f"sudo apt-get update && sudo apt-get install -y {package_name}")
+            run_command(["sudo", "pacman", "-S", "--noconfirm", "flatpak", "flatpak-builder"])
+        elif distro in ["ubuntu", "debian", "kali"]:
+            run_command(["sudo", "apt-get", "update"])
+            run_command(["sudo", "apt-get", "install", "-y", "flatpak", "flatpak-builder"])
+        elif distro in ["fedora"]:
+            run_command(["sudo", "dnf", "install", "-y", "flatpak", "flatpak-builder"])
         else:
-            print(f"Unsupported distribution: {distro}")
-            exit(1)
-    except Exception as e:
-        print(f"Failed to install {package_name}: {str(e)}")
-        exit(1)
+            print("Unsupported distribution. Please install flatpak and flatpak-builder manually.")
+            sys.exit(1)
 
-def get_distro():
-    """Determine the Linux distribution."""
-    try:
-        with open("/etc/os-release") as f:
-            release_info = f.read().lower()
-            if "arch" in release_info:
-                return "arch"
-            elif "manjaro" in release_info:
-                return "manjaro"
-            elif "fedora" in release_info:
-                return "fedora"
-            elif "rhel" in release_info:
-                return "rhel"
-            elif "centos" in release_info:
-                return "centos"
-            elif "debian" in release_info:
-                return "debian"
-            elif "ubuntu" in release_info:
-                return "ubuntu"
-            elif "kali" in release_info:
-                return "kali"
-            else:
-                return "unknown"
-    except FileNotFoundError:
-        print("Error: Unable to determine the Linux distribution.")
-        exit(1)
+def clean_up():
+    """Clean up build directories and repository."""
+    print(f"Removing directory: {BUILD_DIR}")
+    shutil.rmtree(BUILD_DIR, ignore_errors=True)
 
-def clean_up(directories):
-    """Remove specified directories if they exist."""
-    for directory in directories:
-        if os.path.exists(directory):
-            print(f"Removing directory: {directory}")
-            shutil.rmtree(directory)
+    print(f"Removing directory: {REPO_DIR}")
+    shutil.rmtree(REPO_DIR, ignore_errors=True)
 
-def main():
-    # Check for required tools
-    if not is_installed("flatpak"):
-        print("Flatpak is not installed. Installing Flatpak...")
-        install_package("flatpak")
-
-    if not is_installed("flatpak-builder"):
-        print("Flatpak Builder is not installed. Installing Flatpak Builder...")
-        install_package("flatpak-builder")
-
-    app_id = "com.github.mclellac.WebOpsEvaluationSuite"
-    manifest_file = f"{app_id}.json"
-    build_dir = "build-dir"
-    repo_dir = "repo"
-    flatpak_dir = "flatpak"
-    flatpak_file = os.path.join(flatpak_dir, f"{app_id}.flatpak")
-
-    # Clean up any previous build artifacts
-    clean_up([build_dir, repo_dir, flatpak_dir])
-
-    # Create the flatpak directory
-    os.makedirs(flatpak_dir, exist_ok=True)
-
-    # Build the Flatpak application
+def build_flatpak():
+    """Build the Flatpak application and bundle it."""
     print("Building the Flatpak application...")
-    run_command(f"flatpak-builder --repo={repo_dir} {build_dir} {manifest_file}")
+
+    # Ensure flatpak is installed
+    ensure_flatpak_installed()
+
+    # Clean previous builds
+    clean_up()
+
+    # Build the Flatpak
+    run_command(["flatpak-builder", "--force-clean", "-v", BUILD_DIR, FLATPAK_MANIFEST])
+
+    # Create a repository from the build
+    run_command(["flatpak-builder", "--repo=" + REPO_DIR, "--force-clean", BUILD_DIR, FLATPAK_MANIFEST])
 
     # Create the Flatpak bundle
-    print("Creating the Flatpak bundle...")
-    run_command(f"flatpak build-bundle {repo_dir} {flatpak_file} {app_id}")
+    if not os.path.exists(FLATPAK_DIR):
+        os.makedirs(FLATPAK_DIR)
 
-    # Copy relevant files to the flatpak directory
-    print("Copying files to the flatpak directory...")
-    shutil.copy(manifest_file, flatpak_dir)
+    flatpak_bundle_path = os.path.join(FLATPAK_DIR, FLATPAK_BUNDLE)
+    run_command(["flatpak", "build-bundle", "-v", REPO_DIR, flatpak_bundle_path, "com.github.mclellac.WebOpsEvaluationSuite"])
 
-    print(f"Build complete. The Flatpak file and manifest are in the '{flatpak_dir}' directory.")
+    print(f"Flatpak bundle created at {flatpak_bundle_path}")
+
+    # Clean up build directories and repo after bundling
+    clean_up()
 
 if __name__ == "__main__":
-    main()
-
+    build_flatpak()
