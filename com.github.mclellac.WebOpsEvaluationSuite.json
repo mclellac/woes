@@ -46,16 +46,31 @@
             }
         },
         {
-            "name": "python3-requests",
-            "buildsystem": "simple",
-            "build-commands": [
-                "pip3 install --no-cache-dir --prefix=/app git+https://github.com/psf/requests.git"
-            ],
-            "build-options": {
-                "build-args": [
-                    "--share=network"
-                ]
-            }
+          "name": "dnspython",
+          "buildsystem": "simple",
+          "build-commands": [
+            "pip3 install --prefix=/app git+https://github.com/rthalley/dnspython.git"
+          ],
+          "build-options": {
+            "env": {
+              "FLATPAK_BUILD": "1"
+            },
+            "build-args": [
+              "--share=network"
+            ]
+          }
+        },
+        {
+          "name": "python3-requests",
+          "buildsystem": "simple",
+          "build-commands": [
+            "pip3 install --no-cache-dir --prefix=/app git+https://github.com/psf/requests.git"
+          ],
+          "build-options": {
+            "build-args": [
+              "--share=network"
+            ]
+          }
         },
         {
             "name": "pyyaml",

@@ -4,7 +4,8 @@
   <ui>
 	(1,1,"window.ui","window.ui",None,"(c) 2024","Carey McLelland &lt;careymclelland@gmail.com&gt;",None,None,None,None),
 	(2,1,None,"http_page.ui",None,None,None,None,None,None,None),
-	(3,1,None,"nmap_page.ui",None,None,None,None,None,None,None)
+	(3,1,None,"nmap_page.ui",None,None,None,None,None,None,None),
+	(7,1,None,"dns_page.ui",None,None,None,None,None,None,None)
   </ui>
   <ui_library>
 	(1,"gio","2.44",None),
@@ -55,6 +56,8 @@
 	(1,43,"GtkAdjustment",None,9,None,None,None,1,None,None),
 	(1,44,"GtkAdjustment",None,9,None,None,None,2,None,None),
 	(1,45,"AdwClampScrollable",None,26,None,None,None,0,None,None),
+	(1,46,"DNSPage","DNSPage",47,None,None,None,0,None,None),
+	(1,47,"GtkBox","DnsPageBox",45,None,None,None,0,None,None),
 	(2,1,"GtkBox","HttpPage",None,None,None,None,0,None,None),
 	(2,14,"GtkBox","http_page_box",1,None,None,None,1,None,None),
 	(2,15,"GtkListBox","http_list_box",14,None,None,None,0,None,None),
@@ -85,7 +88,17 @@
 	(3,47,"GtkFrame","nmap_results_frame",45,None,None,None,1,None,None),
 	(3,50,"GtkScrolledWindow","nmap_target_scrolled_window",46,None,None,None,0,None,None),
 	(3,51,"GtkScrolledWindow","nmap_results_scrolled_window",47,None,None,None,0,None,None),
-	(3,53,"GtkListBox","nmap_target_listbox",50,None,None,None,0,None,None)
+	(3,53,"GtkListBox","nmap_target_listbox",50,None,None,None,0,None,None),
+	(7,1,"GtkBox","DNSPage",None,None,None,None,0,None,None),
+	(7,2,"GtkListBox","dns_listbox",1,None,None,None,0,None,None),
+	(7,3,"AdwEntryRow","dns_ip_entryrow",2,None,None,None,0,None,None),
+	(7,8,"GtkGrid","dns_grid",1,None,None,None,1,None,None),
+	(7,11,"GtkLabel","dns_errors_label",8,None,None,None,0,None,None),
+	(7,12,"GtkGrid","dns_results_grid",1,None,None,None,2,None,None),
+	(7,16,"GtkFrame","dns_results_frame",12,None,None,None,0,None,None),
+	(7,17,"GtkScrolledWindow","dns_results_scrolled_window",16,None,None,None,0,None,None),
+	(7,18,"AdwComboRow","dns_record_type_dropdown",2,None,None,None,1,None,None),
+	(7,19,"GtkStringList","dns_record_type_list",18,None,None,None,0,None,None)
   </object>
   <object_property>
 	(1,1,"AdwApplicationWindow","content",None,None,None,None,None,2,None,None,None,None),
@@ -137,7 +150,7 @@
 	(1,25,"AdwViewStackPage","icon-name","org.gnome.Epiphany-symbolic",None,None,None,None,None,None,None,None,None),
 	(1,25,"AdwViewStackPage","title","DNS",None,None,None,None,None,None,None,None,None),
 	(1,25,"AdwViewStackPage","use-underline","true",None,None,None,None,None,None,None,None,None),
-	(1,26,"AdwStatusPage","description","TODO",None,None,None,None,None,None,None,None,None),
+	(1,26,"AdwStatusPage","description","The DNS tool allows users to perform DNS queries for various record types, including &lt;b&gt;A&lt;/b&gt;, &lt;b&gt;TXT&lt;/b&gt;, &lt;b&gt;CNAME&lt;/b&gt; and others. By entering an IP address, users can perform reverse DNS lookups.",None,None,None,None,None,None,None,None,None),
 	(1,26,"AdwStatusPage","icon-name","org.gnome.Epiphany-symbolic",None,None,None,None,None,None,None,None,None),
 	(1,26,"AdwStatusPage","title","Domain Name Lookup",None,None,None,None,None,25,"AdwViewStackPage","title","sync-create"),
 	(1,26,"GtkWidget","margin-end","15",None,None,None,None,None,None,None,None,None),
@@ -332,7 +345,64 @@
 	(3,51,"GtkWidget","vexpand-set","True",None,None,None,None,None,None,None,None,None),
 	(3,53,"GtkWidget","css-classes","card\n",None,None,None,None,None,None,None,None,None),
 	(3,53,"GtkWidget","vexpand","True",None,None,None,None,None,None,None,None,None),
-	(3,53,"GtkWidget","vexpand-set","True",None,None,None,None,None,None,None,None,None)
+	(3,53,"GtkWidget","vexpand-set","True",None,None,None,None,None,None,None,None,None),
+	(7,1,"GtkOrientable","orientation","vertical",0,None,None,None,None,None,None,None,None),
+	(7,1,"GtkWidget","halign","baseline-fill",0,None,None,None,None,None,None,None,None),
+	(7,1,"GtkWidget","hexpand","True",0,None,None,None,None,None,None,None,None),
+	(7,1,"GtkWidget","hexpand-set","True",0,None,None,None,None,None,None,None,None),
+	(7,1,"GtkWidget","vexpand","True",0,None,None,None,None,None,None,None,None),
+	(7,1,"GtkWidget","vexpand-set","True",0,None,None,None,None,None,None,None,None),
+	(7,2,"GtkListBox","activate-on-single-click","False",0,None,None,None,None,None,None,None,None),
+	(7,2,"GtkListBox","selection-mode","0",0,None,None,None,None,None,None,None,None),
+	(7,2,"GtkWidget","halign","baseline-fill",0,None,None,None,None,None,None,None,None),
+	(7,2,"GtkWidget","valign","baseline-center",0,None,None,None,None,None,None,None,None),
+	(7,3,"AdwEntryRow","input-purpose","url",0,None,None,None,None,None,None,None,None),
+	(7,3,"AdwEntryRow","show-apply-button","True",0,None,None,None,None,None,None,None,None),
+	(7,3,"AdwPreferencesRow","title","Domain to lookup (or use an IP for reverse)",None,None,None,None,None,None,None,None,None),
+	(7,8,"GtkWidget","halign","baseline-center",0,None,None,None,None,None,None,None,None),
+	(7,11,"GtkLabel","natural-wrap-mode","word",0,None,None,None,None,None,None,None,None),
+	(7,11,"GtkLabel","use-markup","True",0,None,None,None,None,None,None,None,None),
+	(7,11,"GtkLabel","width-chars","30",0,None,None,None,None,None,None,None,None),
+	(7,11,"GtkLabel","wrap","True",0,None,None,None,None,None,None,None,None),
+	(7,11,"GtkWidget","margin-bottom","10",0,None,None,None,None,None,None,None,None),
+	(7,11,"GtkWidget","margin-end","10",0,None,None,None,None,None,None,None,None),
+	(7,11,"GtkWidget","margin-start","10",0,None,None,None,None,None,None,None,None),
+	(7,11,"GtkWidget","margin-top","10",0,None,None,None,None,None,None,None,None),
+	(7,11,"GtkWidget","overflow","hidden",None,None,None,None,None,None,None,None,None),
+	(7,11,"GtkWidget","visible","False",None,None,None,None,None,None,None,None,None),
+	(7,12,"GtkWidget","halign","baseline-fill",0,None,None,None,None,None,None,None,None),
+	(7,12,"GtkWidget","hexpand","True",0,None,None,None,None,None,None,None,None),
+	(7,12,"GtkWidget","margin-bottom","10",0,None,None,None,None,None,None,None,None),
+	(7,12,"GtkWidget","margin-top","10",0,None,None,None,None,None,None,None,None),
+	(7,12,"GtkWidget","valign","baseline-fill",0,None,None,None,None,None,None,None,None),
+	(7,12,"GtkWidget","vexpand","True",0,None,None,None,None,None,None,None,None),
+	(7,12,"GtkWidget","vexpand-set","True",0,None,None,None,None,None,None,None,None),
+	(7,16,"GtkFrame","label-xalign","0.5",0,None,None,None,None,None,None,None,None),
+	(7,16,"GtkWidget","halign","baseline-fill",0,None,None,None,None,None,None,None,None),
+	(7,16,"GtkWidget","hexpand","True",0,None,None,None,None,None,None,None,None),
+	(7,16,"GtkWidget","hexpand-set","True",0,None,None,None,None,None,None,None,None),
+	(7,16,"GtkWidget","overflow","hidden",None,None,None,None,None,None,None,None,None),
+	(7,16,"GtkWidget","vexpand","True",0,None,None,None,None,None,None,None,None),
+	(7,16,"GtkWidget","vexpand-set","True",0,None,None,None,None,None,None,None,None),
+	(7,17,"GtkScrolledWindow","has-frame","True",0,None,None,None,None,None,None,None,None),
+	(7,17,"GtkScrolledWindow","kinetic-scrolling","False",0,None,None,None,None,None,None,None,None),
+	(7,17,"GtkScrolledWindow","max-content-width","150",0,None,None,None,None,None,None,None,None),
+	(7,17,"GtkScrolledWindow","min-content-height","400",0,None,None,None,None,None,None,None,None),
+	(7,17,"GtkWidget","halign","baseline-fill",0,None,None,None,None,None,None,None,None),
+	(7,17,"GtkWidget","hexpand","True",0,None,None,None,None,None,None,None,None),
+	(7,17,"GtkWidget","hexpand-set","True",0,None,None,None,None,None,None,None,None),
+	(7,17,"GtkWidget","overflow","hidden",None,None,None,None,None,None,None,None,None),
+	(7,17,"GtkWidget","vexpand","True",0,None,None,None,None,None,None,None,None),
+	(7,17,"GtkWidget","vexpand-set","True",0,None,None,None,None,None,None,None,None),
+	(7,18,"AdwActionRow","icon-name","preferences-system-network-symbolic",0,None,None,None,None,None,None,None,None),
+	(7,18,"AdwActionRow","subtitle-lines","1",0,None,None,None,None,None,None,None,None),
+	(7,18,"AdwComboRow","model",None,0,None,None,None,19,None,None,None,None),
+	(7,18,"AdwComboRow","selected","0",0,None,None,None,None,None,None,None,None),
+	(7,18,"AdwPreferencesRow","title","Record type",0,None,None,None,None,None,None,None,None),
+	(7,18,"GtkWidget","hexpand","True",0,None,None,None,None,None,None,None,None),
+	(7,18,"GtkWidget","hexpand-set","True",0,None,None,None,None,None,None,None,None),
+	(7,18,"GtkWidget","valign","baseline-fill",0,None,None,None,None,None,None,None,None),
+	(7,19,"GtkStringList","strings","A",None,None,None,None,None,None,None,None,None)
   </object_property>
   <object_layout_property>
 	(3,42,41,"GtkGridLayoutChild","column","1",None,None,None,None),
@@ -347,7 +417,14 @@
 	(3,45,46,"GtkGridLayoutChild","row-span","10",None,None,None,None),
 	(3,45,47,"GtkGridLayoutChild","column","1",None,None,None,None),
 	(3,45,47,"GtkGridLayoutChild","column-span","5",None,None,None,None),
-	(3,45,47,"GtkGridLayoutChild","row-span","10",None,None,None,None)
+	(3,45,47,"GtkGridLayoutChild","row-span","10",None,None,None,None),
+	(7,8,11,"GtkGridLayoutChild","column","0",0,None,None,None),
+	(7,8,11,"GtkGridLayoutChild","column-span","2",0,None,None,None),
+	(7,8,11,"GtkGridLayoutChild","row","0",0,None,None,None),
+	(7,8,11,"GtkGridLayoutChild","row-span","2",0,None,None,None),
+	(7,12,16,"GtkGridLayoutChild","column-span","5",0,None,None,None),
+	(7,12,16,"GtkGridLayoutChild","row","0",0,None,None,None),
+	(7,12,16,"GtkGridLayoutChild","row-span","10",0,None,None,None)
   </object_layout_property>
   <object_data>
 	(1,5,"GtkWidget",1,1,None,None,None,None,None,None),
@@ -371,11 +448,20 @@
 	(3,29,"GtkWidget",2,2,None,1,None,None,None,None),
 	(3,29,"GtkWidget",1,1,None,None,None,None,None,None),
 	(2,15,"GtkWidget",1,1,None,None,None,None,None,None),
-	(2,15,"GtkWidget",2,2,None,1,None,None,None,None)
+	(2,15,"GtkWidget",2,2,None,1,None,None,None,None),
+	(7,2,"GtkWidget",1,1,None,None,None,None,None,None),
+	(7,2,"GtkWidget",2,2,None,1,None,None,None,None),
+	(7,19,"GtkStringList",1,1,None,None,None,None,None,None),
+	(7,19,"GtkStringList",2,2,"AAAA",1,None,0,None,None),
+	(7,19,"GtkStringList",2,3,"TXT",1,None,0,None,None),
+	(7,19,"GtkStringList",2,4,"CNAME",1,None,0,None,None),
+	(7,19,"GtkStringList",2,5,"MX",1,None,0,None,None),
+	(7,19,"GtkStringList",2,6,"NS",1,None,0,None,None)
   </object_data>
   <object_data_arg>
 	(1,5,"GtkWidget",2,2,"name","GtkMenuButton"),
 	(3,29,"GtkWidget",2,2,"name","boxed-list"),
-	(2,15,"GtkWidget",2,2,"name","boxed-list")
+	(2,15,"GtkWidget",2,2,"name","boxed-list"),
+	(7,2,"GtkWidget",2,2,"name","boxed-list")
   </object_data_arg>
 </cambalache-project>

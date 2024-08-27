@@ -1,12 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-import sysconfig
-from compileall import compile_dir
-from os import environ, path
+import compileall
+from os import environ
 
-prefix = environ.get("MESON_INSTALL_PREFIX", "/usr/local")
 destdir = environ.get("DESTDIR", "")
 
-print("Compiling python bytecode...")
-moduledir = sysconfig.get_path("purelib", vars={"base": str(prefix)})
-compile_dir(destdir + path.join(moduledir, "woes"), optimize=2)
+# Pre compile all .py files
+compileall.compile_dir(destdir, force=True)

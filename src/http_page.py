@@ -16,7 +16,7 @@ from .constants import RESOURCE_PREFIX
 from .helper import Helper
 from .style_utils import set_widget_visibility
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
 class HeaderItem(GObject.Object):

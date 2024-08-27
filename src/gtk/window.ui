@@ -121,8 +121,8 @@
                 <property name="badge-number">0</property>
                 <property name="child">
                   <object class="AdwStatusPage" id="dns_status_page">
-                    <property name="description">TODO</property>
-                    <property name="icon-name">globe-symbolic</property>
+                    <property name="description">The DNS tool allows users to perform DNS queries for various record types, including &lt;b&gt;A&lt;/b&gt;, &lt;b&gt;TXT&lt;/b&gt;, &lt;b&gt;CNAME&lt;/b&gt; and others. By entering an IP address, users can perform reverse DNS lookups.</property>
+                    <property name="icon-name">org.gnome.Epiphany-symbolic</property>
                     <property name="margin-end">15</property>
                     <property name="margin-start">15</property>
                     <property name="title" bind-source="dns_page" bind-property="title" bind-flags="sync-create">Domain Name Lookup</property>
@@ -132,11 +132,18 @@
                         <property name="maximum-size">1400</property>
                         <property name="unit">px</property>
                         <property name="vexpand">True</property>
+                        <child>
+                          <object class="GtkBox" id="DnsPageBox">
+                            <child>
+                              <object class="DNSPage" id="DNSPage"/>
+                            </child>
+                          </object>
+                        </child>
                       </object>
                     </child>
                   </object>
                 </property>
-                <property name="icon-name">globe-symbolic</property>
+                <property name="icon-name">org.gnome.Epiphany-symbolic</property>
                 <property name="title">DNS</property>
                 <property name="use-underline">true</property>
               </object>

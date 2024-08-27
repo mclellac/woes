@@ -12,7 +12,7 @@ from .nmap_scanner import NmapScanner, ScanStatus
 from .style_utils import apply_source_style_scheme
 
 
-logging.basicConfig(level=logging.WARN, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
 class NmapItem(GObject.Object):

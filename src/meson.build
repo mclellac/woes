@@ -4,11 +4,11 @@ message('Is Flatpak build: ' + is_flatpak_build.to_string())
 message('Prefix: ' + get_option('prefix'))
 
 # Get the install directory for Python
-python_install_dir = python3.get_install_dir()
+python_install_dir = python_bin.get_install_dir()
 message('Python install dir: ' + python_install_dir)
 
 # Determine the site-packages directory
-site_packages_dir = python3.get_install_dir(subdir: 'woes')
+site_packages_dir = python_bin.get_install_dir(subdir: 'woes')
 message('Site packages dir: ' + site_packages_dir)
 
 # Define paths
@@ -20,7 +20,7 @@ gsettings_schemadir = join_paths(get_option('prefix'), 'share', 'glib-2.0', 'sch
 
 # Prepare configuration data
 conf = configuration_data()
-conf.set('PYTHON', python3.full_path())
+conf.set('PYTHON', python_bin.full_path())
 conf.set('VERSION', meson.project_version())
 conf.set('LOCALEDIR', localedir)
 conf.set('WOESDIR', site_packages_dir)
@@ -63,16 +63,17 @@ gnome.compile_resources('woes',
 # List of source files
 woes_sources = files(
   '__init__.py',
+  'constants.py',
   'main.py',
   'window.py',
   'preferences.py',
   'helper.py',
+  'nmap_scanner.py',
   'style_utils.py',
   'http_page.py',
-  'nmap_scanner.py',
   'nmap_page.py',
-  'constants.py',
+  'dns_page.py',
 )
 
 # Install the Python source files
-python3.install_sources(woes_sources, subdir: conf.get('WOESDIR'))
+python_bin.install_sources(woes_sources, subdir: conf.get('WOESDIR'))

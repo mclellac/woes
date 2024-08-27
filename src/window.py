@@ -8,6 +8,7 @@ from gi.repository import Adw, Gdk, Gio, Gtk
 from . import HttpPage, NmapPage
 from .constants import APP_ID, RESOURCE_PREFIX
 from .style_utils import apply_font_size, apply_theme
+from .dns_page import DNSPage
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/window.ui")
@@ -15,6 +16,9 @@ class WoesWindow(Adw.ApplicationWindow):
     __gtype_name__ = "WoesWindow"
 
     http_page = Gtk.Template.Child("http_page")
+    nmap_page = Gtk.Template.Child("nmap_page")
+    dns_page = Gtk.Template.Child("dns_page")
+
     switcher_title = Gtk.Template.Child("switcher_title")
     stack = Gtk.Template.Child("stack")
 
@@ -36,6 +40,9 @@ class WoesWindow(Adw.ApplicationWindow):
 
         self.nmap_page = NmapPage()
         self.stack.add(self.nmap_page)
+
+        self.dns_page = DNSPage()
+        self.stack.add(self.dns_page)
 
     def load_css(self):
         # Determine which CSS file to use based on the current theme

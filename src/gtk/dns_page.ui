@@ -1,0 +1,122 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Created with Cambalache 0.91.3 -->
+<interface>
+  <requires lib="gtk" version="4.10"/>
+  <requires lib="libadwaita" version="1.4"/>
+  <template class="DNSPage" parent="GtkBox">
+    <property name="halign">baseline-fill</property>
+    <property name="hexpand">True</property>
+    <property name="hexpand-set">True</property>
+    <property name="orientation">vertical</property>
+    <property name="vexpand">True</property>
+    <property name="vexpand-set">True</property>
+    <child>
+      <object class="GtkListBox" id="dns_listbox">
+        <property name="activate-on-single-click">False</property>
+        <property name="halign">baseline-fill</property>
+        <property name="selection-mode">0</property>
+        <property name="valign">baseline-center</property>
+        <child>
+          <object class="AdwEntryRow" id="dns_ip_entryrow">
+            <property name="input-purpose">url</property>
+            <property name="show-apply-button">True</property>
+            <property name="title">Domain to lookup (or use an IP for reverse)</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwComboRow" id="dns_record_type_dropdown">
+            <property name="hexpand">True</property>
+            <property name="hexpand-set">True</property>
+            <property name="icon-name">preferences-system-network-symbolic</property>
+            <property name="model">
+              <object class="GtkStringList" id="dns_record_type_list">
+                <property name="strings">A</property>
+                <items>
+                  <item>AAAA</item>
+                  <item>TXT</item>
+                  <item>CNAME</item>
+                  <item>MX</item>
+                  <item>NS</item>
+                </items>
+              </object>
+            </property>
+            <property name="selected">0</property>
+            <property name="subtitle-lines">1</property>
+            <property name="title">Record type</property>
+            <property name="valign">baseline-fill</property>
+          </object>
+        </child>
+        <style>
+          <class name="boxed-list"/>
+        </style>
+      </object>
+    </child>
+    <child>
+      <object class="GtkGrid" id="dns_grid">
+        <property name="halign">baseline-center</property>
+        <child>
+          <object class="GtkLabel" id="dns_errors_label">
+            <property name="margin-bottom">10</property>
+            <property name="margin-end">10</property>
+            <property name="margin-start">10</property>
+            <property name="margin-top">10</property>
+            <property name="natural-wrap-mode">word</property>
+            <property name="overflow">hidden</property>
+            <property name="use-markup">True</property>
+            <property name="visible">False</property>
+            <property name="width-chars">30</property>
+            <property name="wrap">True</property>
+            <layout>
+              <property name="column">0</property>
+              <property name="column-span">2</property>
+              <property name="row">0</property>
+              <property name="row-span">2</property>
+            </layout>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="GtkGrid" id="dns_results_grid">
+        <property name="halign">baseline-fill</property>
+        <property name="hexpand">True</property>
+        <property name="margin-bottom">10</property>
+        <property name="margin-top">10</property>
+        <property name="valign">baseline-fill</property>
+        <property name="vexpand">True</property>
+        <property name="vexpand-set">True</property>
+        <child>
+          <object class="GtkFrame" id="dns_results_frame">
+            <property name="halign">baseline-fill</property>
+            <property name="hexpand">True</property>
+            <property name="hexpand-set">True</property>
+            <property name="label-xalign">0.5</property>
+            <property name="overflow">hidden</property>
+            <property name="vexpand">True</property>
+            <property name="vexpand-set">True</property>
+            <child>
+              <object class="GtkScrolledWindow" id="dns_results_scrolled_window">
+                <property name="halign">baseline-fill</property>
+                <property name="has-frame">True</property>
+                <property name="hexpand">True</property>
+                <property name="hexpand-set">True</property>
+                <property name="kinetic-scrolling">False</property>
+                <property name="max-content-width">150</property>
+                <property name="min-content-height">400</property>
+                <property name="overflow">hidden</property>
+                <property name="vexpand">True</property>
+                <property name="vexpand-set">True</property>
+              </object>
+            </child>
+            <layout>
+              <property name="column">0</property>
+              <property name="column-span">5</property>
+              <property name="row">0</property>
+              <property name="row-span">10</property>
+            </layout>
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+</interface>

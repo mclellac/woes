@@ -1,72 +1,82 @@
 project('woes',
-         version: '0.1.0',
-         meson_version: '>= 1.3.0',
-         default_options: ['warning_level=2', 'werror=false'],
+    version: '0.1.2',
+    meson_version: '>= 1.3.0',
+    default_options: ['warning_level=2', 'werror=false'],
 )
 
+# Imports
 i18n = import('i18n')
 gnome = import('gnome')
 python = import('python')
-python3 = python.find_installation('python3')
 
-if not python3.found()
-    error('No valid python3 installation found!')
+# Find Python installation
+python_bin = python.find_installation('python3')
+
+if not python_bin.found()
+    error('No valid Python installation found!')
 endif
 
-# Woes requires at least Python 3.10 for certain type annotations
-if not python3.language_version().version_compare('>= 3.10')
+# Ensure Python 3.10 or newer is used
+if not python_bin.language_version().version_compare('>= 3.10')
     error('Python 3.10 or newer is required.')
 endif
 
-# Apply macOS-specific prefix correction
+# macOS-specific prefix correction
 if host_machine.system() == 'darwin'
     prefix = '/usr/local'
 endif
 
-# Declare runtime dependency versions here to make packaging more obvious
-dependency('glib-2.0', version: '>= 2.78.0')
-dependency('gtk4', version: '>= 4.14.0')
-dependency('libadwaita-1', version: '>= 1.5.0')
-dependency('pygobject-3.0', version: '>= 3.46.0')
+# Declare runtime dependencies
+dependencies = [
+    dependency('glib-2.0', version: '>= 2.78.0'),
+    dependency('gtk4', version: '>= 4.14.0'),
+    dependency('libadwaita-1', version: '>= 1.5.0'),
+    dependency('pygobject-3.0', version: '>= 3.46.0'),
+]
 
-# Check for 'requests' module
-requests_dep = run_command(python3, ['-c', 'import requests; print(requests.__version__)'], check: false)
-if requests_dep.returncode() != 0
-    error('Python3 requests module not found or cannot be imported. Please install it using pip. Output: ' + requests_dep.stderr().strip())
-endif
+# Verify and install Python dependencies
+python_modules = [
+    'requests',
+    'python-nmap',
+    'PyYAML',
+    'dnspython'
+]
 
-# Check for 'python-nmap' module
-nmap_dep = run_command(python3, ['-c', 'import nmap; print(nmap.__version__)'], check: false)
-if nmap_dep.returncode() != 0
-    error('Python3 nmap module not found or cannot be imported. Please install it using pip. Output: ' + nmap_dep.stderr().strip())
-endif
+foreach module : python_modules
+    dep_check = run_command(python_bin, ['-m', 'pip', 'show', module], check: false)
+    if dep_check.returncode() != 0
+        error('Python module \'' + module + '\' not found. Please install it using pip.')
+    endif
+endforeach
 
+# Installation directories
 prefix = get_option('prefix')
-
+modulesdir = python_bin.get_install_dir() # Modules directory for post-install
 bindir = join_paths(prefix, get_option('bindir'))
 datadir = join_paths(prefix, get_option('datadir'))
 libexecdir = join_paths(prefix, get_option('libexecdir'))
 localedir = join_paths(prefix, get_option('localedir'))
 pkgdatadir = join_paths(datadir, meson.project_name())
+icondir = join_paths(datadir, 'icons', 'hicolor')
+schemadir = join_paths(datadir, 'glib-2.0', 'schemas')
 
-pythondir = join_paths(prefix, python3.get_path('purelib'))
-
+# Application metadata and directories
 default_pkgappid = 'com.github.mclellac.WebOpsEvaluationSuite'
 pkgappid = default_pkgappid
 appdatadir = join_paths(datadir, 'metainfo')
 desktopdir = join_paths(datadir, 'applications')
-woesdir = python3.get_install_dir(subdir: 'woes')
-icondir = join_paths(datadir, 'icons', 'hicolor')
-schemadir = join_paths(datadir, 'glib-2.0', 'schemas')
 
+# Subdirectories
 subdir('src')
 subdir('data')
 subdir('po')
 
+# Post-install tasks
 gnome.post_install(
     glib_compile_schemas: true,
     gtk_update_icon_cache: true,
     update_desktop_database: true,
 )
 
-meson.add_install_script('meson-postinstall.py')
+# Pass the modulesdir to the post-install script
+meson.add_install_script('meson-postinstall.py', modulesdir)
