@@ -4,5 +4,5 @@ Exec=woes
 Icon=com.github.mclellac.WebOpsEvaluationSuite
 Terminal=false
 Type=Application
-Categories=GTK;
+Categories=Network;
 StartupNotify=true

@@ -1,14 +1,9 @@
 # window.py
-import logging
-import gi
-
-gi.require_version("Gtk", "4.0")
-gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, Gio, Gtk
-from . import HttpPage, NmapPage
+from . import HttpPage, NmapPage, DNSPage
 from .constants import APP_ID, RESOURCE_PREFIX
 from .style_utils import apply_font_size, apply_theme
-from .dns_page import DNSPage
+import logging
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/window.ui")

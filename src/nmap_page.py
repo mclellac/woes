@@ -1,15 +1,12 @@
 # nmap_page.py
-import logging
 import nmap
-import gi
+import logging
 
-gi.require_version("Gtk", "4.0")
-gi.require_version("Adw", "1")
-gi.require_version("GtkSource", "5")
 from gi.repository import Gio, GLib, GObject, Gtk, GtkSource
 from .constants import RESOURCE_PREFIX
 from .nmap_scanner import NmapScanner, ScanStatus
 from .style_utils import apply_source_style_scheme
+
 
 
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")

@@ -1,19 +1,12 @@
-import logging
-import dns.resolver
-import dns.reversename
-import gi
-from datetime import datetime
-import re
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-
-gi.require_version("Gtk", "4.0")
-gi.require_version("Adw", "1")
-gi.require_version("GtkSource", "5")
-
+# dns_page.py
 from gi.repository import Gio, Gtk, GtkSource, Pango
 from .constants import RESOURCE_PREFIX
 from .style_utils import apply_source_style_scheme
+import re
+import dns.resolver
+import dns.reversename
+from datetime import datetime
+import logging
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/dns_page.ui")

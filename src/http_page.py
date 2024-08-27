@@ -1,22 +1,12 @@
 # http_page.py
-import gi
-
-gi.require_version("Gtk", "4.0")
-gi.require_version("Adw", "1")
-gi.require_version("GtkSource", "5")
 from gi.repository import Gio, GObject, Gtk
-import re
-import logging
-import requests
-
 from typing import Dict, Optional
 from urllib.parse import urlparse
-
+import re
+import requests
 from .constants import RESOURCE_PREFIX
 from .helper import Helper
 from .style_utils import set_widget_visibility
-
-logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
 class HeaderItem(GObject.Object):

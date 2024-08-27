@@ -20,9 +20,11 @@
 	(1,1),
 	(1,2),
 	(1,3),
+	(1,7),
 	(2,1),
 	(2,2),
-	(2,3)
+	(2,3),
+	(2,7)
   </css_ui>
   <object>
 	(1,1,"AdwApplicationWindow","WoesWindow",None,None,None,None,0,None,None),
@@ -256,6 +258,7 @@
 	(3,29,"GtkListBox","selection-mode","0",None,None,None,None,None,None,None,None,None),
 	(3,29,"GtkWidget","halign","baseline-fill",None,None,None,None,None,None,None,None,None),
 	(3,29,"GtkWidget","valign","baseline-center",None,None,None,None,None,None,None,None,None),
+	(3,30,"AdwEntryRow","activates-default","True",None,None,None,None,None,None,None,None,None),
 	(3,30,"AdwEntryRow","input-purpose","url",None,None,None,None,None,None,None,None,None),
 	(3,30,"AdwEntryRow","show-apply-button","True",None,None,None,None,None,None,None,None,None),
 	(3,30,"AdwPreferencesRow","title","IP/CIDR/FQDN to scan",1,None,None,None,None,None,None,None,None),

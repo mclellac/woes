@@ -1,0 +1,134 @@
+{
+    "app-id" : "com.github.mclellac.WebOpsEvaluationSuite",
+    "runtime" : "org.fedoraproject.Platform",
+    "runtime-version" : "f40",
+    "sdk" : "org.gnome.Sdk",
+    "command" : "woes",
+    "finish-args" : [
+        "--share=network",
+        "--share=ipc",
+        "--socket=fallback-x11",
+        "--device=dri",
+        "--socket=wayland",
+        "--filesystem=xdg-config",
+        "--filesystem=xdg-run/gvfsd",
+        "--talk-name=org.freedesktop.FileManager1",
+        "--env=PIP_INDEX_URL=https://pypi.org/simple",
+        "--filesystem=home",
+        "--device=all",
+        "--socket=pulseaudio",
+        "--socket=system-bus"
+    ],
+    "cleanup" : [
+        "*.pyc",
+        "*.pyo",
+        "*.so",
+        "__pycache__"
+    ],
+    "modules" : [
+        {
+            "name" : "python-nmap",
+            "buildsystem" : "simple",
+            "build-commands" : [
+                "pip3 install --no-cache-dir --prefix=/app ."
+            ],
+            "sources" : [
+                {
+                    "type" : "archive",
+                    "url" : "https://files.pythonhosted.org/packages/f7/1b/8e6b3d1461331e4e8600faf099e7c62ba3c1603987dafdd558681fb8ba37/python-nmap-0.7.1.tar.gz",
+                    "sha256" : "f75af6b91dd8e3b0c31f869db32163f62ada686945e5b7c25f84bc0f7fad3b64"
+                }
+            ],
+            "build-options" : {
+                "build-args" : [
+                    "--share=network"
+                ]
+            }
+        },
+        {
+            "name" : "dnspython",
+            "buildsystem" : "simple",
+            "build-commands" : [
+                "pip3 install --prefix=/app git+https://github.com/rthalley/dnspython.git"
+            ],
+            "build-options" : {
+                "env" : {
+                    "FLATPAK_BUILD" : "1"
+                },
+                "build-args" : [
+                    "--share=network"
+                ]
+            }
+        },
+        {
+            "name" : "python3-requests",
+            "buildsystem" : "simple",
+            "build-commands" : [
+                "pip3 install --no-cache-dir --prefix=/app git+https://github.com/psf/requests.git"
+            ],
+            "build-options" : {
+                "build-args" : [
+                    "--share=network"
+                ]
+            }
+        },
+        {
+            "name" : "pyyaml",
+            "buildsystem" : "simple",
+            "build-commands" : [
+                "pip3 install --no-cache-dir --prefix=/app https://files.pythonhosted.org/packages/54/ed/79a089b6be93607fa5cdaedf301d7dfb23af5f25c398d5ead2525b063e17/pyyaml-6.0.2.tar.gz"
+            ],
+            "sources" : [
+                {
+                    "type" : "archive",
+                    "url" : "https://files.pythonhosted.org/packages/54/ed/79a089b6be93607fa5cdaedf301d7dfb23af5f25c398d5ead2525b063e17/pyyaml-6.0.2.tar.gz",
+                    "sha256" : "d584d9ec91ad65861cc08d42e834324ef890a082e591037abe114850ff7bbc3e"
+                }
+            ],
+            "build-options" : {
+                "build-args" : [
+                    "--share=network"
+                ]
+            }
+        },
+        {
+            "name" : "nmap",
+            "buildsystem" : "simple",
+            "build-commands" : [
+                "./configure --prefix=/app --without-zenmap --without-ndiff --without-nping --without-ncat",
+                "make",
+                "make install"
+            ],
+            "sources" : [
+                {
+                    "type" : "archive",
+                    "url" : "https://nmap.org/dist/nmap-7.95.tar.bz2",
+                    "sha256" : "e14ab530e47b5afd88f1c8a2bac7f89cd8fe6b478e22d255c5b9bddb7a1c5778"
+                }
+            ]
+        },
+        {
+            "name" : "woes",
+            "builddir" : true,
+            "buildsystem" : "meson",
+            "config-opts" : [
+                "--prefix=/app"
+            ],
+            "sources" : [
+                {
+                    "type" : "git",
+                    "url" : "https://github.com/mclellac/woes.git",
+                    "branch" : "main"
+                }
+            ],
+            "build-options" : {
+                "build-args" : [
+                    "--share=network"
+                ]
+            }
+        }
+    ],
+    "build-options" : {
+        "env" : {        }
+    }
+}

@@ -1,14 +1,8 @@
 # preferences.py
-import logging
-import gi
-
-gi.require_version("Gtk", "4.0")
-gi.require_version("Adw", "1")
-gi.require_version("GtkSource", "5")
 from gi.repository import Adw, Gio, Gtk
-
 from .constants import APP_ID, RESOURCE_PREFIX
 from .style_utils import apply_font_size, apply_theme
+import logging
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/preferences.ui")

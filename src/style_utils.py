@@ -1,11 +1,6 @@
 # style_utils.py
-import logging
-import gi
-
-gi.require_version("Gtk", "4.0")
-gi.require_version("Adw", "1")
-gi.require_version("GtkSource", "5")
 from gi.repository import GtkSource, Gio, Adw, Gtk, Gdk
+import logging
 
 
 def apply_font_size(settings: Gio.Settings, font_size: int):

@@ -18,6 +18,7 @@
         <property name="valign">baseline-center</property>
         <child>
           <object class="AdwEntryRow" id="nmap_target_entryrow">
+            <property name="activates-default">True</property>
             <property name="input-purpose">url</property>
             <property name="show-apply-button">True</property>
             <property name="title" translatable="yes">IP/CIDR/FQDN to scan</property>
