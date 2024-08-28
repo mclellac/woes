@@ -1,9 +1,11 @@
 # http_page.py
-from gi.repository import Gio, GObject, Gtk
+import re
 from typing import Dict, Optional
 from urllib.parse import urlparse
-import re
+
 import requests
+from gi.repository import Gio, GObject, Gtk
+
 from .constants import RESOURCE_PREFIX
 from .helper import Helper
 from .style_utils import set_widget_visibility
@@ -36,21 +38,29 @@ class HttpPage(Gtk.Box):
         self.column_view_helper = Helper(self.http_column_view, self.get_root())
 
     def http_page_init_ui(self) -> None:
-        self.http_entry_row.connect("entry-activated", self.http_page_on_entry_row_activated)
+        self.http_entry_row.connect(
+            "entry-activated", self.http_page_on_entry_row_activated
+        )
         self.http_entry_row.connect("apply", self.http_page_on_entry_row_activated)
-        self.http_pragma_switch_row.connect("notify::active", self.http_page_on_pragma_toggled)
+        self.http_pragma_switch_row.connect(
+            "notify::active", self.http_page_on_pragma_toggled
+        )
         self.http_page_clear_error()
 
     def http_page_on_entry_row_activated(self, entry_row: Gtk.Entry) -> None:
         url = self.http_page_ensure_scheme(entry_row.get_text().strip())
 
         if not self.http_page_is_valid_url(url):
-            self.http_page_display_error("<b>Invalid URL format:</b> Please enter a valid URL.")
+            self.http_page_display_error(
+                "<b>Invalid URL format:</b> Please enter a valid URL."
+            )
             self.http_page_update_column_view(None)
             return
 
         self.http_page_clear_error()
-        headers = self.http_page_fetch_headers(url, self.http_pragma_switch_row.get_active())
+        headers = self.http_page_fetch_headers(
+            url, self.http_pragma_switch_row.get_active()
+        )
 
         if headers and "error" not in headers:
             self.http_page_update_column_view(headers)
@@ -84,7 +94,9 @@ class HttpPage(Gtk.Box):
 
         return re.match(url_regex, url) is not None and bool(urlparse(url).netloc)
 
-    def http_page_fetch_headers(self, url: str, use_akamai_pragma: bool) -> Dict[str, str]:
+    def http_page_fetch_headers(
+        self, url: str, use_akamai_pragma: bool
+    ) -> Dict[str, str]:
         headers = {}
         if use_akamai_pragma:
             akamai_pragma_directives = [
@@ -108,7 +120,9 @@ class HttpPage(Gtk.Box):
             # Maintain original HTTP error messages
             return {"error": self.http_page_format_http_error(e)}
         except requests.exceptions.ConnectionError:
-            return {"error": "<b>Connection Error:</b> Failed to establish a connection."}
+            return {
+                "error": "<b>Connection Error:</b> Failed to establish a connection."
+            }
         except requests.exceptions.Timeout:
             return {"error": "<b>Timeout Error:</b> The request timed out."}
         except requests.exceptions.RequestException as e:
@@ -118,14 +132,18 @@ class HttpPage(Gtk.Box):
         # Maintain specific, custom HTTP error messages
         status_code = e.response.status_code
         if status_code == 404:
-            return "<b>404 Not Found:</b> The requested URL was not found on this server."
+            return (
+                "<b>404 Not Found:</b> The requested URL was not found on this server."
+            )
         elif status_code == 403:
             return "<b>403 Forbidden:</b> You don't have permission to access this URL."
         elif status_code == 500:
             return "<b>500 Internal Server Error:</b> The server encountered an internal error."
         return f"<b>HTTP Error {status_code}:</b> {e.response.reason}."
 
-    def http_page_on_pragma_toggled(self, widget: Gtk.Switch, gparam: GObject.ParamSpec) -> None:
+    def http_page_on_pragma_toggled(
+        self, widget: Gtk.Switch, gparam: GObject.ParamSpec
+    ) -> None:
         if self.http_entry_row.get_text().strip():
             self.http_page_on_entry_row_activated(self.http_entry_row)
 
@@ -159,7 +177,9 @@ class HttpPage(Gtk.Box):
             header_value_column = Gtk.ColumnViewColumn.new("Response Header Value")
 
             header_name_factory = self.http_page_create_factory("key")
-            header_value_factory = self.http_page_create_factory("value", wrap_text=True)
+            header_value_factory = self.http_page_create_factory(
+                "value", wrap_text=True
+            )
 
             header_name_column.set_factory(header_name_factory)
             header_value_column.set_factory(header_value_factory)

@@ -1,9 +1,11 @@
 # window.py
+import logging
+
 from gi.repository import Adw, Gdk, Gio, Gtk
-from . import HttpPage, NmapPage, DNSPage
+
+from . import DNSPage, HttpPage, NmapPage
 from .constants import APP_ID, RESOURCE_PREFIX
 from .style_utils import apply_font_size, apply_theme
-import logging
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/window.ui")

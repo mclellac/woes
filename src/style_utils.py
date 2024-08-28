@@ -1,6 +1,7 @@
 # style_utils.py
-from gi.repository import GtkSource, Gio, Adw, Gtk, Gdk
 import logging
+
+from gi.repository import Adw, Gdk, Gio, Gtk, GtkSource
 
 
 def apply_font_size(settings: Gio.Settings, font_size: int):
@@ -43,15 +44,21 @@ def apply_source_style_scheme(
                 f"apply_source_style_scheme: Successfully applied scheme={applied_scheme.get_id()}"
             )
         else:
-            logging.error("apply_source_style_scheme: Failed to apply the style scheme.")
+            logging.error(
+                "apply_source_style_scheme: Failed to apply the style scheme."
+            )
     else:
-        logging.error(f"apply_source_style_scheme: Style scheme '{source_style_scheme}' not found.")
+        logging.error(
+            f"apply_source_style_scheme: Style scheme '{source_style_scheme}' not found."
+        )
         default_scheme = scheme_manager.get_scheme("Adwaita")
         if default_scheme:
             buffer.set_style_scheme(default_scheme)
             logging.debug("apply_source_style_scheme: Applied fallback scheme=Adwaita")
         else:
-            logging.error("apply_source_style_scheme: Default scheme 'Adwaita' not found.")
+            logging.error(
+                "apply_source_style_scheme: Default scheme 'Adwaita' not found."
+            )
 
 
 def set_widget_visibility(visible: bool, *widgets):

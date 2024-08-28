@@ -1,8 +1,10 @@
 # preferences.py
+import logging
+
 from gi.repository import Adw, Gio, Gtk
+
 from .constants import APP_ID, RESOURCE_PREFIX
 from .style_utils import apply_font_size, apply_theme
-import logging
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/preferences.ui")
@@ -51,7 +53,9 @@ class Preferences(Adw.PreferencesWindow):
             if self.main_window and hasattr(
                 self.main_window.nmap_page, "apply_source_style_scheme"
             ):
-                self.main_window.nmap_page.apply_source_style_scheme(source_style_scheme)
+                self.main_window.nmap_page.apply_source_style_scheme(
+                    source_style_scheme
+                )
             else:
                 logging.error("NmapPage does not have apply_source_style_scheme method")
 

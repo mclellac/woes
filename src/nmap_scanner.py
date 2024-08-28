@@ -1,11 +1,12 @@
 # nmap_scanner.py
+import logging
 import re
+from concurrent.futures import ThreadPoolExecutor
+from enum import Enum
+from typing import Any, Dict, Union
+
 import nmap
 import yaml
-import logging
-from enum import Enum
-from typing import Dict, Any, Union
-from concurrent.futures import ThreadPoolExecutor
 
 
 class ScanOptions(Enum):
@@ -38,7 +39,9 @@ class NmapScanner:
             ipv4_address
         )  # Escaping curly braces for the CIDR notation
 
-        addr_regex = r"^(localhost|" r"{}|" r"{}|" r"{})$".format(ipv4_address, fqdn, cidr)
+        addr_regex = (
+            r"^(localhost|" r"{}|" r"{}|" r"{})$".format(ipv4_address, fqdn, cidr)
+        )
 
         targets = re.split(r"[ ,]+", target.strip())
 
@@ -64,12 +67,18 @@ class NmapScanner:
         return options
 
     def run_nmap_scan(
-        self, target: str, os_fingerprinting: bool, scan_all_ports: bool, selected_script: str
+        self,
+        target: str,
+        os_fingerprinting: bool,
+        scan_all_ports: bool,
+        selected_script: str,
     ):
         logging.debug(
             f"Running Nmap scan for target: {target} with options: {self.build_nmap_options(os_fingerprinting, scan_all_ports, selected_script)}"
         )
-        options = self.build_nmap_options(os_fingerprinting, scan_all_ports, selected_script)
+        options = self.build_nmap_options(
+            os_fingerprinting, scan_all_ports, selected_script
+        )
         try:
             nm = nmap.PortScanner()
             nm.scan(hosts=target, arguments=options)

@@ -3,7 +3,7 @@ import sys
 
 from gi.repository import Adw, Gio
 
-from .constants import APP_ID, DEFAULT_VERSION
+from .constants import APP_ID, VERSION
 from .preferences import Preferences
 from .window import WoesWindow
 
@@ -11,8 +11,10 @@ from .window import WoesWindow
 class WoesApplication(Adw.Application):
     """The main application singleton class."""
 
-    def __init__(self, version=DEFAULT_VERSION):
-        super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.DEFAULT_FLAGS)
+    def __init__(self, version=VERSION):
+        super().__init__(
+            application_id=APP_ID, flags=Gio.ApplicationFlags.DEFAULT_FLAGS
+        )
         self.version = version
         self.win = None  # Store a reference to the main window
 
@@ -70,7 +72,7 @@ class WoesApplication(Adw.Application):
             self.set_accels_for_action(f"app.{name}", shortcuts)
 
 
-def main(version=DEFAULT_VERSION):
+def main(version=VERSION):
     """The application's entry point."""
     app = WoesApplication(version)
     return app.run(sys.argv)

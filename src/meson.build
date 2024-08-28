@@ -25,17 +25,20 @@ conf.set('VERSION', meson.project_version())
 conf.set('LOCALEDIR', localedir)
 conf.set('WOESDIR', site_packages_dir)
 conf.set('APPID', meson.project_name())
-conf.set('GSETTINGSSCHEMADIR', gsettings_schemadir)  # Add this line
+conf.set('GSETTINGSSCHEMADIR', gsettings_schemadir) # Add this line
 
 # Set paths conditionally based on whether it is a Flatpak build
 if is_flatpak_build
-    conf.set('DATADIR', join_paths(get_option('prefix'), 'share'))
-    conf.set('PKGDATADIR', join_paths(get_option('prefix'), 'share', meson.project_name()))
-    resource_path = join_paths(pkgdatadir, 'woes.gresource')
+  conf.set('DATADIR', join_paths(get_option('prefix'), 'share'))
+  conf.set(
+    'PKGDATADIR',
+    join_paths(get_option('prefix'), 'share', meson.project_name()),
+  )
+  resource_path = join_paths(pkgdatadir, 'woes.gresource')
 else
-    conf.set('DATADIR', datadir_option)
-    conf.set('PKGDATADIR', join_paths(datadir_option, meson.project_name()))
-    resource_path = join_paths(datadir_option, 'woes', 'woes.gresource')
+  conf.set('DATADIR', datadir_option)
+  conf.set('PKGDATADIR', join_paths(datadir_option, meson.project_name()))
+  resource_path = join_paths(datadir_option, 'woes', 'woes.gresource')
 endif
 
 conf.set('RESOURCE_PATH', resource_path)
@@ -53,7 +56,8 @@ configure_file(
 gnome = import('gnome')
 
 # Compile GNOME resources
-gnome.compile_resources('woes',
+gnome.compile_resources(
+  'woes',
   'woes.gresource.xml',
   gresource_bundle: true,
   install: true,
@@ -64,15 +68,15 @@ gnome.compile_resources('woes',
 woes_sources = files(
   '__init__.py',
   'constants.py',
-  'main.py',
-  'window.py',
-  'preferences.py',
-  'helper.py',
-  'nmap_scanner.py',
-  'style_utils.py',
-  'http_page.py',
-  'nmap_page.py',
   'dns_page.py',
+  'helper.py',
+  'http_page.py',
+  'main.py',
+  'nmap_page.py',
+  'nmap_scanner.py',
+  'preferences.py',
+  'style_utils.py',
+  'window.py',
 )
 
 # Install the Python source files

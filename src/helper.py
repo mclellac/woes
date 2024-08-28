@@ -1,5 +1,5 @@
 # helper.py
-from gi.repository import Gtk, Gdk
+from gi.repository import Gdk, Gtk
 
 
 class Helper:
@@ -110,7 +110,9 @@ class Helper:
                 for index in range(selection_model.get_n_items()):
                     if selection_model.is_selected(index):
                         selected_item = selection_model.get_item(index)
-                        selected_texts.append(f"{selected_item.key}: {selected_item.value}")
+                        selected_texts.append(
+                            f"{selected_item.key}: {selected_item.value}"
+                        )
 
             elif isinstance(selection_model, Gtk.SingleSelection):
                 selected_item = selection_model.get_selected_item()

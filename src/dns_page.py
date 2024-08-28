@@ -1,12 +1,14 @@
 # dns_page.py
-from gi.repository import Gio, Gtk, GtkSource, Pango
-from .constants import RESOURCE_PREFIX
-from .style_utils import apply_source_style_scheme
+import logging
 import re
+from datetime import datetime
+
 import dns.resolver
 import dns.reversename
-from datetime import datetime
-import logging
+from gi.repository import Gio, Gtk, GtkSource, Pango
+
+from .constants import RESOURCE_PREFIX
+from .style_utils import apply_source_style_scheme
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/dns_page.ui")
@@ -32,7 +34,9 @@ class DNSPage(Gtk.Box):
         self.apply_source_view_style()
 
         try:
-            self.bold_tag = self.source_buffer.create_tag("bold", weight=Pango.Weight.BOLD)
+            self.bold_tag = self.source_buffer.create_tag(
+                "bold", weight=Pango.Weight.BOLD
+            )
             self.domain_color_tag = self.source_buffer.create_tag(
                 "domain_color", foreground="#3465a4"
             )
@@ -42,7 +46,9 @@ class DNSPage(Gtk.Box):
             self.value_color_tag = self.source_buffer.create_tag(
                 "value_color", foreground="#73d216"
             )
-            self.ttl_color_tag = self.source_buffer.create_tag("ttl_color", foreground="#fce94f")
+            self.ttl_color_tag = self.source_buffer.create_tag(
+                "ttl_color", foreground="#fce94f"
+            )
             self.class_color_tag = self.source_buffer.create_tag(
                 "class_color", foreground="#75507b"
             )
@@ -52,7 +58,9 @@ class DNSPage(Gtk.Box):
     def dns_page_init_ui(self) -> None:
         """Initialize the UI elements and connect signals."""
         self.dns_ip_entryrow.connect("apply", self.on_dns_entry_activated)
-        self.dns_record_type_dropdown.connect("notify::selected", self.on_record_type_changed)
+        self.dns_record_type_dropdown.connect(
+            "notify::selected", self.on_record_type_changed
+        )
 
     def init_source_buffer(self) -> GtkSource.Buffer:
         """Initialize the source buffer for the GtkSourceView."""
@@ -171,7 +179,9 @@ class DNSPage(Gtk.Box):
             else:
                 result = dns.resolver.resolve(domain_or_ip, record_type)
 
-            return "\n".join([f"{domain_or_ip}. IN {record_type} {r.to_text()}" for r in result])
+            return "\n".join(
+                [f"{domain_or_ip}. IN {record_type} {r.to_text()}" for r in result]
+            )
         except dns.exception.DNSException as e:
             return f"{record_type} record lookup failed for {domain_or_ip}: {e}"
 
@@ -189,7 +199,9 @@ class DNSPage(Gtk.Box):
             except Exception as e:
                 logging.error(f"Error creating header tag: {e}")
 
-        header = f"DNS Lookup Results - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+        header = (
+            f"DNS Lookup Results - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+        )
         self.source_buffer.insert_with_tags(
             self.source_buffer.get_end_iter(), header, self.header_tag
         )
@@ -218,10 +230,14 @@ class DNSPage(Gtk.Box):
                 value = match.group(4)
 
                 self.source_buffer.insert_with_tags(
-                    self.source_buffer.get_end_iter(), domain + "\t", self.domain_color_tag
+                    self.source_buffer.get_end_iter(),
+                    domain + "\t",
+                    self.domain_color_tag,
                 )
                 self.source_buffer.insert_with_tags(
-                    self.source_buffer.get_end_iter(), record_class + "\t", self.class_color_tag
+                    self.source_buffer.get_end_iter(),
+                    record_class + "\t",
+                    self.class_color_tag,
                 )
                 self.source_buffer.insert_with_tags(
                     self.source_buffer.get_end_iter(),
@@ -229,7 +245,11 @@ class DNSPage(Gtk.Box):
                     self.record_type_color_tag,
                 )
                 self.source_buffer.insert_with_tags(
-                    self.source_buffer.get_end_iter(), value + "\n", self.value_color_tag
+                    self.source_buffer.get_end_iter(),
+                    value + "\n",
+                    self.value_color_tag,
                 )
             else:
-                self.source_buffer.insert(self.source_buffer.get_end_iter(), line + "\n")
+                self.source_buffer.insert(
+                    self.source_buffer.get_end_iter(), line + "\n"
+                )
