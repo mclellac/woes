@@ -1,5 +1,7 @@
 # preferences.py
 import logging
+import re
+import threading
 
 from gi.repository import Adw, Gio, Gtk
 
@@ -14,6 +16,8 @@ class Preferences(Adw.PreferencesWindow):
     font_size_scale = Gtk.Template.Child("font_size_scale")
     theme_switch = Gtk.Template.Child("theme_switch")
     source_style_scheme_combo_row = Gtk.Template.Child("source_style_scheme_combo_row")
+    dns_server_entryrow = Gtk.Template.Child("dns_server_entryrow")
+    preferences_error_banner = Gtk.Template.Child("preferences_error_banner")  # Reference to the Adw.Banner
 
     def __init__(self, main_window=None):
         super().__init__(modal=True)
@@ -29,6 +33,52 @@ class Preferences(Adw.PreferencesWindow):
         self.source_style_scheme_combo_row.connect(
             "notify::selected", self.on_source_style_scheme_changed
         )
+        self.dns_server_entryrow.connect("apply", self.on_dns_server_changed)
+
+    def on_dns_server_changed(self, entryrow):
+        dns_server = entryrow.get_text().strip()
+
+        ip_pattern = re.compile(
+            r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$"
+        )
+
+        if ip_pattern.match(dns_server) and self.is_valid_ipv4(dns_server):
+            self.settings.set_string("custom-dns-server", dns_server)
+            logging.info(f"Custom DNS server set to: {dns_server}")
+            self.preferences_error_banner.set_revealed(False)
+            entryrow.remove_css_class("error")
+        else:
+            entryrow.add_css_class("error")
+            error_message = "Invalid IPv4 address for DNS server."
+            logging.error(error_message)
+
+            self.preferences_error_banner.set_title(error_message)
+            self.preferences_error_banner.set_revealed(True)
+
+            # Clear the entry row text
+            entryrow.set_text("")
+
+            # Hide the banner after 4 seconds and clear the CSS class
+            threading.Timer(4.0, self.hide_banner, args=[entryrow]).start()
+
+    def hide_banner(self, entryrow):
+        self.preferences_error_banner.set_revealed(False)
+        entryrow.remove_css_class("error")
+
+    @staticmethod
+    def is_valid_ipv4(ip: str) -> bool:
+        """Validate if the input string is a valid IPv4 address."""
+        parts = ip.split(".")
+        if len(parts) != 4:
+            return False
+        for part in parts:
+            try:
+                num = int(part)
+                if num < 0 or num > 255:
+                    return False
+            except ValueError:
+                return False
+        return True
 
     def on_font_size_changed(self, scale):
         font_size = scale.get_value()
@@ -40,7 +90,6 @@ class Preferences(Adw.PreferencesWindow):
         apply_theme(Adw.StyleManager.get_default(), theme_enabled)
         self.settings.set_boolean("dark-theme", theme_enabled)
 
-        # Here, we access the main_window instance and call reload_css
         if self.main_window and hasattr(self.main_window, "reload_css"):
             self.main_window.reload_css()
 
@@ -91,3 +140,7 @@ class Preferences(Adw.PreferencesWindow):
             logging.warning(
                 f"Style scheme '{normalized_scheme}' not found in the combo box options."
             )
+
+        dns_server = self.settings.get_string("custom-dns-server")
+        self.dns_server_entryrow.set_text(dns_server)
+

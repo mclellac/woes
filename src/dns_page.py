@@ -7,17 +7,12 @@ import dns.resolver
 import dns.reversename
 from gi.repository import Gio, Gtk, GtkSource, Pango
 
-from .constants import RESOURCE_PREFIX
+from .constants import RESOURCE_PREFIX, APP_ID
 from .style_utils import apply_source_style_scheme
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/dns_page.ui")
 class DNSPage(Gtk.Box):
-    """A class representing the DNS page in the application.
-
-    This class handles DNS lookups and displays the results in a styled GtkSourceView.
-    """
-
     __gtype_name__ = "DNSPage"
 
     dns_ip_entryrow = Gtk.Template.Child("dns_ip_entryrow")
@@ -26,12 +21,12 @@ class DNSPage(Gtk.Box):
     dns_error_label = Gtk.Template.Child("dns_errors_label")
 
     def __init__(self, **kwargs):
-        """Initialize the DNSPage with UI components and setup necessary styles."""
         super().__init__(**kwargs)
         self.dns_page_init_ui()
         self.source_buffer = self.init_source_buffer()
         self.source_view = self.init_source_view(self.source_buffer)
         self.apply_source_view_style()
+        self.settings = Gio.Settings.new(APP_ID)
 
         try:
             self.bold_tag = self.source_buffer.create_tag(
@@ -91,7 +86,7 @@ class DNSPage(Gtk.Box):
 
     def apply_source_view_style(self):
         """Apply the style scheme to the GtkSourceView."""
-        settings = Gio.Settings.new("com.github.mclellac.WebOpsEvaluationSuite")
+        settings = Gio.Settings.new(APP_ID)
         source_style_scheme = settings.get_string("source-style-scheme")
         apply_source_style_scheme(
             GtkSource.StyleSchemeManager.get_default(),
@@ -141,12 +136,20 @@ class DNSPage(Gtk.Box):
         record_type = self.get_selected_record_type()
 
         try:
-            if self.is_ip_address(user_input):
-                result = self.dns_lookup(user_input, "PTR")
-            else:
-                result = self.dns_lookup(user_input, record_type)
+            resolver = dns.resolver.Resolver()
+            # Fetch the custom DNS server each time before performing the lookup
+            custom_dns_server = self.settings.get_string("custom-dns-server")
+            if custom_dns_server:
+                resolver.nameservers = [custom_dns_server]  # Use custom DNS server
 
-            self.display_dns_result(result, user_input, record_type)
+            # Determine the correct record type for reverse lookups
+            if self.is_ip_address(user_input):
+                record_type = "PTR"
+                result = self.dns_lookup(user_input, record_type, resolver)
+            else:
+                result = self.dns_lookup(user_input, record_type, resolver)
+
+            self.display_dns_result(result, user_input, record_type, resolver.nameservers)
         except Exception as e:
             logging.error(f"Error performing DNS lookup: {e}")
             self.show_error(f"Error: {str(e)}")
@@ -170,14 +173,13 @@ class DNSPage(Gtk.Box):
         self.dns_error_label.set_visible(False)
 
     @staticmethod
-    def dns_lookup(domain_or_ip: str, record_type: str) -> str:
-        """Perform a DNS lookup for the given domain or IP and record type."""
+    def dns_lookup(domain_or_ip: str, record_type: str, resolver: dns.resolver.Resolver) -> str:
         try:
             if record_type == "PTR":
                 rev_name = dns.reversename.from_address(domain_or_ip)
-                result = dns.resolver.resolve(rev_name, record_type)
+                result = resolver.resolve(rev_name, record_type)
             else:
-                result = dns.resolver.resolve(domain_or_ip, record_type)
+                result = resolver.resolve(domain_or_ip, record_type)
 
             return "\n".join(
                 [f"{domain_or_ip}. IN {record_type} {r.to_text()}" for r in result]
@@ -185,7 +187,7 @@ class DNSPage(Gtk.Box):
         except dns.exception.DNSException as e:
             return f"{record_type} record lookup failed for {domain_or_ip}: {e}"
 
-    def display_dns_result(self, result: str, domain_or_ip: str, record_type: str):
+    def display_dns_result(self, result: str, domain_or_ip: str, record_type: str, dns_servers: list):
         """Display the DNS lookup results in the source buffer with enhanced formatting."""
         self.source_buffer.set_text("")
 
@@ -199,8 +201,12 @@ class DNSPage(Gtk.Box):
             except Exception as e:
                 logging.error(f"Error creating header tag: {e}")
 
+        # DNS server info
+        dns_server_info = f"DNS server used: {', '.join(dns_servers)}\n"
+
         header = (
             f"DNS Lookup Results - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+            f"{dns_server_info}\n"
         )
         self.source_buffer.insert_with_tags(
             self.source_buffer.get_end_iter(), header, self.header_tag
@@ -253,3 +259,4 @@ class DNSPage(Gtk.Box):
                 self.source_buffer.insert(
                     self.source_buffer.get_end_iter(), line + "\n"
                 )
+

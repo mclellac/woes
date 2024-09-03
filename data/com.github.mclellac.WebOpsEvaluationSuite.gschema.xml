@@ -1,22 +1,29 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist gettext-domain="woes">
-    <schema id="com.github.mclellac.WebOpsEvaluationSuite" path="/com/github/mclellac/WebOpsEvaluationSuite/">
-        <key name="font-size" type="i">
-            <default>12</default>
-            <range min="8" max="24"/>
-            <summary>Font size</summary>
-            <description>Font size in points</description>
-        </key>
-        <key name="dark-theme" type="b">
-            <default>false</default>
-            <summary>Dark theme</summary>
-            <description>Enable dark theme</description>
-        </key>
-        <key name="source-style-scheme" type="s">
-            <default>'Adwaita'</default>
-            <summary>Syntax Highlighting Colour Scheme</summary>
-            <description>The colour scheme used for syntax highlighting in the GtkSourceView</description>
-        </key>
-    </schema>
+  <schema id="com.github.mclellac.WebOpsEvaluationSuite"
+    path="/com/github/mclellac/WebOpsEvaluationSuite/">
+    <key name="font-size" type="i">
+      <default>12</default>
+      <range min="8" max="24" />
+      <summary>Font size</summary>
+      <description>Font size in points</description>
+    </key>
+    <key name="dark-theme" type="b">
+      <default>false</default>
+      <summary>Dark theme</summary>
+      <description>Enable dark theme</description>
+    </key>
+    <key name="source-style-scheme" type="s">
+      <default>'Adwaita'</default>
+      <summary>Syntax Highlighting Colour Scheme</summary>
+      <description>The colour scheme used for syntax highlighting in the GtkSourceView</description>
+    </key>
+    <key name="custom-dns-server" type="s">
+      <default>''</default>
+      <summary>Custom DNS server for lookups</summary>
+      <description>Specifies the custom DNS server IP address to be used for DNS lookups. Leave
+        empty to use the system default.</description>
+    </key>
+  </schema>
 </schemalist>
 

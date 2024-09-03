@@ -2,7 +2,7 @@
 <!-- Created with Cambalache 0.91.3 -->
 <interface>
   <!-- interface-name preferences.ui -->
-  <requires lib="gtk" version="4.10"/>
+  <requires lib="gtk" version="4.12"/>
   <requires lib="libadwaita" version="1.4"/>
   <template class="Preferences" parent="AdwPreferencesWindow">
     <property name="modal">true</property>
@@ -10,7 +10,20 @@
     <child>
       <object class="AdwPreferencesPage" id="preferences_page">
         <child>
+          <object class="GtkBox" id="preferences_box">
+            <property name="homogeneous">True</property>
+            <property name="orientation">vertical</property>
+            <property name="valign">start</property>
+            <child>
+              <object class="AdwBanner" id="preferences_error_banner">
+                <property name="valign">start</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
           <object class="AdwPreferencesGroup" id="appearance_group">
+            <property name="margin-top">40</property>
             <property name="title">Appearance</property>
             <child>
               <object class="AdwActionRow" id="theme_row">
@@ -76,7 +89,8 @@
             <property name="title">Tool settings</property>
             <child>
               <object class="AdwEntryRow" id="dns_server_entryrow">
-                <property name="text">Use a different DNS server</property>
+                <property name="activates-default">True</property>
+                <property name="show-apply-button">True</property>
                 <property name="title">DNS Server</property>
               </object>
             </child>
