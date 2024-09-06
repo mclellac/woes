@@ -31,9 +31,9 @@ WOES is a graphical user interface designed for performing various web operation
 
 Ensure you have the following tools installed for building the project:
 
-    `Meson`
-    `Ninja`
-    `Flatpak`
+* `Meson`
+* `Ninja`
+* `Flatpak`
 
 For most systems, you can install these with your package manager:
 
