@@ -23,7 +23,9 @@
     {
       "name": "python-nmap",
       "buildsystem": "simple",
-      "build-commands": ["pip3 install --no-cache-dir --prefix=/app ."],
+      "build-commands": [
+        "pip3 install --no-cache-dir --prefix=/app ."
+      ],
       "sources": [
         {
           "type": "archive",

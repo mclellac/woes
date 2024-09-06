@@ -27,7 +27,11 @@ def ensure_flatpak_installed():
         subprocess.run(["flatpak-builder", "--version"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     except subprocess.CalledProcessError:
         print("Flatpak or flatpak-builder not installed. Installing...")
-        distro = os.popen("lsb_release -is").read().strip().lower()
+        try:
+            distro = subprocess.check_output(["lsb_release", "-is"], text=True).strip().lower()
+        except subprocess.CalledProcessError:
+            print("Failed to detect distribution. Please install flatpak and flatpak-builder manually.")
+            sys.exit(1)
 
         if distro in ["arch", "manjaro"]:
             run_command(["sudo", "pacman", "-S", "--noconfirm", "flatpak", "flatpak-builder"])
@@ -42,11 +46,13 @@ def ensure_flatpak_installed():
 
 def clean_up():
     """Clean up build directories and repository."""
-    print(f"Removing directory: {BUILD_DIR}")
-    shutil.rmtree(BUILD_DIR, ignore_errors=True)
+    if os.path.exists(BUILD_DIR):
+        print(f"Removing directory: {BUILD_DIR}")
+        shutil.rmtree(BUILD_DIR, ignore_errors=True)
 
-    print(f"Removing directory: {REPO_DIR}")
-    shutil.rmtree(REPO_DIR, ignore_errors=True)
+    if os.path.exists(REPO_DIR):
+        print(f"Removing directory: {REPO_DIR}")
+        shutil.rmtree(REPO_DIR, ignore_errors=True)
 
 def build_flatpak():
     """Build the Flatpak application and bundle it."""
@@ -78,3 +84,4 @@ def build_flatpak():
 
 if __name__ == "__main__":
     build_flatpak()
+
