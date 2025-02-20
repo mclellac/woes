@@ -34,7 +34,7 @@
             </child>
             <child>
               <object class="AdwSwitchRow" id="http_pragma_switch_row">
-                <property name="subtitle" translatable="yes">Enable this to send Akamai Praga headers in your request</property>
+                <property name="subtitle" translatable="yes">Enable this to send Akamai Pragma headers in your request</property>
                 <property name="title" translatable="yes">Akamai Debug Headers</property>
               </object>
             </child>
