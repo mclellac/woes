@@ -2,112 +2,73 @@ import sys
 import argparse
 import logging
 
-# No gi.repository imports at the top level for CLI testability
-
 from .constants import APP_ID, VERSION
+from .preferences import Preferences
+from .window import WoesWindow
 
-# This function is independent of GUI and can be tested easily
-def parse_arguments_and_setup_logging(argv):
-    """Parses command line arguments and sets up logging."""
-    parser = argparse.ArgumentParser(description="Woes application.")
-    parser.add_argument(
-        "--debug", action="store_true", help="Enable debug logging."
-    )
-    args = parser.parse_args(argv[1:]) # Pass only arguments, not script name
 
-    if args.debug:
-        logging.basicConfig(level=logging.DEBUG)
-        logging.debug("Debug mode enabled via command line.")
-    else:
-        logging.basicConfig(level=logging.INFO)
-    return args
+class WoesApplication(Adw.Application):
+    """The main application singleton class."""
 
-# --- GUI Application Part ---
-_WoesApplication_class_ref = None # Placeholder for the lazily defined class
+    def __init__(self, version=VERSION):
+        super().__init__(
+            application_id=APP_ID, flags=Gio.ApplicationFlags.DEFAULT_FLAGS
+        )
+        self.version = version
+        self.win = None  # Store a reference to the main window
 
-def _define_and_init_gui_app_class():
-    """Initializes GUI toolkit, imports, and defines the Application class."""
-    global _WoesApplication_class_ref
-    if _WoesApplication_class_ref is not None:
-        return
+        # Create actions and set accelerators
+        self.create_action("quit", lambda *_: self.quit(), ["<primary>q"])
+        self.create_action("about", self.on_about_action)
+        self.create_action("preferences", self.on_preferences_action)
+        self.create_action("switch-to-http", self.switch_to_http, ["<primary>1"])
+        self.create_action("switch-to-nmap", self.switch_to_nmap, ["<primary>2"])
 
-    # Import gi and set versions first
-    import gi
-    gi.require_version("Gtk", "4.0")
-    gi.require_version("Adw", "1")
-    gi.require_version("GtkSource", "5") # If GtkSource is used by any GUI component
+    def do_activate(self):
+        """Called when the application is activated.
 
-    # Import GUI related modules here
-    from gi.repository import Adw, Gio
-    from .preferences import Preferences
-    from .window import WoesWindow
+        We raise the application's main window, creating it if necessary.
+        """
+        win = self.props.active_window
+        if not win:
+            win = WoesWindow(application=self)
+        win.present()
+        self.win = win
 
-    class WoesApplication(Adw.Application):
-        """The main application singleton class."""
+    def switch_to_http(self, *args):
+        if self.win:
+            self.win.stack.set_visible_child(self.win.http_page)
 
-        def __init__(self, version=VERSION, **kwargs):
-            super().__init__(
-                application_id=APP_ID, flags=Gio.ApplicationFlags.DEFAULT_FLAGS, **kwargs
-            )
-            self.version = version
-            self.win = None  # Store a reference to the main window
+    def switch_to_nmap(self, *args):
+        if self.win:
+            self.win.stack.set_visible_child(self.win.nmap_page)
 
-            # Create actions and set accelerators
-            self.create_action("quit", lambda *_: self.quit(), ["<primary>q"])
-            self.create_action("about", self.on_about_action)
-            self.create_action("preferences", self.on_preferences_action)
-            self.create_action("switch-to-http", self.switch_to_http, ["<primary>1"])
-            self.create_action("switch-to-nmap", self.switch_to_nmap, ["<primary>2"])
+    def on_about_action(self, widget, _):
+        """Callback for the app.about action."""
+        about = Adw.AboutWindow(
+            transient_for=self.props.active_window,
+            application_name="WOES",
+            application_icon=APP_ID,
+            developer_name="Carey McLelland",
+            version=self.version,
+            developers=["Carey McLelland"],
+            copyright="© 2024 Carey McLelland",
+        )
+        about.present()
 
-        def do_activate(self):
-            """Called when the application is activated.
-            We raise the application's main window, creating it if necessary.
-            """
-            win = self.props.active_window
-            if not win:
-                win = WoesWindow(application=self) # WoesWindow is from the outer scope
-            win.present()
-            self.win = win
+    def on_preferences_action(self, widget, _):
+        """Callback for the app.preferences action."""
+        preferences = Preferences(main_window=self.win)
+        preferences.set_transient_for(self.win)
+        preferences.present()
 
-        def switch_to_http(self, *args):
-            if self.win:
-                self.win.stack.set_visible_child(self.win.http_page)
-
-        def switch_to_nmap(self, *args):
-            if self.win:
-                self.win.stack.set_visible_child(self.win.nmap_page)
-
-        def on_about_action(self, widget, _):
-            """Callback for the app.about action."""
-            # Adw.AboutWindow is from the outer scope
-            about = Adw.AboutWindow(
-                transient_for=self.props.active_window,
-                application_name="woes",
-                application_icon=APP_ID,
-                developer_name="Carey McLelland",
-                version=self.version,
-                developers=["Carey McLelland"],
-                copyright="© 2024 Carey McLelland",
-            )
-            about.present()
-
-        def on_preferences_action(self, widget, _):
-            """Callback for the app.preferences action."""
-            # Preferences is from the outer scope
-            preferences = Preferences(main_window=self.win)
-            preferences.set_transient_for(self.win)
-            preferences.present()
-
-        def create_action(self, name, callback, shortcuts=None):
-            """Add an application action."""
-            # Gio.SimpleAction is from the outer scope
-            action = Gio.SimpleAction.new(name, None)
-            action.connect("activate", callback)
-            self.add_action(action)
-            if shortcuts:
-                self.set_accels_for_action(f"app.{name}", shortcuts)
-
-    _WoesApplication_class_ref = WoesApplication
+    def create_action(self, name, callback, shortcuts=None):
+        """Add an application action."""
+        action = Gio.SimpleAction.new(name, None)
+        action.connect("activate", callback)
+        self.add_action(action)
+        if shortcuts:
+            self.set_accels_for_action(f"app.{name}", shortcuts)
 
 
 def main(version=VERSION):

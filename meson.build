@@ -1,4 +1,4 @@
-project('woes',
+project('WOES',
     version: '0.2.0',
     meson_version: '>= 1.3.0',
     default_options: ['warning_level=2', 'werror=false'],
@@ -61,7 +61,7 @@ icondir = join_paths(datadir, 'icons', 'hicolor')
 schemadir = join_paths(datadir, 'glib-2.0', 'schemas')
 
 # Application metadata and directories
-default_pkgappid = 'com.github.mclellac.WebOpsEvaluationSuite'
+default_pkgappid = 'com.github.mclellac.woes'
 pkgappid = default_pkgappid
 appdatadir = join_paths(datadir, 'metainfo')
 desktopdir = join_paths(datadir, 'applications')

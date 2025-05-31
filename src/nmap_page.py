@@ -65,8 +65,7 @@ class NmapPage(Adw.PreferencesPage):
             del self.scanner # Ensure executor shutdown if NmapScanner has __del__
 
     def _apply_source_view_style(self):
-        # Assuming APP_ID is available or using a hardcoded string for settings
-        settings = Gio.Settings.new(APP_ID) # Use imported APP_ID
+        settings = Gio.Settings.new(APP_ID)
         source_style_scheme = settings.get_string("source-style-scheme")
         logging.debug(f"Applying style scheme to Nmap results: {source_style_scheme}")
         apply_source_style_scheme(

@@ -1,5 +1,5 @@
 {
-  "app-id": "com.github.mclellac.WebOpsEvaluationSuite",
+  "app-id": "com.github.mclellac.woes",
   "runtime": "org.gnome.Platform",
   "runtime-version": "master",
   "sdk": "org.gnome.Sdk",
