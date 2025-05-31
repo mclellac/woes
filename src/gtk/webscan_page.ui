@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="libadwaita" version="1.0"/>
+  <template class="WebScanPage" parent="AdwPreferencesPage">
+    <property name="title">Web Scan</property>
+    <child>
+      <object class="AdwPreferencesGroup">
+        <property name="title">Scan Target</property>
+        <child>
+          <object class="AdwEntryRow" id="url_entry">
+            <property name="title">Target URL</property>
+            <property name="placeholder-text">e.g., http://example.com</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwActionRow">
+            <property name="title">Actions</property>
+            <child>
+              <object class="GtkButton" id="scan_button">
+                <property name="label">Start Scan</property>
+                <property name="halign">end</property>
+                <property name="valign">center</property>
+                <signal name="clicked" handler="on_scan_button_clicked"/>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="AdwPreferencesGroup">
+        <property name="title">Scan Results</property>
+        <child>
+          <object class="GtkScrolledWindow">
+            <property name="min-content-height">200</property>
+            <property name="vexpand">True</property>
+            <child>
+              <object class="GtkTextView" id="results_textview">
+                <property name="editable">False</property>
+                <property name="cursor-visible">False</property>
+                <property name="wrap-mode">word-char</property>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+</interface>

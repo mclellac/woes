@@ -3,7 +3,7 @@ import logging
 
 from gi.repository import Adw, Gdk, Gio, Gtk
 
-from . import DNSPage, HttpPage, NmapPage
+from . import DNSPage, HttpPage, NmapPage, WebScanPage
 from .constants import APP_ID, RESOURCE_PREFIX
 from .style_utils import apply_font_size, apply_theme
 

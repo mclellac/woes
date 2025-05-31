@@ -12,6 +12,7 @@ logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %
 from .http_page import HttpPage
 from .dns_page import DNSPage
 from .nmap_page import NmapPage
+from .webscan_page import WebScanPage
 from .helper import Helper
 from .preferences import Preferences
 from .window import WoesWindow
@@ -20,6 +21,7 @@ __all__ = [
     "HttpPage",
     "NmapPage",
     "DNSPage",
+    "WebScanPage",
     "Helper",
     "Preferences",
     "WoesWindow",
