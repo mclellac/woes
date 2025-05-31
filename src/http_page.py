@@ -201,11 +201,11 @@ class HttpPage(Adw.PreferencesPage):
         self.error_banner.set_title("")
         self.http_entry_row.remove_css_class("error")
 
-    @Gtk.Template.Callback()
+    # Removed @Gtk.Template.Callback() as it's a direct signal handler in UI
     def _on_error_banner_dismiss(self, banner: Adw.Banner, *args):
         self._clear_error()
 
-    @Gtk.Template.Callback()
+    # Removed @Gtk.Template.Callback() as it's a direct signal handler in UI
     def _on_clear_results_clicked(self, button: Gtk.Button, *args):
         self._update_column_view_model(None) # Clears the view
         self._clear_error() # Clear any errors

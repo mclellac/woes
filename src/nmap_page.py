@@ -265,7 +265,7 @@ class NmapPage(Adw.PreferencesPage):
         self._set_scan_status(ScanStatus.IDLE, "Idle")
 
 
-    @Gtk.Template.Callback()
+    # Removed @Gtk.Template.Callback() as it's a direct signal handler in UI
     def _on_error_banner_dismiss(self, banner: Adw.Banner, *args):
         self._clear_error()
 
