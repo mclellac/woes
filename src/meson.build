@@ -11,6 +11,9 @@ message('Python install dir: ' + python_install_dir)
 site_packages_dir = python_bin.get_install_dir(subdir: 'woes')
 message('Site packages dir: ' + site_packages_dir)
 
+# Create a new configuration variable for the site-packages directory
+python_site_packages_dir = python_bin.get_install_dir()
+
 # Define paths
 localedir = join_paths(get_option('prefix'), 'share', 'locale')
 pkgdatadir = join_paths(get_option('prefix'), 'share', 'woes')
@@ -24,6 +27,7 @@ conf.set('PYTHON', python_bin.full_path())
 conf.set('VERSION', meson.project_version())
 conf.set('LOCALEDIR', localedir)
 conf.set('WOESDIR', site_packages_dir)
+conf.set('PYTHON_SITE_PACKAGES_DIR', python_site_packages_dir)
 conf.set('APPID', meson.project_name())
 conf.set('GSETTINGSSCHEMADIR', gsettings_schemadir) # Add this line
 
