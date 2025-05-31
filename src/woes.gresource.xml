@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gresources>
-  <gresource prefix="/com/github/mclellac/WebOpsEvaluationSuite">
+  <gresource prefix="/com/github/mclellac/woes">
     <file preprocess="xml-stripblanks">gtk/window.ui</file>
     <file preprocess="xml-stripblanks">gtk/http_page.ui</file>
     <file preprocess="xml-stripblanks">gtk/nmap_page.ui</file>
@@ -26,4 +26,3 @@
     <file preprocess="xml-stripblanks">../data/icons/hicolor/symbolic/actions/globe-alt-symbolic.svg</file>
   </gresource>
 </gresources>
-
