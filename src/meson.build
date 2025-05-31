@@ -81,6 +81,7 @@ woes_sources = files(
   'preferences.py',
   'style_utils.py',
   'window.py',
+  'webscan_page.py',
 )
 
 # Install the Python source files
