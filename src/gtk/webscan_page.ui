@@ -5,6 +5,13 @@
   <template class="WebScanPage" parent="AdwPreferencesPage">
     <property name="title">Web Scan</property>
     <child>
+      <object class="AdwBanner" id="error_banner_webscan">
+        <property name="button-label" translatable="yes">Dismiss</property>
+        <property name="revealed">False</property>
+        <signal name="button-clicked" handler="on_error_banner_dismiss_clicked"/>
+      </object>
+    </child>
+    <child>
       <object class="AdwPreferencesGroup">
         <property name="title">Scan Target</property>
         <child>
@@ -21,6 +28,9 @@
                 <property name="halign">end</property>
                 <property name="valign">center</property>
                 <signal name="clicked" handler="on_scan_button_clicked"/>
+                <style>
+                  <class name="suggested-action"/>
+                </style>
               </object>
             </child>
           </object>
@@ -30,6 +40,7 @@
     <child>
       <object class="AdwPreferencesGroup">
         <property name="title">Scan Results</property>
+        <property name="description">Output from the web vulnerability scan will appear here.</property>
         <child>
           <object class="GtkScrolledWindow">
             <property name="min-content-height">200</property>

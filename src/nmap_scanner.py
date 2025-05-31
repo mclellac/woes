@@ -1,4 +1,3 @@
-# nmap_scanner.py
 import logging
 import re
 from concurrent.futures import ThreadPoolExecutor
