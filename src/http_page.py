@@ -1,4 +1,3 @@
-# http_page.py
 import re
 from typing import Dict, Optional
 from urllib.parse import urlparse

@@ -1,4 +1,3 @@
-# helper.py
 from gi.repository import Gdk, Gtk
 
 

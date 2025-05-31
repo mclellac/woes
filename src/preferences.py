@@ -1,8 +1,6 @@
-# preferences.py
 import logging
 import re
-# import threading # No longer needed
-from gi.repository import Adw, Gio, Gtk, GLib # Added GLib
+from gi.repository import Adw, Gio, Gtk, GLib
 
 from .constants import APP_ID, RESOURCE_PREFIX
 from .style_utils import apply_font_size, apply_theme

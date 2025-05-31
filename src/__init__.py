@@ -1,12 +1,7 @@
-# __init__.py
-import gi
-
-gi.require_version("Gtk", "4.0")
-gi.require_version("Adw", "1")
-gi.require_version("GtkSource", "5")
-
 import logging
-logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
+
+# GI imports and require_version calls moved to main.py's GUI initialization part
+# to allow CLI components to be tested without a GUI environment.
 
 # Main application pages and modules
 from .http_page import HttpPage
