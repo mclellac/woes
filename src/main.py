@@ -15,11 +15,12 @@ def parse_arguments_and_setup_logging(argv):
     )
     args = parser.parse_args(argv[1:]) # Pass only arguments, not script name
 
+    log_format = '%(levelname)s:%(name)s:%(message)s' # Define desired format
     if args.debug:
-        logging.basicConfig(level=logging.DEBUG)
+        logging.basicConfig(level=logging.DEBUG, format=log_format)
         logging.debug("Debug mode enabled via command line.")
     else:
-        logging.basicConfig(level=logging.INFO)
+        logging.basicConfig(level=logging.INFO, format=log_format)
     return args
 
 # --- GUI Application Part ---
