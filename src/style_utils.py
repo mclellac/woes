@@ -1,4 +1,3 @@
-# style_utils.py
 import logging
 
 from gi.repository import Adw, Gdk, Gio, Gtk, GtkSource

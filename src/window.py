@@ -1,4 +1,3 @@
-# window.py
 import logging
 
 from gi.repository import Adw, Gdk, Gio, Gtk

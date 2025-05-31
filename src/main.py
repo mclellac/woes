@@ -1,7 +1,6 @@
-# main.py
 import sys
-
-from gi.repository import Adw, Gio
+import argparse
+import logging
 
 from .constants import APP_ID, VERSION
 from .preferences import Preferences
@@ -74,5 +73,13 @@ class WoesApplication(Adw.Application):
 
 def main(version=VERSION):
     """The application's entry point."""
-    app = WoesApplication(version)
+    args = parse_arguments_and_setup_logging(sys.argv) # CLI part, no gi needed yet
+
+    # GUI part starts here
+    # logging.info("Application starting (GUI mode).") # Already logged by parse_...
+
+    _define_and_init_gui_app_class() # This will import gi and define WoesApplication
+
+    app = _WoesApplication_class_ref(version=version) # Use the globally set class reference
+    # app.run expects the full sys.argv, including script name
     return app.run(sys.argv)

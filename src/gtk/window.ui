@@ -170,5 +170,11 @@
         <attribute name="label" translatable="yes">_About WOES</attribute>
       </item>
     </section>
+    <section>
+      <item>
+        <attribute name="action">app.quit</attribute>
+        <attribute name="label" translatable="yes">_Quit</attribute>
+      </item>
+    </section>
   </menu>
 </interface>

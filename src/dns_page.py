@@ -1,4 +1,3 @@
-# dns_page.py
 import logging
 import re
 from datetime import datetime

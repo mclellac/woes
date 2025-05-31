@@ -5,6 +5,7 @@ from gi.repository import Gtk, Adw, Gio, GLib
 from .constants import RESOURCE_PREFIX # Import RESOURCE_PREFIX
 
 import subprocess
+import logging
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/webscan_page.ui") # Use resource_path
 class WebScanPage(Adw.PreferencesPage):
@@ -13,6 +14,7 @@ class WebScanPage(Adw.PreferencesPage):
     url_entry = Gtk.Template.Child()
     scan_button = Gtk.Template.Child()
     results_textview = Gtk.Template.Child()
+    error_banner_webscan = Gtk.Template.Child() # New banner
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -80,17 +82,10 @@ class WebScanPage(Adw.PreferencesPage):
     def show_error_toast(self, message):
         # A helper function to show toasts, assuming this page is within a context that can display them
         # (e.g., Adw.ApplicationWindow or a view that has access to Adw.ToastOverlay)
-        # For simplicity, printing to console. In a real app, you'd get the ToastOverlay.
-        print(f"Error Toast: {message}")
-        # Example of how you might get a toast overlay if it's part of the window:
-        # top_level = self.get_ancestor(Adw.ApplicationWindow)
-        # if top_level and hasattr(top_level, 'add_toast'):
-        #     top_level.add_toast(Adw.Toast.new(message))
-        # else:
-        #     # Fallback if no toast overlay is found
-        #     print(f"Error (no toast mechanism found): {message}")
+        logging.error(f"Displaying error: {message}")
+        self.error_banner_webscan.set_title(message)
+        self.error_banner_webscan.set_revealed(True)
 
-        # Since we don't have direct access to the window's toast overlay here,
-        # we can display the error in the text view itself as a fallback.
-        buffer = self.results_textview.get_buffer()
-        buffer.insert(buffer.get_end_iter(), f"\n\nERROR: {message}\n")
+    @Gtk.Template.Callback()
+    def on_error_banner_dismiss_clicked(self, widget, *args):
+        self.error_banner_webscan.set_revealed(False)

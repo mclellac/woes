@@ -1,4 +1,3 @@
-# nmap_page.py
 import logging
 import functools # For functools.partial with GLib.idle_add
 
@@ -9,10 +8,6 @@ from .constants import RESOURCE_PREFIX, APP_ID # Import APP_ID
 from .nmap_scanner import NmapScanner, ScanStatus
 from .style_utils import apply_source_style_scheme # Keep for source view
 from .utils import create_source_view
-
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s" # Adjusted default level
-)
 
 
 class NmapItem(GObject.Object):
