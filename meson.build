@@ -61,7 +61,7 @@ icondir = join_paths(datadir, 'icons', 'hicolor')
 schemadir = join_paths(datadir, 'glib-2.0', 'schemas')
 
 # Application metadata and directories
-default_pkgappid = 'com.github.mclellac.WebOpsEvaluationSuite'
+default_pkgappid = 'com.github.mclellac.woes'
 pkgappid = default_pkgappid
 appdatadir = join_paths(datadir, 'metainfo')
 desktopdir = join_paths(datadir, 'applications')

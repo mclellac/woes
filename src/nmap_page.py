@@ -2,6 +2,11 @@ import logging
 import functools # For functools.partial with GLib.idle_add
 
 import nmap
+
+import gi
+gi.require_version('Adw', '1')
+gi.require_version('Gtk', '4.0')
+gi.require_version('GtkSource', '5')
 from gi.repository import Adw, Gio, GLib, GObject, Gtk, GtkSource
 
 from .constants import RESOURCE_PREFIX, APP_ID # Import APP_ID

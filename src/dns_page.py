@@ -4,6 +4,11 @@ from datetime import datetime
 
 import dns.resolver
 import dns.reversename
+
+import gi
+gi.require_version('Adw', '1')
+gi.require_version('Gtk', '4.0')
+gi.require_version('GtkSource', '5')
 from gi.repository import Adw, Gio, Gtk, GtkSource, Pango
 
 from .constants import RESOURCE_PREFIX, APP_ID

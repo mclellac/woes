@@ -6,7 +6,9 @@ from gi.repository import Gtk, Adw, Gio, GLib
 import subprocess
 import logging
 
-@Gtk.Template(filename='/com/github/mclellac/WebOpsEvaluationSuite/gtk/webscan_page.ui')
+from .constants import RESOURCE_PREFIX # Import RESOURCE_PREFIX
+
+@Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/webscan_page.ui") # Use resource_path and constant
 class WebScanPage(Adw.PreferencesPage):
     __gtype_name__ = 'WebScanPage'
 
