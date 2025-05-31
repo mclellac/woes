@@ -110,6 +110,7 @@
                   </object>
                 </property>
                 <property name="icon-name">org.gnome.Epiphany-symbolic</property>
+                <property name="name">dns_page</property>
                 <property name="title">DNS</property>
                 <property name="use-underline">true</property>
               </object>

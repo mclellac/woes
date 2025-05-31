@@ -3,47 +3,44 @@
 <interface>
   <requires lib="gtk" version="4.10"/>
   <requires lib="libadwaita" version="1.4"/>
-  <template class="NmapPage" parent="GtkBox">
-    <property name="halign">baseline-fill</property>
-    <property name="hexpand">True</property>
-    <property name="hexpand-set">True</property>
-    <property name="orientation">vertical</property>
-    <property name="vexpand">True</property>
-    <property name="vexpand-set">True</property>
+  <template class="NmapPage" parent="AdwPreferencesPage">
+    <property name="title" translatable="yes">Nmap Scanner</property>
+    <property name="icon-name">face-devilish-symbolic</property> <!-- Or an appropriate network scanning icon -->
     <child>
-      <object class="GtkListBox" id="nmap_listbox">
-        <property name="activate-on-single-click">False</property>
-        <property name="halign">baseline-fill</property>
-        <property name="selection-mode">0</property>
-        <property name="valign">baseline-center</property>
+      <object class="AdwBanner" id="warning_banner">
+        <property name="title" translatable="yes">WARNING: Do not use this tool on any hosts or networks you do not have explicit permission to scan.</property>
+        <property name="revealed">True</property>
+        <property name="banner-type">warning</property> <!-- Adw.BannerType.WARNING -->
+      </object>
+    </child>
+    <child>
+      <object class="AdwPreferencesGroup" id="nmap_scan_parameters_group">
+        <property name="title" translatable="yes">Scan Parameters</property>
         <child>
           <object class="AdwEntryRow" id="nmap_target_entryrow">
             <property name="activates-default">True</property>
-            <property name="input-purpose">url</property>
+            <property name="input-purpose">url</property> <!-- Changed from generic to url-like -->
             <property name="show-apply-button">True</property>
-            <property name="title" translatable="yes">IP/CIDR/FQDN to scan</property>
+            <property name="title" translatable="yes">Target (IP/CIDR/Hostname)</property>
           </object>
         </child>
         <child>
           <object class="AdwSwitchRow" id="nmap_fingerprint_switchrow">
-            <property name="subtitle" translatable="yes">Enable this to attempt detection of the target OS</property>
-            <property name="title" translatable="yes">OS Fingerprinting (requires root)</property>
+            <property name="subtitle" translatable="yes">Enable this to attempt OS detection (often requires root/administrator privileges)</property>
+            <property name="title" translatable="yes">OS Fingerprinting</property>
           </object>
         </child>
         <child>
           <object class="AdwSwitchRow" id="nmap_all_ports_switchrow">
-            <property name="subtitle">This will scan all ports between 0-65535 </property>
-            <property name="subtitle-lines">2</property>
-            <property name="title" translatable="yes">Scan all ports (default is the top 200)</property>
+            <property name="subtitle" translatable="yes">Scan all 65535 TCP ports (default is top ~1000)</property>
+            <property name="title" translatable="yes">Scan All Ports</property>
           </object>
         </child>
         <child>
           <object class="AdwComboRow" id="nmap_scripts_dropdown">
-            <property name="hexpand">True</property>
-            <property name="hexpand-set">True</property>
             <property name="icon-name">emblem-documents-symbolic</property>
             <property name="model">
-              <object class="GtkStringList" id="nmap_list">
+              <object class="GtkStringList" id="nmap_scripts_list_store">
                 <property name="strings">None</property>
                 <items>
                   <item>default</item>
@@ -65,153 +62,65 @@
               </object>
             </property>
             <property name="selected">0</property>
-            <property name="subtitle">Select script to use if desired</property>
-            <property name="subtitle-lines">1</property>
-            <property name="title">Nmap Scripts</property>
-            <property name="valign">baseline-fill</property>
-          </object>
-        </child>
-        <style>
-          <class name="boxed-list"/>
-        </style>
-      </object>
-    </child>
-    <child>
-      <object class="GtkGrid" id="nmap_grid">
-        <property name="halign">baseline-center</property>
-        <child>
-          <object class="GtkSpinner" id="nmap_spinner">
-            <property name="halign">start</property>
-            <property name="margin-start">5</property>
-            <property name="spinning">True</property>
-            <property name="valign">center</property>
-            <property name="visible">False</property>
-            <layout>
-              <property name="column">1</property>
-              <property name="row">2</property>
-            </layout>
+            <property name="title" translatable="yes">Nmap Scripting Engine (NSE)</property>
+            <property name="subtitle" translatable="yes">Select a script or script category</property>
           </object>
         </child>
         <child>
-          <object class="GtkLabel" id="nmap_status">
-            <property name="can-focus">False</property>
-            <property name="can-target">False</property>
-            <property name="halign">end</property>
-            <property name="justify">right</property>
-            <property name="label">&lt;b&gt;&lt;i&gt;Scanning...&lt;/i&gt;&lt;/b&gt;</property>
-            <property name="use-markup">True</property>
-            <property name="valign">center</property>
-            <property name="visible">False</property>
-            <layout>
-              <property name="column">0</property>
-              <property name="row">2</property>
-              <property name="row-span">1</property>
-            </layout>
-          </object>
-        </child>
-        <child>
-          <object class="GtkLabel" id="nmap_warn_label">
-            <property name="label">&lt;b&gt;WARNING:&lt;/b&gt; Do not use this tool on any hosts or networks &lt;u&gt;you do not explicitely have permission&lt;/u&gt; to scan.</property>
-            <property name="margin-bottom">10</property>
-            <property name="margin-end">10</property>
-            <property name="margin-start">10</property>
-            <property name="margin-top">10</property>
-            <property name="natural-wrap-mode">word</property>
-            <property name="use-markup">True</property>
-            <property name="width-chars">30</property>
-            <property name="wrap">True</property>
-            <layout>
-              <property name="column">0</property>
-              <property name="column-span">2</property>
-              <property name="row">0</property>
-              <property name="row-span">2</property>
-            </layout>
+          <object class="AdwActionRow" id="status_row">
+            <property name="title" translatable="yes">Scan Status</property>
+            <property name="subtitle" translatable="yes">Idle</property> <!-- Initial status message -->
+            <property name="activatable">False</property>
+            <property name="revealed">True</property> <!-- Always visible, content changes -->
+            <child>
+              <object class="GtkSpinner" id="scan_spinner">
+                <property name="spinning">False</property>
+                <property name="visible">False</property> <!-- Initially hidden -->
+              </object>
+            </child>
           </object>
         </child>
       </object>
     </child>
     <child>
-      <object class="GtkGrid" id="nmap_results_grid">
-        <property name="halign">baseline-fill</property>
-        <property name="hexpand">True</property>
-        <property name="margin-bottom">10</property>
-        <property name="margin-top">10</property>
-        <property name="valign">baseline-fill</property>
-        <property name="vexpand">True</property>
-        <property name="vexpand-set">True</property>
+      <object class="AdwBanner" id="error_banner">
+        <property name="button-label" translatable="yes">Dismiss</property>
+        <property name="revealed">False</property> <!-- Initially hidden -->
+        <property name="title"></property> <!-- Title will be set from code -->
+        <signal name="button-clicked" handler="_on_error_banner_dismiss"/>
+      </object>
+    </child>
+    <child>
+      <object class="AdwPreferencesGroup" id="targets_group">
+        <property name="title" translatable="yes">Scanned Targets</property>
+        <property name="description" translatable="yes">Select a target to view its scan results.</property>
+        <property name="revealed">False</property> <!-- Initially hidden -->
         <child>
-          <object class="GtkFrame" id="nmap_target_frame">
-            <property name="halign">baseline-fill</property>
+          <object class="GtkScrolledWindow" id="nmap_target_scrolled_window">
+            <property name="min-content-height">150</property>
+            <property name="vexpand">False</property> <!-- Let it take natural height or min-content-height -->
             <property name="hexpand">True</property>
-            <property name="hexpand-set">True</property>
-            <property name="label">Targets</property>
-            <property name="label-xalign">0.5</property>
-            <property name="margin-bottom">10</property>
-            <property name="margin-end">5</property>
-            <property name="margin-top">10</property>
-            <property name="vexpand">True</property>
-            <property name="vexpand-set">True</property>
             <child>
-              <object class="GtkScrolledWindow" id="nmap_target_scrolled_window">
-                <property name="margin-bottom">10</property>
-                <property name="margin-end">10</property>
-                <property name="margin-start">10</property>
-                <property name="margin-top">10</property>
-                <property name="vexpand">True</property>
-                <property name="vexpand-set">True</property>
-                <child>
-                  <object class="GtkListBox" id="nmap_target_listbox">
-                    <property name="css-classes">card
-</property>
-                    <property name="vexpand">True</property>
-                    <property name="vexpand-set">True</property>
-                  </object>
-                </child>
+              <object class="GtkListBox" id="nmap_target_listbox">
+                <property name="selection-mode">single</property>
+                <property name="css-classes">boxed-list</property> <!-- Keep boxed-list style -->
               </object>
             </child>
-            <layout>
-              <property name="column">0</property>
-              <property name="column-span">1</property>
-              <property name="row">0</property>
-              <property name="row-span">10</property>
-            </layout>
           </object>
         </child>
+      </object>
+    </child>
+    <child>
+      <object class="AdwPreferencesGroup" id="results_group">
+        <property name="title" translatable="yes">Scan Results</property>
+        <property name="description" translatable="yes">Results for the selected target.</property>
+        <property name="revealed">False</property> <!-- Initially hidden -->
         <child>
-          <object class="GtkFrame" id="nmap_results_frame">
-            <property name="halign">baseline-fill</property>
-            <property name="hexpand">True</property>
-            <property name="hexpand-set">True</property>
-            <property name="label">Scan Results</property>
-            <property name="label-xalign">0.5</property>
-            <property name="margin-bottom">10</property>
-            <property name="margin-start">5</property>
-            <property name="margin-top">10</property>
+          <object class="GtkScrolledWindow" id="nmap_results_scrolled_window">
+            <property name="min-content-height">300</property>
             <property name="vexpand">True</property>
-            <property name="vexpand-set">True</property>
-            <child>
-              <object class="GtkScrolledWindow" id="nmap_results_scrolled_window">
-                <property name="halign">baseline-fill</property>
-                <property name="has-frame">True</property>
-                <property name="hexpand">True</property>
-                <property name="hexpand-set">True</property>
-                <property name="kinetic-scrolling">False</property>
-                <property name="margin-bottom">10</property>
-                <property name="margin-end">10</property>
-                <property name="margin-start">10</property>
-                <property name="margin-top">10</property>
-                <property name="max-content-width">150</property>
-                <property name="min-content-height">50</property>
-                <property name="vexpand">True</property>
-                <property name="vexpand-set">True</property>
-              </object>
-            </child>
-            <layout>
-              <property name="column">1</property>
-              <property name="column-span">5</property>
-              <property name="row">0</property>
-              <property name="row-span">10</property>
-            </layout>
+            <property name="hexpand">True</property>
+            <!-- GtkSourceView for results will be added here from code -->
           </object>
         </child>
       </object>

@@ -4,11 +4,11 @@ from typing import Dict, Optional
 from urllib.parse import urlparse
 
 import requests
-from gi.repository import Gio, GObject, Gtk
+from gi.repository import Adw, Gio, GObject, Gtk
 
 from .constants import RESOURCE_PREFIX
-from .helper import Helper
-from .style_utils import set_widget_visibility
+# Removed Helper import as it's unused
+# from .style_utils import set_widget_visibility # This is no longer needed
 
 
 class HeaderItem(GObject.Object):
@@ -22,65 +22,69 @@ class HeaderItem(GObject.Object):
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/http_page.ui")
-class HttpPage(Gtk.Box):
+class HttpPage(Adw.PreferencesPage):
     __gtype_name__ = "HttpPage"
 
     http_entry_row = Gtk.Template.Child("http_entry_row")
-    http_list_box = Gtk.Template.Child("http_list_box")
     http_pragma_switch_row = Gtk.Template.Child("http_pragma_switch_row")
     http_column_view = Gtk.Template.Child("http_column_view")
-    http_header_frame = Gtk.Template.Child("http_header_frame")
-    http_error_label = Gtk.Template.Child("http_error_label")
+    error_banner = Gtk.Template.Child("error_banner")
+    http_results_group = Gtk.Template.Child("http_results_group")
+    # clear_results_button is connected via UI handler
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.http_page_init_ui()
-        self.column_view_helper = Helper(self.http_column_view, self.get_root())
+        self._connect_signals()
+        # self.column_view_helper removed
+        self._clear_error() # Ensure banner is hidden on init
+        self._hide_results() # Ensure results group is hidden on init
 
-    def http_page_init_ui(self) -> None:
+    def _connect_signals(self) -> None:
         self.http_entry_row.connect(
-            "entry-activated", self.http_page_on_entry_row_activated
+            "entry-activated", self._on_entry_row_activated
         )
-        self.http_entry_row.connect("apply", self.http_page_on_entry_row_activated)
+        self.http_entry_row.connect("apply", self._on_entry_row_activated)
         self.http_pragma_switch_row.connect(
-            "notify::active", self.http_page_on_pragma_toggled
+            "notify::active", self._on_pragma_toggled
         )
-        self.http_page_clear_error()
+        # error_banner dismiss is connected in UI
+        # clear_results_button click is connected in UI
 
-    def http_page_on_entry_row_activated(self, entry_row: Gtk.Entry) -> None:
-        url = self.http_page_ensure_scheme(entry_row.get_text().strip())
+    def _on_entry_row_activated(self, entry_row: Gtk.Entry) -> None:
+        url = self._ensure_scheme(entry_row.get_text().strip())
 
-        if not self.http_page_is_valid_url(url):
-            self.http_page_display_error(
-                "<b>Invalid URL format:</b> Please enter a valid URL."
+        if not self._is_valid_url(url):
+            self._display_error(
+                "Invalid URL format: Please enter a valid URL."
             )
-            self.http_page_update_column_view(None)
+            self._update_column_view_model(None) # Clear previous results
             return
 
-        self.http_page_clear_error()
-        headers = self.http_page_fetch_headers(
+        self._clear_error()
+        headers = self._fetch_headers(
             url, self.http_pragma_switch_row.get_active()
         )
 
         if headers and "error" not in headers:
-            self.http_page_update_column_view(headers)
+            self._update_column_view_model(headers)
             self.http_entry_row.remove_css_class("error")
         else:
-            self.http_page_display_error(
-                headers.get("error", "<b>Unknown error:</b> Failed to fetch headers.")
-            )
+            error_message = headers.get("error", "Unknown error: Failed to fetch headers.")
+            # Remove HTML bold tags for AdwBanner, as it might handle styling differently
+            error_message = error_message.replace("<b>", "").replace("</b>", "")
+            self._display_error(error_message)
             self.http_entry_row.add_css_class("error")
-            self.http_page_update_column_view(None)
+            self._update_column_view_model(None) # Clear previous results if error
 
     @staticmethod
-    def http_page_ensure_scheme(url: str) -> str:
+    def _ensure_scheme(url: str) -> str:
         parsed_url = urlparse(url)
         if not parsed_url.scheme:
             url = "https://" + url
         return url
 
     @staticmethod
-    def http_page_is_valid_url(url: str) -> bool:
+    def _is_valid_url(url: str) -> bool:
         url_regex = re.compile(
             r"^(?:http|https)://"
             r"(?:\S+(?::\S*)?@)?"
@@ -94,10 +98,10 @@ class HttpPage(Gtk.Box):
 
         return re.match(url_regex, url) is not None and bool(urlparse(url).netloc)
 
-    def http_page_fetch_headers(
+    def _fetch_headers(
         self, url: str, use_akamai_pragma: bool
     ) -> Dict[str, str]:
-        headers = {}
+        request_headers = {}
         if use_akamai_pragma:
             akamai_pragma_directives = [
                 "akamai-x-get-request-id",
@@ -110,109 +114,103 @@ class HttpPage(Gtk.Box):
                 "akamai-x-feo-trace",
                 "x-akamai-logging-mode: verbose",
             ]
-            headers["Pragma"] = ", ".join(akamai_pragma_directives)
+            request_headers["Pragma"] = ", ".join(akamai_pragma_directives)
 
         try:
-            response = requests.get(url, headers=headers, allow_redirects=False)
+            response = requests.get(url, headers=request_headers, allow_redirects=False, timeout=10)
             response.raise_for_status()
             return dict(response.headers)
         except requests.exceptions.HTTPError as e:
-            # Maintain original HTTP error messages
-            return {"error": self.http_page_format_http_error(e)}
+            return {"error": self._format_http_error(e)}
         except requests.exceptions.ConnectionError:
             return {
-                "error": "<b>Connection Error:</b> Failed to establish a connection."
+                "error": "Connection Error: Failed to establish a connection."
             }
         except requests.exceptions.Timeout:
-            return {"error": "<b>Timeout Error:</b> The request timed out."}
+            return {"error": "Timeout Error: The request timed out."}
         except requests.exceptions.RequestException as e:
-            return {"error": f"<b>Request Error:</b> {str(e)}"}
+            return {"error": f"Request Error: {str(e)}"}
 
-    def http_page_format_http_error(self, e: requests.exceptions.HTTPError) -> str:
-        # Maintain specific, custom HTTP error messages
+    def _format_http_error(self, e: requests.exceptions.HTTPError) -> str:
         status_code = e.response.status_code
         if status_code == 404:
-            return (
-                "<b>404 Not Found:</b> The requested URL was not found on this server."
-            )
+            return "404 Not Found: The requested URL was not found on this server."
         elif status_code == 403:
-            return "<b>403 Forbidden:</b> You don't have permission to access this URL."
+            return "403 Forbidden: You don't have permission to access this URL."
         elif status_code == 500:
-            return "<b>500 Internal Server Error:</b> The server encountered an internal error."
-        return f"<b>HTTP Error {status_code}:</b> {e.response.reason}."
+            return "500 Internal Server Error: The server encountered an internal error."
+        return f"HTTP Error {status_code}: {e.response.reason}."
 
-    def http_page_on_pragma_toggled(
+    def _on_pragma_toggled(
         self, widget: Gtk.Switch, gparam: GObject.ParamSpec
     ) -> None:
         if self.http_entry_row.get_text().strip():
-            self.http_page_on_entry_row_activated(self.http_entry_row)
+            self._on_entry_row_activated(self.http_entry_row)
 
-    def http_page_update_column_view(self, headers: Optional[Dict[str, str]]) -> None:
-        # Clear the existing model if it exists
-        selection_model = self.http_column_view.get_model()
-        if selection_model:
-            list_store = selection_model.get_model()
-            if list_store:
-                list_store.remove_all()
+    def _update_column_view_model(self, headers: Optional[Dict[str, str]]) -> None:
+        current_model = self.http_column_view.get_model()
+        list_store = None
+        if isinstance(current_model, Gtk.MultiSelection):
+            list_store = current_model.get_model()
 
-        # Remove all existing columns safely
-        for column in list(self.http_column_view.get_columns()):
-            if column is not None:
-                self.http_column_view.remove_column(column)
+        if not isinstance(list_store, Gio.ListStore): # If no model or wrong type, create new
+            list_store = Gio.ListStore.new(HeaderItem)
+            selection_model = Gtk.MultiSelection.new(list_store)
+            self.http_column_view.set_model(selection_model)
+            # Setup columns only if they don't exist
+            if not self.http_column_view.get_columns():
+                header_name_factory = self._create_factory("key")
+                header_value_factory = self._create_factory("value", wrap_text=True)
+
+                col_name = Gtk.ColumnViewColumn.new("Header", header_name_factory)
+                col_value = Gtk.ColumnViewColumn.new("Value", header_value_factory)
+                col_value.set_expand(True)
+
+                self.http_column_view.append_column(col_name)
+                self.http_column_view.append_column(col_value)
+
+        list_store.remove_all() # Clear existing items
 
         if headers and "error" not in headers:
-            list_store = Gio.ListStore.new(HeaderItem)
             for key, value in headers.items():
-                wrapped_value = self.http_page_wrap_text(value)
+                wrapped_value = self._wrap_text(value)
                 list_store.append(HeaderItem(key, wrapped_value))
-
-            if selection_model:
-                selection_model.set_model(list_store)
-            else:
-                selection_model = Gtk.MultiSelection.new(list_store)
-                self.http_column_view.set_model(selection_model)
-
-            # Create new columns
-            header_name_column = Gtk.ColumnViewColumn.new("HTTP Response Header")
-            header_value_column = Gtk.ColumnViewColumn.new("Response Header Value")
-
-            header_name_factory = self.http_page_create_factory("key")
-            header_value_factory = self.http_page_create_factory(
-                "value", wrap_text=True
-            )
-
-            header_name_column.set_factory(header_name_factory)
-            header_value_column.set_factory(header_value_factory)
-            header_value_column.set_expand(True)
-
-            self.http_column_view.append_column(header_name_column)
-            self.http_column_view.append_column(header_value_column)
-
-            self.http_page_show_column_view()
+            self._show_results()
         else:
-            self.http_page_hide_column_view()
+            self._hide_results()
 
-    def http_page_show_column_view(self):
-        """Show the column view and related widgets."""
-        set_widget_visibility(True, self.http_header_frame, self.http_column_view)
+    def _show_results(self):
+        """Show the results group."""
+        self.http_results_group.set_visible(True)
 
-    def http_page_hide_column_view(self):
-        """Hide the column view and related widgets."""
-        set_widget_visibility(False, self.http_header_frame, self.http_column_view)
+    def _hide_results(self):
+        """Hide the results group."""
+        self.http_results_group.set_visible(False)
 
-    def http_page_display_error(self, message: str) -> None:
-        self.http_error_label.set_markup(message)
-        self.http_error_label.set_visible(True)
+    def _display_error(self, message: str) -> None:
+        self.error_banner.set_title(message)
+        self.error_banner.set_revealed(True)
         self.http_entry_row.add_css_class("error")
-        set_widget_visibility(False, self.http_header_frame, self.http_column_view)
+        self._hide_results() # Hide results on error
 
-    def http_page_clear_error(self) -> None:
-        self.http_error_label.set_text("")
-        self.http_error_label.set_visible(False)
+    def _clear_error(self) -> None:
+        self.error_banner.set_revealed(False)
+        self.error_banner.set_title("")
         self.http_entry_row.remove_css_class("error")
 
+    @Gtk.Template.Callback()
+    def _on_error_banner_dismiss(self, banner: Adw.Banner, *args):
+        self._clear_error()
+
+    @Gtk.Template.Callback()
+    def _on_clear_results_clicked(self, button: Gtk.Button, *args):
+        self._update_column_view_model(None) # Clears the view
+        self._clear_error() # Clear any errors
+        self.http_entry_row.set_text("") # Clear entry row
+
+
     @staticmethod
-    def http_page_create_factory(
+    def _create_factory(
         attr_name: str, wrap_text: bool = False
     ) -> Gtk.SignalListItemFactory:
         factory = Gtk.SignalListItemFactory()
@@ -222,14 +220,14 @@ class HttpPage(Gtk.Box):
             label.set_hexpand(True)
             if wrap_text:
                 label.set_wrap(True)
-                label.set_max_width_chars(80)
+                label.set_max_width_chars(80) # Or adjust as needed
             list_item.set_child(label)
 
         def bind_func(_, list_item: Gtk.ListItem) -> None:
             label = list_item.get_child()
             item = list_item.get_item()
             text = getattr(item, attr_name, "")
-            if label:
+            if label: # Check if label exists
                 label.set_text(text)
 
         factory.connect("setup", setup_func)
@@ -238,7 +236,7 @@ class HttpPage(Gtk.Box):
         return factory
 
     @staticmethod
-    def http_page_wrap_text(text: str) -> str:
+    def _wrap_text(text: str) -> str:
         max_line_length = 80
         wrapped_lines = []
         for line in text.splitlines():

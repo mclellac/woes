@@ -12,10 +12,6 @@ from .style_utils import apply_font_size, apply_theme
 class WoesWindow(Adw.ApplicationWindow):
     __gtype_name__ = "WoesWindow"
 
-    http_page = Gtk.Template.Child("http_page")
-    nmap_page = Gtk.Template.Child("nmap_page")
-    dns_page = Gtk.Template.Child("dns_page")
-
     switcher_title = Gtk.Template.Child("switcher_title")
     stack = Gtk.Template.Child("stack")
 
@@ -26,20 +22,9 @@ class WoesWindow(Adw.ApplicationWindow):
         self.setup_ui()
 
     def setup_ui(self):
-        self.initialize_pages()
         self.load_css()
         self.apply_preferences()
         self.switcher_title.connect("notify::selected-page", self.on_page_switched)
-
-    def initialize_pages(self):
-        self.http_page = HttpPage()
-        self.stack.add(self.http_page)
-
-        self.nmap_page = NmapPage()
-        self.stack.add(self.nmap_page)
-
-        self.dns_page = DNSPage()
-        self.stack.add(self.dns_page)
 
     def load_css(self):
         # Determine which CSS file to use based on the current theme

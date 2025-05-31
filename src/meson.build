@@ -80,6 +80,7 @@ woes_sources = files(
   'nmap_scanner.py',
   'preferences.py',
   'style_utils.py',
+  'utils.py',
   'window.py',
   'webscan_page.py',
 )
