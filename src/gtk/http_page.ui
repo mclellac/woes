@@ -52,7 +52,7 @@
             <property name="enable-rubberband">True</property>
             <property name="hexpand">True</property>
             <property name="vexpand">True</property> <!-- Allow vertical expansion -->
-            <property name="min-content-height">200</property> <!-- Give it some minimum height -->
+            <!-- <property name="min-content-height">200</property> --> <!-- Removed invalid property -->
             <!-- Model and columns are set up in code -->
             <property name="show-column-separators">true</property>
             <property name="show-row-separators">true</property>

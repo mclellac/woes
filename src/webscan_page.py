@@ -20,7 +20,7 @@ class WebScanPage(Adw.PreferencesPage):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    @Gtk.Template.Callback()
+    # Removed @Gtk.Template.Callback() as it's a direct signal handler in UI
     def on_scan_button_clicked(self, widget):
         target_url = self.url_entry.get_text()
         if not target_url:
@@ -35,37 +35,72 @@ class WebScanPage(Adw.PreferencesPage):
         self.scan_button.set_sensitive(False)
 
         # Run Nikto scan in a separate thread to avoid blocking UI
-        thread = Gio.Thread.new(self._run_scan_thread, target_url)
-        thread.start()
+        # Using Gio.Task for modern asynchronous programming
+        cancellable = Gio.Cancellable() # Optional: can be used to cancel the task
+        task = Gio.Task.new(self, cancellable, self._on_scan_task_done)
+        task.set_task_data(target_url) # Pass target_url to the task
+        task.run_in_thread(self._run_scan_task_thread_func)
 
-    def _run_scan_thread(self, target_url):
+    def _run_scan_task_thread_func(self, task, source_object, task_data, cancellable):
+        """Worker function for Gio.Task that runs in a separate thread."""
+        target_url = task_data # Retrieve target_url
+
         try:
-            # Ensure URL has a scheme
             if not target_url.startswith(('http://', 'https://')):
-                target_url = 'http://' + target_url # Default to http
+                target_url = 'http://' + target_url
 
             process = subprocess.Popen(
-                ['nikto', '-h', target_url, '-Tuning', 'xCGIVulnerable'], # Basic tuning to find common issues
+                ['nikto', '-h', target_url, '-Tuning', 'xCGIVulnerable'],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True
             )
-            stdout, stderr = process.communicate(timeout=300) # 5 minutes timeout
-
-            GLib.idle_add(self._update_textview, stdout, stderr)
+            stdout, stderr = process.communicate(timeout=300)
+            task.return_value((stdout, stderr, None)) # Success: (stdout, stderr, None for error_type)
 
         except FileNotFoundError:
-            GLib.idle_add(self.show_error_toast, "Nikto command not found. Please ensure it is installed and in your PATH.")
-            GLib.idle_add(self._update_textview, "", "Error: Nikto not found.")
+            task.return_value((None, None, "FileNotFoundError"))
         except subprocess.TimeoutExpired:
-            GLib.idle_add(self.show_error_toast, f"Scan for {target_url} timed out.")
-            GLib.idle_add(self._update_textview, "", f"Error: Scan for {target_url} timed out after 5 minutes.")
+            task.return_value((None, None, "TimeoutExpired"))
         except Exception as e:
-            GLib.idle_add(self.show_error_toast, f"An error occurred: {str(e)}")
-            GLib.idle_add(self._update_textview, "", f"An error occurred: {str(e)}")
+            # For other exceptions, we might want to use task.return_error
+            # but for simplicity in matching existing error handling,
+            # we'll pass error string via return_value.
+            # A more robust way would be:
+            # error = GLib.Error(str(e), domain="WebScanPageErrorDomain", code=0)
+            # task.return_error(error)
+            task.return_value((None, str(e), "Exception"))
+
+
+    def _on_scan_task_done(self, source_object, result, user_data):
+        """Callback for when the Gio.Task is complete. Runs in the main thread."""
+        task = source_object # In this case, source_object is the task itself
+        target_url = task.get_task_data() # Retrieve target_url if needed for messages
+
+        try:
+            # This will re-raise an error if task.return_error() was called
+            # or return the value from task.return_value()
+            stdout, stderr_or_error_msg, error_type = task.run_in_thread_finish(result)
+
+            if error_type == "FileNotFoundError":
+                self.show_error_toast("Nikto command not found. Please ensure it is installed and in your PATH.")
+                self._update_textview("", "Error: Nikto not found.")
+            elif error_type == "TimeoutExpired":
+                self.show_error_toast(f"Scan for {target_url} timed out.")
+                self._update_textview("", f"Error: Scan for {target_url} timed out after 5 minutes.")
+            elif error_type == "Exception":
+                self.show_error_toast(f"An error occurred: {stderr_or_error_msg}")
+                self._update_textview("", f"An error occurred: {stderr_or_error_msg}")
+            else: # Success
+                self._update_textview(stdout, stderr_or_error_msg)
+
+        except GLib.Error as e: # Catches errors set by task.return_error()
+            logging.error(f"Error in scan task: {e.message}")
+            self.show_error_toast(f"An error occurred: {e.message}")
+            self._update_textview("", f"An error occurred: {e.message}")
         finally:
-            GLib.idle_add(self.scan_button.set_sensitive, True)
-        return None # Required for Gio.Thread
+            self.scan_button.set_sensitive(True)
+
 
     def _update_textview(self, stdout, stderr):
         buffer = self.results_textview.get_buffer()
@@ -87,6 +122,6 @@ class WebScanPage(Adw.PreferencesPage):
         self.error_banner_webscan.set_title(message)
         self.error_banner_webscan.set_revealed(True)
 
-    @Gtk.Template.Callback()
+    # Removed @Gtk.Template.Callback() as it's a direct signal handler in UI
     def on_error_banner_dismiss_clicked(self, widget, *args):
         self.error_banner_webscan.set_revealed(False)

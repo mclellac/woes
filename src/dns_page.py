@@ -103,7 +103,7 @@ class DNSPage(Adw.PreferencesPage):
         """Handle the record type dropdown change event."""
         self._perform_lookup()
 
-    @Gtk.Template.Callback()
+    # Removed @Gtk.Template.Callback() as it's a direct signal handler in UI
     def _on_error_banner_dismiss(self, banner: Adw.Banner, *args):
         """Handle the error banner dismiss button click."""
         self._clear_error()

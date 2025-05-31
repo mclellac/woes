@@ -38,7 +38,7 @@ class Preferences(Adw.PreferencesWindow):
         self.dns_server_entryrow.connect("apply", self.on_dns_server_changed)
         # Banner dismiss signal is connected in UI template if handler _on_error_banner_dismiss_clicked is defined
 
-    @Gtk.Template.Callback()
+    # Removed @Gtk.Template.Callback() as it's a direct signal handler in UI
     def on_error_banner_dismiss_clicked(self, banner, *args): # Renamed to match typical handler name
         self.hide_banner_and_clear_error_state()
 
