@@ -10,7 +10,6 @@
         <child>
           <object class="AdwEntryRow" id="url_entry">
             <property name="title">Target URL</property>
-            <property name="placeholder-text">e.g., http://example.com</property>
           </object>
         </child>
         <child>

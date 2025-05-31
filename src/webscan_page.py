@@ -5,7 +5,7 @@ from gi.repository import Gtk, Adw, Gio, GLib
 
 import subprocess
 
-@Gtk.Template(filename='src/gtk/webscan_page.ui')
+@Gtk.Template(filename='/com/github/mclellac/WebOpsEvaluationSuite/gtk/webscan_page.ui')
 class WebScanPage(Adw.PreferencesPage):
     __gtype_name__ = 'WebScanPage'
 

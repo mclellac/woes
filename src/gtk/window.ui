@@ -119,21 +119,7 @@
                 <property name="child">
                   <object class="AdwClampScrollable" id="webscan_clamp_scrollable">
                     <child>
-                      <object class="AdwStatusPage" id="webscan_status_page">
-                        <property name="icon-name" bind-source="webscan_page" bind-property="icon-name" bind-flags="sync-create">org.gnome.Loupe-symbolic</property>
-                        <property name="title" bind-source="webscan_page" bind-property="title" bind-flags="sync-create">Web Scanner</property>
-                        <property name="child">
-                          <object class="GtkBox" id="webscan_box">
-                            <property name="orientation">vertical</property>
-                            <property name="valign">fill</property> <!-- Changed from center to fill -->
-                            <property name="halign">fill</property> <!-- Added halign fill -->
-                            <property name="vexpand">True</property> <!-- Added vexpand -->
-                            <child>
-                              <object class="WebScanPage"/>
-                            </child>
-                          </object>
-                        </property>
-                      </object>
+      <object class="WebScanPage"/>
                     </child>
                   </object>
                 </property>
