@@ -5,27 +5,28 @@ from datetime import datetime
 
 import dns.resolver
 import dns.reversename
-from gi.repository import Gio, Gtk, GtkSource, Pango
+from gi.repository import Adw, Gio, Gtk, GtkSource, Pango
 
 from .constants import RESOURCE_PREFIX, APP_ID
 from .style_utils import apply_source_style_scheme
+from .utils import create_source_view
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/dns_page.ui")
-class DNSPage(Gtk.Box):
+class DNSPage(Adw.PreferencesPage):
     __gtype_name__ = "DNSPage"
 
     dns_ip_entryrow = Gtk.Template.Child("dns_ip_entryrow")
     dns_record_type_dropdown = Gtk.Template.Child("dns_record_type_dropdown")
     dns_results_scrolled_window = Gtk.Template.Child("dns_results_scrolled_window")
-    dns_error_label = Gtk.Template.Child("dns_errors_label")
+    error_banner = Gtk.Template.Child("error_banner")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.dns_page_init_ui()
-        self.source_buffer = self.init_source_buffer()
-        self.source_view = self.init_source_view(self.source_buffer)
-        self.apply_source_view_style()
+        self._connect_signals()
+        self.source_view, self.source_buffer = create_source_view(language_name='txt')
+        self.dns_results_scrolled_window.set_child(self.source_view)
+        self._apply_source_view_style()
         self.settings = Gio.Settings.new(APP_ID)
 
         try:
@@ -50,41 +51,17 @@ class DNSPage(Gtk.Box):
         except Exception as e:
             logging.error(f"Error creating text tags: {e}")
 
-    def dns_page_init_ui(self) -> None:
-        """Initialize the UI elements and connect signals."""
-        self.dns_ip_entryrow.connect("apply", self.on_dns_entry_activated)
+    def _connect_signals(self) -> None:
+        """Connect signals for UI elements."""
+        self.dns_ip_entryrow.connect("apply", self._on_entry_activated)
         self.dns_record_type_dropdown.connect(
-            "notify::selected", self.on_record_type_changed
+            "notify::selected", self._on_record_type_changed
         )
+        # The error_banner signal is connected in the UI file:
+        # <signal name="button-clicked" handler="_on_error_banner_dismiss"/>
 
-    def init_source_buffer(self) -> GtkSource.Buffer:
-        """Initialize the source buffer for the GtkSourceView."""
-        source_buffer = GtkSource.Buffer()
-        lang_manager = GtkSource.LanguageManager.get_default()
-        text_lang = lang_manager.get_language("txt")
 
-        if text_lang is not None:
-            source_buffer.set_language(text_lang)
-        else:
-            logging.error(
-                "Text language definition not found. Continuing without syntax highlighting."
-            )
-
-        source_buffer.set_highlight_syntax(True)
-        return source_buffer
-
-    def init_source_view(self, source_buffer: GtkSource.Buffer) -> GtkSource.View:
-        """Initialize the GtkSourceView with the provided source buffer."""
-        source_view = GtkSource.View.new_with_buffer(source_buffer)
-        source_view.set_show_line_numbers(False)
-        source_view.set_editable(False)
-        source_view.set_wrap_mode(Gtk.WrapMode.WORD)
-        source_view.set_hexpand(True)
-        source_view.set_vexpand(True)
-        self.dns_results_scrolled_window.set_child(source_view)
-        return source_view
-
-    def apply_source_view_style(self):
+    def _apply_source_view_style(self):
         """Apply the style scheme to the GtkSourceView."""
         settings = Gio.Settings.new(APP_ID)
         source_style_scheme = settings.get_string("source-style-scheme")
@@ -93,8 +70,10 @@ class DNSPage(Gtk.Box):
             self.source_buffer,
             source_style_scheme,
         )
+        # Since the view is created by a utility, ensure it's not editable.
+        self.source_view.set_editable(False)
 
-    def is_ip_address(self, input_str: str) -> bool:
+    def _is_ip_address(self, input_str: str) -> bool:
         """Check if the input string is a valid IP address."""
         try:
             dns.reversename.from_address(input_str)
@@ -102,7 +81,7 @@ class DNSPage(Gtk.Box):
         except dns.exception.SyntaxError:
             return False
 
-    def is_valid_ip_or_domain(self, input_str: str) -> bool:
+    def _is_valid_ip_or_domain(self, input_str: str) -> bool:
         """Validate whether the input string is a valid IP address or domain."""
         ip_pattern = re.compile(r"^\d{1,3}(\.\d{1,3}){3}$")
         domain_pattern = re.compile(
@@ -112,28 +91,33 @@ class DNSPage(Gtk.Box):
         is_domain = bool(domain_pattern.match(input_str))
         return is_ip or is_domain
 
-    def on_dns_entry_activated(self, entryrow: Gtk.Widget):
+    def _on_entry_activated(self, entryrow: Gtk.Widget):
         """Handle DNS entry activation event."""
-        self.perform_dns_lookup()
+        self._perform_lookup()
 
-    def on_record_type_changed(self, dropdown: Gtk.Widget, param):
+    def _on_record_type_changed(self, dropdown: Gtk.Widget, param):
         """Handle the record type dropdown change event."""
-        self.perform_dns_lookup()
+        self._perform_lookup()
 
-    def perform_dns_lookup(self):
+    @Gtk.Template.Callback()
+    def _on_error_banner_dismiss(self, banner: Adw.Banner, *args):
+        """Handle the error banner dismiss button click."""
+        self._clear_error()
+
+    def _perform_lookup(self):
         """Perform the DNS lookup based on the user input and selected record type."""
         user_input = self.dns_ip_entryrow.get_text().strip()
         if not user_input:
-            self.show_error("Input cannot be empty.")
+            self._show_error("Input cannot be empty.")
             return
 
-        self.clear_error()
+        self._clear_error() # Clear previous errors first
 
-        if not self.is_valid_ip_or_domain(user_input):
-            self.show_error("Invalid IP address or domain name.")
+        if not self._is_valid_ip_or_domain(user_input):
+            self._show_error("Invalid IP address or domain name.")
             return
 
-        record_type = self.get_selected_record_type()
+        record_type = self._get_selected_record_type()
 
         try:
             resolver = dns.resolver.Resolver()
@@ -143,37 +127,45 @@ class DNSPage(Gtk.Box):
                 resolver.nameservers = [custom_dns_server]  # Use custom DNS server
 
             # Determine the correct record type for reverse lookups
-            if self.is_ip_address(user_input):
-                record_type = "PTR"
-                result = self.dns_lookup(user_input, record_type, resolver)
+            if self._is_ip_address(user_input):
+                # If it's an IP, always use PTR.
+                # Find PTR in the model and set it.
+                model = self.dns_record_type_dropdown.get_model()
+                for i in range(model.get_n_items()):
+                    if model.get_string(i) == "PTR":
+                        self.dns_record_type_dropdown.set_selected(i)
+                        break
+                record_type = "PTR" # Ensure this is used for the lookup
+                result = self._lookup_record(user_input, "PTR", resolver)
             else:
-                result = self.dns_lookup(user_input, record_type, resolver)
+                result = self._lookup_record(user_input, record_type, resolver)
 
-            self.display_dns_result(result, user_input, record_type, resolver.nameservers)
+            self._display_result(result, user_input, record_type, resolver.nameservers)
         except Exception as e:
             logging.error(f"Error performing DNS lookup: {e}")
-            self.show_error(f"Error: {str(e)}")
+            self._show_error(f"Error: {str(e)}")
 
-    def get_selected_record_type(self) -> str:
+    def _get_selected_record_type(self) -> str:
         """Get the currently selected DNS record type from the dropdown."""
         model = self.dns_record_type_dropdown.get_model()
         selected_index = self.dns_record_type_dropdown.get_selected()
         return model.get_string(selected_index)
 
-    def show_error(self, message: str):
+    def _show_error(self, message: str):
         """Display an error message in the UI."""
-        self.dns_ip_entryrow.set_css_classes(["error"])
-        self.dns_error_label.set_text(message)
-        self.dns_error_label.set_visible(True)
+        self.dns_ip_entryrow.add_css_class("error")
+        self.error_banner.set_title(message)
+        self.error_banner.set_revealed(True)
 
-    def clear_error(self):
+    def _clear_error(self):
         """Clear any existing error messages from the UI."""
         self.dns_ip_entryrow.remove_css_class("error")
-        self.dns_error_label.set_text("")
-        self.dns_error_label.set_visible(False)
+        self.error_banner.set_revealed(False)
+        self.error_banner.set_title("")
+
 
     @staticmethod
-    def dns_lookup(domain_or_ip: str, record_type: str, resolver: dns.resolver.Resolver) -> str:
+    def _lookup_record(domain_or_ip: str, record_type: str, resolver: dns.resolver.Resolver) -> str:
         try:
             if record_type == "PTR":
                 rev_name = dns.reversename.from_address(domain_or_ip)
@@ -187,9 +179,9 @@ class DNSPage(Gtk.Box):
         except dns.exception.DNSException as e:
             return f"{record_type} record lookup failed for {domain_or_ip}: {e}"
 
-    def display_dns_result(self, result: str, domain_or_ip: str, record_type: str, dns_servers: list):
+    def _display_result(self, result: str, domain_or_ip: str, record_type: str, dns_servers: list):
         """Display the DNS lookup results in the source buffer with enhanced formatting."""
-        self.source_buffer.set_text("")
+        self.source_buffer.set_text("") # Clear previous results
 
         # Check if the header tag already exists in the tag table
         self.header_tag = self.source_buffer.get_tag_table().lookup("header")
@@ -221,9 +213,9 @@ class DNSPage(Gtk.Box):
         )
         self.source_buffer.insert(self.source_buffer.get_end_iter(), "\n\n")
 
-        self.format_dns_result(result)
+        self._format_result_in_buffer(result)
 
-    def format_dns_result(self, result: str):
+    def _format_result_in_buffer(self, result: str):
         """Format the DNS result string by separating fields with tabs and applying color."""
         lines = result.splitlines()
 
