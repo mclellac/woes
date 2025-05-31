@@ -5,11 +5,11 @@ import shutil
 import sys
 
 # Constants
-FLATPAK_MANIFEST = "com.github.mclellac.WebOpsEvaluationSuite.json"
+FLATPAK_MANIFEST = "com.github.mclellac.woes.json"
 BUILD_DIR = "build-dir"
 REPO_DIR = "repo"
 FLATPAK_DIR = "flatpak"
-FLATPAK_BUNDLE = "WebOpsEvaluationSuite.flatpak"
+FLATPAK_BUNDLE = "woes.flatpak"
 
 def run_command(command, check=True):
     """Run a shell command with error handling and verbosity."""
@@ -75,7 +75,7 @@ def build_flatpak():
         os.makedirs(FLATPAK_DIR)
 
     flatpak_bundle_path = os.path.join(FLATPAK_DIR, FLATPAK_BUNDLE)
-    run_command(["flatpak", "build-bundle", "-v", REPO_DIR, flatpak_bundle_path, "com.github.mclellac.WebOpsEvaluationSuite"])
+    run_command(["flatpak", "build-bundle", "-v", REPO_DIR, flatpak_bundle_path, "com.github.mclellac.woes"])
 
     print(f"Flatpak bundle created at {flatpak_bundle_path}")
 

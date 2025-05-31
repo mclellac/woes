@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.github.mclellac.woes.desktop</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>WOES</name>
+  <summary>Web server and HTTP request analysis tools</summary>
+  <description>
+    <p>
+      WOES (WebOps Evaluation Suite) is a collection of utilities for testing and analyzing web servers, including HTTP request and response analysis, DNS lookups, and Nmap port scanning.
+    </p>
+    <p>
+      The suite provides a comprehensive set of tools for web developers and administrators to evaluate and improve their web infrastructure.
+    </p>
+  </description>
+  <url type="homepage">https://github.com/mclellac/woes</url>
+  <update_contact>careymclelland_at_gmail.com</update_contact>
+</component>
+

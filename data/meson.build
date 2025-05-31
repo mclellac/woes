@@ -1,6 +1,6 @@
 desktop_file = i18n.merge_file(
-    input: 'com.github.mclellac.WebOpsEvaluationSuite.desktop.in',
-    output: 'com.github.mclellac.WebOpsEvaluationSuite.desktop',
+    input: 'com.github.mclellac.woes.desktop.in',
+    output: 'com.github.mclellac.woes.desktop',
     type: 'desktop',
     po_dir: '../po',
     install: true,
@@ -13,8 +13,8 @@ if desktop_utils.found()
 endif
 
 appstream_file = i18n.merge_file(
-    input: 'com.github.mclellac.WebOpsEvaluationSuite.metainfo.xml.in',
-    output: 'com.github.mclellac.WebOpsEvaluationSuite.metainfo.xml',
+    input: 'com.github.mclellac.woes.metainfo.xml.in',
+    output: 'com.github.mclellac.woes.metainfo.xml',
     po_dir: '../po',
     install: true,
     install_dir: get_option('datadir') / 'metainfo'
@@ -26,7 +26,7 @@ test('Validate appstream file', appstreamcli,
 
 # Install the schema file
 install_data(
-    'com.github.mclellac.WebOpsEvaluationSuite.gschema.xml',
+    'com.github.mclellac.woes.gschema.xml',
     install_dir: get_option('datadir') / 'glib-2.0' / 'schemas'
 )
 

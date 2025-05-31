@@ -2,10 +2,11 @@ import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
 from gi.repository import Gtk, Adw, Gio, GLib
+from .constants import RESOURCE_PREFIX # Import RESOURCE_PREFIX
 
 import subprocess
 
-@Gtk.Template(filename='/com/github/mclellac/WebOpsEvaluationSuite/gtk/webscan_page.ui')
+@Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/webscan_page.ui") # Use resource_path
 class WebScanPage(Adw.PreferencesPage):
     __gtype_name__ = 'WebScanPage'
 

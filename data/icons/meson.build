@@ -1,4 +1,4 @@
-application_id = 'com.github.mclellac.WebOpsEvaluationSuite'
+application_id = 'com.github.mclellac.woes'
 
 # Install the scalable application icon
 scalable_dir = 'hicolor' / 'scalable' / 'apps'

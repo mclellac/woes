@@ -5,7 +5,7 @@ import functools # For functools.partial with GLib.idle_add
 import nmap
 from gi.repository import Adw, Gio, GLib, GObject, Gtk, GtkSource
 
-from .constants import RESOURCE_PREFIX
+from .constants import RESOURCE_PREFIX, APP_ID # Import APP_ID
 from .nmap_scanner import NmapScanner, ScanStatus
 from .style_utils import apply_source_style_scheme # Keep for source view
 from .utils import create_source_view
@@ -70,8 +70,7 @@ class NmapPage(Adw.PreferencesPage):
             del self.scanner # Ensure executor shutdown if NmapScanner has __del__
 
     def _apply_source_view_style(self):
-        # Assuming APP_ID is available or using a hardcoded string for settings
-        settings = Gio.Settings.new("com.github.mclellac.WebOpsEvaluationSuite")
+        settings = Gio.Settings.new(APP_ID)
         source_style_scheme = settings.get_string("source-style-scheme")
         logging.debug(f"Applying style scheme to Nmap results: {source_style_scheme}")
         apply_source_style_scheme(

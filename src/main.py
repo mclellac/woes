@@ -48,7 +48,7 @@ class WoesApplication(Adw.Application):
         """Callback for the app.about action."""
         about = Adw.AboutWindow(
             transient_for=self.props.active_window,
-            application_name="woes",
+            application_name="WOES",
             application_icon=APP_ID,
             developer_name="Carey McLelland",
             version=self.version,
