@@ -88,22 +88,97 @@ class HttpPage(Adw.PreferencesPage):
             return
 
         self._clear_error()
-        headers = self._fetch_headers(
-            url, self.http_pragma_switch_row.get_active()
-        )
+        # Disable UI elements and show loading state
+        self.http_entry_row.set_sensitive(False)
+        # You might want to add a spinner here, e.g., self.spinner.start()
 
-        if headers and "error" not in headers:
-            logger.info("Successfully fetched headers for %s", url)
+        task = Gio.Task.new(self, None, self._fetch_headers_task_done_cb, None)
+        task.set_task_data({
+            "url": url,
+            "use_akamai_pragma": self.http_pragma_switch_row.get_active()
+        }, None) # No destroy notify needed for simple dict
+        task.run_in_thread(self._fetch_headers_task_thread_func)
+
+    def _fetch_headers_task_thread_func(self, task: Gio.Task, source_object, task_data: dict, cancellable: Optional[Gio.Cancellable]):
+        url = task_data["url"]
+        use_akamai_pragma = task_data["use_akamai_pragma"]
+        logger.debug("Task thread: Making GET request to %s with Akamai headers: %s", url, use_akamai_pragma)
+
+        request_headers = {}
+        if use_akamai_pragma:
+            akamai_pragma_directives = [
+                "akamai-x-get-request-id",
+                "akamai-x-get-cache-key",
+                "akamai-x-cache-on",
+                "akamai-x-cache-remote-on",
+                "akamai-x-get-true-cache-key",
+                "akamai-x-check-cacheable",
+                "akamai-x-get-extracted-values",
+                "akamai-x-feo-trace",
+                "x-akamai-logging-mode: verbose",
+            ]
+            request_headers["Pragma"] = ", ".join(akamai_pragma_directives)
+
+        try:
+            # Check for cancellation before making the request
+            if cancellable and cancellable.is_cancelled():
+                task.return_error(Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED, "Task was cancelled")
+                return
+
+            response = requests.get(url, headers=request_headers, allow_redirects=False, timeout=10)
+            response.raise_for_status()
+            task.return_value(dict(response.headers))
+        except requests.exceptions.HTTPError as e:
+            logger.error("Task thread: HTTPError for %s: %s", url, e, exc_info=True)
+            # Create a GError for HTTP errors
+            # For simplicity, using a generic error domain and code
+            # A more robust solution might define a custom error domain
+            error_message = self._format_http_error(e)
+            g_error = Gio.IOErrorEnum.FAILED.new_literal(error_message)
+            task.return_error(g_error)
+        except requests.exceptions.ConnectionError as e:
+            logger.warning("Task thread: ConnectionError for %s: %s", url, e, exc_info=True)
+            error_message = "Connection Error: Failed to establish a connection."
+            g_error = Gio.IOErrorEnum.FAILED.new_literal(error_message)
+            task.return_error(g_error)
+        except requests.exceptions.Timeout as e:
+            logger.warning("Task thread: Timeout for %s: %s", url, e, exc_info=True)
+            error_message = "Timeout Error: The request timed out."
+            g_error = Gio.IOErrorEnum.FAILED.new_literal(error_message)
+            task.return_error(g_error)
+        except requests.exceptions.RequestException as e:
+            logger.error("Task thread: RequestException for %s: %s", url, e, exc_info=True)
+            error_message = f"Request Error: {str(e)}"
+            g_error = Gio.IOErrorEnum.FAILED.new_literal(error_message)
+            task.return_error(g_error)
+        except Exception as e: # Catch any other unexpected errors
+            logger.error("Task thread: Unexpected error for %s: %s", url, e, exc_info=True)
+            error_message = f"An unexpected error occurred: {str(e)}"
+            g_error = Gio.IOErrorEnum.FAILED.new_literal(error_message)
+            task.return_error(g_error)
+
+
+    def _fetch_headers_task_done_cb(self, source_object, result: Gio.AsyncResult, user_data):
+        # Re-enable UI elements and hide loading state
+        self.http_entry_row.set_sensitive(True)
+        # e.g., self.spinner.stop()
+
+        try:
+            headers = source_object.run_in_thread_finish(result) # Gets value from task.return_value()
+            # If task.return_error() was called, run_in_thread_finish will raise a GLib.Error
+
+            logger.info("Successfully fetched headers (async)")
             self._update_column_view_model(headers)
             self.http_entry_row.remove_css_class("error")
-        else:
-            error_message = headers.get("error", "Unknown error: Failed to fetch headers.")
-            logger.error("Error fetching headers for %s: %s", url, error_message)
+        except GObject.GError as e: # Specifically catch GLib.Error (GObject.GError in Python)
+            error_message = e.message
+            logger.error("Error fetching headers (async): %s", error_message)
             # Remove HTML bold tags for AdwBanner, as it might handle styling differently
             error_message = error_message.replace("<b>", "").replace("</b>", "")
             self._display_error(error_message)
             self.http_entry_row.add_css_class("error")
             self._update_column_view_model(None)  # Clear previous results if error
+
 
     @staticmethod
     def _ensure_scheme(url: str) -> str:
@@ -127,43 +202,9 @@ class HttpPage(Adw.PreferencesPage):
 
         return re.match(url_regex, url) is not None and bool(urlparse(url).netloc)
 
-    def _fetch_headers(
-        self, url: str, use_akamai_pragma: bool
-    ) -> Dict[str, str]:
-        logger.debug("Making GET request to %s with Akamai headers: %s", url, use_akamai_pragma)
-        request_headers = {}
-        if use_akamai_pragma:
-            akamai_pragma_directives = [
-                "akamai-x-get-request-id",
-                "akamai-x-get-cache-key",
-                "akamai-x-cache-on",
-                "akamai-x-cache-remote-on",
-                "akamai-x-get-true-cache-key",
-                "akamai-x-check-cacheable",
-                "akamai-x-get-extracted-values",
-                "akamai-x-feo-trace",
-                "x-akamai-logging-mode: verbose",
-            ]
-            request_headers["Pragma"] = ", ".join(akamai_pragma_directives)
-
-        try:
-            response = requests.get(url, headers=request_headers, allow_redirects=False, timeout=10)
-            response.raise_for_status()
-            return dict(response.headers)
-        except requests.exceptions.HTTPError as e:
-            logger.error("HTTPError for %s: %s", url, e, exc_info=True)
-            return {"error": self._format_http_error(e)}
-        except requests.exceptions.ConnectionError as e:
-            logger.warning("ConnectionError for %s: %s", url, e, exc_info=True)
-            return {
-                "error": "Connection Error: Failed to establish a connection."
-            }
-        except requests.exceptions.Timeout as e:
-            logger.warning("Timeout for %s: %s", url, e, exc_info=True)
-            return {"error": "Timeout Error: The request timed out."}
-        except requests.exceptions.RequestException as e:
-            logger.error("RequestException for %s: %s", url, e, exc_info=True)
-            return {"error": "Request Error: %s" % str(e)}
+    # The _fetch_headers method is now part of _fetch_headers_task_thread_func
+    # and is no longer called directly by _on_entry_row_activated.
+    # It's kept here for the _format_http_error utility or if needed elsewhere.
 
     def _format_http_error(self, e: requests.exceptions.HTTPError) -> str:
         status_code = e.response.status_code
