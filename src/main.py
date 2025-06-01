@@ -18,11 +18,20 @@ class WoesApplication(Adw.Application):
     """The main application singleton class."""
 
     def __init__(self, version=VERSION, **kwargs):
+        self.version = version # Simple assignment first
+        self.debug_enabled = False # Initialize debug status early
+
         # Initial logging setup - will be overridden if --debug is passed
-        # This ensures logs are captured even before do_handle_local_options if app exits early
         logging.basicConfig(level=logging.INFO, format='%(levelname)s:%(name)s:%(message)s')
 
-        # Add command line options before calling super().__init__
+        # Call super().__init__ before adding main options as per subtask instruction
+        super().__init__(
+            application_id=APP_ID,
+            flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE | Gio.ApplicationFlags.DEFAULT_FLAGS,
+            **kwargs
+        )
+
+        # Add command line options after super().__init__
         self.add_main_option(
             "debug",
             ord("d"), # Using 'd' as a short option for debug
@@ -31,15 +40,8 @@ class WoesApplication(Adw.Application):
             "Enable debug logging",
             None
         )
-        # Make sure HANDLES_COMMAND_LINE is included in flags
-        super().__init__(
-            application_id=APP_ID,
-            flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE | Gio.ApplicationFlags.DEFAULT_FLAGS,
-            **kwargs
-        )
-        self.version = version
+
         self.win = None  # Store a reference to the main window
-        self.debug_enabled = False # Initialize debug status
 
         # Create actions and set accelerators
         self.create_action("quit", lambda *_: self.quit(), ["<primary>q"])
