@@ -70,7 +70,7 @@
             <property name="title" translatable="yes">Scan Status</property>
             <property name="subtitle" translatable="yes">Idle</property> <!-- Initial status message -->
             <property name="activatable">False</property>
-            <property name="revealed">True</property> <!-- Always visible, content changes -->
+            <property name="visible">true</property> <!-- Always visible, content changes -->
             <child>
               <object class="GtkSpinner" id="scan_spinner">
                 <property name="spinning">False</property>
