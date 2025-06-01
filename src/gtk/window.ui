@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
   <requires lib="gtk" version="4.0"/>
-  <requires lib="libadwaita" version="1.0"/> <!-- Changed from 1 to 1.0 -->
+  <requires lib="libadwaita" version="1.0"/>
   <template class="WoesWindow" parent="AdwApplicationWindow">
     <property name="title">Woes</property>
     <property name="default-width">600</property>
@@ -24,27 +24,43 @@
           <object class="AdwViewStack" id="stack">
             <property name="vexpand">true</property>
             <child>
-              <object class="HttpPage" id="http_page_content">
-                <property name="name">http_page</property>
-                <property name="title" translatable="yes">HTTP Details</property>
+              <object class="AdwViewStackPage" id="http_stack_page">
+                <property name="name">http</property>
+                <property name="title" translatable="yes">HTTP Headers</property>
+                <property name="icon-name">network-transmit-receive-symbolic</property>
+                <property name="child">
+                  <object class="HttpPage" id="http_page_content"/>
+                </property>
               </object>
             </child>
             <child>
-              <object class="NmapPage" id="nmap_page_content">
-                <property name="name">nmap_page</property>
-                <property name="title" translatable="yes">Nmap Scan</property>
+              <object class="AdwViewStackPage" id="nmap_stack_page">
+                <property name="name">nmap</property>
+                <property name="title" translatable="yes">Port Scan</property>
+                <property name="icon-name">network-server-symbolic</property>
+                <property name="child">
+                  <object class="NmapPage" id="nmap_page_content"/>
+                </property>
               </object>
             </child>
             <child>
-              <object class="DNSPage" id="dns_page_content">
-                <property name="name">dns_page</property>
+              <object class="AdwViewStackPage" id="dns_stack_page">
+                <property name="name">dns</property>
                 <property name="title" translatable="yes">DNS Lookup</property>
+                <property name="icon-name">network-workgroup-symbolic</property>
+                <property name="child">
+                  <object class="DNSPage" id="dns_page_content"/>
+                </property>
               </object>
             </child>
             <child>
-              <object class="WebScanPage" id="webscan_page_content">
-                <property name="name">webscan_page</property>
-                <property name="title" translatable="yes">Web Scan</property>
+              <object class="AdwViewStackPage" id="webscan_stack_page">
+                <property name="name">webscan</property>
+                <property name="title" translatable="yes">Web Vulnerability Scan</property>
+                <property name="icon-name">security-high-symbolic</property>
+                <property name="child">
+                  <object class="WebScanPage" id="webscan_page_content"/>
+                </property>
               </object>
             </child>
           </object>
