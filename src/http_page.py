@@ -4,19 +4,14 @@ from typing import Dict, Optional
 from urllib.parse import urlparse
 
 import requests
-import gi
 
-# GTK version requirements must be called before importing from gi.repository
+import gi
 gi.require_version('Adw', '1')
 gi.require_version('Gtk', '4.0')
-
-# Now import GTK libraries and other dependencies
-# pylint: disable=wrong-import-position
 from gi.repository import Adw, Gio, GObject, Gtk, GLib
-# pylint: disable=wrong-import-position
+
 from .constants import RESOURCE_PREFIX
 
-# Configure logger for the module - AFTER all imports
 logger = logging.getLogger(__name__)
 
 
@@ -45,10 +40,9 @@ class HttpPage(Adw.PreferencesPage):
         super().__init__(**kwargs)
         self.current_http_task = None
         logger.debug(f"HttpPage.__init__: self.current_http_task initialized to {self.current_http_task}")
-        self._http_task_data_for_thread = {}  # Initialize the task data dict
+        self._http_task_data_for_thread = {}
         logger.debug(f"HttpPage.__init__: self._http_task_data_for_thread initialized to {self._http_task_data_for_thread}")
 
-        # Initialize ColumnView model and columns here
         if self.http_column_view is None:
             logger.critical("HttpPage.__init__: Gtk.Template.Child 'http_column_view' not found. UI will be broken.")
         else:
@@ -60,13 +54,12 @@ class HttpPage(Adw.PreferencesPage):
             self.http_column_view.set_model(selection_model)
             logger.debug("HttpPage.__init__: ColumnView model set.")
 
-            if not self.http_column_view.get_columns():  # Ensure columns are added only once
+            if not self.http_column_view.get_columns():
                 logger.debug("HttpPage.__init__: Adding columns to ColumnView.")
                 header_name_factory = self._create_factory("key")
                 logger.debug(f"HttpPage.__init__: header_name_factory created: {header_name_factory}")
                 header_value_factory = self._create_factory("value", wrap_text=True)
                 logger.debug(f"HttpPage.__init__: header_value_factory created: {header_value_factory}")
-                # Define col_name and col_value here before use
                 col_name = Gtk.ColumnViewColumn.new("Header", header_name_factory)
                 logger.debug(f"HttpPage.__init__: col_name created: {col_name}")
                 col_value = Gtk.ColumnViewColumn.new("Value", header_value_factory)
@@ -78,14 +71,6 @@ class HttpPage(Adw.PreferencesPage):
                 logger.debug("HttpPage.__init__: col_value appended.")
             else:
                 logger.debug("HttpPage.__init__: Columns already exist in ColumnView.")
-            # The lines below were outside the 'if not self.http_column_view.get_columns()'
-            # and also outside the 'else' for 'if self.http_column_view is None'.
-            # They should be inside the 'else' and potentially inside the 'if not get_columns'
-            # if col_name/col_value are only defined there.
-            # For safety, they are moved inside the 'if not get_columns block' as they define columns.
-            # If columns could be appended multiple times or if col_name/value were defined elsewhere,
-            # this could be different. But given the "Ensure columns are added only once" comment,
-            # this seems like the correct scope.
 
         self._connect_signals()
         self._clear_error()
@@ -104,17 +89,15 @@ class HttpPage(Adw.PreferencesPage):
             "notify::active", self._on_pragma_toggled
         )
         logger.debug("HttpPage._connect_signals: Connected 'notify::active' for http_pragma_switch_row")
-        # error_banner dismiss is connected in UI
-        # clear_results_button click is connected in UI
         logger.debug("HttpPage._connect_signals: Finished connecting signals")
 
     def _on_entry_row_activated(self, entry_row: Gtk.Entry) -> None:
         logger.debug("HttpPage._on_entry_row_activated: Triggered")
         original_url = entry_row.get_text().strip()
         logger.debug(f"HttpPage._on_entry_row_activated: original_url: '{original_url}'")
-        url_to_fetch = self._ensure_scheme(original_url)  # Renamed to avoid confusion with 'url' in task_data
+        url_to_fetch = self._ensure_scheme(original_url)
         logger.debug(f"HttpPage._on_entry_row_activated: url_to_fetch: '{url_to_fetch}'")
-        logger.info("Fetching headers for URL: %s (original: %s)", url_to_fetch, original_url) # Existing info log
+        logger.info("Fetching headers for URL: %s (original: %s)", url_to_fetch, original_url)
 
         is_valid = self._is_valid_url(url_to_fetch)
         logger.debug(f"HttpPage._on_entry_row_activated: URL validation status for '{url_to_fetch}': {is_valid}")
@@ -124,32 +107,26 @@ class HttpPage(Adw.PreferencesPage):
             self._update_column_view_model(None)
             return
 
-        self._clear_error() # Already logs
+        self._clear_error()
         logger.debug("HttpPage._on_entry_row_activated: Setting http_entry_row and http_pragma_switch_row sensitive to False.")
         self.http_entry_row.set_sensitive(False)
         self.http_pragma_switch_row.set_sensitive(False)
-        # self.http_spinner removed
-        self._show_results()  # Show group, but it will be empty or show old results briefly. Already logs.
+        self._show_results()
 
-        # Cancel any existing task first
         if self.current_http_task:
             logger.debug("HttpPage._on_entry_row_activated: Cancelling previous HTTP task.")
-            # Add before/after for cancellable.cancel() if we want to be very verbose, but current log is good.
             try:
-                self.current_http_task.return_error_if_cancelled()  # Mark as cancelled if not already
+                self.current_http_task.return_error_if_cancelled()
                 cancellable = self.current_http_task.get_cancellable()
                 if cancellable and not cancellable.is_cancelled():
                     logger.debug(f"HttpPage._on_entry_row_activated: Calling cancellable.cancel() for task {self.current_http_task}")
                     cancellable.cancel()
                     logger.debug(f"HttpPage._on_entry_row_activated: cancellable.cancel() called for task {self.current_http_task}")
             except GLib.Error as e:
-                # This can happen if the task is already completed or cancelled.
                 logger.debug("HttpPage._on_entry_row_activated: Error cancelling previous task (likely already completed/cancelled): %s", e)
             self.current_http_task = None
             logger.debug("HttpPage._on_entry_row_activated: self.current_http_task set to None after cancellation.")
 
-        # Store data for the thread in a way that's tied to this specific task instance
-        # This is safer if tasks could be created rapidly, though self.current_http_task helps.
         use_akamai_pragma_val = self.http_pragma_switch_row.get_active()
         logger.debug(f"HttpPage._on_entry_row_activated: use_akamai_pragma: {use_akamai_pragma_val}")
         task_specific_data = {
@@ -160,10 +137,8 @@ class HttpPage(Adw.PreferencesPage):
         cancellable = Gio.Cancellable.new()
         logger.debug(f"HttpPage._on_entry_row_activated: Created Gio.Cancellable: {cancellable}")
         new_task = Gio.Task.new(self, cancellable, self._fetch_headers_task_done_cb, None)
-        logger.debug(f"HttpPage._on_entry_row_activated: Created Gio.Task: {new_task} (task_name: fetch-headers)") # task_name is conceptual
-        # Pass data directly to the task if GObject or GLib.Variant
-        # For dict, we'll retrieve it via source_object in thread as done below.
-        self._http_task_data_for_thread = task_specific_data  # Still using this for simplicity with dict
+        logger.debug(f"HttpPage._on_entry_row_activated: Created Gio.Task: {new_task}")
+        self._http_task_data_for_thread = task_specific_data
         logger.debug(f"HttpPage._on_entry_row_activated: self._http_task_data_for_thread set to: {self._http_task_data_for_thread}")
         self.current_http_task = new_task
         logger.debug(f"HttpPage._on_entry_row_activated: self.current_http_task set to: {self.current_http_task}")
@@ -175,16 +150,17 @@ class HttpPage(Adw.PreferencesPage):
         self,
         task: Gio.Task,
         source_object,
-        _task_data_ignored,  # Renamed to indicate it's unused
+        _task_data_ignored,
         cancellable: Optional[Gio.Cancellable]
     ):
-        logger.debug(f"HttpPage._fetch_headers_task_thread_func: Starting for task {task}, source_object: {source_object}, cancellable: {cancellable}")
-        # Retrieve data using source_object._http_task_data_for_thread as set before run_in_thread
+        logger.debug(
+            f"HttpPage._fetch_headers_task_thread_func: Starting for task {task}, "
+            f"source_object: {source_object}, cancellable: {cancellable}"
+        )
         current_task_data = source_object._http_task_data_for_thread
         url = current_task_data["url"]
         use_akamai_pragma = current_task_data["use_akamai_pragma"]
         logger.debug(f"HttpPage._fetch_headers_task_thread_func: Parameters - url: '{url}', use_akamai_pragma: {use_akamai_pragma}")
-        # logger.debug("Task thread: Making GET request to %s with Akamai headers: %s", url, use_akamai_pragma) # Replaced by more specific
 
         request_headers = {}
         if use_akamai_pragma:
@@ -212,7 +188,10 @@ class HttpPage(Adw.PreferencesPage):
 
             logger.debug(f"HttpPage._fetch_headers_task_thread_func: Before requests.get({url}, ...)")
             response = requests.get(url, headers=request_headers, allow_redirects=False, timeout=10)
-            logger.debug(f"HttpPage._fetch_headers_task_thread_func: After requests.get(), response status: {response.status_code}, headers: {response.headers}")
+            logger.debug(
+                f"HttpPage._fetch_headers_task_thread_func: After requests.get(), response status: {response.status_code}, "
+                f"headers: {response.headers}"
+            )
 
             if cancellable and cancellable.is_cancelled():
                 logger.debug("HttpPage._fetch_headers_task_thread_func: Task cancelled after request but before processing.")
@@ -221,14 +200,14 @@ class HttpPage(Adw.PreferencesPage):
                 logger.debug(f"HttpPage._fetch_headers_task_thread_func: Returned error due to post-request cancellation: {g_error}")
                 return
 
-            response.raise_for_status()  # Raises HTTPError for 4xx/5xx
+            response.raise_for_status()
             logger.debug("HttpPage._fetch_headers_task_thread_func: response.raise_for_status() passed.")
             response_headers_dict = dict(response.headers)
             task.return_value(GLib.Variant('a{ss}', response_headers_dict))
             logger.debug(f"HttpPage._fetch_headers_task_thread_func: Returned value with task.return_value(): {response_headers_dict}")
 
         except requests.exceptions.HTTPError as e:
-            logger.error(f"HttpPage._fetch_headers_task_thread_func: HTTPError for {url}: {e}", exc_info=True) # exc_info=True is good
+            logger.error(f"HttpPage._fetch_headers_task_thread_func: HTTPError for {url}: {e}", exc_info=True)
             error_message = source_object._format_http_error(e)
             if len(error_message) > 100:
                 error_message = "HTTP Error (see logs for details)."
@@ -245,14 +224,14 @@ class HttpPage(Adw.PreferencesPage):
             g_error = GLib.Error("Request Timed Out: The server did not respond in time.", Gio.io_error_quark(), Gio.IOErrorEnum.TIMED_OUT.value)
             task.return_error(g_error)
             logger.debug(f"HttpPage._fetch_headers_task_thread_func: Returned error with task.return_error() for Timeout: {g_error.message}")
-        except requests.exceptions.RequestException as e:  # Other requests-related errors
+        except requests.exceptions.RequestException as e:
             logger.error(f"HttpPage._fetch_headers_task_thread_func: RequestException for {url}: {e}", exc_info=True)
             err_name = type(e).__name__
             g_error = GLib.Error(f"Request Error: {err_name}. Check URL and logs.", Gio.io_error_quark(), Gio.IOErrorEnum.FAILED.value)
             task.return_error(g_error)
             logger.debug(f"HttpPage._fetch_headers_task_thread_func: Returned error with task.return_error() for RequestException ({err_name}): {g_error.message}")
         except Exception as e:
-            logger.exception(f"HttpPage._fetch_headers_task_thread_func: Unexpected error for {url}.") # logger.exception is good
+            logger.exception(f"HttpPage._fetch_headers_task_thread_func: Unexpected error for {url}.")
             err_name = type(e).__name__
             g_error = GLib.Error(f"Unexpected Error: {err_name}. See logs for details.", Gio.io_error_quark(), Gio.IOErrorEnum.FAILED.value)
             task.return_error(g_error)
@@ -260,8 +239,10 @@ class HttpPage(Adw.PreferencesPage):
         logger.debug(f"HttpPage._fetch_headers_task_thread_func: Finished for task {task}")
 
     def _fetch_headers_task_done_cb(self, source_object, task: Gio.Task, user_data):
-        logger.debug(f"HttpPage._fetch_headers_task_done_cb: Starting for task {task}, source_object: {source_object}, user_data: {user_data}")
-        # Ensure this callback is for the current task, ignore if it's an old one.
+        logger.debug(
+            f"HttpPage._fetch_headers_task_done_cb: Starting for task {task}, "
+            f"source_object: {source_object}, user_data: {user_data}"
+        )
         if task is not self.current_http_task:
             logger.warning("HttpPage._fetch_headers_task_done_cb: Callback received for an outdated or superseded HTTP task. Ignoring.")
             return
@@ -269,44 +250,45 @@ class HttpPage(Adw.PreferencesPage):
         headers = None
         try:
             logger.debug(f"HttpPage._fetch_headers_task_done_cb: Calling task.propagate_value() for task {task}")
-            returned_variant = task.propagate_value()  # For GLib.Variant
+            returned_variant = task.propagate_value()
             logger.debug(f"HttpPage._fetch_headers_task_done_cb: task.propagate_value() returned: {returned_variant}")
             if returned_variant:
-                headers = returned_variant.unpack()  # Unpack GLib.Variant to Python dict
+                headers = returned_variant.unpack()
                 logger.info("HttpPage._fetch_headers_task_done_cb: Successfully fetched headers (async).")
                 logger.debug(f"HttpPage._fetch_headers_task_done_cb: Unpacked headers: {headers}")
-                self._update_column_view_model(headers) # Already logs
+                self._update_column_view_model(headers)
                 self.http_entry_row.remove_css_class("error")
                 logger.debug("HttpPage._fetch_headers_task_done_cb: Removed 'error' css class from http_entry_row.")
             else:
                 logger.error("HttpPage._fetch_headers_task_done_cb: Task propagate_value returned None unexpectedly (no error raised but no value).")
-                self._display_error("Failed to retrieve task result (no data).") # Already logs
-                self._update_column_view_model(None) # Already logs
+                self._display_error("Failed to retrieve task result (no data).")
+                self._update_column_view_model(None)
                 self.http_entry_row.add_css_class("error")
                 logger.debug("HttpPage._fetch_headers_task_done_cb: Added 'error' css class to http_entry_row due to None result.")
 
         except GObject.GError as e:
-            logger.error(f"HttpPage._fetch_headers_task_done_cb: Error fetching headers (async GObject.GError): {e.message} (Code: {e.code}, Domain: {GLib.quark_to_string(e.domain)})")
+            logger.error(
+                f"HttpPage._fetch_headers_task_done_cb: Error fetching headers (async GObject.GError): {e.message} "
+                f"(Code: {e.code}, Domain: {GLib.quark_to_string(e.domain)})"
+            )
 
             if e.matches(Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED):
                 logger.info("HttpPage._fetch_headers_task_done_cb: HTTP header fetch task was cancelled by the user.")
-                self._display_error("Operation cancelled.") # Already logs
+                self._display_error("Operation cancelled.")
             else:
                 logger.info(f"HttpPage._fetch_headers_task_done_cb: Displaying error from GError: {e.message}")
-                self._display_error(e.message) # Already logs
+                self._display_error(e.message)
 
             self.http_entry_row.add_css_class("error")
             logger.debug("HttpPage._fetch_headers_task_done_cb: Added 'error' css class to http_entry_row due to GError.")
-            self._update_column_view_model(None) # Already logs
+            self._update_column_view_model(None)
         finally:
             logger.debug("HttpPage._fetch_headers_task_done_cb: In finally block.")
             self.http_entry_row.set_sensitive(True)
             logger.debug("HttpPage._fetch_headers_task_done_cb: http_entry_row sensitivity set to True.")
             self.http_pragma_switch_row.set_sensitive(True)
             logger.debug("HttpPage._fetch_headers_task_done_cb: http_pragma_switch_row sensitivity set to True.")
-            # self.http_spinner removed
 
-            # Clear the current task reference as it's now completed or failed.
             self.current_http_task = None
             logger.debug("HttpPage._fetch_headers_task_done_cb: self.current_http_task set to None.")
         logger.debug(f"HttpPage._fetch_headers_task_done_cb: Finished for task {task}")
@@ -333,24 +315,18 @@ class HttpPage(Adw.PreferencesPage):
 
         return re.match(url_regex, url) is not None and bool(urlparse(url).netloc)
 
-    # The _fetch_headers method is now part of _fetch_headers_task_thread_func
-    # and is no longer called directly by _on_entry_row_activated.
-    # It's kept here for the _format_http_error utility or if needed elsewhere.
-
     def _format_http_error(self, e: requests.exceptions.HTTPError) -> str:
-        # This method is now called from the thread, ensure it's static or passed `self` correctly.
-        # It was already an instance method, so source_object._format_http_error() is correct.
         status_code = e.response.status_code
         reason = e.response.reason
-        # Ensure plain text for GLib.Error
-        # Shorten these messages to avoid E501 when used in GLib.Error
+        url_short = f"{e.request.url[:30]}..." if e.request and e.request.url else "N/A"
+
         if status_code == 404:
-            return f"HTTP 404: Not Found ({e.request.url[:30]}...)"
+            return f"HTTP 404: Not Found ({url_short})"
         if status_code == 403:
-            return f"HTTP 403: Forbidden ({e.request.url[:30]}...)"
+            return f"HTTP 403: Forbidden ({url_short})"
         if status_code == 500:
-            return f"HTTP 500: Server Error ({e.request.url[:30]}...)"
-        return f"HTTP {status_code}: {reason} ({e.request.url[:30]}...)"
+            return f"HTTP 500: Server Error ({url_short})"
+        return f"HTTP {status_code}: {reason} ({url_short})"
 
     def _on_pragma_toggled(
         self, widget: Gtk.Switch, _gparam: GObject.ParamSpec
@@ -358,15 +334,11 @@ class HttpPage(Adw.PreferencesPage):
         logger.debug("HttpPage._on_pragma_toggled: Triggered")
         is_active = widget.get_active()
         logger.debug(f"HttpPage._on_pragma_toggled: Akamai Pragma toggled to: {is_active}")
-        # Optionally, re-fetch if a URL is already present and results are shown
-        # For now, it will apply on the next manual fetch.
-        # if self.http_entry_row.get_text().strip() and self.http_results_group.get_visible():
-        #     self._on_entry_row_activated(self.http_entry_row)
 
     def _update_column_view_model(self, headers: Optional[Dict[str, str]]) -> None:
         logger.debug(f"HttpPage._update_column_view_model: Called with headers: {headers}")
         logger.debug("HttpPage._update_column_view_model: Calling self.header_list_store.remove_all()")
-        self.header_list_store.remove_all()  # Clear existing items
+        self.header_list_store.remove_all()
         logger.debug("HttpPage._update_column_view_model: self.header_list_store.remove_all() finished.")
 
         if headers and "error" not in headers:
@@ -374,15 +346,14 @@ class HttpPage(Adw.PreferencesPage):
             for key, value in headers.items():
                 item = HeaderItem(key, value)
                 self.header_list_store.append(item)
-                # logger.debug(f"HttpPage._update_column_view_model: Appended item - Key: {key}, Value: {value}") # Too verbose
             logger.debug("HttpPage._update_column_view_model: Finished appending items.")
-            self._show_results() # Already logs
+            self._show_results()
         else:
             if headers and "error" in headers:
                 logger.debug("HttpPage._update_column_view_model: Headers dictionary contains 'error' key.")
             elif not headers:
                 logger.debug("HttpPage._update_column_view_model: Headers are None, hiding results.")
-            self._hide_results() # Already logs
+            self._hide_results()
         logger.debug("HttpPage._update_column_view_model: Finished.")
 
     def _show_results(self):
@@ -418,20 +389,18 @@ class HttpPage(Adw.PreferencesPage):
         logger.debug("HttpPage._clear_error: 'error' CSS class removed from http_entry_row.")
         logger.debug("HttpPage._clear_error: Finished.")
 
-    # Removed @Gtk.Template.Callback() as it's a direct signal handler in UI
     def _on_error_banner_dismiss(self, _banner: Adw.Banner, *_args):
         logger.debug(f"HttpPage._on_error_banner_dismiss: Triggered for banner: {_banner}")
-        self._clear_error() # Already logs
+        self._clear_error()
         logger.debug("HttpPage._on_error_banner_dismiss: Finished.")
 
-    # Removed @Gtk.Template.Callback() as it's a direct signal handler in UI
     def _on_clear_results_clicked(self, _button: Gtk.Button, *_args):
         logger.debug("HttpPage._on_clear_results_clicked: Triggered by user.")
-        logger.info("HttpPage._on_clear_results_clicked: Results cleared by user.") # Existing info log
-        self._update_column_view_model(None)  # Clears the view, already logs
-        self._clear_error()  # Clear any errors, already logs
+        logger.info("HttpPage._on_clear_results_clicked: Results cleared by user.")
+        self._update_column_view_model(None)
+        self._clear_error()
         logger.debug("HttpPage._on_clear_results_clicked: Setting http_entry_row text to ''")
-        self.http_entry_row.set_text("")  # Clear entry row
+        self.http_entry_row.set_text("")
         logger.debug("HttpPage._on_clear_results_clicked: Finished.")
 
     @staticmethod
@@ -445,27 +414,36 @@ class HttpPage(Adw.PreferencesPage):
         def setup_func(_, list_item: Gtk.ListItem) -> None:
             logger.debug(f"HttpPage._create_factory.setup_func: Setting up ListItem {list_item} for factory of '{attr_name}'")
             label = Gtk.Label(xalign=0)
-            logger.debug(f"HttpPage._create_factory.setup_func: Created Gtk.Label: {label} with xalign=0 for ListItem {list_item}")
+            logger.debug(
+                f"HttpPage._create_factory.setup_func: Created Gtk.Label: {label} with xalign=0 "
+                f"for ListItem {list_item}"
+            )
             label.set_hexpand(True)
             logger.debug(f"HttpPage._create_factory.setup_func: Label hexpand set to True for ListItem {list_item}")
             if wrap_text:
                 label.set_wrap(True)
                 logger.debug(f"HttpPage._create_factory.setup_func: Label wrap set to True for ListItem {list_item}")
-                label.set_max_width_chars(80)  # Or adjust as needed
+                label.set_max_width_chars(80)
                 logger.debug(f"HttpPage._create_factory.setup_func: Label max_width_chars set to 80 for ListItem {list_item}")
             list_item.set_child(label)
             logger.debug(f"HttpPage._create_factory.setup_func: Child of ListItem {list_item} set to label {label}")
 
         def bind_func(_, list_item: Gtk.ListItem) -> None:
             item = list_item.get_item()
-            logger.debug(f"HttpPage._create_factory.bind_func: Binding ListItem {list_item} to item {item} for factory of '{attr_name}'")
+            logger.debug(
+                f"HttpPage._create_factory.bind_func: Binding ListItem {list_item} to item {item} "
+                f"for factory of '{attr_name}'"
+            )
             label = list_item.get_child()
             if not label:
                 logger.warning(f"HttpPage._create_factory.bind_func: Label is None for ListItem {list_item}. Cannot bind.")
                 return
 
             text = getattr(item, attr_name, "")
-            logger.debug(f"HttpPage._create_factory.bind_func: Text to set for ListItem {list_item} (attr: '{attr_name}'): '{text}'")
+            logger.debug(
+                f"HttpPage._create_factory.bind_func: Text to set for ListItem {list_item} "
+                f"(attr: '{attr_name}'): '{text}'"
+            )
             label.set_text(text)
             logger.debug(f"HttpPage._create_factory.bind_func: Label text set for ListItem {list_item}")
 

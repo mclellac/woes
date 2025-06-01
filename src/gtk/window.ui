@@ -59,12 +59,8 @@
                           <object class="GtkAdjustment"/>
                         </property>
                         <child>
-                          <object class="GtkBox" id="HttpPage">
-                            <child>
-                              <object class="HttpPage">
-                                <property name="overflow">hidden</property>
-                              </object>
-                            </child>
+                          <object class="HttpPage">
+                            <property name="overflow">hidden</property>
                           </object>
                         </child>
                       </object>
@@ -92,18 +88,8 @@
                         <property name="unit">px</property>
                         <property name="vexpand">True</property>
                         <child>
-                          <object class="GtkBox" id="NmapPage">
-                            <property name="height-request">1000</property>
-                            <property name="hexpand">True</property>
-                            <property name="hexpand-set">True</property>
-                            <property name="valign">3</property>
+                          <object class="NmapPage">
                             <property name="vexpand">True</property>
-                            <property name="vexpand-set">True</property>
-                            <child>
-                              <object class="NmapPage">
-                                <property name="vexpand">True</property>
-                              </object>
-                            </child>
                           </object>
                         </child>
                       </object>
@@ -133,11 +119,7 @@
                         <property name="unit">px</property>
                         <property name="vexpand">True</property>
                         <child>
-                          <object class="GtkBox" id="DnsPageBox">
-                            <child>
-                              <object class="DNSPage" id="DNSPage"/>
-                            </child>
-                          </object>
+                          <object class="DNSPage" id="DNSPage"/>
                         </child>
                       </object>
                     </child>
@@ -152,12 +134,6 @@
               <object class="AdwViewStackPage" id="webscan_page">
                 <property name="child">
                   <object class="AdwStatusPage" id="webscan_status_page">
-                    <property name="child">
-                      <object class="GtkBox" id="webscan_box">
-                        <property name="orientation">1</property>
-                        <property name="valign">3</property>
-                      </object>
-                    </property>
                     <property name="description">TODO</property>
                     <property name="icon-name" bind-source="webscan_page" bind-property="icon-name" bind-flags="sync-create">org.gnome.Loupe-symbolic</property>
                     <property name="title" bind-source="webscan_page" bind-property="title" bind-flags="sync-create">Web Scanner</property>

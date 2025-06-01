@@ -10,30 +10,20 @@
     <child>
       <object class="AdwPreferencesPage" id="preferences_page">
         <child>
-          <object class="GtkBox" id="preferences_box">
-            <property name="homogeneous">True</property>
-            <property name="orientation">vertical</property>
+          <object class="AdwBanner" id="preferences_error_banner">
             <property name="valign">start</property>
-            <child>
-              <object class="AdwBanner" id="preferences_error_banner">
-                <property name="valign">start</property>
-              </object>
-            </child>
+            <!-- Removed GtkBox wrapper, banner is now direct child -->
+            <!-- Ensure this is the first child if that's the desired position -->
           </object>
         </child>
         <child>
           <object class="AdwPreferencesGroup" id="appearance_group">
-            <property name="margin-top">40</property>
+            <property name="margin-top">40</property> <!-- This margin might need adjustment if banner is very first -->
             <property name="title">Appearance</property>
             <child>
-              <object class="AdwActionRow" id="theme_row">
+              <object class="AdwSwitchRow" id="theme_switch_row">
                 <property name="title">Dark Theme</property>
-                <child type="suffix">
-                  <object class="GtkSwitch" id="theme_switch">
-                    <property name="halign">end</property>
-                    <property name="valign">center</property>
-                  </object>
-                </child>
+                <!-- GtkSwitch is removed as AdwSwitchRow has its own -->
               </object>
             </child>
             <child>
@@ -94,9 +84,7 @@
                 <property name="title">DNS Server</property>
               </object>
             </child>
-            <child>
-              <object class="AdwActionRow"/>
-            </child>
+            <!-- Empty AdwActionRow removed -->
           </object>
         </child>
       </object>

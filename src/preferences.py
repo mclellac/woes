@@ -1,18 +1,13 @@
 import logging
 import re
-import gi
 
-# GTK version requirements must be called before importing from gi.repository
+import gi
 gi.require_version('Adw', '1')
 gi.require_version('Gtk', '4.0')
-
-# Now import GTK libraries and other dependencies
-# pylint: disable=wrong-import-position
 from gi.repository import Adw, Gio, Gtk, GLib
-# pylint: disable=wrong-import-position
+
 from .constants import APP_ID, RESOURCE_PREFIX
 
-# Configure logger for the module - AFTER all imports
 logger = logging.getLogger(__name__)
 
 
@@ -48,7 +43,6 @@ class Preferences(Adw.PreferencesWindow):
         logger.debug("Preferences.load_ui: Starting to connect signals.")
         self.font_size_scale.connect("value-changed", self.on_font_size_changed)
         logger.debug("Preferences.load_ui: Connected 'value-changed' for font_size_scale.")
-        # Connect to notify::active for AdwSwitchRow
         self.theme_switch_row.connect("notify::active", self.on_theme_switch_changed)
         logger.debug("Preferences.load_ui: Connected 'notify::active' for theme_switch_row.")
         self.source_style_scheme_combo_row.connect(
@@ -57,12 +51,11 @@ class Preferences(Adw.PreferencesWindow):
         logger.debug("Preferences.load_ui: Connected 'notify::selected' for source_style_scheme_combo_row.")
         self.dns_server_entryrow.connect("apply", self.on_dns_server_changed)
         logger.debug("Preferences.load_ui: Connected 'apply' for dns_server_entryrow.")
-        # Banner dismiss signal is connected in UI template if handler _on_error_banner_dismiss_clicked is defined
         logger.debug("Preferences.load_ui: Finished connecting signals.")
 
     def on_error_banner_dismiss_clicked(self, _banner, *_args):
         logger.debug(f"Preferences.on_error_banner_dismiss_clicked: Triggered for banner: {_banner}")
-        self.hide_banner_and_clear_error_state() # Logs itself
+        self.hide_banner_and_clear_error_state()
         logger.debug("Preferences.on_error_banner_dismiss_clicked: Finished.")
 
     def on_dns_server_changed(self, entryrow: Adw.EntryRow):
@@ -74,13 +67,12 @@ class Preferences(Adw.PreferencesWindow):
             r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$"
         )
         is_valid_format = bool(ip_pattern.match(dns_server))
-        is_valid_ip = self.is_valid_ipv4(dns_server) # Logs itself
+        is_valid_ip = self.is_valid_ipv4(dns_server)
         logger.debug(f"Preferences.on_dns_server_changed: Format valid: {is_valid_format}, IP content valid: {is_valid_ip}")
 
         if is_valid_format and is_valid_ip:
             logger.debug(f"Preferences.on_dns_server_changed: Setting 'custom-dns-server' to '{dns_server}'")
             self.settings.set_string("custom-dns-server", dns_server)
-            # logger.info("Custom DNS server set to: %s", dns_server) # Replaced by debug
             logger.debug(f"Preferences.on_dns_server_changed: Custom DNS server set to: {dns_server} in GSettings.")
             self.preferences_error_banner.set_revealed(False)
             logger.debug("Preferences.on_dns_server_changed: preferences_error_banner revealed set to False.")
@@ -90,18 +82,16 @@ class Preferences(Adw.PreferencesWindow):
             entryrow.add_css_class("error")
             logger.debug("Preferences.on_dns_server_changed: 'error' CSS class added to entryrow.")
             error_message = "Invalid IPv4 address for DNS server."
-            logger.error(f"Preferences.on_dns_server_changed: {error_message}") # Existing error log
+            logger.error(f"Preferences.on_dns_server_changed: {error_message}")
 
             self.preferences_error_banner.set_title(error_message)
             logger.debug(f"Preferences.on_dns_server_changed: preferences_error_banner title set to '{error_message}'.")
             self.preferences_error_banner.set_revealed(True)
             logger.debug("Preferences.on_dns_server_changed: preferences_error_banner revealed set to True.")
 
-            # Clear the entry row text
             entryrow.set_text("")
             logger.debug("Preferences.on_dns_server_changed: Entryrow text cleared.")
 
-            # Hide the banner after 4 seconds
             logger.debug("Preferences.on_dns_server_changed: Scheduling GLib.timeout_add_seconds to hide banner.")
             GLib.timeout_add_seconds(4, self.hide_banner_and_clear_error_state, entryrow)
         logger.debug("Preferences.on_dns_server_changed: Finished.")
@@ -113,12 +103,18 @@ class Preferences(Adw.PreferencesWindow):
         logger.debug("Preferences.hide_banner_and_clear_error_state: preferences_error_banner revealed set to False.")
         if entry_row_widget and isinstance(entry_row_widget, Adw.EntryRow):
             entry_row_widget.remove_css_class("error")
-            logger.debug(f"Preferences.hide_banner_and_clear_error_state: 'error' CSS class removed from provided entry_row_widget: {entry_row_widget}")
-        elif self.dns_server_entryrow:  # Fallback if not passed
+            logger.debug(
+                f"Preferences.hide_banner_and_clear_error_state: 'error' CSS class removed "
+                f"from provided entry_row_widget: {entry_row_widget}"
+            )
+        elif self.dns_server_entryrow:
             self.dns_server_entryrow.remove_css_class("error")
-            logger.debug("Preferences.hide_banner_and_clear_error_state: 'error' CSS class removed from self.dns_server_entryrow (fallback).")
+            logger.debug(
+                "Preferences.hide_banner_and_clear_error_state: 'error' CSS class removed "
+                "from self.dns_server_entryrow (fallback)."
+            )
         logger.debug("Preferences.hide_banner_and_clear_error_state: Finished, returning GLib.SOURCE_REMOVE.")
-        return GLib.SOURCE_REMOVE  # Important for GLib.timeout_add_seconds
+        return GLib.SOURCE_REMOVE
 
     @staticmethod
     def is_valid_ipv4(ip: str) -> bool:
@@ -153,7 +149,7 @@ class Preferences(Adw.PreferencesWindow):
         theme_enabled = switch_row.get_active()
         logger.debug(f"Preferences.on_theme_switch_changed: Theme enabled from switch: {theme_enabled}")
         self.settings.set_boolean("dark-theme", theme_enabled)
-        logger.debug(f"Preferences.on_theme_switch_changed: 'dark-theme' set to {theme_enabled} in GSettings. WoesWindow will handle the change.") # Existing log, made f-string
+        logger.debug(f"Preferences.on_theme_switch_changed: 'dark-theme' set to {theme_enabled} in GSettings. WoesWindow will handle the change.")
         logger.debug("Preferences.on_theme_switch_changed: Finished.")
 
     def on_source_style_scheme_changed(self, combo_row: Adw.ComboRow, _gparam):
@@ -164,28 +160,31 @@ class Preferences(Adw.PreferencesWindow):
             source_style_scheme = selected_item.get_string()
             logger.debug(f"Preferences.on_source_style_scheme_changed: Source style scheme string: '{source_style_scheme}'")
             self.settings.set_string("source-style-scheme", source_style_scheme)
-            logger.debug(f"Preferences.on_source_style_scheme_changed: 'source-style-scheme' set to '{source_style_scheme}' in GSettings.")
+            logger.debug(
+                f"Preferences.on_source_style_scheme_changed: 'source-style-scheme' set to '{source_style_scheme}' "
+                "in GSettings."
+            )
         else:
-            logger.warning(f"Preferences.on_source_style_scheme_changed: Selected item is not a Gtk.StringObject: {type(selected_item)}")
+            logger.warning(
+                f"Preferences.on_source_style_scheme_changed: Selected item is not a Gtk.StringObject: "
+                f"{type(selected_item)}"
+            )
         logger.debug("Preferences.on_source_style_scheme_changed: Finished.")
 
     def load_preferences(self):
         logger.debug("Preferences.load_preferences: Loading and applying settings to UI.")
-        # Font size
         logger.debug("Preferences.load_preferences: Loading setting 'font-size'")
         font_size = self.settings.get_int("font-size")
         logger.debug(f"Preferences.load_preferences: 'font-size' from GSettings: {font_size}")
         self.font_size_scale.set_value(float(font_size))
         logger.debug(f"Preferences.load_preferences: font_size_scale value set to {float(font_size)}")
 
-        # Dark Theme
         logger.debug("Preferences.load_preferences: Loading setting 'dark-theme'")
         dark_theme_enabled = self.settings.get_boolean("dark-theme")
         logger.debug(f"Preferences.load_preferences: 'dark-theme' from GSettings: {dark_theme_enabled}")
         self.theme_switch_row.set_active(dark_theme_enabled)
         logger.debug(f"Preferences.load_preferences: theme_switch_row active set to {dark_theme_enabled}")
 
-        # Source Style Scheme
         logger.debug("Preferences.load_preferences: Loading setting 'source-style-scheme'")
         source_style_scheme = self.settings.get_string("source-style-scheme")
         logger.debug(f"Preferences.load_preferences: 'source-style-scheme' from GSettings: '{source_style_scheme}'")
@@ -196,15 +195,18 @@ class Preferences(Adw.PreferencesWindow):
                 item_string = model.get_string(i)
                 if item_string and item_string.lower() == source_style_scheme.lower():
                     self.source_style_scheme_combo_row.set_selected(i)
-                    logger.debug(f"Preferences.load_preferences: source_style_scheme_combo_row selected index set to {i} for scheme '{source_style_scheme}'")
+                    logger.debug(
+                        f"Preferences.load_preferences: source_style_scheme_combo_row selected index set to {i} "
+                        f"for scheme '{source_style_scheme}'"
+                    )
                     found_scheme = True
                     break
         if not found_scheme:
             logger.warning(
-                "Preferences.load_preferences: Style scheme '%s' not found or model is not Gtk.StringList.", source_style_scheme
+                "Preferences.load_preferences: Style scheme '%s' not found or model is not Gtk.StringList.",
+                source_style_scheme
             )
 
-        # Custom DNS Server
         logger.debug("Preferences.load_preferences: Loading setting 'custom-dns-server'")
         dns_server = self.settings.get_string("custom-dns-server")
         logger.debug(f"Preferences.load_preferences: 'custom-dns-server' from GSettings: '{dns_server}'")

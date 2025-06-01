@@ -1,11 +1,9 @@
 import logging
-import gi
 
+import gi
 gi.require_version('Gtk', '4.0')
-# pylint: disable=wrong-import-position
 from gi.repository import Gdk, Gtk
 
-# Configure logger for the module - AFTER all imports
 logger = logging.getLogger(__name__)
 
 
@@ -75,7 +73,7 @@ class Helper:
 
         gesture = Gtk.GestureClick()
         logger.debug(f"Helper.setup_context_menu: Gtk.GestureClick created: {gesture}")
-        gesture.set_button(3) # Right click
+        gesture.set_button(3)  # Right-click
         logger.debug("Helper.setup_context_menu: Gesture button set to 3 (right-click).")
         logger.debug("Helper.setup_context_menu: Before gesture.connect('pressed')")
         gesture.connect("pressed", self.on_right_click)
@@ -137,13 +135,16 @@ class Helper:
         Args:
             keyval (int): The value of the key pressed.
             state (Gdk.ModifierType): The state of the modifier keys.
-            # _controller and _keycode are unused.
+            # _keycode is unused.
 
         Returns:
             bool: True if the event was handled, False otherwise.
         """
-        logger.debug(f"Helper.on_key_pressed: Triggered with controller: {_controller}, keyval: {keyval}, keycode: {_keycode}, state: {state}")
-        is_ctrl_c = bool(state & Gdk.ModifierType.CONTROL_MASK and keyval == Gdk.KEY_c)
+        logger.debug(
+            f"Helper.on_key_pressed: Triggered with controller: {_controller}, keyval: {keyval}, "
+            f"keycode: {_keycode}, state: {state}"
+        )
+        is_ctrl_c = (state & Gdk.ModifierType.CONTROL_MASK and keyval == Gdk.KEY_c)
         logger.debug(f"Helper.on_key_pressed: Is Ctrl+C: {is_ctrl_c}")
         if is_ctrl_c:
             logger.debug("Helper.on_key_pressed: Ctrl+C detected, calling copy_to_clipboard().")
@@ -168,7 +169,6 @@ class Helper:
                 for index in range(selection_model.get_n_items()):
                     if selection_model.is_selected(index):
                         selected_item = selection_model.get_item(index)
-                        # Assuming selected_item has 'key' and 'value' attributes as per HttpPage's HeaderItem example
                         item_text = f"{getattr(selected_item, 'key', 'N/A')}: {getattr(selected_item, 'value', 'N/A')}"
                         selected_texts.append(item_text)
                         logger.debug(f"Helper.copy_to_clipboard: Selected item at index {index}: '{item_text}'")

@@ -1,8 +1,11 @@
-import sys
+import logging
 import os
+import sys
+import unittest
+from unittest.mock import MagicMock, patch
 
 # Pre-emptive mocking of 'gi' and its submodules.
-from unittest.mock import MagicMock
+# This must be done before other project imports that might import gi.
 sys.modules['gi'] = MagicMock()
 sys.modules['gi.repository'] = MagicMock()
 gi_repo_mock = sys.modules['gi.repository']
@@ -12,11 +15,6 @@ setattr(gi_repo_mock, 'Gtk', MagicMock())
 setattr(gi_repo_mock, 'GObject', MagicMock())
 setattr(gi_repo_mock, 'GtkSource', MagicMock())
 setattr(gi_repo_mock, 'Pango', MagicMock())
-
-import unittest
-from unittest.mock import patch  # call is used by the test output, not explicitly here now - Removed 'call'
-import logging
-# import argparse # Removed unused import
 
 current_script_path = os.path.abspath(__file__)
 tests_dir = os.path.dirname(current_script_path)
@@ -37,7 +35,6 @@ class TestMainAppArgs(unittest.TestCase):
         test_argv = ['main.py']
         args = parse_arguments_and_setup_logging(test_argv)
 
-        # Check if basicConfig was called with level=logging.INFO
         called_with_info = False
         for call_item in mock_basic_config.call_args_list:
             if call_item.kwargs.get('level') == logging.INFO:
@@ -52,7 +49,6 @@ class TestMainAppArgs(unittest.TestCase):
         test_argv = ['main.py', '--debug']
         args = parse_arguments_and_setup_logging(test_argv)
 
-        # Check if basicConfig was called with level=logging.DEBUG
         called_with_debug = False
         for call_item in mock_basic_config.call_args_list:
             if call_item.kwargs.get('level') == logging.DEBUG:

@@ -11,10 +11,9 @@
     <property name="vexpand">True</property>
     <property name="vexpand-set">True</property>
     <child>
-      <object class="GtkListBox" id="nmap_listbox">
-        <property name="activate-on-single-click">False</property>
+      <object class="AdwPreferencesGroup" id="nmap_config_group">
+        <property name="title" translatable="yes">Scan Configuration</property>
         <property name="halign">baseline-fill</property>
-        <property name="selection-mode">0</property>
         <property name="valign">baseline-center</property>
         <child>
           <object class="AdwEntryRow" id="nmap_target_entryrow">
@@ -71,63 +70,34 @@
             <property name="valign">baseline-fill</property>
           </object>
         </child>
-        <style>
-          <class name="boxed-list"/>
-        </style>
       </object>
     </child>
     <child>
-      <object class="GtkGrid" id="nmap_grid">
-        <property name="halign">baseline-center</property>
-        <child>
+      <object class="AdwBanner" id="nmap_warning_banner">
+        <property name="title" translatable="yes">&lt;b&gt;WARNING:&lt;/b&gt; Do not use this tool on any hosts or networks &lt;u&gt;you do not explicitely have permission&lt;/u&gt; to scan.</property>
+        <property name="button-label" translatable="yes">Dismiss</property>
+        <property name="revealed">True</property>
+        <property name="margin-bottom">10</property>
+        <property name="margin-end">10</property>
+        <property name="margin-start">10</property>
+        <property name="margin-top">10</property>
+      </object>
+    </child>
+    <child>
+      <!-- Corrected AdwActionRow with GtkSpinner as a suffix -->
+      <object class="AdwActionRow" id="nmap_status_row">
+        <property name="title" translatable="yes">Scan Status</property>
+        <property name="subtitle" translatable="yes"></property>
+        <property name="subtitle-visible">False</property>
+        <property name="halign">baseline-fill</property> <!-- Changed to fill -->
+        <property name="margin-start">10</property>
+        <property name="margin-end">10</property>
+        <suffix>
           <object class="GtkSpinner" id="nmap_spinner">
-            <property name="halign">start</property>
-            <property name="margin-start">5</property>
             <property name="spinning">True</property>
-            <property name="valign">center</property>
             <property name="visible">False</property>
-            <layout>
-              <property name="column">1</property>
-              <property name="row">2</property>
-            </layout>
           </object>
-        </child>
-        <child>
-          <object class="GtkLabel" id="nmap_status">
-            <property name="can-focus">False</property>
-            <property name="can-target">False</property>
-            <property name="halign">end</property>
-            <property name="justify">right</property>
-            <property name="label">&lt;b&gt;&lt;i&gt;Scanning...&lt;/i&gt;&lt;/b&gt;</property>
-            <property name="use-markup">True</property>
-            <property name="valign">center</property>
-            <property name="visible">False</property>
-            <layout>
-              <property name="column">0</property>
-              <property name="row">2</property>
-              <property name="row-span">1</property>
-            </layout>
-          </object>
-        </child>
-        <child>
-          <object class="GtkLabel" id="nmap_warn_label">
-            <property name="label">&lt;b&gt;WARNING:&lt;/b&gt; Do not use this tool on any hosts or networks &lt;u&gt;you do not explicitely have permission&lt;/u&gt; to scan.</property>
-            <property name="margin-bottom">10</property>
-            <property name="margin-end">10</property>
-            <property name="margin-start">10</property>
-            <property name="margin-top">10</property>
-            <property name="natural-wrap-mode">word</property>
-            <property name="use-markup">True</property>
-            <property name="width-chars">30</property>
-            <property name="wrap">True</property>
-            <layout>
-              <property name="column">0</property>
-              <property name="column-span">2</property>
-              <property name="row">0</property>
-              <property name="row-span">2</property>
-            </layout>
-          </object>
-        </child>
+        </suffix>
       </object>
     </child>
     <child>
@@ -140,19 +110,18 @@
         <property name="vexpand">True</property>
         <property name="vexpand-set">True</property>
         <child>
-          <object class="GtkFrame" id="nmap_target_frame">
+          <object class="AdwPreferencesGroup" id="nmap_target_group">
+            <property name="title" translatable="yes">Targets</property>
             <property name="halign">baseline-fill</property>
             <property name="hexpand">True</property>
             <property name="hexpand-set">True</property>
-            <property name="label">Targets</property>
-            <property name="label-xalign">0.5</property>
             <property name="margin-bottom">10</property>
             <property name="margin-end">5</property>
             <property name="margin-top">10</property>
             <property name="vexpand">True</property>
             <property name="vexpand-set">True</property>
             <child>
-              <object class="GtkScrolledWindow" id="nmap_target_scrolled_window">
+              <object class="AdwScrolledWindow" id="nmap_target_scrolled_window">
                 <property name="margin-bottom">10</property>
                 <property name="margin-end">10</property>
                 <property name="margin-start">10</property>
@@ -178,30 +147,29 @@
           </object>
         </child>
         <child>
-          <object class="GtkFrame" id="nmap_results_frame">
+          <object class="AdwPreferencesGroup" id="nmap_results_group">
+            <property name="title" translatable="yes">Scan Results</property>
             <property name="halign">baseline-fill</property>
             <property name="hexpand">True</property>
             <property name="hexpand-set">True</property>
-            <property name="label">Scan Results</property>
-            <property name="label-xalign">0.5</property>
             <property name="margin-bottom">10</property>
             <property name="margin-start">5</property>
             <property name="margin-top">10</property>
             <property name="vexpand">True</property>
             <property name="vexpand-set">True</property>
             <child>
-              <object class="GtkScrolledWindow" id="nmap_results_scrolled_window">
+              <object class="AdwScrolledWindow" id="nmap_results_scrolled_window">
                 <property name="halign">baseline-fill</property>
-                <property name="has-frame">True</property>
+                <!-- <property name="has-frame">True</property> AdwScrolledWindow doesn't have has-frame -->
                 <property name="hexpand">True</property>
                 <property name="hexpand-set">True</property>
-                <property name="kinetic-scrolling">False</property>
+                <!-- <property name="kinetic-scrolling">False</property> Not a direct AdwScrolledWindow property -->
                 <property name="margin-bottom">10</property>
                 <property name="margin-end">10</property>
                 <property name="margin-start">10</property>
                 <property name="margin-top">10</property>
-                <property name="max-content-width">150</property>
-                <property name="min-content-height">50</property>
+                <!-- <property name="max-content-width">150</property> Not a direct AdwScrolledWindow property -->
+                <!-- <property name="min-content-height">50</property> Not a direct AdwScrolledWindow property -->
                 <property name="vexpand">True</property>
                 <property name="vexpand-set">True</property>
               </object>
