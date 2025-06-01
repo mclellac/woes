@@ -89,7 +89,7 @@ class WoesApplication(Adw.Application):
 
         self.win = None
 
-        self.create_action("quit", lambda *_: self.quit(), ["<primary>q"])
+        self.create_action("quit", lambda *_: (logger.debug("Action 'quit' triggered."), self.quit()), ["<primary>q"])
         self.create_action("about", self.on_about_action)
         self.create_action("preferences", self.on_preferences_action)
         self.create_action("switch-to-http", self.switch_to_http, ["<primary>1"])
@@ -101,6 +101,7 @@ class WoesApplication(Adw.Application):
         logger.debug("Handling local options: %s", options)
         if options.contains('debug'):
             self.debug_enabled = True
+            logger.debug(f"Debug mode set to: {self.debug_enabled}")
             # Reconfigure root logger for DEBUG level
             # Force ensures this overrides previous basicConfig handlers/levels if needed.
             logging.basicConfig(
@@ -119,10 +120,13 @@ class WoesApplication(Adw.Application):
         """Called when the application is activated."""
         logger.info("Activating WoesApplication.")
         win = self.props.active_window
+        logger.debug(f"self.props.active_window: {win}")
         if not win:
             logger.debug("No active window, creating WoesWindow.")
+            logger.debug("Before WoesWindow(application=self)")
             try:
                 win = WoesWindow(application=self)
+                logger.debug("After WoesWindow(application=self)")
                 logger.debug("WoesWindow created successfully.")
             except Exception:
                 logger.exception("Failed to create WoesWindow.")
@@ -135,8 +139,10 @@ class WoesApplication(Adw.Application):
         self.win = win
         self.add_window(self.win) # Add this line
         logger.debug("Presenting WoesWindow.")
+        logger.debug("Before self.win.present()")
         try:
             self.win.present()
+            logger.debug("After self.win.present() returns")
             logger.debug("WoesWindow presented.")
         except GLib.Error:
             logger.exception("Error presenting WoesWindow.")
@@ -144,26 +150,34 @@ class WoesApplication(Adw.Application):
             logger.exception("Unexpected error during WoesWindow.present().")
 
     def switch_to_http(self, *_args):
+        logger.debug("Action 'switch-to-http' triggered.")
         if self.win and self.win.stack:
-            self.win.stack.set_visible_child_name("http")
+            result = self.win.stack.set_visible_child_name("http")
+            logger.debug(f"self.win.stack.set_visible_child_name('http') result: {result}")
         else:
             logger.warning("Cannot switch to http_page: window or stack not available.")
 
     def switch_to_nmap(self, *_args):
+        logger.debug("Action 'switch-to-nmap' triggered.")
         if self.win and self.win.stack:
-            self.win.stack.set_visible_child_name("nmap")
+            result = self.win.stack.set_visible_child_name("nmap")
+            logger.debug(f"self.win.stack.set_visible_child_name('nmap') result: {result}")
         else:
             logger.warning("Cannot switch to nmap_page: window or stack not available.")
 
     def switch_to_dns(self, *_args):
+        logger.debug("Action 'switch-to-dns' triggered.")
         if self.win and self.win.stack:
-            self.win.stack.set_visible_child_name("dns")
+            result = self.win.stack.set_visible_child_name("dns")
+            logger.debug(f"self.win.stack.set_visible_child_name('dns') result: {result}")
         else:
             logger.warning("Cannot switch to dns_page: window or stack not available.")
 
     def switch_to_webscan(self, *_args):
+        logger.debug("Action 'switch-to-webscan' triggered.")
         if self.win and self.win.stack:
-            self.win.stack.set_visible_child_name("webscan")
+            result = self.win.stack.set_visible_child_name("webscan")
+            logger.debug(f"self.win.stack.set_visible_child_name('webscan') result: {result}")
         else:
             logger.warning("Cannot switch to webscan_page: window or stack not available.")
 
@@ -194,6 +208,7 @@ class WoesApplication(Adw.Application):
         logger.debug("Creating action: app.%s", name)
         action = Gio.SimpleAction.new(name, None)
         action.connect("activate", callback)
+        logger.debug(f"Connected 'activate' signal for action: app.{name}")
         self.add_action(action)
         if shortcuts:
             self.set_accels_for_action(f"app.{name}", shortcuts)
@@ -202,11 +217,15 @@ class WoesApplication(Adw.Application):
 def main(version=VERSION):
     """The application's entry point."""
     logger.info("Starting Woes application main function.")
+    logger.debug(f"Before app = WoesApplication(version={version})")
     app = WoesApplication(version=version)
+    logger.debug(f"After app = WoesApplication(version={version}), app: {app}")
     logger.info("WoesApplication instance created.")
 
     logger.info("Running WoesApplication.")
+    logger.debug("Before app.run(sys.argv)")
     exit_status = app.run(sys.argv)
+    logger.debug(f"app.run returned: {exit_status}")
     logger.info("WoesApplication finished with exit status: %s", exit_status)
     return exit_status
 

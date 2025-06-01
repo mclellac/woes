@@ -37,21 +37,54 @@ class WebScanPage(Adw.PreferencesPage):
     results_textview = Gtk.Template.Child()
     error_banner_webscan = Gtk.Template.Child()
 
+    def __init__(self, **kwargs):
+        logger.debug("WebScanPage.__init__: Starting.")
+        super().__init__(**kwargs)
+        # self.settings = Gio.Settings.new(APP_ID) # Example if settings were used
+        # logger.debug(f"WebScanPage.__init__: self.settings initialized: {self.settings}")
+        logger.debug(f"WebScanPage.__init__: self.url_entry: {self.url_entry}")
+        logger.debug(f"WebScanPage.__init__: self.scan_button: {self.scan_button}")
+        logger.debug(f"WebScanPage.__init__: self.results_textview: {self.results_textview}")
+        if self.results_textview:
+            buffer = self.results_textview.get_buffer()
+            logger.debug(f"WebScanPage.__init__: self.results_textview buffer: {buffer}")
+        logger.debug(f"WebScanPage.__init__: self.error_banner_webscan: {self.error_banner_webscan}")
+        # Connect signals if any are not connected in UI file (scan_button is, error_banner_webscan is)
+        # self._connect_signals()
+        logger.debug("WebScanPage.__init__: Finished.")
+
+    # def _connect_signals(self): # Example if needed
+    #    logger.debug("WebScanPage._connect_signals: Connecting signals")
+    #    logger.debug("WebScanPage._connect_signals: Finished connecting signals")
+
     def on_scan_button_clicked(self, _widget):
+        logger.debug(f"WebScanPage.on_scan_button_clicked: Triggered by widget: {_widget}")
         target_url = self.url_entry.get_text()
+        logger.debug(f"WebScanPage.on_scan_button_clicked: Target URL from entry: '{target_url}'")
         if not target_url:
-            self.show_error_toast("Target URL cannot be empty.")
+            logger.debug("WebScanPage.on_scan_button_clicked: Target URL is empty.")
+            self.show_error_toast("Target URL cannot be empty.") # Already logs
+            logger.debug("WebScanPage.on_scan_button_clicked: Finished due to empty target URL.")
             return
 
         buffer = self.results_textview.get_buffer()
+        logger.debug(f"WebScanPage.on_scan_button_clicked: Got results_textview buffer: {buffer}")
         buffer.set_text(f"Scanning {target_url}...\n\n")  # f-string for UI is fine
+        logger.debug(f"WebScanPage.on_scan_button_clicked: Set initial text in buffer: 'Scanning {target_url}...'")
 
         self.scan_button.set_sensitive(False)
+        logger.debug("WebScanPage.on_scan_button_clicked: scan_button sensitivity set to False.")
 
         cancellable = Gio.Cancellable.new()  # Allow cancellation
+        logger.debug(f"WebScanPage.on_scan_button_clicked: Created Gio.Cancellable: {cancellable}")
         task = Gio.Task.new(self, cancellable, self._on_scan_task_done, None)
+        logger.debug(f"WebScanPage.on_scan_button_clicked: Created Gio.Task: {task} (task_name: nikto-scan)") # task_name is conceptual
         task.set_task_data(target_url)
+        logger.debug(f"WebScanPage.on_scan_button_clicked: Set task_data for Gio.Task: '{target_url}'")
+        logger.debug(f"WebScanPage.on_scan_button_clicked: Starting async task nikto-scan by calling task.run_in_thread()")
         task.run_in_thread(self._run_scan_task_thread_func)
+        logger.debug("WebScanPage.on_scan_button_clicked: After task.run_in_thread()")
+        logger.debug("WebScanPage.on_scan_button_clicked: Finished.")
 
     def _run_scan_task_thread_func(
         self,
@@ -61,118 +94,180 @@ class WebScanPage(Adw.PreferencesPage):
         cancellable: Gio.Cancellable
     ):
         """Worker function for Gio.Task that runs in a separate thread."""
+        logger.debug(f"WebScanPage._run_scan_task_thread_func: Starting for Gio.Task: {gio_task}, source_object: {_source_object}, task_data (target_url): '{task_data}', cancellable: {cancellable}")
         target_url = task_data
         stdout_str = ""
         stderr_str = ""
 
         try:
+            original_target_url_for_log = target_url # Save original for logging in case it's modified
             if not target_url.startswith(('http://', 'https://')):
                 target_url = 'http://' + target_url
+                logger.debug(f"WebScanPage._run_scan_task_thread_func: Prepended 'http://' to target_url. Now: '{target_url}' (Original: '{original_target_url_for_log}')")
 
             if cancellable.is_cancelled():
-                gio_task.return_error(
-                    GLib.Error("Scan cancelled before start.", WEB_SCAN_ERROR_DOMAIN, Gio.IOErrorEnum.CANCELLED)
-                )
+                logger.debug("WebScanPage._run_scan_task_thread_func: Scan cancelled before start.")
+                err = GLib.Error("Scan cancelled before start.", WEB_SCAN_ERROR_DOMAIN, Gio.IOErrorEnum.CANCELLED)
+                gio_task.return_error(err)
+                logger.debug(f"WebScanPage._run_scan_task_thread_func: Returned error for pre-cancellation: {err.message}")
                 return
 
             # Nikto command arguments
             command = [
                 'nikto', '-h', target_url, '-Format', 'txt', '-ask', 'no',
                 '-Tuning', 'xCGIVulnerable', '-Display', 'V', '-nointeractive',
-                '-timeout', '300'
+                '-timeout', '300' # Nikto's internal timeout in seconds
             ]
-            logger.info("Running Nikto command: %s", " ".join(command))
+            logger.info(f"WebScanPage._run_scan_task_thread_func: Running Nikto command: {' '.join(command)}") # Existing info log, made f-string
 
+            logger.debug(f"WebScanPage._run_scan_task_thread_func: Before subprocess.Popen({command})")
             process = subprocess.Popen(
                 command,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True
             )
+            logger.debug(f"WebScanPage._run_scan_task_thread_func: After subprocess.Popen(), process: {process}")
+            logger.debug("WebScanPage._run_scan_task_thread_func: Before process.communicate()")
             stdout_str, stderr_str = process.communicate()  # No timeout here, rely on Nikto's timeout
+            logger.debug(f"WebScanPage._run_scan_task_thread_func: After process.communicate(). stdout (len {len(stdout_str)}), stderr (len {len(stderr_str)})")
+            # To avoid overly verbose logs with full output:
+            logger.debug(f"WebScanPage._run_scan_task_thread_func: stdout (first 200 chars): '{stdout_str[:200]}'")
+            logger.debug(f"WebScanPage._run_scan_task_thread_func: stderr (first 200 chars): '{stderr_str[:200]}'")
+
 
             if cancellable.is_cancelled():
+                logger.debug("WebScanPage._run_scan_task_thread_func: Scan cancelled during/after Nikto execution, before processing result.")
                 if process.poll() is None:  # Check if process is still running
-                    logger.info("Scan cancelled, attempting to terminate Nikto process.")
+                    logger.info("WebScanPage._run_scan_task_thread_func: Scan cancelled, attempting to terminate Nikto process.") # Existing info
                     process.terminate()
+                    logger.debug("WebScanPage._run_scan_task_thread_func: process.terminate() called.")
                     try:
+                        logger.debug("WebScanPage._run_scan_task_thread_func: Before process.wait(timeout=10)")
                         process.wait(timeout=10)  # Wait a bit for termination
+                        logger.debug("WebScanPage._run_scan_task_thread_func: process.wait() completed.")
                     except subprocess.TimeoutExpired:
-                        logger.warning("Nikto process did not terminate gracefully, killing.")
+                        logger.warning("WebScanPage._run_scan_task_thread_func: Nikto process did not terminate gracefully, killing.") # Existing warning
                         process.kill()
-                gio_task.return_error(
-                    GLib.Error("Scan cancelled by user.", WEB_SCAN_ERROR_DOMAIN, Gio.IOErrorEnum.CANCELLED)
-                )
+                        logger.debug("WebScanPage._run_scan_task_thread_func: process.kill() called.")
+                err = GLib.Error("Scan cancelled by user.", WEB_SCAN_ERROR_DOMAIN, Gio.IOErrorEnum.CANCELLED)
+                gio_task.return_error(err)
+                logger.debug(f"WebScanPage._run_scan_task_thread_func: Returned error for cancellation during/after execution: {err.message}")
                 return
 
+            logger.debug(f"WebScanPage._run_scan_task_thread_func: Nikto process return code: {process.returncode}")
             if process.returncode:  # Use implicit booleaness for non-zero check
-                log_stderr = stderr_str[:200]  # Log truncated stderr for brevity
-                logger.error("Nikto for %s exited with code %d. stderr: %s", target_url, process.returncode, log_stderr)
+                log_stderr = stderr_str[:200]
+                logger.error(f"WebScanPage._run_scan_task_thread_func: Nikto for {target_url} exited with code {process.returncode}. stderr: {log_stderr}") # Existing, made f-string
                 error_message = f"Nikto scan failed (code {process.returncode})."
                 if "Can't find host" in stderr_str or "ERROR: Cannot resolve hostname" in stderr_str:
                     error_message = "Cannot resolve hostname or invalid target."
                 elif "ERROR: No HTTP response" in stderr_str:
                     error_message = "No HTTP response from target."
-                gio_task.return_error(GLib.Error(error_message, WEB_SCAN_ERROR_DOMAIN, WebScanError.CALLED_PROCESS))
+                err = GLib.Error(error_message, WEB_SCAN_ERROR_DOMAIN, WebScanError.CALLED_PROCESS)
+                gio_task.return_error(err)
+                logger.debug(f"WebScanPage._run_scan_task_thread_func: Returned error for Nikto non-zero exit: {err.message}")
                 return
 
-            gio_task.return_value(GLib.Variant('(ss)', (stdout_str, stderr_str)))
+            result_variant = GLib.Variant('(ss)', (stdout_str, stderr_str))
+            gio_task.return_value(result_variant)
+            logger.debug(f"WebScanPage._run_scan_task_thread_func: Returned value with Gio.Task: {result_variant}")
 
         except FileNotFoundError:
-            logger.error("Nikto command not found.", exc_info=True)
-            gio_task.return_error(
-                GLib.Error("Nikto not found. Ensure installed.", WEB_SCAN_ERROR_DOMAIN, WebScanError.NIKTO_NOT_FOUND)
-            )
+            logger.error("WebScanPage._run_scan_task_thread_func: Nikto command not found.", exc_info=True) # Existing, made consistent
+            err = GLib.Error("Nikto not found. Ensure installed.", WEB_SCAN_ERROR_DOMAIN, WebScanError.NIKTO_NOT_FOUND)
+            gio_task.return_error(err)
+            logger.debug(f"WebScanPage._run_scan_task_thread_func: Returned error for FileNotFoundError: {err.message}")
         except subprocess.TimeoutExpired:  # This would be for communicate() timeout itself
-            logger.error("Nikto process communicate() timed out for %s.", target_url, exc_info=True)
-            gio_task.return_error(GLib.Error("Scan process timed out.", WEB_SCAN_ERROR_DOMAIN, WebScanError.TIMEOUT))
+            logger.error(f"WebScanPage._run_scan_task_thread_func: Nikto process communicate() timed out for {target_url}.", exc_info=True) # Existing, made f-string
+            err = GLib.Error("Scan process timed out.", WEB_SCAN_ERROR_DOMAIN, WebScanError.TIMEOUT)
+            gio_task.return_error(err)
+            logger.debug(f"WebScanPage._run_scan_task_thread_func: Returned error for TimeoutExpired: {err.message}")
         except Exception as e:
-            logger.exception("Unexpected error during Nikto scan for %s.", target_url)
+            logger.exception(f"WebScanPage._run_scan_task_thread_func: Unexpected error during Nikto scan for {target_url}.") # Existing, made f-string
             err_name = type(e).__name__
-            gio_task.return_error(GLib.Error(f"Unexpected: {err_name}", WEB_SCAN_ERROR_DOMAIN, WebScanError.UNKNOWN))
+            err = GLib.Error(f"Unexpected: {err_name}", WEB_SCAN_ERROR_DOMAIN, WebScanError.UNKNOWN)
+            gio_task.return_error(err)
+            logger.debug(f"WebScanPage._run_scan_task_thread_func: Returned error for Unexpected Exception ({err_name}): {err.message}")
+        logger.debug(f"WebScanPage._run_scan_task_thread_func: Finished for target_url '{target_url}'.")
+
 
     def _on_scan_task_done(self, _source_object, task: Gio.Task, _user_data):
         """Callback for when the Gio.Task is complete. Runs in the main thread."""
+        logger.debug(f"WebScanPage._on_scan_task_done: Starting for Gio.Task: {task}, source_object: {_source_object}, user_data: {_user_data}")
         try:
-            stdout, stderr = task.propagate_value().unpack()  # unpack the (ss) GLib.Variant
-            self._update_textview(stdout, stderr)
+            logger.debug(f"WebScanPage._on_scan_task_done: Before task.propagate_value() for task {task}")
+            result_variant = task.propagate_value()
+            logger.debug(f"WebScanPage._on_scan_task_done: task.propagate_value() returned: {result_variant}")
+            stdout, stderr = result_variant.unpack()  # unpack the (ss) GLib.Variant
+            logger.debug(f"WebScanPage._on_scan_task_done: Unpacked stdout (len {len(stdout)}) and stderr (len {len(stderr)})")
+            self._update_textview(stdout, stderr) # Already logs
             if not stdout and not stderr:  # If Nikto produced no output but no error code
-                self.show_error_toast(
+                logger.debug("WebScanPage._on_scan_task_done: Both stdout and stderr are empty.")
+                self.show_error_toast( # Already logs
                     "Scan completed with no output. Target might not be a web server or scan options too restrictive."
                 )
             elif stderr:  # If there's stderr, show it as a toast as well for visibility
-                self.show_error_toast("Scan completed with errors/warnings (see details).")
+                logger.debug("WebScanPage._on_scan_task_done: stderr is present, showing toast.")
+                self.show_error_toast("Scan completed with errors/warnings (see details).") # Already logs
 
         except GObject.GError as e:  # Catches errors set by gio_task.return_error()
-            # Shorten log message
-            logger.error("Web scan task error: %s (Code: %d)", e.message, e.code)
-            self.show_error_toast(e.message)  # Display the error message from GLib.Error
-            self._update_textview("", f"Error: {e.message}")
+            logger.error(f"WebScanPage._on_scan_task_done: Error from task propagation: {e.message} (Code: {e.code}, Domain: {GLib.quark_to_string(e.domain)})") # Existing, made f-string
+            self.show_error_toast(e.message)  # Display the error message from GLib.Error, already logs
+            self._update_textview("", f"Error: {e.message}") # Already logs
         finally:
+            logger.debug("WebScanPage._on_scan_task_done: In finally block.")
             self.scan_button.set_sensitive(True)
+            logger.debug("WebScanPage._on_scan_task_done: scan_button sensitivity set to True.")
+        logger.debug(f"WebScanPage._on_scan_task_done: Finished for Gio.Task: {task}")
+
 
     def _update_textview(self, stdout: Optional[str], stderr: Optional[str]):
+        logger.debug(f"WebScanPage._update_textview: Starting with stdout (len {len(stdout) if stdout else 0}), stderr (len {len(stderr) if stderr else 0})")
         buffer = self.results_textview.get_buffer()
+        logger.debug(f"WebScanPage._update_textview: results_textview buffer: {buffer}")
         full_text = ""
         if stdout:
             full_text += stdout
+            logger.debug("WebScanPage._update_textview: stdout added to full_text.")
         if stderr:
             full_text += "\n--- Standard Error ---\n" + stderr
+            logger.debug("WebScanPage._update_textview: stderr added to full_text.")
 
         if not full_text:  # If both are empty or None
+            logger.debug("WebScanPage._update_textview: full_text is empty, setting placeholder.")
             buffer.set_text("Scan completed. No specific output to display.")
         else:
+            # logger.debug(f"WebScanPage._update_textview: Setting buffer text to full_text (len {len(full_text)}): '{full_text[:200]}...'") # Potentially too verbose
+            logger.debug(f"WebScanPage._update_textview: Setting buffer text to full_text (len {len(full_text)})")
             buffer.set_text(full_text)
+        logger.debug("WebScanPage._update_textview: Buffer text set.")
 
         # Scroll to the end
-        scroll_adj = self.results_textview.get_parent().get_vadjustment()
-        if scroll_adj:
-            scroll_adj.set_value(scroll_adj.get_upper() - scroll_adj.get_page_size())
+        parent_scrolled_window = self.results_textview.get_parent()
+        if parent_scrolled_window and isinstance(parent_scrolled_window, Gtk.ScrolledWindow):
+            scroll_adj = parent_scrolled_window.get_vadjustment()
+            if scroll_adj:
+                logger.debug(f"WebScanPage._update_textview: Scroll adjustment value before: {scroll_adj.get_value()}, upper: {scroll_adj.get_upper()}, page_size: {scroll_adj.get_page_size()}")
+                scroll_adj.set_value(scroll_adj.get_upper() - scroll_adj.get_page_size())
+                logger.debug(f"WebScanPage._update_textview: Scroll adjustment value after: {scroll_adj.get_value()}")
+            else:
+                logger.debug("WebScanPage._update_textview: No scroll adjustment found for results_textview parent.")
+        else:
+            logger.debug("WebScanPage._update_textview: Parent of results_textview is not Gtk.ScrolledWindow or not found.")
+        logger.debug("WebScanPage._update_textview: Finished.")
+
 
     def show_error_toast(self, message: str):
-        logger.info("Displaying WebScan error/info: %s", message)  # Changed to info as it's also for warnings
+        logger.debug(f"WebScanPage.show_error_toast: Displaying WebScan error/info: '{message}'") # Changed to debug
         self.error_banner_webscan.set_title(message)
+        logger.debug("WebScanPage.show_error_toast: error_banner_webscan title set.")
         self.error_banner_webscan.set_revealed(True)
+        logger.debug("WebScanPage.show_error_toast: error_banner_webscan revealed set to True.")
+        logger.debug("WebScanPage.show_error_toast: Finished.")
 
     def on_error_banner_dismiss_clicked(self, _widget, *_args):
+        logger.debug(f"WebScanPage.on_error_banner_dismiss_clicked: Triggered by widget: {_widget}")
         self.error_banner_webscan.set_revealed(False)
+        logger.debug("WebScanPage.on_error_banner_dismiss_clicked: error_banner_webscan revealed set to False.")
+        logger.debug("WebScanPage.on_error_banner_dismiss_clicked: Finished.")

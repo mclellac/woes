@@ -62,30 +62,41 @@ class NmapPage(Adw.PreferencesPage):
     # warning_banner is static in UI, no Template.Child needed unless interactive
 
     def __init__(self, **kwargs):
+        logger.debug("NmapPage.__init__: Starting.")
         super().__init__(**kwargs)
-        logger.info("Initializing NmapPage...")
+        # logger.info("Initializing NmapPage...") # Replaced by debug
         self.results_by_host = {}  # Stores YAML results string per host
+        logger.debug(f"NmapPage.__init__: self.results_by_host initialized to: {self.results_by_host}")
         self.nmap_target_listbox_store = Gio.ListStore(item_type=NmapItem)
+        logger.debug(f"NmapPage.__init__: self.nmap_target_listbox_store initialized: {self.nmap_target_listbox_store}")
         self.scanner = NmapScanner()
+        logger.debug(f"NmapPage.__init__: self.scanner initialized: {self.scanner}")
 
+        logger.debug("NmapPage.__init__: Calling create_source_view(language_name='yaml')")
         self.source_view, self.source_buffer = create_source_view(language_name='yaml')
+        logger.debug(f"NmapPage.__init__: create_source_view returned source_view: {self.source_view}, source_buffer: {self.source_buffer}")
         if self.source_buffer and self.source_buffer.get_language() is None:
-            logger.warning("NmapPage: Language 'yaml' not found for results view. Will use plain text.")
+            logger.warning("NmapPage.__init__: Language 'yaml' not found for results view. Will use plain text.")
         if self.nmap_results_scrolled_window is None:
-            logger.critical("NmapPage: Gtk.Template.Child 'nmap_results_scrolled_window' not found. UI will be broken.")
+            logger.critical("NmapPage.__init__: Gtk.Template.Child 'nmap_results_scrolled_window' not found. UI will be broken.")
         else:
             self.nmap_results_scrolled_window.set_child(self.source_view)
+            logger.debug("NmapPage.__init__: nmap_results_scrolled_window child set to source_view.")
 
         self.settings = Gio.Settings.new(APP_ID)
-        self._apply_source_view_style()  # Initial style application
+        logger.debug(f"NmapPage.__init__: self.settings initialized: {self.settings}")
+        self._apply_source_view_style()  # Initial style application, logs itself
+        logger.debug("NmapPage.__init__: Before self.settings.connect('changed::source-style-scheme')")
         self.settings.connect(
             "changed::source-style-scheme",
             self._on_source_style_scheme_setting_changed
         )
+        logger.debug("NmapPage.__init__: After self.settings.connect('changed::source-style-scheme')")
 
-        self._init_page_ui()
-        self._connect_signals()
-        logger.info("NmapPage initialized.")
+        self._init_page_ui() # Logs itself
+        self._connect_signals() # Logs itself
+        logger.debug("NmapPage.__init__: Finished.")
+        # logger.info("NmapPage initialized.") # Replaced by debug
 
     def __del__(self):
         # NmapScanner's __del__ should handle executor shutdown.
@@ -102,27 +113,34 @@ class NmapPage(Adw.PreferencesPage):
         self._apply_source_view_style()
 
     def _apply_source_view_style(self):
+        logger.debug("NmapPage._apply_source_view_style: Starting.")
         source_style_scheme = self.settings.get_string("source-style-scheme")
-        logger.debug("Applying style scheme to Nmap results: %s", source_style_scheme)
+        logger.debug(f"NmapPage._apply_source_view_style: Applying style scheme to Nmap results: {source_style_scheme}") # Existing, made f-string
+        logger.debug("NmapPage._apply_source_view_style: Before apply_source_style_scheme()")
         apply_source_style_scheme(
             GtkSource.StyleSchemeManager.get_default(),
             self.source_buffer,
             source_style_scheme,
         )
+        logger.debug("NmapPage._apply_source_view_style: After apply_source_style_scheme()")
         self.source_view.set_editable(False)
+        logger.debug("NmapPage._apply_source_view_style: source_view editable set to False.")
+        logger.debug("NmapPage._apply_source_view_style: Finished.")
 
     def _init_page_ui(self):
-        logger.debug("Initializing NmapPage UI components.")
+        logger.debug("NmapPage._init_page_ui: Starting.") # Changed existing log
         if self.nmap_target_listbox is None:
             logger.critical(
-                "NmapPage: Gtk.Template.Child 'nmap_target_listbox' not found. "
+                "NmapPage._init_page_ui: Gtk.Template.Child 'nmap_target_listbox' not found. "
                 "This is likely due to the UI template failing to load, possibly because of the "
                 "'AdwPreferencesGroup.revealed' issue in nmap_page.ui. UI will be broken."
             )
         else:
+            logger.debug("NmapPage._init_page_ui: Before nmap_target_listbox.bind_model()")
             self.nmap_target_listbox.bind_model(
                 self.nmap_target_listbox_store, self._create_target_listbox_row
             )
+            logger.debug("NmapPage._init_page_ui: After nmap_target_listbox.bind_model()")
         # Initial visibility states are typically set in the UI file.
         # The following lines are temporarily modified for debugging the app startup issue.
         # The goal is to see if explicitly setting revealed states here causes issues
@@ -130,6 +148,7 @@ class NmapPage(Adw.PreferencesPage):
 
         # Original line that caused an AttributeError, to see if UI changes fixed error_banner being None:
         self.error_banner.set_revealed(False)
+        logger.debug("NmapPage._init_page_ui: error_banner revealed set to False.")
 
         # Temporarily comment out these explicit calls:
         # if self.targets_group:
@@ -137,48 +156,66 @@ class NmapPage(Adw.PreferencesPage):
         # if self.results_group:
         #     self.results_group.set_revealed(False)
         self.scan_spinner.set_spinning(False)
+        logger.debug("NmapPage._init_page_ui: scan_spinner spinning set to False.")
         self.scan_spinner.set_visible(False)
+        logger.debug("NmapPage._init_page_ui: scan_spinner visible set to False.")
         self.status_row.set_subtitle("Idle")
+        logger.debug("NmapPage._init_page_ui: status_row subtitle set to 'Idle'.")
+        logger.debug("NmapPage._init_page_ui: Finished.")
 
     def _connect_signals(self):
-        logger.debug("Connecting NmapPage signals.")
+        logger.debug("NmapPage._connect_signals: Connecting signals.") # Made consistent
         self.nmap_target_entryrow.connect("apply", self._on_target_activate)
+        logger.debug("NmapPage._connect_signals: Connected 'apply' for nmap_target_entryrow.")
         self.nmap_target_listbox.connect("row-selected", self._on_target_selected)
+        logger.debug("NmapPage._connect_signals: Connected 'row-selected' for nmap_target_listbox.")
         # error_banner dismiss is connected in UI template.
+        logger.debug("NmapPage._connect_signals: Finished connecting signals.")
 
     def _on_target_activate(self, entry_row: Adw.EntryRow):  # entry_row is used
+        logger.debug(f"NmapPage._on_target_activate: Triggered for entry_row: {entry_row}")
         target = entry_row.get_text().strip()
-        self._clear_error()  # Clear previous errors
+        logger.debug(f"NmapPage._on_target_activate: Target from entry_row: '{target}'")
+        self._clear_error()  # Clear previous errors, already logs
 
-        if not self.scanner.validate_target_input(target):
+        is_valid_target = self.scanner.validate_target_input(target)
+        logger.debug(f"NmapPage._on_target_activate: Target validation status for '{target}': {is_valid_target}")
+        if not is_valid_target:
             entry_row.add_css_class("error")
-            self._display_error("Invalid target format. Please enter a valid IP, CIDR, or hostname.")
+            logger.debug("NmapPage._on_target_activate: Added 'error' css class to entry_row.")
+            self._display_error("Invalid target format. Please enter a valid IP, CIDR, or hostname.") # Already logs
+            logger.debug("NmapPage._on_target_activate: Finished due to invalid target.")
             return
         # No 'else' needed here due to early return (R1705)
         entry_row.remove_css_class("error")
+        logger.debug("NmapPage._on_target_activate: Removed 'error' css class from entry_row.")
 
         if not target:  # Should be caught by validation, but as a safeguard
-            self._clear_results()
+            logger.debug("NmapPage._on_target_activate: Target is empty (safeguard). Calling _clear_results().")
+            self._clear_results() # Already logs
+            logger.debug("NmapPage._on_target_activate: Finished due to empty target (safeguard).")
             return
 
         self.nmap_target_entryrow.set_sensitive(False)
-        self._set_scan_status(ScanStatus.IN_PROGRESS, f"Scanning {target}...")
+        logger.debug("NmapPage._on_target_activate: nmap_target_entryrow sensitivity set to False.")
+        self._set_scan_status(ScanStatus.IN_PROGRESS, f"Scanning {target}...") # Already logs
 
         os_fingerprinting = self.nmap_fingerprint_switchrow.get_active()
         all_ports = self.nmap_all_ports_switchrow.get_active()
-
         selected_script_item = self.nmap_scripts_dropdown.get_selected_item()
         script_name = (
             selected_script_item.get_string()
             if isinstance(selected_script_item, Gtk.StringObject) and selected_script_item.get_string() != "None"
             else None
         )
-
+        logger.debug(f"NmapPage._on_target_activate: Scan parameters - OS Fingerprint: {os_fingerprinting}, All Ports: {all_ports}, Script: {script_name}")
+        # Existing logger.info is good for a summary.
         logger.info(
-            "Submitting Nmap scan for target: %s, OS Fingerprint: %s, All Ports: %s, Script: %s",
+            "NmapPage._on_target_activate: Submitting Nmap scan for target: %s, OS Fingerprint: %s, All Ports: %s, Script: %s",
             target, os_fingerprinting, all_ports, script_name
         )
         try:
+            logger.debug("NmapPage._on_target_activate: Before self.scanner.executor.submit()")
             self.scanner.executor.submit(
                 self._run_nmap_scan_task,
                 target,
@@ -186,154 +223,261 @@ class NmapPage(Adw.PreferencesPage):
                 all_ports,
                 script_name,
             )
-        except Exception:  # Broad catch if submit itself fails (e.g., executor shutdown)
-            logger.exception("Failed to submit Nmap scan task for target %s.", target)
-            self._handle_scan_error(target, "Failed to start scan. Executor might be shut down.")
+            logger.debug("NmapPage._on_target_activate: After self.scanner.executor.submit()")
+        except Exception as e:  # Broad catch if submit itself fails (e.g., executor shutdown)
+            logger.exception(f"NmapPage._on_target_activate: Failed to submit Nmap scan task for target {target}. Exception: {e}") # Made f-string
+            self._handle_scan_error(target, "Failed to start scan. Executor might be shut down.") # Already logs
             self.nmap_target_entryrow.set_sensitive(True)  # Re-enable entry if submit fails
+            logger.debug("NmapPage._on_target_activate: nmap_target_entryrow sensitivity set to True due to submit failure.")
+        logger.debug("NmapPage._on_target_activate: Finished.")
 
     def _run_nmap_scan_task(self, target, os_fingerprinting, all_ports, script_name):
-        logger.info("Nmap scan task started for %s in executor thread.", target)
+        logger.info("NmapPage._run_nmap_scan_task: Nmap scan task started for %s in executor thread.", target) # Existing info, made consistent
         try:
+            logger.debug(f"NmapPage._run_nmap_scan_task: Before self.scanner.run_nmap_scan(target='{target}', os_fingerprinting={os_fingerprinting}, all_ports={all_ports}, script_name='{script_name}')")
             nm = self.scanner.run_nmap_scan(target, os_fingerprinting, all_ports, script_name)
+            logger.debug(f"NmapPage._run_nmap_scan_task: After self.scanner.run_nmap_scan(), result nm: {type(nm)}") # Log type, nm can be large
+            logger.debug("NmapPage._run_nmap_scan_task: Before GLib.idle_add(self._process_scan_results, ...)")
             GLib.idle_add(self._process_scan_results, nm, target)
+            logger.debug("NmapPage._run_nmap_scan_task: After GLib.idle_add(self._process_scan_results, ...)")
         except nmap.PortScannerError as e:
-            logger.error("Nmap PortScannerError for %s: %s", target, e, exc_info=True)
+            logger.error(f"NmapPage._run_nmap_scan_task: Nmap PortScannerError for {target}: {e}", exc_info=True) # Existing, made f-string
+            logger.debug("NmapPage._run_nmap_scan_task: Before GLib.idle_add(self._handle_scan_error, ...)")
             GLib.idle_add(self._handle_scan_error, target, f"Nmap engine error: {e}")
-        except Exception:  # General fallback for unexpected issues within the task
-            logger.exception("Unexpected exception in Nmap scan task for %s.", target)
+            logger.debug("NmapPage._run_nmap_scan_task: After GLib.idle_add(self._handle_scan_error, ...)")
+        except Exception as e:  # General fallback for unexpected issues within the task
+            logger.exception(f"NmapPage._run_nmap_scan_task: Unexpected exception in Nmap scan task for {target}. Exception: {e}") # Existing, made f-string
+            logger.debug("NmapPage._run_nmap_scan_task: Before GLib.idle_add(self._handle_scan_error, ...)")
             GLib.idle_add(self._handle_scan_error, target, "Scan failed unexpectedly (see logs).")
+            logger.debug("NmapPage._run_nmap_scan_task: After GLib.idle_add(self._handle_scan_error, ...)")
         finally:
             # Ensure UI elements that depend on scan completion are updated in the main thread
+            logger.debug("NmapPage._run_nmap_scan_task: In finally block, before GLib.idle_add(self.nmap_target_entryrow.set_sensitive, True)")
             GLib.idle_add(self.nmap_target_entryrow.set_sensitive, True)
-            logger.info("Nmap scan task finished for %s.", target)
+            logger.debug("NmapPage._run_nmap_scan_task: After GLib.idle_add(self.nmap_target_entryrow.set_sensitive, True)")
+            logger.info("NmapPage._run_nmap_scan_task: Nmap scan task finished for %s.", target) # Existing info, made consistent
+        logger.debug(f"NmapPage._run_nmap_scan_task: Finished for target {target}.")
+
 
     def _process_scan_results(self, nm: nmap.PortScanner, original_target: str):
-        logger.info("Processing Nmap scan results for %s.", original_target)
+        logger.debug(f"NmapPage._process_scan_results: Starting for original_target: '{original_target}', nm object: {type(nm)}")
+        # logger.info("Processing Nmap scan results for %s.", original_target) # Replaced by debug
         hosts_found = nm.all_hosts()
+        logger.debug(f"NmapPage._process_scan_results: nm.all_hosts() returned: {hosts_found}")
         if not hosts_found:
-            logger.warning("No hosts found in Nmap results for target %s.", original_target)
+            logger.warning(f"NmapPage._process_scan_results: No hosts found in Nmap results for target {original_target}.") # Existing, made f-string
             msg = f"Scan complete for {original_target}. No hosts found or responsive."
-            self._set_scan_status(ScanStatus.COMPLETE, msg)
-            self._display_error(f"No hosts found or responsive for target: {original_target}")
+            self._set_scan_status(ScanStatus.COMPLETE, msg) # Already logs
+            self._display_error(f"No hosts found or responsive for target: {original_target}") # Already logs
             self.targets_group.set_revealed(False)
+            logger.debug("NmapPage._process_scan_results: targets_group revealed set to False.")
             self.results_group.set_revealed(False)
+            logger.debug("NmapPage._process_scan_results: results_group revealed set to False.")
+            logger.debug(f"NmapPage._process_scan_results: Finished for '{original_target}' - no hosts found.")
             return
 
         results_yaml_map = self.scanner.convert_results_to_yaml(nm)
-        GLib.idle_add(self._update_results_view, hosts_found, results_yaml_map)
+        logger.debug(f"NmapPage._process_scan_results: Converted results to YAML map (keys: {list(results_yaml_map.keys()) if results_yaml_map else 'None'})")
+        logger.debug("NmapPage._process_scan_results: Before GLib.idle_add(self._update_results_view, ...)")
+        GLib.idle_add(self._update_results_view, hosts_found, results_yaml_map) # _update_results_view logs itself
+        logger.debug("NmapPage._process_scan_results: After GLib.idle_add(self._update_results_view, ...)")
         msg = f"Scan complete for {original_target}. {len(hosts_found)} host(s) found."
-        self._set_scan_status(ScanStatus.COMPLETE, msg)
+        self._set_scan_status(ScanStatus.COMPLETE, msg) # Already logs
+        logger.debug(f"NmapPage._process_scan_results: Finished for '{original_target}'.")
 
     def _handle_scan_error(self, target: str, error_message: str):
-        logger.error("Handling scan error for target %s: %s", target, error_message)
-        self._display_error(f"Error scanning {target}: {error_message}")
-        self._set_scan_status(ScanStatus.FAILED, f"Scan failed for {target}")
+        logger.debug(f"NmapPage._handle_scan_error: Starting for target '{target}', error_message: '{error_message}'")
+        # logger.error("Handling scan error for target %s: %s", target, error_message) # Replaced by debug
+        self._display_error(f"Error scanning {target}: {error_message}") # Already logs
+        self._set_scan_status(ScanStatus.FAILED, f"Scan failed for {target}") # Already logs
         # Optionally, add to list to show the attempt, though it might be confusing if it's an error.
         # For now, we only populate the list with successful scans that found hosts.
+        logger.debug(f"NmapPage._handle_scan_error: Finished for target '{target}'.")
 
     def _on_target_selected(self, _listbox: Gtk.ListBox, row: Optional[Gtk.ListBoxRow]):
+        logger.debug(f"NmapPage._on_target_selected: Triggered with listbox: {_listbox}, row: {row}")
         if row is None:
+            logger.debug("NmapPage._on_target_selected: Row is None, clearing source_buffer.")
             self.source_buffer.set_text("")
             # self.results_group.set_revealed(False)  # Optionally hide results if no row selected
+            logger.debug("NmapPage._on_target_selected: Finished due to None row.")
             return
 
         child_widget = row.get_child()
+        logger.debug(f"NmapPage._on_target_selected: Row child_widget: {child_widget}")
         if child_widget:
             item_obj = child_widget.get_data("NmapItem")
+            logger.debug(f"NmapPage._on_target_selected: Retrieved item_obj from child_widget data: {item_obj} (type: {type(item_obj)})")
             if isinstance(item_obj, NmapItem):
                 selected_target_key = item_obj.key
-                logger.debug("Target selected: %s", selected_target_key)
+                logger.debug(f"NmapPage._on_target_selected: Target selected: {selected_target_key}") # Existing, made f-string
 
                 result_yaml = self.results_by_host.get(
                     selected_target_key,
                     f"# No results found for {selected_target_key}"
                 )
+                logger.debug(f"NmapPage._on_target_selected: YAML for target '{selected_target_key}' (first 100 chars): '{result_yaml[:100]}...'")
+                logger.debug("NmapPage._on_target_selected: Before self.source_buffer.set_text()")
                 self.source_buffer.set_text(result_yaml)
-                self._refresh_source_view()
+                logger.debug("NmapPage._on_target_selected: After self.source_buffer.set_text()")
+                self._refresh_source_view() # Logs itself
                 self.results_group.set_revealed(True)
+                logger.debug("NmapPage._on_target_selected: results_group revealed set to True.")
+                logger.debug(f"NmapPage._on_target_selected: Finished for target '{selected_target_key}'.")
                 return  # Success case
 
-        logger.warning("Could not retrieve NmapItem from selected row or row child.")
+        logger.warning("NmapPage._on_target_selected: Could not retrieve NmapItem from selected row or row child.") # Existing, made f-string
+        logger.debug("NmapPage._on_target_selected: Before self.source_buffer.set_text('') (due to bad item).")
         self.source_buffer.set_text("")
+        logger.debug("NmapPage._on_target_selected: After self.source_buffer.set_text('') (due to bad item).")
         # self.results_group.set_revealed(False)  # Optionally hide if data is bad
+        logger.debug("NmapPage._on_target_selected: Finished with bad item.")
 
     def _refresh_source_view(self):
+        logger.debug("NmapPage._refresh_source_view: Called.")
         if self.source_view:
+            logger.debug("NmapPage._refresh_source_view: self.source_view exists, calling queue_draw().")
             self.source_view.queue_draw()
+        else:
+            logger.debug("NmapPage._refresh_source_view: self.source_view is None, not calling queue_draw().")
+        logger.debug("NmapPage._refresh_source_view: Finished.")
 
     def _update_results_view(self, hosts: list, results_map: dict):
-        logger.info("Updating Nmap results view for hosts: %s", hosts)
+        logger.debug(f"NmapPage._update_results_view: Starting for hosts: {hosts}, results_map keys: {list(results_map.keys()) if results_map else 'None'}")
+        # logger.info("Updating Nmap results view for hosts: %s", hosts) # Replaced by debug
+        logger.debug("NmapPage._update_results_view: Before nmap_target_listbox_store.remove_all()")
         self.nmap_target_listbox_store.remove_all()
+        logger.debug("NmapPage._update_results_view: After nmap_target_listbox_store.remove_all()")
+        logger.debug("NmapPage._update_results_view: Before results_by_host.clear()")
         self.results_by_host.clear()
+        logger.debug("NmapPage._update_results_view: After results_by_host.clear()")
 
         if not hosts:
+            logger.debug("NmapPage._update_results_view: No hosts provided.")
             self.targets_group.set_revealed(False)
+            logger.debug("NmapPage._update_results_view: targets_group revealed set to False.")
             self.results_group.set_revealed(False)
+            logger.debug("NmapPage._update_results_view: results_group revealed set to False.")
+            logger.debug("NmapPage._update_results_view: Before source_buffer.set_text('# No hosts found...')")
             self.source_buffer.set_text("# No hosts found in this scan.")
+            logger.debug("NmapPage._update_results_view: After source_buffer.set_text('# No hosts found...')")
+            logger.debug("NmapPage._update_results_view: Finished (no hosts).")
             return
 
+        logger.debug(f"NmapPage._update_results_view: Processing {len(hosts)} hosts.")
         for host_key in hosts:
             yaml_data = results_map.get(host_key, f"# No YAML data for {host_key}")
             nmap_item = NmapItem(key=host_key, value=yaml_data)
+            # logger.debug(f"NmapPage._update_results_view: Appending NmapItem (key='{host_key}') to listbox_store.") # Too verbose for many hosts
             self.nmap_target_listbox_store.append(nmap_item)
             self.results_by_host[host_key] = yaml_data
+        logger.debug("NmapPage._update_results_view: Finished processing and appending hosts.")
 
         self.targets_group.set_revealed(True)
+        logger.debug("NmapPage._update_results_view: targets_group revealed set to True.")
 
         if self.nmap_target_listbox_store.get_n_items() > 0:
+            logger.debug("NmapPage._update_results_view: Selecting first row in nmap_target_listbox.")
             self.nmap_target_listbox.select_row(self.nmap_target_listbox.get_row_at_index(0))
         else:
+            logger.debug("NmapPage._update_results_view: No items in listbox_store, hiding results_group and clearing source_buffer.")
             self.results_group.set_revealed(False)
             self.source_buffer.set_text("")
+        logger.debug("NmapPage._update_results_view: Finished.")
 
     def _set_scan_status(self, status_type: ScanStatus, message: str):
-        logger.info("Setting Nmap scan status: %s - %s", status_type.name, message)
+        logger.debug(f"NmapPage._set_scan_status: Setting Nmap scan status to {status_type.name} - '{message}'") # Existing info changed to debug
+        logger.debug("NmapPage._set_scan_status: Before GLib.idle_add(self._update_status_ui, ...)")
         GLib.idle_add(self._update_status_ui, status_type, message)
+        logger.debug("NmapPage._set_scan_status: After GLib.idle_add(self._update_status_ui, ...)")
+        logger.debug("NmapPage._set_scan_status: Finished.")
+
 
     def _update_status_ui(self, status_type: ScanStatus, message: str):
+        logger.debug(f"NmapPage._update_status_ui: Starting with status_type: {status_type.name}, message: '{message}'")
         self.status_row.set_subtitle(message)
+        logger.debug(f"NmapPage._update_status_ui: status_row subtitle set to '{message}'.")
         if status_type == ScanStatus.IN_PROGRESS:
             self.scan_spinner.set_visible(True)
+            logger.debug("NmapPage._update_status_ui: scan_spinner visibility set to True.")
             self.scan_spinner.start()
+            logger.debug("NmapPage._update_status_ui: scan_spinner started.")
             self.status_row.set_title("Scanning...")
+            logger.debug("NmapPage._update_status_ui: status_row title set to 'Scanning...'.")
         else:  # COMPLETE, FAILED, IDLE
             self.scan_spinner.stop()
+            logger.debug("NmapPage._update_status_ui: scan_spinner stopped.")
             self.scan_spinner.set_visible(False)
+            logger.debug("NmapPage._update_status_ui: scan_spinner visibility set to False.")
             if status_type == ScanStatus.COMPLETE:
                 self.status_row.set_title("Scan Complete")
+                logger.debug("NmapPage._update_status_ui: status_row title set to 'Scan Complete'.")
             elif status_type == ScanStatus.FAILED:
                 self.status_row.set_title("Scan Failed")
+                logger.debug("NmapPage._update_status_ui: status_row title set to 'Scan Failed'.")
             else:  # IDLE
                 self.status_row.set_title("Scan Status")  # Reset title
+                logger.debug("NmapPage._update_status_ui: status_row title set to 'Scan Status'.")
+        logger.debug("NmapPage._update_status_ui: Finished.")
 
     def _clear_results(self):
-        logger.info("Clearing Nmap results.")
+        logger.debug("NmapPage._clear_results: Starting.") # Changed info to debug
+        # logger.info("Clearing Nmap results.") # Replaced by debug
+        logger.debug("NmapPage._clear_results: Before nmap_target_listbox_store.remove_all()")
         self.nmap_target_listbox_store.remove_all()
+        logger.debug("NmapPage._clear_results: After nmap_target_listbox_store.remove_all()")
+        logger.debug("NmapPage._clear_results: Before source_buffer.set_text('')")
         self.source_buffer.set_text("")
+        logger.debug("NmapPage._clear_results: After source_buffer.set_text('')")
+        logger.debug("NmapPage._clear_results: Before results_by_host.clear()")
         self.results_by_host.clear()
+        logger.debug("NmapPage._clear_results: After results_by_host.clear()")
 
         self.targets_group.set_revealed(False)
+        logger.debug("NmapPage._clear_results: targets_group revealed set to False.")
         self.results_group.set_revealed(False)
+        logger.debug("NmapPage._clear_results: results_group revealed set to False.")
         self.error_banner.set_revealed(False)
+        logger.debug("NmapPage._clear_results: error_banner revealed set to False.")
         self.nmap_target_entryrow.remove_css_class("error")
+        logger.debug("NmapPage._clear_results: 'error' css class removed from nmap_target_entryrow.")
         self.nmap_target_entryrow.set_sensitive(True)
-        self._set_scan_status(ScanStatus.IDLE, "Idle")
+        logger.debug("NmapPage._clear_results: nmap_target_entryrow sensitivity set to True.")
+        self._set_scan_status(ScanStatus.IDLE, "Idle") # Already logs
+        logger.debug("NmapPage._clear_results: Finished.")
 
     def _on_error_banner_dismiss(self, _banner: Adw.Banner, *_args):
-        self._clear_error()
+        logger.debug(f"NmapPage._on_error_banner_dismiss: Triggered for banner: {_banner}")
+        logger.debug("NmapPage._on_error_banner_dismiss: Before self._clear_error()")
+        self._clear_error() # Logs itself
+        logger.debug("NmapPage._on_error_banner_dismiss: After self._clear_error()")
+        logger.debug("NmapPage._on_error_banner_dismiss: Finished.")
 
     def _display_error(self, message: str):
+        logger.debug(f"NmapPage._display_error: Called with message: '{message}'")
         self.error_banner.set_title(message)
+        logger.debug("NmapPage._display_error: error_banner title set.")
         self.error_banner.set_revealed(True)
+        logger.debug("NmapPage._display_error: error_banner revealed set to True.")
+        logger.debug("NmapPage._display_error: Finished.")
 
     def _clear_error(self):
+        logger.debug("NmapPage._clear_error: Called.")
         self.error_banner.set_revealed(False)
+        logger.debug("NmapPage._clear_error: error_banner revealed set to False.")
         self.error_banner.set_title("")
+        logger.debug("NmapPage._clear_error: error_banner title set to empty string.")
+        logger.debug("NmapPage._clear_error: Finished.")
 
     def _create_target_listbox_row(self, item: NmapItem) -> Gtk.ListBoxRow:
+        logger.debug(f"NmapPage._create_target_listbox_row: Creating row for item with key: '{item.key}'")
         # Using a simple Gtk.Label in a Gtk.ListBoxRow for clarity and data storage.
         simple_row = Gtk.ListBoxRow()
+        logger.debug(f"NmapPage._create_target_listbox_row: Gtk.ListBoxRow created: {simple_row}")
         simple_label = Gtk.Label(label=item.key, halign=Gtk.Align.START, margin_start=6, margin_end=6)
+        logger.debug(f"NmapPage._create_target_listbox_row: Gtk.Label created: {simple_label} with label '{item.key}'")
         simple_label.set_data("NmapItem", item)  # Store the actual NmapItem object
+        logger.debug(f"NmapPage._create_target_listbox_row: Stored NmapItem ({item}) as data on label.")
         simple_row.set_child(simple_label)
+        logger.debug(f"NmapPage._create_target_listbox_row: Set label as child of row. Returning row: {simple_row}")
         return simple_row
