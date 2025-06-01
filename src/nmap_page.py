@@ -35,7 +35,7 @@ class NmapPage(Adw.PreferencesPage):
     nmap_all_ports_switchrow = Gtk.Template.Child("nmap_all_ports_switchrow")
     nmap_scripts_dropdown = Gtk.Template.Child("nmap_scripts_dropdown")
     nmap_status_row = Gtk.Template.Child("nmap_status_row")
-    scan_spinner = Gtk.Template.Child("scan_spinner")
+    scan_spinner = Gtk.Template.Child("nmap_spinner")
 
     error_banner = Gtk.Template.Child("error_banner")
     nmap_warning_banner = Gtk.Template.Child("nmap_warning_banner")
