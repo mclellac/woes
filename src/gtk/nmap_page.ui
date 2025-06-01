@@ -84,6 +84,16 @@
       </object>
     </child>
     <child>
+      <object class="AdwBanner" id="error_banner">
+        <property name="button-label" translatable="yes">Dismiss</property>
+        <property name="revealed">False</property>
+        <property name="margin-bottom">10</property>
+        <property name="margin-end">10</property>
+        <property name="margin-start">10</property>
+        <property name="margin-top">10</property>
+      </object>
+    </child>
+    <child>
       <!-- Corrected AdwActionRow with GtkSpinner as a suffix -->
       <object class="AdwActionRow" id="nmap_status_row">
         <property name="title" translatable="yes">Scan Status</property>
@@ -158,7 +168,7 @@
             <property name="vexpand">True</property>
             <property name="vexpand-set">True</property>
             <child>
-              <object class="AdwScrolledWindow" id="nmap_results_scrolled_window">
+              <object class="AdwScrolledWindow" id="nmap_results_adinw_scrolled_window">
                 <property name="halign">baseline-fill</property>
                 <!-- <property name="has-frame">True</property> AdwScrolledWindow doesn't have has-frame -->
                 <property name="hexpand">True</property>

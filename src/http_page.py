@@ -26,22 +26,21 @@ class HeaderItem(GObject.Object):
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/http_page.ui")
-class HttpPage(Adw.PreferencesPage):
+class HttpPage(Gtk.Box):
     __gtype_name__ = "HttpPage"
 
     http_entry_row = Gtk.Template.Child("http_entry_row")
     http_pragma_switch_row = Gtk.Template.Child("http_pragma_switch_row")
     http_column_view = Gtk.Template.Child("http_column_view")
-    error_banner = Gtk.Template.Child("error_banner")
-    http_results_group = Gtk.Template.Child("http_results_group")
+    http_error_banner = Gtk.Template.Child("http_error_banner")
+    http_response_group = Gtk.Template.Child("http_response_group")
 
     def __init__(self, **kwargs):
         logger.debug("HttpPage.__init__: Starting")
         super().__init__(**kwargs)
         self.current_http_task = None
         logger.debug(f"HttpPage.__init__: self.current_http_task initialized to {self.current_http_task}")
-        self._http_task_data_for_thread = {}
-        logger.debug(f"HttpPage.__init__: self._http_task_data_for_thread initialized to {self._http_task_data_for_thread}")
+        # self._http_task_data_for_thread removed
 
         if self.http_column_view is None:
             logger.critical("HttpPage.__init__: Gtk.Template.Child 'http_column_view' not found. UI will be broken.")
@@ -89,6 +88,8 @@ class HttpPage(Adw.PreferencesPage):
             "notify::active", self._on_pragma_toggled
         )
         logger.debug("HttpPage._connect_signals: Connected 'notify::active' for http_pragma_switch_row")
+        self.http_error_banner.connect("button-clicked", self._on_error_banner_dismiss)
+        logger.debug("HttpPage._connect_signals: Connected 'button-clicked' for http_error_banner")
         logger.debug("HttpPage._connect_signals: Finished connecting signals")
 
     def _on_entry_row_activated(self, entry_row: Gtk.Entry) -> None:
@@ -138,26 +139,25 @@ class HttpPage(Adw.PreferencesPage):
         logger.debug(f"HttpPage._on_entry_row_activated: Created Gio.Cancellable: {cancellable}")
         new_task = Gio.Task.new(self, cancellable, self._fetch_headers_task_done_cb, None)
         logger.debug(f"HttpPage._on_entry_row_activated: Created Gio.Task: {new_task}")
-        self._http_task_data_for_thread = task_specific_data
-        logger.debug(f"HttpPage._on_entry_row_activated: self._http_task_data_for_thread set to: {self._http_task_data_for_thread}")
+        # self._http_task_data_for_thread assignment removed
         self.current_http_task = new_task
         logger.debug(f"HttpPage._on_entry_row_activated: self.current_http_task set to: {self.current_http_task}")
         logger.debug(f"HttpPage._on_entry_row_activated: Starting async task fetch-headers by calling new_task.run_in_thread()")
-        new_task.run_in_thread(self._fetch_headers_task_thread_func)
+        new_task.run_in_thread(self._fetch_headers_task_thread_func, task_data=task_specific_data)
         logger.debug(f"HttpPage._on_entry_row_activated: After new_task.run_in_thread()")
 
     def _fetch_headers_task_thread_func(
         self,
         task: Gio.Task,
-        source_object,
-        _task_data_ignored,
+        _source_object_do_not_use, # Renamed from source_object
+        task_data: dict, # Changed from _task_data_ignored
         cancellable: Optional[Gio.Cancellable]
     ):
         logger.debug(
             f"HttpPage._fetch_headers_task_thread_func: Starting for task {task}, "
-            f"source_object: {source_object}, cancellable: {cancellable}"
+            f"_source_object_do_not_use: {_source_object_do_not_use}, task_data: {task_data}, cancellable: {cancellable}"
         )
-        current_task_data = source_object._http_task_data_for_thread
+        current_task_data = task_data # Use passed task_data
         url = current_task_data["url"]
         use_akamai_pragma = current_task_data["use_akamai_pragma"]
         logger.debug(f"HttpPage._fetch_headers_task_thread_func: Parameters - url: '{url}', use_akamai_pragma: {use_akamai_pragma}")
@@ -208,7 +208,7 @@ class HttpPage(Adw.PreferencesPage):
 
         except requests.exceptions.HTTPError as e:
             logger.error(f"HttpPage._fetch_headers_task_thread_func: HTTPError for {url}: {e}", exc_info=True)
-            error_message = source_object._format_http_error(e)
+            error_message = self._format_http_error(e) # Changed source_object to self
             if len(error_message) > 100:
                 error_message = "HTTP Error (see logs for details)."
             g_error = GLib.Error(error_message, Gio.io_error_quark(), Gio.IOErrorEnum.FAILED_HANDLED.value)
@@ -359,32 +359,32 @@ class HttpPage(Adw.PreferencesPage):
     def _show_results(self):
         """Show the results group."""
         logger.debug("HttpPage._show_results: Called.")
-        self.http_results_group.set_visible(True)
-        logger.debug("HttpPage._show_results: http_results_group visibility set to True.")
+        self.http_response_group.set_visible(True)
+        logger.debug("HttpPage._show_results: http_response_group visibility set to True.")
 
     def _hide_results(self):
         """Hide the results group."""
         logger.debug("HttpPage._hide_results: Called.")
-        self.http_results_group.set_visible(False)
-        logger.debug("HttpPage._hide_results: http_results_group visibility set to False.")
+        self.http_response_group.set_visible(False)
+        logger.debug("HttpPage._hide_results: http_response_group visibility set to False.")
 
     def _display_error(self, message: str) -> None:
         logger.debug(f"HttpPage._display_error: Called with message: '{message}'")
-        self.error_banner.set_title(message)
-        logger.debug("HttpPage._display_error: error_banner title set.")
-        self.error_banner.set_revealed(True)
-        logger.debug("HttpPage._display_error: error_banner revealed set to True.")
+        self.http_error_banner.set_title(message)
+        logger.debug("HttpPage._display_error: http_error_banner title set.")
+        self.http_error_banner.set_revealed(True)
+        logger.debug("HttpPage._display_error: http_error_banner revealed set to True.")
         self.http_entry_row.add_css_class("error")
         logger.debug("HttpPage._display_error: 'error' CSS class added to http_entry_row.")
-        self._hide_results()  # Hide results on error, already logs
+        self._hide_results()
         logger.debug("HttpPage._display_error: Finished.")
 
     def _clear_error(self) -> None:
         logger.debug("HttpPage._clear_error: Called.")
-        self.error_banner.set_revealed(False)
-        logger.debug("HttpPage._clear_error: error_banner revealed set to False.")
-        self.error_banner.set_title("")
-        logger.debug("HttpPage._clear_error: error_banner title set to empty string.")
+        self.http_error_banner.set_revealed(False)
+        logger.debug("HttpPage._clear_error: http_error_banner revealed set to False.")
+        self.http_error_banner.set_title("")
+        logger.debug("HttpPage._clear_error: http_error_banner title set to empty string.")
         self.http_entry_row.remove_css_class("error")
         logger.debug("HttpPage._clear_error: 'error' CSS class removed from http_entry_row.")
         logger.debug("HttpPage._clear_error: Finished.")
