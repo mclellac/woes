@@ -1,6 +1,12 @@
+import logging
 import gi
+
 gi.require_version('Gtk', '4.0')
+# pylint: disable=wrong-import-position
 from gi.repository import Gdk, Gtk
+
+# Configure logger for the module - AFTER all imports
+logger = logging.getLogger(__name__)
 
 
 class Helper:
@@ -49,12 +55,11 @@ class Helper:
         gesture.connect("pressed", self.on_right_click)
         self.widget.add_controller(gesture)
 
-    def on_right_click(self, gesture, n_press, x, y):
+    def on_right_click(self, _gesture, n_press, x, y):
         """
         Display the context menu popover at the location of the mouse click.
 
         Args:
-            gesture (Gtk.GestureClick): The gesture that triggered the event.
             n_press (int): The number of mouse button presses.
             x (float): The x-coordinate of the mouse click relative to the widget.
             y (float): The y-coordinate of the mouse click relative to the widget.
@@ -70,26 +75,26 @@ class Helper:
             self.popover.set_parent(self.widget)
             self.popover.popup()
 
-    def on_copy_menu_item_activated(self, button):
+    def on_copy_menu_item_activated(self, _button):
         """
         Handle the activation of the copy menu item by copying selected content
         to the clipboard and hiding the popover.
 
         Args:
-            button (Gtk.Button): The button that triggered the event.
+            _button (Gtk.Button): The button that triggered the event. (Keeping for clarity on source)
         """
+        # _button is unused
         self.copy_to_clipboard()
         self.popover.popdown()
 
-    def on_key_pressed(self, controller, keyval, keycode, state):
+    def on_key_pressed(self, _controller, keyval, _keycode, state):
         """
         Handle the Ctrl+C keyboard shortcut to copy selected content to the clipboard.
 
         Args:
-            controller (Gtk.EventControllerKey): The key controller that triggered the event.
             keyval (int): The value of the key pressed.
-            keycode (int): The code of the key pressed.
             state (Gdk.ModifierType): The state of the modifier keys.
+            # _controller and _keycode are unused.
 
         Returns:
             bool: True if the event was handled, False otherwise.

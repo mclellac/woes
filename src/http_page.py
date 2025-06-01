@@ -6,15 +6,17 @@ from urllib.parse import urlparse
 import requests
 import gi
 
+# GTK version requirements must be called before importing from gi.repository
 gi.require_version('Adw', '1')
 gi.require_version('Gtk', '4.0')
+
+# Now import GTK libraries and other dependencies
+# pylint: disable=wrong-import-position
 from gi.repository import Adw, Gio, GObject, Gtk, GLib
-
+# pylint: disable=wrong-import-position
 from .constants import RESOURCE_PREFIX
-# Removed Helper import as it's unused
-# from .style_utils import set_widget_visibility  # This is no longer needed
 
-# Configure logger for the module
+# Configure logger for the module - AFTER all imports
 logger = logging.getLogger(__name__)
 
 
@@ -37,12 +39,13 @@ class HttpPage(Adw.PreferencesPage):
     http_column_view = Gtk.Template.Child("http_column_view")
     error_banner = Gtk.Template.Child("error_banner")
     http_results_group = Gtk.Template.Child("http_results_group")
-    # clear_results_button is connected via UI handler
+    http_spinner = Gtk.Template.Child("http_spinner")  # Assume spinner is added to UI
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         logger.debug("HttpPage initialized.")
         self.current_http_task = None
+        self._http_task_data_for_thread = {}  # Initialize the task data dict
 
         # Initialize ColumnView model and columns here
         self.header_list_store = Gio.ListStore.new(HeaderItem)
@@ -77,36 +80,58 @@ class HttpPage(Adw.PreferencesPage):
 
     def _on_entry_row_activated(self, entry_row: Gtk.Entry) -> None:
         original_url = entry_row.get_text().strip()
-        url = self._ensure_scheme(original_url)
-        logger.info("Fetching headers for URL: %s (original: %s)", url, original_url)
+        url_to_fetch = self._ensure_scheme(original_url)  # Renamed to avoid confusion with 'url' in task_data
+        logger.info("Fetching headers for URL: %s (original: %s)", url_to_fetch, original_url)
 
-        if not self._is_valid_url(url):
-            logger.warning("Invalid URL provided: %s (processed as: %s)", original_url, url)
-            self._display_error(
-                "Invalid URL format: Please enter a valid URL."
-            )
-            self._update_column_view_model(None)  # Clear previous results
+        if not self._is_valid_url(url_to_fetch):
+            logger.warning("Invalid URL provided: %s (processed as: %s)", original_url, url_to_fetch)
+            self._display_error("Invalid URL format: Please enter a valid URL.")
+            self._update_column_view_model(None)
             return
 
         self._clear_error()
-        # Disable UI elements and show loading state
         self.http_entry_row.set_sensitive(False)
-        # You might want to add a spinner here, e.g., self.spinner.start()
+        self.http_pragma_switch_row.set_sensitive(False)
+        if self.http_spinner:
+            self.http_spinner.start()
+        self._show_results()  # Show group, but it will be empty or show old results briefly
 
-        self._http_task_data_for_thread = {
-            "url": url,
+        # Cancel any existing task first
+        if self.current_http_task:
+            logger.debug("Cancelling previous HTTP task.")
+            try:
+                self.current_http_task.return_error_if_cancelled()  # Mark as cancelled if not already
+                # Attempt to actually cancel the thread if possible, though GLib tasks are tricky
+                cancellable = self.current_http_task.get_cancellable()
+                if cancellable and not cancellable.is_cancelled():
+                    cancellable.cancel()
+            except GLib.Error as e:
+                # This can happen if the task is already completed or cancelled.
+                logger.debug("Error cancelling previous task (likely already completed/cancelled): %s", e)
+            self.current_http_task = None
+
+        # Store data for the thread in a way that's tied to this specific task instance
+        # This is safer if tasks could be created rapidly, though self.current_http_task helps.
+        task_specific_data = {
+            "url": url_to_fetch,
             "use_akamai_pragma": self.http_pragma_switch_row.get_active()
         }
-        task = Gio.Task.new(self, None, self._fetch_headers_task_done_cb, None)
-        self.current_http_task = task
-        # The problematic task.set_task_data line is now fully removed.
-        task.run_in_thread(self._fetch_headers_task_thread_func)
+        new_task = Gio.Task.new(self, Gio.Cancellable.new(), self._fetch_headers_task_done_cb, None)
+        # Pass data directly to the task if GObject or GLib.Variant
+        # For dict, we'll retrieve it via source_object in thread as done below.
+        self._http_task_data_for_thread = task_specific_data  # Still using this for simplicity with dict
+        self.current_http_task = new_task
+        new_task.run_in_thread(self._fetch_headers_task_thread_func)
 
-    def _fetch_headers_task_thread_func(self, task: Gio.Task, source_object, task_data: dict, cancellable: Optional[Gio.Cancellable]):
-        # 'source_object' is the HttpPage instance (self).
-        # The 'task_data' argument in the function signature is likely None or unreliable now.
+    def _fetch_headers_task_thread_func(
+        self,
+        task: Gio.Task,
+        source_object,
+        _task_data_ignored,  # Renamed to indicate it's unused
+        cancellable: Optional[Gio.Cancellable]
+    ):
+        # Retrieve data using source_object._http_task_data_for_thread as set before run_in_thread
         current_task_data = source_object._http_task_data_for_thread
-
         url = current_task_data["url"]
         use_akamai_pragma = current_task_data["use_akamai_pragma"]
         logger.debug("Task thread: Making GET request to %s with Akamai headers: %s", url, use_akamai_pragma)
@@ -127,97 +152,86 @@ class HttpPage(Adw.PreferencesPage):
             request_headers["Pragma"] = ", ".join(akamai_pragma_directives)
 
         try:
-            # Check for cancellation before making the request
             if cancellable and cancellable.is_cancelled():
-                task.return_error(Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED, "Task was cancelled")
+                task.return_error(GLib.Error("User cancelled.", Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED))
                 return
 
             response = requests.get(url, headers=request_headers, allow_redirects=False, timeout=10)
-            response.raise_for_status()
-            task.return_value(dict(response.headers))
+
+            if cancellable and cancellable.is_cancelled():
+                task.return_error(GLib.Error("Cancelled during req.", Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED))
+                return
+
+            response.raise_for_status()  # Raises HTTPError for 4xx/5xx
+            task.return_value(GLib.Variant('a{ss}', dict(response.headers)))  # Pass as GLib.Variant
+
         except requests.exceptions.HTTPError as e:
             logger.error("Task thread: HTTPError for %s: %s", url, e, exc_info=True)
-            # Create a GError for HTTP errors
-            # For simplicity, using a generic error domain and code
-            # A more robust solution might define a custom error domain
-            error_message = self._format_http_error(e)
-            safe_error_message = str(error_message)
-            g_error = GLib.Error(message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED)
-            task.return_error(g_error)
-            return
+            error_message = source_object._format_http_error(e)  # Use source_object to call instance method
+            # Shorten error_message if it's too long for GLib.Error
+            if len(error_message) > 100:  # Adjusted limit based on typical GLib.Error call structure
+                error_message = "HTTP Error (see logs)."
+            task.return_error(GLib.Error(error_message, Gio.io_error_quark(), Gio.IOErrorEnum.FAILED_HANDLED))
         except requests.exceptions.ConnectionError as e:
-            logger.warning("Task thread: ConnectionError for %s: %s", url, e, exc_info=True)
-            error_message = "Connection Error: Failed to establish a connection."
-            safe_error_message = str(error_message)
-            g_error = GLib.Error(message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED)
-            task.return_error(g_error)
-            return
+            logger.error("Task thread: ConnectionError for %s: %s", url, e, exc_info=True)
+            task.return_error(GLib.Error("Connection Error.", Gio.io_error_quark(), Gio.IOErrorEnum.CONNECTION_REFUSED))
         except requests.exceptions.Timeout as e:
-            logger.warning("Task thread: Timeout for %s: %s", url, e, exc_info=True)
-            error_message = "Timeout Error: The request timed out."
-            safe_error_message = str(error_message)
-            g_error = GLib.Error(message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED)
-            task.return_error(g_error)
-            return
-        except requests.exceptions.RequestException as e:
+            logger.error("Task thread: Timeout for %s: %s", url, e, exc_info=True)
+            task.return_error(GLib.Error("Request Timed Out.", Gio.io_error_quark(), Gio.IOErrorEnum.TIMED_OUT))
+        except requests.exceptions.RequestException as e:  # Other requests-related errors
             logger.error("Task thread: RequestException for %s: %s", url, e, exc_info=True)
-            error_message = f"Request Error: {str(e)}"
-            safe_error_message = str(error_message)
-            g_error = GLib.Error(message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED)
-            task.return_error(g_error)
+            err_name = type(e).__name__
+            task.return_error(GLib.Error(f"Request Err: {err_name}", Gio.io_error_quark(), Gio.IOErrorEnum.FAILED))
+        except Exception as e:
+            logger.exception("Task thread: Unexpected error for %s.", url)  # Use logger.exception for general errors
+            err_name = type(e).__name__
+            task.return_error(GLib.Error(f"Unexpected Err: {err_name}", Gio.io_error_quark(), Gio.IOErrorEnum.FAILED))
+
+    def _fetch_headers_task_done_cb(self, source_object, task: Gio.Task, user_data):
+        # Ensure this callback is for the current task, ignore if it's an old one.
+        if task is not self.current_http_task:
+            logger.warning("Callback received for an outdated or superseded HTTP task. Ignoring.")
             return
-        except Exception as e: # Catch any other unexpected errors
-            logger.error("Task thread: Unexpected error for %s: %s", url, e, exc_info=True)
-            error_message = f"An unexpected error occurred: {str(e)}"
-            safe_error_message = str(error_message)
-            g_error = GLib.Error(message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED)
-            task.return_error(g_error)
-            return
 
-
-    def _fetch_headers_task_done_cb(self, source_object, result: Gio.AsyncResult, user_data):
-        local_task_ref = self.current_http_task
-        headers = None  # Initialize headers
-
+        headers = None
         try:
-            if local_task_ref:
-                # This call will raise a GLib.Error (caught as GObject.GError)
-                # if task.return_error() was called in the thread.
-                returned_value = local_task_ref.propagate_value()
-                if returned_value: # Check if propagate_value didn't return None
-                    headers = returned_value.get_boxed() # Assuming the returned value is a Python dict
-                    logger.info("Successfully fetched headers (async)")
-                    self._update_column_view_model(headers)
-                    self.http_entry_row.remove_css_class("error")
-                else:
-                    # This case should ideally not be reached if a value or error was properly set.
-                    logger.error("propagate_value returned None unexpectedly.")
-                    self._display_error("Failed to retrieve task result (returned None).")
-                    self.http_entry_row.add_css_class("error")
-                    self._update_column_view_model(None)
+            # This call will raise a GLib.Error (caught as GObject.GError)
+            # if task.return_error() was called in the thread.
+            returned_variant = task.propagate_value()  # For GLib.Variant
+            if returned_variant:
+                headers = returned_variant.unpack()  # Unpack GLib.Variant to Python dict
+                logger.info("Successfully fetched headers (async).")
+                self._update_column_view_model(headers)
+                self.http_entry_row.remove_css_class("error")
             else:
-                logger.error("current_http_task was None in _fetch_headers_task_done_cb. Task might have been superseded or cleared prematurely.")
-                self._update_column_view_model(None) # Clear view if no task to process
-                # Optionally, display a generic error if this state is unexpected
-                # self._display_error("An unexpected error occurred (task not found).")
+                # This case implies task.return_value(None) was called, which we are not doing.
+                # If it happens, it's an unexpected state.
+                logger.error("Task propagate_value returned None unexpectedly (no error raised but no value).")
+                self._display_error("Failed to retrieve task result (no data).")
+                self._update_column_view_model(None)
+                self.http_entry_row.add_css_class("error")
 
-        except GObject.GError as e: # Catch errors propagated by propagate_value()
-            error_message = e.message
-            logger.error("Error fetching headers (async GObject.GError): %s", error_message)
-            # Sanitize message if it contains markup, AdwBanner might not render it well
-            error_message = error_message.replace("<b>", "").replace("</b>", "")
-            self._display_error(error_message)
+        except GObject.GError as e:
+            logger.error("Error fetching headers (async GObject.GError): %s (Code: %s, Domain: %s)",
+                         e.message, e.code, GLib.quark_to_string(e.domain))
+
+            if e.matches(Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED):
+                self._display_error("Operation cancelled.")
+                logger.info("HTTP header fetch task was cancelled by the user.")
+            else:
+                # Display the error message from GLib.Error, already formatted
+                self._display_error(e.message)
+
             self.http_entry_row.add_css_class("error")
-            self._update_column_view_model(None) # Clear previous results if error
+            self._update_column_view_model(None)
         finally:
-            # Re-enable UI elements that might have been disabled
             self.http_entry_row.set_sensitive(True)
-            # e.g., self.spinner.stop() (if a spinner was used)
+            self.http_pragma_switch_row.set_sensitive(True)
+            if self.http_spinner:
+                self.http_spinner.stop()
 
-            # Clear the task reference if it matches the one this callback was for.
-            if self.current_http_task is local_task_ref:
-                self.current_http_task = None
-
+            # Clear the current task reference as it's now completed or failed.
+            self.current_http_task = None
 
     @staticmethod
     def _ensure_scheme(url: str) -> str:
@@ -246,21 +260,28 @@ class HttpPage(Adw.PreferencesPage):
     # It's kept here for the _format_http_error utility or if needed elsewhere.
 
     def _format_http_error(self, e: requests.exceptions.HTTPError) -> str:
+        # This method is now called from the thread, ensure it's static or passed `self` correctly.
+        # It was already an instance method, so source_object._format_http_error() is correct.
         status_code = e.response.status_code
+        reason = e.response.reason
+        # Ensure plain text for GLib.Error
+        # Shorten these messages to avoid E501 when used in GLib.Error
         if status_code == 404:
-            return "404 Not Found: The requested URL was not found on this server."
-        if status_code == 403:  # Changed from elif to if for R1705
-            return "403 Forbidden: You don't have permission to access this URL."
-        if status_code == 500:  # Changed from elif to if for R1705
-            return "500 Internal Server Error: The server encountered an internal error."
-        return f"HTTP Error {status_code}: {e.response.reason}." # f-string is fine here as it's not logging
+            return f"HTTP 404: Not Found ({e.request.url[:30]}...)"
+        if status_code == 403:
+            return f"HTTP 403: Forbidden ({e.request.url[:30]}...)"
+        if status_code == 500:
+            return f"HTTP 500: Server Error ({e.request.url[:30]}...)"
+        return f"HTTP {status_code}: {reason} ({e.request.url[:30]}...)"
 
     def _on_pragma_toggled(
         self, widget: Gtk.Switch, _gparam: GObject.ParamSpec
     ) -> None:
         logger.debug("Akamai Pragma toggled to: %s", widget.get_active())
-        if self.http_entry_row.get_text().strip():
-            self._on_entry_row_activated(self.http_entry_row)
+        # Optionally, re-fetch if a URL is already present and results are shown
+        # For now, it will apply on the next manual fetch.
+        # if self.http_entry_row.get_text().strip() and self.http_results_group.get_visible():
+        #     self._on_entry_row_activated(self.http_entry_row)
 
     def _update_column_view_model(self, headers: Optional[Dict[str, str]]) -> None:
         self.header_list_store.remove_all()  # Clear existing items
@@ -301,7 +322,6 @@ class HttpPage(Adw.PreferencesPage):
         self._update_column_view_model(None)  # Clears the view
         self._clear_error()  # Clear any errors
         self.http_entry_row.set_text("")  # Clear entry row
-
 
     @staticmethod
     def _create_factory(
