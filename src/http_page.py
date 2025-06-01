@@ -6,8 +6,8 @@ from urllib.parse import urlparse
 import requests
 import gi
 
-require_version('Adw', '1')
-require_version('Gtk', '4.0')
+gi.require_version('Adw', '1')
+gi.require_version('Gtk', '4.0')
 from gi.repository import Adw, Gio, GObject, Gtk
 
 from .constants import RESOURCE_PREFIX
