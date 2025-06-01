@@ -45,7 +45,7 @@ class WoesApplication(Adw.Application):
         # Call super().__init__ before adding main options as per subtask instruction
         super().__init__(
             application_id=APP_ID,
-            flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE | Gio.ApplicationFlags.DEFAULT_FLAGS,
+            flags=Gio.ApplicationFlags.DEFAULT_FLAGS,
             **kwargs
         )
 
@@ -87,6 +87,13 @@ class WoesApplication(Adw.Application):
 
         logging.debug("WoesApplication.do_handle_local_options: Returning -1")
         return -1  # Indicate normal activation should proceed
+
+    def do_command_line(self, options):
+        """Overrides the do_command_line virtual method."""
+        logging.debug("WoesApplication.do_command_line: Entered with options: %s", options)
+        self.do_handle_local_options(options.get_options_dict()) # Ensure options are passed correctly
+        self.activate()
+        return 0
 
     def do_activate(self):
         """Called when the application is activated.

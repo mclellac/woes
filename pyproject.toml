@@ -1,3 +1,32 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "woes"
+version = "0.1.0"
+description = "A simple GTK application"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "PyGObject~=3.48.2",
+    "requests"
+    # "some-other-package"
+]
+
+[project.scripts]
+woes = "src.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."] # search for packages in the current directory
+include = ["src*"] # include all packages under src
+namespaces = false # do not support namespace packages
+
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
 exclude = [
@@ -78,4 +107,3 @@ docstring-code-format = false
 
 # Set the line length limit used when formatting code snippets in docstrings.
 docstring-code-line-length = "dynamic"
-
