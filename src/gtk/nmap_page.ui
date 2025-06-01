@@ -93,7 +93,7 @@
       <object class="AdwPreferencesGroup" id="targets_group">
         <property name="title" translatable="yes">Scanned Targets</property>
         <property name="description" translatable="yes">Select a target to view its scan results.</property>
-        <property name="revealed">False</property> <!-- Initially hidden -->
+        <!-- <property name="revealed">False</property> --> <!-- Initially hidden -->
         <child>
           <object class="GtkScrolledWindow" id="nmap_target_scrolled_window">
             <property name="min-content-height">150</property>
@@ -113,7 +113,7 @@
       <object class="AdwPreferencesGroup" id="results_group">
         <property name="title" translatable="yes">Scan Results</property>
         <property name="description" translatable="yes">Results for the selected target.</property>
-        <property name="revealed">False</property> <!-- Initially hidden -->
+        <!-- <property name="revealed">False</property> --> <!-- Initially hidden -->
         <child>
           <object class="GtkScrolledWindow" id="nmap_results_scrolled_window">
             <property name="min-content-height">300</property>

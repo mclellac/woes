@@ -92,16 +92,21 @@ class HttpPage(Adw.PreferencesPage):
         self.http_entry_row.set_sensitive(False)
         # You might want to add a spinner here, e.g., self.spinner.start()
 
-        task = Gio.Task.new(self, None, self._fetch_headers_task_done_cb, None)
-        task.set_task_data({
+        self._http_task_data_for_thread = {
             "url": url,
             "use_akamai_pragma": self.http_pragma_switch_row.get_active()
-        }, None) # No destroy notify needed for simple dict
+        }
+        task = Gio.Task.new(self, None, self._fetch_headers_task_done_cb, None)
+        # The problematic task.set_task_data line is now fully removed.
         task.run_in_thread(self._fetch_headers_task_thread_func)
 
     def _fetch_headers_task_thread_func(self, task: Gio.Task, source_object, task_data: dict, cancellable: Optional[Gio.Cancellable]):
-        url = task_data["url"]
-        use_akamai_pragma = task_data["use_akamai_pragma"]
+        # 'source_object' is the HttpPage instance (self).
+        # The 'task_data' argument in the function signature is likely None or unreliable now.
+        current_task_data = source_object._http_task_data_for_thread
+
+        url = current_task_data["url"]
+        use_akamai_pragma = current_task_data["use_akamai_pragma"]
         logger.debug("Task thread: Making GET request to %s with Akamai headers: %s", url, use_akamai_pragma)
 
         request_headers = {}
