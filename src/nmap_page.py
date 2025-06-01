@@ -272,7 +272,7 @@ class NmapPage(Adw.PreferencesPage):
         self._set_scan_status(ScanStatus.FAILED, f"Scan failed for {target}")
         logger.debug(f"NmapPage._handle_scan_error: Finished for target '{target}'.")
 
-    def _on_target_selected(self, _listbox: Adw.ListBox, row: Optional[Adw.ActionRow]):
+    def _on_target_selected(self, _listbox: Gtk.ListBox, row: Optional[Adw.ActionRow]):
         logger.debug(f"NmapPage._on_target_selected: Triggered with listbox: {_listbox}, row: {row}")
         if row is None:
             logger.debug("NmapPage._on_target_selected: Row is None, clearing source_buffer.")
