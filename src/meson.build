@@ -3,17 +3,13 @@ is_flatpak_build = get_option('prefix') == '/app'
 message('Is Flatpak build: ' + is_flatpak_build.to_string())
 message('Prefix: ' + get_option('prefix'))
 
-# Get the install directory for Python (version specific)
-python_purelib = python_bin.get_path('purelib')
-python_install_dir = python_purelib # Use for messages and consistency
-message('Python install dir (purelib): ' + python_install_dir)
+# Get the install directory for Python
+python_install_dir = python_bin.get_install_dir()
+message('Python install dir: ' + python_install_dir)
 
-# Determine the site-packages directory (version specific)
-site_packages_dir = join_paths(python_purelib, 'woes')
-message('Site packages dir (woes subdir): ' + site_packages_dir)
-
-# Create a new configuration variable for the site-packages directory (version specific)
-python_site_packages_dir = python_purelib
+# Determine the site-packages directory
+site_packages_dir = python_bin.get_install_dir(subdir: 'woes')
+message('Site packages dir: ' + site_packages_dir)
 
 # Define paths
 localedir = join_paths(get_option('prefix'), 'share', 'locale')
@@ -28,7 +24,6 @@ conf.set('PYTHON', python_bin.full_path())
 conf.set('VERSION', meson.project_version())
 conf.set('LOCALEDIR', localedir)
 conf.set('WOESDIR', site_packages_dir)
-conf.set('PYTHON_SITE_PACKAGES_DIR', python_site_packages_dir)
 conf.set('APPID', meson.project_name())
 conf.set('GSETTINGSSCHEMADIR', gsettings_schemadir) # Add this line
 
@@ -81,10 +76,8 @@ woes_sources = files(
   'nmap_scanner.py',
   'preferences.py',
   'style_utils.py',
-  'utils.py',
   'window.py',
-  'webscan_page.py',
 )
 
 # Install the Python source files
-python_bin.install_sources(woes_sources, subdir: 'woes')
+python_bin.install_sources(woes_sources, subdir: conf.get('WOESDIR'))
