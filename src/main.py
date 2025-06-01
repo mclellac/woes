@@ -1,4 +1,5 @@
 import sys
+import os # Added for path manipulation
 import logging
 
 # Ultra-early logging setup
@@ -24,7 +25,7 @@ gi.require_version("Adw", "1")
 # Import GUI related modules here
 from gi.repository import Adw, Gio, GLib  # Added GLib for OptionArg/OptionFlags
 
-from .constants import APP_ID, VERSION
+from .constants import APP_ID, VERSION, RESOURCE_PREFIX, PKGDATADIR # Import PKGDATADIR
 from .preferences import Preferences  # Ensure Preferences is imported
 from .window import WoesWindow  # Changed from MinimalWoesWindow
 
@@ -192,6 +193,30 @@ def main(version=VERSION):
     # Or, it might be DEBUG if basicConfig in __init__ ran and then was overridden by do_handle_local_options
     # To be safe, application startup messages should follow do_handle_local_options if they depend on its logging level
     # However, WoesApplication __init__ runs before do_handle_local_options.
+
+    # Load GResources
+    # Construct the full path to woes.gresource using PKGDATADIR
+    resource_file_path = os.path.join(PKGDATADIR, "woes.gresource")
+    logging.info(f"Attempting to load GResource file from: {resource_file_path} (derived from PKGDATADIR: {PKGDATADIR})")
+    try:
+        if os.path.exists(resource_file_path):
+            resource = Gio.Resource.load(resource_file_path)
+            Gio.Resource.register(resource)
+            logging.info(f"Successfully loaded and registered GResource: {resource_file_path}")
+            # Log available resources under the application's prefix for verification
+            # This uses RESOURCE_PREFIX from constants.py
+            available_resources = resource.enumerate_children(RESOURCE_PREFIX, Gio.ResourceLookupFlags.NONE)
+            if not available_resources: # Check if list is empty
+                logging.warning(f"No resources found under prefix {RESOURCE_PREFIX} after loading {resource_file_path}. This might be expected if all resources are at the root or a different prefix, or if PKGDATADIR is incorrect.")
+            else:
+                logging.debug(f"Available resources under {RESOURCE_PREFIX}: {available_resources}")
+        else:
+            logging.error(f"GResource file not found at {resource_file_path} (derived from PKGDATADIR: {PKGDATADIR}). UI elements may be missing. Check PKGDATADIR and ensure woes.gresource is in that directory.")
+    except GLib.Error as e:
+        logging.error(f"Error loading or registering GResource {resource_file_path}: {e}. Check if the file is a valid GResource bundle.")
+    except Exception as e: # Catch any other unexpected errors
+        logging.error(f"An unexpected error occurred during GResource loading: {e}")
+
 
     print("src/main.py: main() - Creating WoesApplication instance (print)")
     logging.info("src/main.py: main() - Creating WoesApplication instance (logging)")
