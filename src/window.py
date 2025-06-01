@@ -66,6 +66,10 @@ class WoesWindow(Adw.ApplicationWindow):
             logging.exception("WoesWindow.setup_ui: Error during self.apply_preferences()")
         logging.debug("WoesWindow.setup_ui: apply_preferences finished.")
 
+        logging.debug("WoesWindow.setup_ui: Attempting to explicitly set switcher_title.stack")
+        self.switcher_title.props.stack = self.stack
+        logging.debug(f"WoesWindow.setup_ui: switcher_title.stack explicitly set to {self.switcher_title.props.stack}")
+
         if self.switcher_title and self.stack:
             logging.debug("WoesWindow.setup_ui: Connecting switcher_title signal...")
             try:
