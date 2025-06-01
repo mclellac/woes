@@ -1,11 +1,15 @@
+import logging  # Standard library first
 import gi
+
 gi.require_version('Gtk', '4.0')
-gi.require_version('Adw', '1')
+gi.require_version('Adw', '1')  # Though Adw is not used, this was in original
 gi.require_version('GtkSource', '5')
 
-import logging  # Added import
+# pylint: disable=wrong-import-position
+from gi.repository import Gtk, GtkSource
 
-from gi.repository import Gtk, GtkSource  # Removed Adw as it's unused
+# Configure logger for the module - AFTER all imports
+logger = logging.getLogger(__name__)
 
 
 def create_source_view(language_name='txt'):
@@ -24,7 +28,7 @@ def create_source_view(language_name='txt'):
     language = language_manager.get_language(language_name)
 
     if language is None:
-        logging.warning("GtkSourceView language '%s' not found. Falling back to a plain buffer.", language_name)
+        logger.warning("GtkSourceView language '%s' not found. Falling back to a plain buffer.", language_name)
         source_buffer = GtkSource.Buffer()  # Create a plain GtkSource.Buffer
     else:
         source_buffer = GtkSource.Buffer.new_with_language(language)

@@ -6,14 +6,23 @@ import dns.resolver
 import dns.reversename
 import gi
 
+# GTK version requirements (must be before gi.repository imports)
 gi.require_version('Adw', '1')
 gi.require_version('Gtk', '4.0')
-gi.require_version('GtkSource', '5') # Changed back to version 5
-from gi.repository import Adw, Gio, Gtk, GtkSource, Pango
+gi.require_version('GtkSource', '5')
 
-from .constants import APP_ID, RESOURCE_PREFIX # Sorted
+# Now import GTK libraries and other dependencies
+# pylint: disable=wrong-import-position
+from gi.repository import Adw, Gio, Gtk, GtkSource, Pango, GLib
+# pylint: disable=wrong-import-position
+from .constants import APP_ID, RESOURCE_PREFIX
+# pylint: disable=wrong-import-position
 from .style_utils import apply_source_style_scheme
+# pylint: disable=wrong-import-position
 from .utils import create_source_view
+
+# Initialize logger after all imports
+logger = logging.getLogger(__name__)
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/dns_page.ui")
@@ -27,8 +36,9 @@ class DNSPage(Adw.PreferencesPage):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.header_tag = None # Initialize W0201
+        self.header_tag = None  # Initialize to prevent W0201 if _display_result isn't called early
         self._connect_signals()
+        # Ensure create_source_view is defined and accessible
         self.source_view, self.source_buffer = create_source_view(language_name=None)
         self.dns_results_scrolled_window.set_child(self.source_view)
         self.settings = Gio.Settings.new(APP_ID)  # Ensure settings is initialized before use
@@ -36,7 +46,7 @@ class DNSPage(Adw.PreferencesPage):
         self.settings.connect(
             "changed::source-style-scheme",
             self._on_source_style_scheme_setting_changed
-        )  # Connect listener
+        )
 
         try:
             self.bold_tag = self.source_buffer.create_tag(
@@ -51,16 +61,16 @@ class DNSPage(Adw.PreferencesPage):
             self.value_color_tag = self.source_buffer.create_tag(
                 "value_color", foreground="#73d216"
             )
-            self.ttl_color_tag = self.source_buffer.create_tag(
-                "ttl_color", foreground="#fce94f"
-            )
+            # self.ttl_color_tag = self.source_buffer.create_tag(  # TTL not currently parsed/used
+            # "ttl_color", foreground="#fce94f"
+            # )
             self.class_color_tag = self.source_buffer.create_tag(
                 "class_color", foreground="#75507b"
             )
-        except GLib.Error as e: # Pango related errors can be GLib.Error
-            logging.error("Error creating Pango text tags: %s", e)
-        except Exception as e: # Fallback for other unexpected errors
-            logging.error("Unexpected error creating text tags (%s): %s", type(e).__name__, e)
+        except GLib.Error as e:  # Pango related errors can be GLib.Error
+            logger.error("Error creating Pango text tags: %s", e, exc_info=True)
+        except Exception:  # Fallback for other unexpected errors
+            logger.exception("Unexpected error creating text tags.")
 
     def _connect_signals(self) -> None:
         """Connect signals for UI elements."""
@@ -68,26 +78,23 @@ class DNSPage(Adw.PreferencesPage):
         self.dns_record_type_dropdown.connect(
             "notify::selected", self._on_record_type_changed
         )
-        # The error_banner signal is connected in the UI file:
-        # <signal name="button-clicked" handler="_on_error_banner_dismiss"/>
+        # The error_banner signal <signal name="button-clicked" handler="_on_error_banner_dismiss"/>
+        # is connected in the UI file, so no explicit @Gtk.Template.Callback() is needed here.
 
     def _on_source_style_scheme_setting_changed(self, _settings, key):
         """Handle changes to the source-style-scheme setting."""
-        logging.debug("DNSPage: '%s' setting changed, applying new source view style.", key)
+        logger.debug("DNSPage: '%s' setting changed, applying new source view style.", key)
         self._apply_source_view_style()
 
     def _apply_source_view_style(self):
         """Apply the style scheme to the GtkSourceView."""
-        # This method is similar to NmapPage._apply_source_view_style due to GSettings linkage.
-        # settings = Gio.Settings.new(APP_ID) # Settings is now an instance variable
         source_style_scheme = self.settings.get_string("source-style-scheme")
         apply_source_style_scheme(
-            GtkSource.StyleSchemeManager.get_default(),
+            GtkSource.StyleSchemeManager.get_default(),  # GtkSource.StyleSchemeManager() is a singleton.
             self.source_buffer,
             source_style_scheme,
         )
-        # Since the view is created by a utility, ensure it's not editable.
-        self.source_view.set_editable(False)
+        self.source_view.set_editable(False)  # Ensure view is not editable.
 
     def _is_ip_address(self, input_str: str) -> bool:
         """Check if the input string is a valid IP address."""
@@ -115,10 +122,34 @@ class DNSPage(Adw.PreferencesPage):
         """Handle the record type dropdown change event."""
         self._perform_lookup()
 
-    # Removed @Gtk.Template.Callback() as it's a direct signal handler in UI
     def _on_error_banner_dismiss(self, _banner: Adw.Banner, *_args):
         """Handle the error banner dismiss button click."""
         self._clear_error()
+
+    def _configure_resolver(self) -> dns.resolver.Resolver:
+        """Configures and returns a DNS resolver based on settings."""
+        resolver = dns.resolver.Resolver()
+        custom_dns_server = self.settings.get_string("custom-dns-server")
+        if custom_dns_server:
+            logger.debug("Using custom DNS server: %s", custom_dns_server)
+            resolver.nameservers = [custom_dns_server]
+        else:
+            logger.debug("Using system default DNS servers.")
+        return resolver
+
+    def _handle_ip_address_lookup(self, ip_address: str) -> str:
+        """
+        Handles logic specific to IP address (reverse) lookups.
+        Sets the dropdown to PTR and returns "PTR".
+        """
+        # If it's an IP, always use PTR. Find PTR in the model and set it.
+        model = self.dns_record_type_dropdown.get_model()
+        for i in range(model.get_n_items()):
+            if model.get_string(i) == "PTR":
+                self.dns_record_type_dropdown.set_selected(i)
+                logger.debug("Input is IP ('%s'), selected PTR record type in dropdown.", ip_address)
+                break
+        return "PTR"  # This is the record type to be used for lookup
 
     def _perform_lookup(self):
         """Perform the DNS lookup based on the user input and selected record type."""
@@ -133,36 +164,28 @@ class DNSPage(Adw.PreferencesPage):
             self._show_error("Invalid IP address or domain name.")
             return
 
-        record_type = self._get_selected_record_type()
+        # Get initially selected type, but it might be overridden for IP lookups
+        lookup_record_type = self._get_selected_record_type()
 
         try:
-            resolver = dns.resolver.Resolver()
-            # Fetch the custom DNS server each time before performing the lookup
-            custom_dns_server = self.settings.get_string("custom-dns-server")
-            if custom_dns_server:
-                resolver.nameservers = [custom_dns_server]  # Use custom DNS server
+            resolver = self._configure_resolver()
 
-            # Determine the correct record type for reverse lookups
             if self._is_ip_address(user_input):
-                # If it's an IP, always use PTR.
-                # Find PTR in the model and set it.
-                model = self.dns_record_type_dropdown.get_model()
-                for i in range(model.get_n_items()):
-                    if model.get_string(i) == "PTR":
-                        self.dns_record_type_dropdown.set_selected(i)
-                        break
-                record_type = "PTR"  # Ensure this is used for the lookup
-                result = self._lookup_record(user_input, "PTR", resolver)
-            else:
-                result = self._lookup_record(user_input, record_type, resolver)
+                lookup_record_type = self._handle_ip_address_lookup(user_input)
 
-            self._display_result(result, user_input, record_type, resolver.nameservers)
-        except dns.exception.DNSException as e: # Already specific
-            logging.error("DNS lookup failed: %s", e)
-            self._show_error("DNS Error: %s" % str(e))
-        except Exception as e: # General fallback
-            logging.error("Unexpected error during DNS lookup (%s): %s", type(e).__name__, e)
-            self._show_error("Error: %s" % str(e))
+            logger.info("Performing DNS lookup for %s, type %s", user_input, lookup_record_type)
+            result = self._lookup_record(user_input, lookup_record_type, resolver)
+            self._display_result(result, user_input, lookup_record_type, resolver.nameservers)
+
+        except dns.exception.DNSException as e:  # Specific DNS exceptions.
+            logger.error("DNS lookup failed for %s (%s): %s", user_input, lookup_record_type, e, exc_info=True)
+            self._show_error(f"DNS Error: {e}")  # User-friendly, e often has good info.
+        except ValueError as e:  # For invalid input not caught by initial validation.
+            logger.error("Invalid input for DNS lookup: %s", e, exc_info=True)
+            self._show_error(f"Invalid Input: {e}")
+        except Exception:  # General fallback for other unexpected errors.
+            logger.exception("Unexpected error during DNS lookup for %s (%s).", user_input, lookup_record_type)
+            self._show_error("An unexpected error occurred during lookup.")
 
     def _get_selected_record_type(self) -> str:
         """Get the currently selected DNS record type from the dropdown."""
@@ -208,20 +231,19 @@ class DNSPage(Adw.PreferencesPage):
                 self.header_tag = self.source_buffer.create_tag(
                     "header", weight=Pango.Weight.BOLD, size_points=12
                 )
-            except GLib.Error as e: # Pango related errors
-                logging.error("Error creating Pango header tag: %s", e)
-            except Exception as e: # Fallback
-                logging.error("Unexpected error creating header tag (%s): %s", type(e).__name__, e)
+            except GLib.Error as e:  # Pango related errors
+                logger.error("Error creating Pango header tag: %s", e, exc_info=True)
+            except Exception:  # Fallback
+                logger.exception("Unexpected error creating header tag.")
 
-        # DNS server info
-        dns_server_info = f"DNS server used: {', '.join(dns_servers)}\n"
+        dns_server_info = f"DNS server used: {', '.join(dns_servers) if dns_servers else 'System default'}\n"
 
-        header = (
+        header_text = (
             f"DNS Lookup Results - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
             f"{dns_server_info}\n"
         )
         self.source_buffer.insert_with_tags(
-            self.source_buffer.get_end_iter(), header, self.header_tag
+            self.source_buffer.get_end_iter(), header_text, self.header_tag
         )
 
         self.source_buffer.insert_with_tags(
@@ -240,12 +262,10 @@ class DNSPage(Adw.PreferencesPage):
         lines = result.splitlines()
 
         for line in lines:
-            match = re.match(r"^(.*?)\s+(IN)\s+([A-Z]+)\s+(.+)$", line)
+            # Improved regex to handle potential extra spaces and variations in DNS output
+            match = re.match(r"^\s*([\w.-]+)\s+\d*\s*(IN)\s+([A-Z]+)\s+(.*)$", line, re.IGNORECASE)
             if match:
-                domain = match.group(1)
-                record_class = match.group(2)
-                record_type = match.group(3)
-                value = match.group(4)
+                domain, record_class, record_type_str, value = match.groups()
 
                 self.source_buffer.insert_with_tags(
                     self.source_buffer.get_end_iter(),
@@ -254,20 +274,21 @@ class DNSPage(Adw.PreferencesPage):
                 )
                 self.source_buffer.insert_with_tags(
                     self.source_buffer.get_end_iter(),
-                    record_class + "\t",
+                    record_class.upper() + "\t",  # Ensure IN is uppercase.
                     self.class_color_tag,
                 )
                 self.source_buffer.insert_with_tags(
                     self.source_buffer.get_end_iter(),
-                    record_type + "\t",
+                    record_type_str.upper() + "\t",  # Ensure record type is uppercase.
                     self.record_type_color_tag,
                 )
                 self.source_buffer.insert_with_tags(
                     self.source_buffer.get_end_iter(),
-                    value + "\n",
+                    value.strip() + "\n",  # Strip trailing spaces from value.
                     self.value_color_tag,
                 )
             else:
+                # If line doesn't match expected format, insert it as is.
                 self.source_buffer.insert(
                     self.source_buffer.get_end_iter(), line + "\n"
                 )

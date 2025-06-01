@@ -1,127 +1,178 @@
-import gi
-gi.require_version('Gtk', '4.0')
-gi.require_version('Adw', '1')
-from gi.repository import Gtk, Adw, Gio, GLib
-
 import logging
 import subprocess
+from typing import Optional  # Dict removed
 
-from .constants import RESOURCE_PREFIX  # Import RESOURCE_PREFIX
+import gi
+# requests, re, urllib.parse removed
+
+# GTK version requirements must be called before importing from gi.repository
+gi.require_version('Adw', '1')
+gi.require_version('Gtk', '4.0')
+
+# Now import GTK libraries and other dependencies
+# pylint: disable=wrong-import-position
+from gi.repository import Adw, Gio, GObject, Gtk, GLib
+# pylint: disable=wrong-import-position
+from .constants import RESOURCE_PREFIX
+
+# Configure logger for the module - AFTER all imports
+logger = logging.getLogger(__name__)
+
+WEB_SCAN_ERROR_DOMAIN = "webscan-error-domain"
 
 
-@Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/webscan_page.ui")  # Use resource_path and constant
+class WebScanError:
+    NIKTO_NOT_FOUND = 0
+    TIMEOUT = 1
+    CALLED_PROCESS = 2  # If nikto returns non-zero
+    UNKNOWN = 3
+
+
+@Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/webscan_page.ui")
 class WebScanPage(Adw.PreferencesPage):
     __gtype_name__ = 'WebScanPage'
 
     url_entry = Gtk.Template.Child()
     scan_button = Gtk.Template.Child()
     results_textview = Gtk.Template.Child()
-    error_banner_webscan = Gtk.Template.Child()  # New banner
+    error_banner_webscan = Gtk.Template.Child()
 
-    # Removed useless __init__ (W0246)
-    # def __init__(self, **kwargs):
-    # super().__init__(**kwargs)
-
-    # Removed @Gtk.Template.Callback() as it's a direct signal handler in UI
     def on_scan_button_clicked(self, _widget):
         target_url = self.url_entry.get_text()
         if not target_url:
             self.show_error_toast("Target URL cannot be empty.")
             return
 
-        # Clear previous results
         buffer = self.results_textview.get_buffer()
-        buffer.set_text(f"Scanning {target_url}...\n\n") # C0209
+        buffer.set_text(f"Scanning {target_url}...\n\n")  # f-string for UI is fine
 
-        # Disable button during scan
         self.scan_button.set_sensitive(False)
 
-        # Run Nikto scan in a separate thread to avoid blocking UI
-        # Using Gio.Task for modern asynchronous programming
-        cancellable = Gio.Cancellable()  # Optional: can be used to cancel the task
-        task = Gio.Task.new(self, cancellable, self._on_scan_task_done)
-        task.set_task_data(target_url)  # Pass target_url to the task
+        cancellable = Gio.Cancellable.new()  # Allow cancellation
+        task = Gio.Task.new(self, cancellable, self._on_scan_task_done, None)
+        task.set_task_data(target_url)
         task.run_in_thread(self._run_scan_task_thread_func)
 
-    def _run_scan_task_thread_func(self, gio_task, _source_object, task_data, _cancellable):
+    def _run_scan_task_thread_func(
+        self,
+        gio_task: Gio.Task,
+        _source_object,
+        task_data: str,
+        cancellable: Gio.Cancellable
+    ):
         """Worker function for Gio.Task that runs in a separate thread."""
-        target_url = task_data  # Retrieve target_url
+        target_url = task_data
+        stdout_str = ""
+        stderr_str = ""
 
         try:
             if not target_url.startswith(('http://', 'https://')):
                 target_url = 'http://' + target_url
 
-            with subprocess.Popen(
-                ['nikto', '-h', target_url, '-Tuning', 'xCGIVulnerable'],
+            if cancellable.is_cancelled():
+                gio_task.return_error(
+                    GLib.Error("Scan cancelled before start.", WEB_SCAN_ERROR_DOMAIN, Gio.IOErrorEnum.CANCELLED)
+                )
+                return
+
+            # Nikto command arguments
+            command = [
+                'nikto', '-h', target_url, '-Format', 'txt', '-ask', 'no',
+                '-Tuning', 'xCGIVulnerable', '-Display', 'V', '-nointeractive',
+                '-timeout', '300'
+            ]
+            logger.info("Running Nikto command: %s", " ".join(command))
+
+            process = subprocess.Popen(
+                command,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True
-            ) as process: # R1732: Consider using 'with'
-                stdout, stderr = process.communicate(timeout=300)
-            gio_task.return_value((stdout, stderr, None))  # Success: (stdout, stderr, None for error_type)
+            )
+            stdout_str, stderr_str = process.communicate()  # No timeout here, rely on Nikto's timeout
+
+            if cancellable.is_cancelled():
+                if process.poll() is None:  # Check if process is still running
+                    logger.info("Scan cancelled, attempting to terminate Nikto process.")
+                    process.terminate()
+                    try:
+                        process.wait(timeout=10)  # Wait a bit for termination
+                    except subprocess.TimeoutExpired:
+                        logger.warning("Nikto process did not terminate gracefully, killing.")
+                        process.kill()
+                gio_task.return_error(
+                    GLib.Error("Scan cancelled by user.", WEB_SCAN_ERROR_DOMAIN, Gio.IOErrorEnum.CANCELLED)
+                )
+                return
+
+            if process.returncode:  # Use implicit booleaness for non-zero check
+                log_stderr = stderr_str[:200]  # Log truncated stderr for brevity
+                logger.error("Nikto for %s exited with code %d. stderr: %s", target_url, process.returncode, log_stderr)
+                error_message = f"Nikto scan failed (code {process.returncode})."
+                if "Can't find host" in stderr_str or "ERROR: Cannot resolve hostname" in stderr_str:
+                    error_message = "Cannot resolve hostname or invalid target."
+                elif "ERROR: No HTTP response" in stderr_str:
+                    error_message = "No HTTP response from target."
+                gio_task.return_error(GLib.Error(error_message, WEB_SCAN_ERROR_DOMAIN, WebScanError.CALLED_PROCESS))
+                return
+
+            gio_task.return_value(GLib.Variant('(ss)', (stdout_str, stderr_str)))
 
         except FileNotFoundError:
-            task.return_value((None, None, "FileNotFoundError"))
-        except subprocess.TimeoutExpired:
-            task.return_value((None, None, "TimeoutExpired"))
+            logger.error("Nikto command not found.", exc_info=True)
+            gio_task.return_error(
+                GLib.Error("Nikto not found. Ensure installed.", WEB_SCAN_ERROR_DOMAIN, WebScanError.NIKTO_NOT_FOUND)
+            )
+        except subprocess.TimeoutExpired:  # This would be for communicate() timeout itself
+            logger.error("Nikto process communicate() timed out for %s.", target_url, exc_info=True)
+            gio_task.return_error(GLib.Error("Scan process timed out.", WEB_SCAN_ERROR_DOMAIN, WebScanError.TIMEOUT))
         except Exception as e:
-            # For other exceptions, we might want to use task.return_error
-            # but for simplicity in matching existing error handling,
-            # we'll pass error string via return_value.
-            # A more robust way would be:
-            # error = GLib.Error(str(e), domain="WebScanPageErrorDomain", code=0)
-            # gio_task.return_error(error)
-            gio_task.return_value((None, str(e), "Exception"))
+            logger.exception("Unexpected error during Nikto scan for %s.", target_url)
+            err_name = type(e).__name__
+            gio_task.return_error(GLib.Error(f"Unexpected: {err_name}", WEB_SCAN_ERROR_DOMAIN, WebScanError.UNKNOWN))
 
-    def _on_scan_task_done(self, task, result, _user_data): # Renamed source_object to task for clarity
+    def _on_scan_task_done(self, _source_object, task: Gio.Task, _user_data):
         """Callback for when the Gio.Task is complete. Runs in the main thread."""
-        # task = source_object # No longer needed with new signature
-        target_url = task.get_task_data()  # Retrieve target_url if needed for messages
-
         try:
-            # This will re-raise an error if task.return_error() was called
-            # or return the value from task.return_value()
-            stdout, stderr_or_error_msg, error_type = task.run_in_thread_finish(result)
+            stdout, stderr = task.propagate_value().unpack()  # unpack the (ss) GLib.Variant
+            self._update_textview(stdout, stderr)
+            if not stdout and not stderr:  # If Nikto produced no output but no error code
+                self.show_error_toast(
+                    "Scan completed with no output. Target might not be a web server or scan options too restrictive."
+                )
+            elif stderr:  # If there's stderr, show it as a toast as well for visibility
+                self.show_error_toast("Scan completed with errors/warnings (see details).")
 
-            if error_type == "FileNotFoundError":
-                self.show_error_toast("Nikto command not found. Please ensure it is installed and in your PATH.")
-                self._update_textview("", "Error: Nikto not found.")
-            elif error_type == "TimeoutExpired":
-                self.show_error_toast(f"Scan for {target_url} timed out.")
-                self._update_textview("", f"Error: Scan for {target_url} timed out after 5 minutes.")
-            elif error_type == "Exception":
-                self.show_error_toast(f"An error occurred: {stderr_or_error_msg}")
-                self._update_textview("", f"An error occurred: {stderr_or_error_msg}")
-            else:  # Success
-                self._update_textview(stdout, stderr_or_error_msg)
-
-        except GLib.Error as e:  # Catches errors set by task.return_error()
-            logging.error("Error in scan task: %s", e.message)
-            self.show_error_toast(f"An error occurred: {e.message}")  # f-string for UI message is fine
-            self._update_textview("", f"An error occurred: {e.message}")  # f-string for UI message is fine
+        except GObject.GError as e:  # Catches errors set by gio_task.return_error()
+            # Shorten log message
+            logger.error("Web scan task error: %s (Code: %d)", e.message, e.code)
+            self.show_error_toast(e.message)  # Display the error message from GLib.Error
+            self._update_textview("", f"Error: {e.message}")
         finally:
             self.scan_button.set_sensitive(True)
 
-    def _update_textview(self, stdout, stderr):
+    def _update_textview(self, stdout: Optional[str], stderr: Optional[str]):
         buffer = self.results_textview.get_buffer()
+        full_text = ""
         if stdout:
-            buffer.insert(buffer.get_end_iter(), stdout)
+            full_text += stdout
         if stderr:
-            buffer.insert(buffer.get_end_iter(), "\n--- Errors ---\n" + stderr)
+            full_text += "\n--- Standard Error ---\n" + stderr
+
+        if not full_text:  # If both are empty or None
+            buffer.set_text("Scan completed. No specific output to display.")
+        else:
+            buffer.set_text(full_text)
 
         # Scroll to the end
         scroll_adj = self.results_textview.get_parent().get_vadjustment()
         if scroll_adj:
             scroll_adj.set_value(scroll_adj.get_upper() - scroll_adj.get_page_size())
 
-
-    def show_error_toast(self, message):
-        # A helper function to show toasts, assuming this page is within a context that can display them
-        # (e.g., Adw.ApplicationWindow or a view that has access to Adw.ToastOverlay)
-        logging.error("Displaying error: %s", message)
+    def show_error_toast(self, message: str):
+        logger.info("Displaying WebScan error/info: %s", message)  # Changed to info as it's also for warnings
         self.error_banner_webscan.set_title(message)
         self.error_banner_webscan.set_revealed(True)
 
-    # Removed @Gtk.Template.Callback() as it's a direct signal handler in UI
     def on_error_banner_dismiss_clicked(self, _widget, *_args):
         self.error_banner_webscan.set_revealed(False)
