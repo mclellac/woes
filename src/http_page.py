@@ -39,7 +39,6 @@ class HttpPage(Adw.PreferencesPage):
     http_column_view = Gtk.Template.Child("http_column_view")
     error_banner = Gtk.Template.Child("error_banner")
     http_results_group = Gtk.Template.Child("http_results_group")
-    http_spinner = Gtk.Template.Child("http_spinner")  # Assume spinner is added to UI
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -48,20 +47,30 @@ class HttpPage(Adw.PreferencesPage):
         self._http_task_data_for_thread = {}  # Initialize the task data dict
 
         # Initialize ColumnView model and columns here
-        self.header_list_store = Gio.ListStore.new(HeaderItem)
-        selection_model = Gtk.MultiSelection.new(self.header_list_store)
-        self.http_column_view.set_model(selection_model)
+        if self.http_column_view is None:
+            logger.critical("HttpPage: Gtk.Template.Child 'http_column_view' not found. UI will be broken.")
+        else:
+            self.header_list_store = Gio.ListStore.new(HeaderItem)
+            selection_model = Gtk.MultiSelection.new(self.header_list_store)
+            self.http_column_view.set_model(selection_model)
 
-        if not self.http_column_view.get_columns():  # Ensure columns are added only once
-            header_name_factory = self._create_factory("key")
-            header_value_factory = self._create_factory("value", wrap_text=True)
-
-            col_name = Gtk.ColumnViewColumn.new("Header", header_name_factory)
-            col_value = Gtk.ColumnViewColumn.new("Value", header_value_factory)
-            col_value.set_expand(True)
-
-            self.http_column_view.append_column(col_name)
-            self.http_column_view.append_column(col_value)
+            if not self.http_column_view.get_columns():  # Ensure columns are added only once
+                header_name_factory = self._create_factory("key")
+                header_value_factory = self._create_factory("value", wrap_text=True)
+                # Define col_name and col_value here before use
+                col_name = Gtk.ColumnViewColumn.new("Header", header_name_factory)
+                col_value = Gtk.ColumnViewColumn.new("Value", header_value_factory)
+                col_value.set_expand(True)
+                self.http_column_view.append_column(col_name)
+                self.http_column_view.append_column(col_value)
+            # The lines below were outside the 'if not self.http_column_view.get_columns()'
+            # and also outside the 'else' for 'if self.http_column_view is None'.
+            # They should be inside the 'else' and potentially inside the 'if not get_columns'
+            # if col_name/col_value are only defined there.
+            # For safety, they are moved inside the 'if not get_columns block' as they define columns.
+            # If columns could be appended multiple times or if col_name/value were defined elsewhere,
+            # this could be different. But given the "Ensure columns are added only once" comment,
+            # this seems like the correct scope.
 
         self._connect_signals()
         self._clear_error()
@@ -92,8 +101,7 @@ class HttpPage(Adw.PreferencesPage):
         self._clear_error()
         self.http_entry_row.set_sensitive(False)
         self.http_pragma_switch_row.set_sensitive(False)
-        if self.http_spinner:
-            self.http_spinner.start()
+        # self.http_spinner removed
         self._show_results()  # Show group, but it will be empty or show old results briefly
 
         # Cancel any existing task first
@@ -227,8 +235,7 @@ class HttpPage(Adw.PreferencesPage):
         finally:
             self.http_entry_row.set_sensitive(True)
             self.http_pragma_switch_row.set_sensitive(True)
-            if self.http_spinner:
-                self.http_spinner.stop()
+            # self.http_spinner removed
 
             # Clear the current task reference as it's now completed or failed.
             self.current_http_task = None

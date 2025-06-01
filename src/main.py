@@ -1,18 +1,26 @@
 import sys
 import os
 import logging
+
 import gi
-from gi.repository import Adw, Gio, GLib
-from .constants import APP_ID, VERSION, RESOURCE_PREFIX, PKGDATADIR
 
-# Basic logging configuration, will be updated in WoesApplication based on debug flag
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(name)s:%(message)s')
-logger = logging.getLogger(__name__)  # Use a module-level logger
-
-logger.info("Script execution started.")
-
+# GTK version requirements must be called before importing from gi.repository
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
+
+# Now import GTK libraries and other dependencies
+# pylint: disable=wrong-import-position
+from gi.repository import Adw, Gio, GLib
+# pylint: disable=wrong-import-position
+from .constants import APP_ID, VERSION, RESOURCE_PREFIX, PKGDATADIR
+
+# Basic logging configuration. This can be early.
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(name)s:%(message)s')
+# Configure module-level logger - AFTER all imports normally, but basicConfig is okay earlier.
+# For consistency with other files, define logger after imports.
+logger = logging.getLogger(__name__)
+
+logger.info("Script execution started.")
 
 
 def _load_gresources_early():
@@ -37,9 +45,9 @@ def _load_gresources_early():
             logger.error("Gio.Resource.load() returned None for %s.", resource_file_path)
     except GLib.Error as e:
         logger.error("Failed to load GResource %s: %s. Bundle invalid?", resource_file_path, e, exc_info=True)
-    except FileNotFoundError:  # Should be caught by os.path.exists, but good practice
+    except FileNotFoundError:
         logger.exception("GResource file not found (FileNotFoundError): %s", resource_file_path)
-    except Exception:  # Catching general Exception for unexpected issues
+    except Exception:
         logger.exception("Unexpected error loading GResource %s.", resource_file_path)
 
 
@@ -47,8 +55,9 @@ _load_gresources_early()
 
 
 # pylint: disable=wrong-import-position
-from .preferences import Preferences  # Now import other local modules
-from .window import WoesWindow  # pylint: disable=wrong-import-position
+from .preferences import Preferences
+# pylint: disable=wrong-import-position
+from .window import WoesWindow
 
 
 class WoesApplication(Adw.Application):
@@ -61,6 +70,7 @@ class WoesApplication(Adw.Application):
 
         # Logging level will be updated in do_handle_local_options if --debug is passed.
         # The initial basicConfig at the top of the file sets a default.
+        # If basicConfig was not called earlier, it would be called here or by the first log.
 
         super().__init__(
             application_id=APP_ID,
@@ -91,38 +101,36 @@ class WoesApplication(Adw.Application):
         logger.debug("Handling local options: %s", options)
         if options.contains('debug'):
             self.debug_enabled = True
-            logging.getLogger().setLevel(logging.DEBUG)  # Set root logger level
-            for handler in logging.getLogger().handlers:  # Update all handlers
-                handler.setLevel(logging.DEBUG)
-            logger.debug("Debug mode enabled via command line.")
-        # Normal activation proceeds
+            # Reconfigure root logger for DEBUG level
+            # Force ensures this overrides previous basicConfig handlers/levels if needed.
+            logging.basicConfig(
+                level=logging.DEBUG,
+                format='%(asctime)s %(levelname)s:%(name)s:%(message)s',
+                force=True
+            )
+            logger.debug("Debug mode enabled via command line. Logging reconfigured.")
         return -1
 
     def do_command_line(self, command_line):
         """Overrides the do_command_line virtual method."""
         options = command_line.get_options_dict()
         logger.debug("Application started with command line options: %s", options)
-        # do_handle_local_options is automatically called by GLib before do_activate
-        # if command line options are present.
-        # We don't need to call it explicitly if we're just activating.
-        # However, if we wanted to process options *before* the default handler, this is where.
-        # For now, standard activation flow is fine.
+        # GApplication automatically calls handle_local_options before activate
         self.activate()
         return 0
 
     def do_activate(self):
         """Called when the application is activated."""
         logger.info("Activating WoesApplication.")
-        # Ensure active_window is used if available, otherwise create new
         win = self.props.active_window
         if not win:
             logger.debug("No active window, creating WoesWindow.")
             try:
                 win = WoesWindow(application=self)
                 logger.debug("WoesWindow created successfully.")
-            except Exception:  # More specific exceptions could be RuntimeError, TypeError etc.
+            except Exception:
                 logger.exception("Failed to create WoesWindow.")
-                sys.exit(1)  # Critical failure
+                sys.exit(1)
 
         if not win:
             logger.error("Window object is None after creation attempt, cannot proceed.")
@@ -133,7 +141,7 @@ class WoesApplication(Adw.Application):
         try:
             self.win.present()
             logger.debug("WoesWindow presented.")
-        except GLib.Error:  # Gtk.Window.present() can raise GLib.Error
+        except GLib.Error:
             logger.exception("Error presenting WoesWindow.")
         except Exception:
             logger.exception("Unexpected error during WoesWindow.present().")
@@ -196,10 +204,6 @@ class WoesApplication(Adw.Application):
 
 def main(version=VERSION):
     """The application's entry point."""
-    # Logging is configured at the top of the script.
-    # _load_gresources_early() is called after initial imports.
-    # GLib.Application handles command-line options like --debug.
-
     logger.info("Starting Woes application main function.")
     app = WoesApplication(version=version)
     logger.info("WoesApplication instance created.")
@@ -211,7 +215,4 @@ def main(version=VERSION):
 
 
 if __name__ == '__main__':
-    # The initial logging configuration is done when the script is first imported/run.
-    # No specific logging needed here unless it's for this exact block,
-    # but logger.info at the start of main() should cover it.
     sys.exit(main())

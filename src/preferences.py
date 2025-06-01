@@ -2,12 +2,18 @@ import logging
 import re
 import gi
 
+# GTK version requirements must be called before importing from gi.repository
 gi.require_version('Adw', '1')
 gi.require_version('Gtk', '4.0')
-from gi.repository import Adw, Gio, Gtk, GLib
 
+# Now import GTK libraries and other dependencies
+# pylint: disable=wrong-import-position
+from gi.repository import Adw, Gio, Gtk, GLib
+# pylint: disable=wrong-import-position
 from .constants import APP_ID, RESOURCE_PREFIX
-# from .style_utils import apply_font_size, apply_theme # Removed unused imports
+
+# Configure logger for the module - AFTER all imports
+logger = logging.getLogger(__name__)
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/preferences.ui")
@@ -15,7 +21,7 @@ class Preferences(Adw.PreferencesWindow):
     __gtype_name__ = "Preferences"
 
     font_size_scale = Gtk.Template.Child("font_size_scale")
-    theme_switch_row = Gtk.Template.Child("theme_switch_row")  # Changed from theme_switch
+    theme_switch_row = Gtk.Template.Child("theme_switch_row")
     source_style_scheme_combo_row = Gtk.Template.Child("source_style_scheme_combo_row")
     dns_server_entryrow = Gtk.Template.Child("dns_server_entryrow")
     preferences_error_banner = Gtk.Template.Child("preferences_error_banner")
@@ -38,8 +44,7 @@ class Preferences(Adw.PreferencesWindow):
         self.dns_server_entryrow.connect("apply", self.on_dns_server_changed)
         # Banner dismiss signal is connected in UI template if handler _on_error_banner_dismiss_clicked is defined
 
-    # Removed @Gtk.Template.Callback() as it's a direct signal handler in UI
-    def on_error_banner_dismiss_clicked(self, _banner, *_args):  # Renamed to match typical handler name
+    def on_error_banner_dismiss_clicked(self, _banner, *_args):
         self.hide_banner_and_clear_error_state()
 
     def on_dns_server_changed(self, entryrow: Adw.EntryRow):
@@ -51,19 +56,19 @@ class Preferences(Adw.PreferencesWindow):
 
         if ip_pattern.match(dns_server) and self.is_valid_ipv4(dns_server):
             self.settings.set_string("custom-dns-server", dns_server)
-            logging.info("Custom DNS server set to: %s", dns_server)
+            logger.info("Custom DNS server set to: %s", dns_server)
             self.preferences_error_banner.set_revealed(False)
             entryrow.remove_css_class("error")
         else:
             entryrow.add_css_class("error")
             error_message = "Invalid IPv4 address for DNS server."
-            logging.error(error_message)  # Pylint might prefer logging.error("%s", error_message)
+            logger.error(error_message)
 
             self.preferences_error_banner.set_title(error_message)
             self.preferences_error_banner.set_revealed(True)
 
             # Clear the entry row text
-            entryrow.set_text("")  # Keep this to clear invalid input
+            entryrow.set_text("")
 
             # Hide the banner after 4 seconds
             GLib.timeout_add_seconds(4, self.hide_banner_and_clear_error_state, entryrow)
@@ -93,55 +98,31 @@ class Preferences(Adw.PreferencesWindow):
         return True
 
     def on_font_size_changed(self, scale):
-        font_size = int(scale.get_value())  # Ensure it's an int
-        # apply_font_size(self.settings, font_size)  # Handled by main_window listener
+        font_size = int(scale.get_value())
         self.settings.set_int("font-size", font_size)
 
     def on_theme_switch_changed(self, switch_row: Adw.SwitchRow, _gparam):
         theme_enabled = switch_row.get_active()
-        # apply_theme(Adw.StyleManager.get_default(), theme_enabled)  # Handled by main_window listener
         self.settings.set_boolean("dark-theme", theme_enabled)
-
-        # The main_window.reload_css() and direct application of theme/font should ideally be
-        # managed by listening to Gio.Settings changes in the main window/app or by a dedicated
-        # settings service. For now, direct calls might remain if they work.
-        # However, the subtask asks to remove apply_theme from load_preferences.
-        # If main_window.reload_css() is the primary way theme changes are applied visually
-        # (beyond Adw.StyleManager internal changes), it should be triggered by settings change,
-        # not directly from here if possible.
-        # For now, let's assume settings changes on GSettings will be picked up elsewhere
-        # or this direct call is okay.
-        # REMOVE: if self.main_window and hasattr(self.main_window, "reload_css"):
-        # REMOVE:     self.main_window.reload_css()
-        logging.debug("Dark theme preference set to %s. WoesWindow will handle the change.", theme_enabled)
+        logger.debug("Dark theme preference set to %s. WoesWindow will handle the change.", theme_enabled)
 
     def on_source_style_scheme_changed(self, combo_row: Adw.ComboRow, _gparam):
         selected_item = combo_row.get_selected_item()
         if isinstance(selected_item, Gtk.StringObject):
             source_style_scheme = selected_item.get_string()
             self.settings.set_string("source-style-scheme", source_style_scheme)
-            # The application of this to open pages should ideally be handled
-            # by pages listening to this GSettings key, or by a refresh mechanism.
-            # The direct call to nmap_page is a temporary workaround.
-            # Similar direct calls would be needed for dns_page and any other source views.
-            # For now, we keep the nmap_page call as per instructions ("leave this direct coupling").
-            # The code block for direct updates has been removed as per subtask instructions for DNSPage.
-            # This will be further modified when NmapPage and WebScanPage are updated.
-
 
     def load_preferences(self):
-        # Font size - GtkScale value is set, GSettings change triggers application via main_window listener
+        # Font size
         font_size = self.settings.get_int("font-size")
-        self.font_size_scale.set_value(float(font_size))  # Scale takes float
+        self.font_size_scale.set_value(float(font_size))
 
-        # Dark Theme - AdwSwitchRow active state is set, GSettings change triggers application
+        # Dark Theme
         dark_theme_enabled = self.settings.get_boolean("dark-theme")
         self.theme_switch_row.set_active(dark_theme_enabled)
-        # apply_theme call removed as per subtask, assuming main window/app handles GSettings changes.
 
-        # Source Style Scheme - AdwComboRow selected item is set
+        # Source Style Scheme
         source_style_scheme = self.settings.get_string("source-style-scheme")
-        # Normalization logic seems fine, ensure it matches what's in ComboBox model
         model = self.source_style_scheme_combo_row.get_model()
         found_scheme = False
         if isinstance(model, Gtk.StringList):
@@ -152,7 +133,7 @@ class Preferences(Adw.PreferencesWindow):
                     found_scheme = True
                     break
         if not found_scheme:
-            logging.warning(
+            logger.warning(
                 "Style scheme '%s' not found or model is not Gtk.StringList.", source_style_scheme
             )
 

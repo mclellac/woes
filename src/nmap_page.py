@@ -69,7 +69,10 @@ class NmapPage(Adw.PreferencesPage):
         self.scanner = NmapScanner()
 
         self.source_view, self.source_buffer = create_source_view(language_name='yaml')
-        self.nmap_results_scrolled_window.set_child(self.source_view)
+        if self.nmap_results_scrolled_window is None:
+            logger.critical("NmapPage: Gtk.Template.Child 'nmap_results_scrolled_window' not found. UI will be broken.")
+        else:
+            self.nmap_results_scrolled_window.set_child(self.source_view)
 
         self.settings = Gio.Settings.new(APP_ID)
         self._apply_source_view_style()  # Initial style application
