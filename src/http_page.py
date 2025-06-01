@@ -141,27 +141,37 @@ class HttpPage(Adw.PreferencesPage):
             # For simplicity, using a generic error domain and code
             # A more robust solution might define a custom error domain
             error_message = self._format_http_error(e)
-            task.return_new_error(Gio.io_error_quark(), Gio.IOErrorEnum.FAILED, "%s", error_message)
+            safe_error_message = str(error_message)
+            g_error = GLib.Error(message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED)
+            task.return_error(g_error)
             return
         except requests.exceptions.ConnectionError as e:
             logger.warning("Task thread: ConnectionError for %s: %s", url, e, exc_info=True)
             error_message = "Connection Error: Failed to establish a connection."
-            task.return_new_error(Gio.io_error_quark(), Gio.IOErrorEnum.FAILED, "%s", error_message)
+            safe_error_message = str(error_message)
+            g_error = GLib.Error(message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED)
+            task.return_error(g_error)
             return
         except requests.exceptions.Timeout as e:
             logger.warning("Task thread: Timeout for %s: %s", url, e, exc_info=True)
             error_message = "Timeout Error: The request timed out."
-            task.return_new_error(Gio.io_error_quark(), Gio.IOErrorEnum.FAILED, "%s", error_message)
+            safe_error_message = str(error_message)
+            g_error = GLib.Error(message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED)
+            task.return_error(g_error)
             return
         except requests.exceptions.RequestException as e:
             logger.error("Task thread: RequestException for %s: %s", url, e, exc_info=True)
             error_message = f"Request Error: {str(e)}"
-            task.return_new_error(Gio.io_error_quark(), Gio.IOErrorEnum.FAILED, "%s", error_message)
+            safe_error_message = str(error_message)
+            g_error = GLib.Error(message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED)
+            task.return_error(g_error)
             return
         except Exception as e: # Catch any other unexpected errors
             logger.error("Task thread: Unexpected error for %s: %s", url, e, exc_info=True)
             error_message = f"An unexpected error occurred: {str(e)}"
-            task.return_new_error(Gio.io_error_quark(), Gio.IOErrorEnum.FAILED, "%s", error_message)
+            safe_error_message = str(error_message)
+            g_error = GLib.Error(message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED)
+            task.return_error(g_error)
             return
 
 
@@ -173,7 +183,7 @@ class HttpPage(Adw.PreferencesPage):
             if local_task_ref:
                 # This call will raise a GLib.Error (caught as GObject.GError)
                 # if task.return_error() was called in the thread.
-                returned_value = local_task_ref.propagate_value(result)
+                returned_value = local_task_ref.propagate_value()
                 if returned_value: # Check if propagate_value didn't return None
                     headers = returned_value.get_boxed() # Assuming the returned value is a Python dict
                     logger.info("Successfully fetched headers (async)")
