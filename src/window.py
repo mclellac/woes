@@ -6,10 +6,10 @@ gi.require_version('Gtk', '4.0')
 from gi.repository import Adw, Gdk, Gio, Gtk, GLib # Added GLib for load_css exception
 
 # Import pages for Gtk.Template type registration, aliasing to avoid direct use conflicts
-from . import DNSPage as _DNSPage_
-from . import HttpPage as _HttpPage_
-from . import NmapPage as _NmapPage_
-from . import WebScanPage as _WebScanPage_
+from .dns_page import DNSPage as _DNSPage_
+from .http_page import HttpPage as _HttpPage_
+from .nmap_page import NmapPage as _NmapPage_
+from .webscan_page import WebScanPage as _WebScanPage_
 from .constants import APP_ID, RESOURCE_PREFIX
 from .style_utils import apply_font_size, apply_theme
 

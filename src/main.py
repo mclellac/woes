@@ -3,6 +3,14 @@ import os # Added for path manipulation
 import logging
 
 # Ultra-early logging setup
+# Super early file log test
+super_early_log_path = "/tmp/super_early_debug.log"
+try:
+    with open(super_early_log_path, "w") as f_super_early:
+        f_super_early.write("src/main.py script execution started (top level).\n")
+except Exception as e_super_early:
+    print(f"CRITICAL: Failed to write to {super_early_log_path}: {e_super_early}", file=sys.stderr)
+
 print("src/main.py: Script execution started (print)")
 # Attempt to get a logger and ensure it can output,
 # without interfering too much with subsequent app-level basicConfig.
@@ -24,10 +32,65 @@ gi.require_version("Adw", "1")
 
 # Import GUI related modules here
 from gi.repository import Adw, Gio, GLib  # Added GLib for OptionArg/OptionFlags
-
 from .constants import APP_ID, VERSION, RESOURCE_PREFIX, PKGDATADIR # Import PKGDATADIR
-from .preferences import Preferences  # Ensure Preferences is imported
-from .window import WoesWindow  # Changed from MinimalWoesWindow
+
+def _load_gresources_early():
+    """Loads GResources and logs detailed information."""
+    # Construct the full path to woes.gresource using PKGDATADIR
+    resource_file_path = os.path.join(PKGDATADIR, "woes.gresource")
+
+    # Create a temporary log file for GResource loading details
+    temp_log_file_path_detail = "/tmp/gresource_debug_detail.log"
+    with open(temp_log_file_path_detail, "w") as temp_log_detail:
+        temp_log_detail.write(f"Attempting _load_gresources_early()\n")
+        temp_log_detail.write(f"PKGDATADIR: {PKGDATADIR}\n")
+        temp_log_detail.write(f"RESOURCE_PREFIX: {RESOURCE_PREFIX}\n")
+        temp_log_detail.write(f"Resource file path: {resource_file_path}\n")
+        temp_log_detail.write(f"Resource file exists: {os.path.exists(resource_file_path)}\n")
+
+        logging.info(f"Attempting to load GResource file from: {resource_file_path} (derived from PKGDATADIR: {PKGDATADIR})")
+        try:
+            if os.path.exists(resource_file_path):
+                resource = Gio.Resource.load(resource_file_path)
+                logging.info(f"Type of 'resource' after load: {type(resource)}")
+                temp_log_detail.write(f"Type of 'resource' after load: {type(resource)}\n")
+                logging.info(f"Type of 'Gio.Resource': {type(Gio.Resource)}")
+                temp_log_detail.write(f"Type of 'Gio.Resource': {type(Gio.Resource)}\n")
+                logging.info(f"Attributes of 'Gio.Resource': {dir(Gio.Resource)}")
+                temp_log_detail.write(f"Attributes of 'Gio.Resource': {dir(Gio.Resource)}\n")
+
+                if resource:
+                    logging.info(f"Attempting to register resource: {resource}")
+                    temp_log_detail.write(f"Attempting to register resource: {resource}\n")
+                    Gio.Resource._register(resource)
+                    logging.info(f"Successfully loaded and registered GResource: {resource_file_path}")
+                    temp_log_detail.write(f"Successfully loaded and registered GResource: {resource_file_path}\n")
+
+                    available_resources = resource.enumerate_children(RESOURCE_PREFIX, Gio.ResourceLookupFlags.NONE)
+                    logging.debug(f"Available resources under {RESOURCE_PREFIX}: {available_resources}")
+                    temp_log_detail.write(f"Available resources under {RESOURCE_PREFIX}: {available_resources}\n")
+                    if not available_resources:
+                        logging.warning(f"No resources found under prefix {RESOURCE_PREFIX} after loading {resource_file_path}.")
+                        temp_log_detail.write(f"No resources found under prefix {RESOURCE_PREFIX} after loading {resource_file_path}.\n")
+                else:
+                    logging.error(f"Gio.Resource.load() returned None for {resource_file_path}.")
+                    temp_log_detail.write(f"Gio.Resource.load() returned None for {resource_file_path}.\n")
+            else:
+                logging.error(f"GResource file not found at {resource_file_path} (derived from PKGDATADIR: {PKGDATADIR}).")
+                temp_log_detail.write(f"GResource file not found at {resource_file_path}.\n")
+        except GLib.Error as e:
+            logging.error(f"Error loading or registering GResource {resource_file_path}: {e}. Check if the file is a valid GResource bundle.", exc_info=True)
+            temp_log_detail.write(f"GLib.Error during GResource loading: {e}\n")
+        except Exception as e:
+            logging.error(f"An unexpected error occurred during GResource loading: {e}", exc_info=True)
+            temp_log_detail.write(f"Unexpected error during GResource loading: {e}\n")
+
+# Call GResource loading very early
+_load_gresources_early()
+
+# Now import other local modules that might use Gtk.Template
+from .preferences import Preferences
+from .window import WoesWindow
 
 
 class WoesApplication(Adw.Application):
@@ -183,40 +246,20 @@ class WoesApplication(Adw.Application):
 
 def main(version=VERSION):
     """The application's entry point."""
+    # Simplified temp log write, as one of the very first actions in main()
+    temp_log_file_path = "/tmp/gresource_debug_entry.log" # This specific log is less critical now
+    try:
+        with open(temp_log_file_path, "w") as temp_log:
+            temp_log.write("main() function in src/main.py has been entered.\n")
+    except Exception as e:
+        print(f"CRITICAL: Failed to write to {temp_log_file_path}: {e}", file=sys.stderr)
+
     print("src/main.py: main() function entered (print)")
     logging.info("src/main.py: main() function entered (logging)")
 
+    # GResource loading is now done by _load_gresources_early() before this point.
     # argparse is no longer used here for --debug
     # GLib.Application handles it.
-
-    # Initial log message, will be INFO unless --debug promotes it later
-    # Or, it might be DEBUG if basicConfig in __init__ ran and then was overridden by do_handle_local_options
-    # To be safe, application startup messages should follow do_handle_local_options if they depend on its logging level
-    # However, WoesApplication __init__ runs before do_handle_local_options.
-
-    # Load GResources
-    # Construct the full path to woes.gresource using PKGDATADIR
-    resource_file_path = os.path.join(PKGDATADIR, "woes.gresource")
-    logging.info(f"Attempting to load GResource file from: {resource_file_path} (derived from PKGDATADIR: {PKGDATADIR})")
-    try:
-        if os.path.exists(resource_file_path):
-            resource = Gio.Resource.load(resource_file_path)
-            Gio.Resource.register(resource)
-            logging.info(f"Successfully loaded and registered GResource: {resource_file_path}")
-            # Log available resources under the application's prefix for verification
-            # This uses RESOURCE_PREFIX from constants.py
-            available_resources = resource.enumerate_children(RESOURCE_PREFIX, Gio.ResourceLookupFlags.NONE)
-            if not available_resources: # Check if list is empty
-                logging.warning(f"No resources found under prefix {RESOURCE_PREFIX} after loading {resource_file_path}. This might be expected if all resources are at the root or a different prefix, or if PKGDATADIR is incorrect.")
-            else:
-                logging.debug(f"Available resources under {RESOURCE_PREFIX}: {available_resources}")
-        else:
-            logging.error(f"GResource file not found at {resource_file_path} (derived from PKGDATADIR: {PKGDATADIR}). UI elements may be missing. Check PKGDATADIR and ensure woes.gresource is in that directory.")
-    except GLib.Error as e:
-        logging.error(f"Error loading or registering GResource {resource_file_path}: {e}. Check if the file is a valid GResource bundle.")
-    except Exception as e: # Catch any other unexpected errors
-        logging.error(f"An unexpected error occurred during GResource loading: {e}")
-
 
     print("src/main.py: main() - Creating WoesApplication instance (print)")
     logging.info("src/main.py: main() - Creating WoesApplication instance (logging)")
@@ -231,3 +274,16 @@ def main(version=VERSION):
     print(f"src/main.py: main() - app.run() finished with status {exit_status} (print)")
     logging.info("src/main.py: main() - app.run() finished with status %s (logging)", exit_status)
     return exit_status
+
+if __name__ == '__main__':
+    # This ensures main() is called when running the script directly
+    # e.g., python -m src.main
+    # Another temp log before calling main()
+    name_main_log_path = "/tmp/name_main_block.log"
+    try:
+        with open(name_main_log_path, "w") as f_name_main:
+            f_name_main.write("__name__ == '__main__' block entered.\n")
+    except Exception as e_name_main:
+        print(f"CRITICAL: Failed to write to {name_main_log_path}: {e_name_main}", file=sys.stderr)
+
+    sys.exit(main())
