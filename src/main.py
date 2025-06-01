@@ -1,5 +1,20 @@
 import sys
 import logging
+
+# Ultra-early logging setup
+print("src/main.py: Script execution started (print)")
+# Attempt to get a logger and ensure it can output,
+# without interfering too much with subsequent app-level basicConfig.
+early_logger = logging.getLogger("EARLY_STARTUP")
+early_logger.setLevel(logging.DEBUG)
+# Add a handler if no handlers are configured for the root logger yet
+if not logging.getLogger().hasHandlers():
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(logging.Formatter('%(levelname)s:%(name)s:%(message)s'))
+    logging.getLogger().addHandler(console_handler) # Add to root to catch all
+    # Or add specifically to early_logger if preferred: early_logger.addHandler(console_handler)
+early_logger.info("src/main.py: Script execution started (early_logger)")
+
 import gi
 
 gi.require_version("Gtk", "4.0")
@@ -18,6 +33,9 @@ class WoesApplication(Adw.Application):
     """The main application singleton class."""
 
     def __init__(self, version=VERSION, **kwargs):
+        print("src/main.py: WoesApplication.__init__ entered (print)")
+        # Use the already configured logger or default from basicConfig if this is hit first
+        logging.info("src/main.py: WoesApplication.__init__ entered (logging)")
         self.version = version  # Simple assignment first
         self.debug_enabled = False  # Initialize debug status early
 
@@ -153,6 +171,9 @@ class WoesApplication(Adw.Application):
 
 def main(version=VERSION):
     """The application's entry point."""
+    print("src/main.py: main() function entered (print)")
+    logging.info("src/main.py: main() function entered (logging)")
+
     # argparse is no longer used here for --debug
     # GLib.Application handles it.
 
@@ -161,7 +182,16 @@ def main(version=VERSION):
     # To be safe, application startup messages should follow do_handle_local_options if they depend on its logging level
     # However, WoesApplication __init__ runs before do_handle_local_options.
 
+    print("src/main.py: main() - Creating WoesApplication instance (print)")
+    logging.info("src/main.py: main() - Creating WoesApplication instance (logging)")
     app = WoesApplication(version=version)
+    print("src/main.py: main() - WoesApplication instance created (print)")
+    logging.info("src/main.py: main() - WoesApplication instance created (logging)")
+
     # sys.argv is passed to app.run(), which handles parsing based on add_main_option
+    print("src/main.py: main() - Calling app.run() (print)")
+    logging.info("src/main.py: main() - Calling app.run() (logging)")
     exit_status = app.run(sys.argv)
+    print(f"src/main.py: main() - app.run() finished with status {exit_status} (print)")
+    logging.info("src/main.py: main() - app.run() finished with status %s (logging)", exit_status)
     return exit_status
