@@ -150,6 +150,9 @@
                       <object class="GtkBox" id="webscan_box">
                         <property name="orientation">vertical</property>
                         <property name="valign">center</property>
+                        <child>
+                          <object class="WebScanPage"/>
+                        </child>
                       </object>
                     </property>
                     <property name="description">TODO</property>
