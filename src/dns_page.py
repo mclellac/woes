@@ -29,7 +29,7 @@ class DNSPage(Adw.PreferencesPage):
         super().__init__(**kwargs)
         self.header_tag = None # Initialize W0201
         self._connect_signals()
-        self.source_view, self.source_buffer = create_source_view(language_name='text')
+        self.source_view, self.source_buffer = create_source_view(language_name=None)
         self.dns_results_scrolled_window.set_child(self.source_view)
         self.settings = Gio.Settings.new(APP_ID)  # Ensure settings is initialized before use
         self._apply_source_view_style()  # Initial style application

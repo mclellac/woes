@@ -100,8 +100,8 @@ class NmapPage(Adw.PreferencesPage):
             self.nmap_target_listbox_store, self._create_target_listbox_row
         )
         # Initial visibility states
-        self.targets_group.set_revealed(False)
-        self.results_group.set_revealed(False)
+        # self.targets_group.set_revealed(False) # Handled by UI file
+        # self.results_group.set_revealed(False) # Handled by UI file
         self.error_banner.set_revealed(False)
         self.scan_spinner.set_spinning(False)
         self.scan_spinner.set_visible(False)
