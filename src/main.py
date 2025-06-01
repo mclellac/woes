@@ -112,12 +112,8 @@ class WoesApplication(Adw.Application):
         return -1
 
     def do_command_line(self, command_line):
-        """Overrides the do_command_line virtual method."""
-        options = command_line.get_options_dict()
-        logger.debug("Application started with command line options: %s", options)
-        # GApplication automatically calls handle_local_options before activate
-        self.activate()
-        return 0
+        logger.debug("WoesApplication.do_command_line: options = %s", command_line.get_options_dict().print(True))
+        return super().do_command_line(command_line)
 
     def do_activate(self):
         """Called when the application is activated."""
