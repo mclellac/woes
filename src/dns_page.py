@@ -8,7 +8,7 @@ import gi
 
 gi.require_version('Adw', '1')
 gi.require_version('Gtk', '4.0')
-gi.require_version('GtkSource', '5')
+gi.require_version('GtkSource', '5') # Changed back to version 5
 from gi.repository import Adw, Gio, Gtk, GtkSource, Pango
 
 from .constants import APP_ID, RESOURCE_PREFIX # Sorted

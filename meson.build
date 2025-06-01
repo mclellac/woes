@@ -10,15 +10,15 @@ gnome = import('gnome')
 python = import('python')
 
 # Find Python installation
-python_bin = python.find_installation('python3')
+python_bin = python.find_installation('python3.12') # Changed to python3.12
 
 if not python_bin.found()
-    error('No valid Python installation found!')
+    error('No valid Python 3.12 installation found!') # Updated error message
 endif
 
-# Ensure Python 3.10 or newer is used
-if not python_bin.language_version().version_compare('>= 3.10')
-    error('Python 3.10 or newer is required.')
+# Ensure Python 3.12 or newer is used
+if not python_bin.language_version().version_compare('>= 3.12') # Changed to 3.12
+    error('Python 3.12 or newer is required.') # Updated error message
 endif
 
 # macOS-specific prefix correction
@@ -32,6 +32,7 @@ dependencies = [
     dependency('gtk4', version: '>= 4.14.0'),
     dependency('libadwaita-1', version: '>= 1.5.0'),
     dependency('pygobject-3.0', version: '>= 3.46.0'),
+    dependency('gtksourceview-5', version: '>= 5.0.0'),
 ]
 
 # Installation directories
