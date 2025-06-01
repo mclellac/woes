@@ -1,125 +1,125 @@
 import sys
-import argparse
 import logging
 
-# No gi.repository imports at the top level for CLI testability
+# Import gi and set versions first - this needs to be at the top for the class def.
+import gi
+gi.require_version("Gtk", "4.0")
+gi.require_version("Adw", "1")
+# gi.require_version("GtkSource", "5") # Only if GtkSource is used by WoesApplication directly
+
+# Import GUI related modules here
+from gi.repository import Adw, Gio, GLib # Added GLib for OptionArg/OptionFlags
 
 from .constants import APP_ID, VERSION
+from .preferences import Preferences
+from .window import WoesWindow
 
-# This function is independent of GUI and can be tested easily
-def parse_arguments_and_setup_logging(argv):
-    """Parses command line arguments and sets up logging."""
-    parser = argparse.ArgumentParser(description="Woes application.")
-    parser.add_argument(
-        "--debug", action="store_true", help="Enable debug logging."
-    )
-    args = parser.parse_args(argv[1:]) # Pass only arguments, not script name
+class WoesApplication(Adw.Application):
+    """The main application singleton class."""
 
-    log_format = '%(levelname)s:%(name)s:%(message)s' # Define desired format
-    if args.debug:
-        logging.basicConfig(level=logging.DEBUG, format=log_format)
-        logging.debug("Debug mode enabled via command line.")
-    else:
-        logging.basicConfig(level=logging.INFO, format=log_format)
-    return args
+    def __init__(self, version=VERSION, **kwargs):
+        # Initial logging setup - will be overridden if --debug is passed
+        # This ensures logs are captured even before do_handle_local_options if app exits early
+        logging.basicConfig(level=logging.INFO, format='%(levelname)s:%(name)s:%(message)s')
 
-# --- GUI Application Part ---
-_WoesApplication_class_ref = None # Placeholder for the lazily defined class
+        # Add command line options before calling super().__init__
+        self.add_main_option(
+            "debug",
+            ord("d"), # Using 'd' as a short option for debug
+            GLib.OptionFlags.NONE,
+            GLib.OptionArg.NONE,
+            "Enable debug logging",
+            None
+        )
+        # Make sure HANDLES_COMMAND_LINE is included in flags
+        super().__init__(
+            application_id=APP_ID,
+            flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE | Gio.ApplicationFlags.DEFAULT_FLAGS,
+            **kwargs
+        )
+        self.version = version
+        self.win = None  # Store a reference to the main window
+        self.debug_enabled = False # Initialize debug status
 
-def _define_and_init_gui_app_class():
-    """Initializes GUI toolkit, imports, and defines the Application class."""
-    global _WoesApplication_class_ref
-    if _WoesApplication_class_ref is not None:
-        return
+        # Create actions and set accelerators
+        self.create_action("quit", lambda *_: self.quit(), ["<primary>q"])
+        self.create_action("about", self.on_about_action)
+        self.create_action("preferences", self.on_preferences_action)
+        self.create_action("switch-to-http", self.switch_to_http, ["<primary>1"])
+        self.create_action("switch-to-nmap", self.switch_to_nmap, ["<primary>2"])
 
-    # Import gi and set versions first
-    import gi
-    gi.require_version("Gtk", "4.0")
-    gi.require_version("Adw", "1")
-    gi.require_version("GtkSource", "5") # If GtkSource is used by any GUI component
+    def do_handle_local_options(self, options):
+        # This method is called after options are parsed
+        if options.contains('debug'):
+            # The presence of 'debug' key means --debug or -d was passed
+            # No need to check its boolean value as GLib.OptionArg.NONE implies a flag
+            self.debug_enabled = True
+            # Reconfigure logging for DEBUG level
+            # force=True (Python 3.8+) ensures this overrides previous basicConfig
+            logging.basicConfig(level=logging.DEBUG, format='%(levelname)s:%(name)s:%(message)s', force=True)
+            logging.debug("Debug mode enabled via command line.")
 
-    # Import GUI related modules here
-    from gi.repository import Adw, Gio
-    from .preferences import Preferences
-    from .window import WoesWindow
+        # If not debug, the INFO level set in __init__ remains.
+        # No need to explicitly set logging.INFO here unless changing format or other settings.
 
-    class WoesApplication(Adw.Application):
-        """The main application singleton class."""
+        return 0 # Indicate success
 
-        def __init__(self, version=VERSION, **kwargs):
-            super().__init__(
-                application_id=APP_ID, flags=Gio.ApplicationFlags.DEFAULT_FLAGS, **kwargs
-            )
-            self.version = version
-            self.win = None  # Store a reference to the main window
+    def do_activate(self):
+        """Called when the application is activated.
+        We raise the application's main window, creating it if necessary.
+        """
+        win = self.props.active_window
+        if not win:
+            win = WoesWindow(application=self)
+        win.present()
+        self.win = win
 
-            # Create actions and set accelerators
-            self.create_action("quit", lambda *_: self.quit(), ["<primary>q"])
-            self.create_action("about", self.on_about_action)
-            self.create_action("preferences", self.on_preferences_action)
-            self.create_action("switch-to-http", self.switch_to_http, ["<primary>1"])
-            self.create_action("switch-to-nmap", self.switch_to_nmap, ["<primary>2"])
+    def switch_to_http(self, *args):
+        if self.win:
+            self.win.stack.set_visible_child(self.win.http_page)
 
-        def do_activate(self):
-            """Called when the application is activated.
-            We raise the application's main window, creating it if necessary.
-            """
-            win = self.props.active_window
-            if not win:
-                win = WoesWindow(application=self) # WoesWindow is from the outer scope
-            win.present()
-            self.win = win
+    def switch_to_nmap(self, *args):
+        if self.win:
+            self.win.stack.set_visible_child(self.win.nmap_page)
 
-        def switch_to_http(self, *args):
-            if self.win:
-                self.win.stack.set_visible_child(self.win.http_page)
+    def on_about_action(self, widget, _):
+        """Callback for the app.about action."""
+        about = Adw.AboutWindow(
+            transient_for=self.props.active_window,
+            application_name="woes",
+            application_icon=APP_ID,
+            developer_name="Carey McLelland",
+            version=self.version,
+            developers=["Carey McLelland"],
+            copyright="© 2024 Carey McLelland",
+        )
+        about.present()
 
-        def switch_to_nmap(self, *args):
-            if self.win:
-                self.win.stack.set_visible_child(self.win.nmap_page)
+    def on_preferences_action(self, widget, _):
+        """Callback for the app.preferences action."""
+        preferences = Preferences(main_window=self.win)
+        preferences.set_transient_for(self.win)
+        preferences.present()
 
-        def on_about_action(self, widget, _):
-            """Callback for the app.about action."""
-            # Adw.AboutWindow is from the outer scope
-            about = Adw.AboutWindow(
-                transient_for=self.props.active_window,
-                application_name="woes",
-                application_icon=APP_ID,
-                developer_name="Carey McLelland",
-                version=self.version,
-                developers=["Carey McLelland"],
-                copyright="© 2024 Carey McLelland",
-            )
-            about.present()
-
-        def on_preferences_action(self, widget, _):
-            """Callback for the app.preferences action."""
-            # Preferences is from the outer scope
-            preferences = Preferences(main_window=self.win)
-            preferences.set_transient_for(self.win)
-            preferences.present()
-
-        def create_action(self, name, callback, shortcuts=None):
-            """Add an application action."""
-            # Gio.SimpleAction is from the outer scope
-            action = Gio.SimpleAction.new(name, None)
-            action.connect("activate", callback)
-            self.add_action(action)
-            if shortcuts:
-                self.set_accels_for_action(f"app.{name}", shortcuts)
-
-    _WoesApplication_class_ref = WoesApplication
-
+    def create_action(self, name, callback, shortcuts=None):
+        """Add an application action."""
+        action = Gio.SimpleAction.new(name, None)
+        action.connect("activate", callback)
+        self.add_action(action)
+        if shortcuts:
+            self.set_accels_for_action(f"app.{name}", shortcuts)
 
 def main(version=VERSION):
     """The application's entry point."""
-    args = parse_arguments_and_setup_logging(sys.argv) # CLI part, no gi needed yet
+    # argparse is no longer used here for --debug
+    # GLib.Application handles it.
 
-    # GUI part starts here
-    # logging.info("Application starting (GUI mode).") # Already logged by parse_...
+    # Initial log message, will be INFO unless --debug promotes it later
+    # Or, it might be DEBUG if basicConfig in __init__ ran and then was overridden by do_handle_local_options
+    # To be safe, application startup messages should follow do_handle_local_options if they depend on its logging level
+    # However, WoesApplication __init__ runs before do_handle_local_options.
 
-    _define_and_init_gui_app_class() # This will import gi and define WoesApplication
-
-    app = _WoesApplication_class_ref(version=version) # Use the globally set class reference
-    # app.run expects the full sys.argv, including script name
-    return app.run(sys.argv)
+    app = WoesApplication(version=version)
+    # sys.argv is passed to app.run(), which handles parsing based on add_main_option
+    exit_status = app.run(sys.argv)
+    return exit_status
