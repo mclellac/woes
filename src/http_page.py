@@ -1,17 +1,21 @@
+import logging
 import re
 from typing import Dict, Optional
 from urllib.parse import urlparse
 
 import requests
 
-import gi
-gi.require_version('Adw', '1')
-gi.require_version('Gtk', '4.0')
+from gi import require_version
+require_version('Adw', '1')
+require_version('Gtk', '4.0')
 from gi.repository import Adw, Gio, GObject, Gtk
 
 from .constants import RESOURCE_PREFIX
 # Removed Helper import as it's unused
 # from .style_utils import set_widget_visibility # This is no longer needed
+
+# Configure logger for the module
+logger = logging.getLogger(__name__)
 
 
 class HeaderItem(GObject.Object):
@@ -37,6 +41,7 @@ class HttpPage(Adw.PreferencesPage):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        logger.debug("HttpPage initialized.")
         self._connect_signals()
         # self.column_view_helper removed
         self._clear_error() # Ensure banner is hidden on init
@@ -54,9 +59,12 @@ class HttpPage(Adw.PreferencesPage):
         # clear_results_button click is connected in UI
 
     def _on_entry_row_activated(self, entry_row: Gtk.Entry) -> None:
-        url = self._ensure_scheme(entry_row.get_text().strip())
+        original_url = entry_row.get_text().strip()
+        url = self._ensure_scheme(original_url)
+        logger.info(f"Fetching headers for URL: {url} (original: {original_url})")
 
         if not self._is_valid_url(url):
+            logger.warning(f"Invalid URL provided: {original_url} (processed as: {url})")
             self._display_error(
                 "Invalid URL format: Please enter a valid URL."
             )
@@ -69,10 +77,12 @@ class HttpPage(Adw.PreferencesPage):
         )
 
         if headers and "error" not in headers:
+            logger.info(f"Successfully fetched headers for {url}")
             self._update_column_view_model(headers)
             self.http_entry_row.remove_css_class("error")
         else:
             error_message = headers.get("error", "Unknown error: Failed to fetch headers.")
+            logger.error(f"Error fetching headers for {url}: {error_message}")
             # Remove HTML bold tags for AdwBanner, as it might handle styling differently
             error_message = error_message.replace("<b>", "").replace("</b>", "")
             self._display_error(error_message)
@@ -104,6 +114,7 @@ class HttpPage(Adw.PreferencesPage):
     def _fetch_headers(
         self, url: str, use_akamai_pragma: bool
     ) -> Dict[str, str]:
+        logger.debug(f"Making GET request to {url} with Akamai headers: {use_akamai_pragma}")
         request_headers = {}
         if use_akamai_pragma:
             akamai_pragma_directives = [
@@ -124,14 +135,18 @@ class HttpPage(Adw.PreferencesPage):
             response.raise_for_status()
             return dict(response.headers)
         except requests.exceptions.HTTPError as e:
+            logger.error(f"HTTPError for {url}: {e}", exc_info=True)
             return {"error": self._format_http_error(e)}
-        except requests.exceptions.ConnectionError:
+        except requests.exceptions.ConnectionError as e:
+            logger.warning(f"ConnectionError for {url}: {e}", exc_info=True)
             return {
                 "error": "Connection Error: Failed to establish a connection."
             }
-        except requests.exceptions.Timeout:
+        except requests.exceptions.Timeout as e:
+            logger.warning(f"Timeout for {url}: {e}", exc_info=True)
             return {"error": "Timeout Error: The request timed out."}
         except requests.exceptions.RequestException as e:
+            logger.error(f"RequestException for {url}: {e}", exc_info=True)
             return {"error": f"Request Error: {str(e)}"}
 
     def _format_http_error(self, e: requests.exceptions.HTTPError) -> str:
@@ -147,6 +162,7 @@ class HttpPage(Adw.PreferencesPage):
     def _on_pragma_toggled(
         self, widget: Gtk.Switch, gparam: GObject.ParamSpec
     ) -> None:
+        logger.debug(f"Akamai Pragma toggled to: {widget.get_active()}")
         if self.http_entry_row.get_text().strip():
             self._on_entry_row_activated(self.http_entry_row)
 
@@ -176,8 +192,7 @@ class HttpPage(Adw.PreferencesPage):
 
         if headers and "error" not in headers:
             for key, value in headers.items():
-                wrapped_value = self._wrap_text(value)
-                list_store.append(HeaderItem(key, wrapped_value))
+                list_store.append(HeaderItem(key, value)) # Use raw value
             self._show_results()
         else:
             self._hide_results()
@@ -207,6 +222,7 @@ class HttpPage(Adw.PreferencesPage):
 
     # Removed @Gtk.Template.Callback() as it's a direct signal handler in UI
     def _on_clear_results_clicked(self, button: Gtk.Button, *args):
+        logger.info("Results cleared by user.")
         self._update_column_view_model(None) # Clears the view
         self._clear_error() # Clear any errors
         self.http_entry_row.set_text("") # Clear entry row
@@ -238,16 +254,3 @@ class HttpPage(Adw.PreferencesPage):
 
         return factory
 
-    @staticmethod
-    def _wrap_text(text: str) -> str:
-        max_line_length = 80
-        wrapped_lines = []
-        for line in text.splitlines():
-            while len(line) > max_line_length:
-                split_pos = line.rfind(" ", 0, max_line_length)
-                if split_pos == -1:
-                    split_pos = max_line_length
-                wrapped_lines.append(line[:split_pos])
-                line = line[split_pos:].strip()
-            wrapped_lines.append(line)
-        return "\n".join(wrapped_lines)
