@@ -24,6 +24,8 @@ def create_source_view(language_name='txt'):
         tuple: A tuple containing the configured GtkSource.View and
                GtkSource.Buffer.
     """
+    if language_name is None:
+        language_name = 'txt'  # Ensure a default string value if None is explicitly passed
     language_manager = GtkSource.LanguageManager.get_default()
     language = language_manager.get_language(language_name)
 

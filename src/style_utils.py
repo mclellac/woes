@@ -1,15 +1,22 @@
 import logging
 import gi
 
+# GTK version requirements must be called before importing from gi.repository
 gi.require_version('Adw', '1')
 gi.require_version('Gtk', '4.0')
 gi.require_version('GtkSource', '5')
-from gi.repository import Adw, Gdk, Gio, Gtk, GtkSource
+
+# Now import GTK libraries and other dependencies
+# pylint: disable=wrong-import-position
+from gi.repository import Adw, Gdk, Gio, Gtk, GtkSource  # Added Gio for settings type hint
+
+# Configure logger for the module - AFTER all imports
+logger = logging.getLogger(__name__)
 
 
-def apply_font_size(_settings: Gio.Settings, font_size: int): # Prefixed unused 'settings'
+def apply_font_size(_settings: Gio.Settings, font_size: int):  # Prefixed unused 'settings'
     css_provider = Gtk.CssProvider()
-    css = f"* {{ font-size: {font_size}pt; }}"
+    css = f"* {{ font-size: {font_size}pt; }}"  # f-string is fine here
     css_provider.load_from_data(css.encode())
 
     Gtk.StyleContext.add_provider_for_display(
@@ -31,36 +38,41 @@ def apply_source_style_scheme(
     buffer: GtkSource.Buffer,
     source_style_scheme: str,
 ):
-    logging.debug(
+    logger.debug(
         "apply_source_style_scheme: Called with source_style_scheme=%s", source_style_scheme
     )
 
-    if source_style_scheme not in ["Adwaita", "Adwaita-dark"]:
-        source_style_scheme = source_style_scheme.lower()
+    if source_style_scheme not in ["Adwaita", "Adwaita-dark"]:  # Case sensitive check
+        source_style_scheme_lower = source_style_scheme.lower()
+        # Check if the lowercased version is a known scheme ID, some schemes might be like 'oblivion' not 'Oblivion'
+        if scheme_manager.get_scheme(source_style_scheme_lower):
+            source_style_scheme = source_style_scheme_lower
+        # If not, it will likely fail to get scheme and use fallback
 
     scheme = scheme_manager.get_scheme(source_style_scheme)
     if scheme:
         buffer.set_style_scheme(scheme)
         applied_scheme = buffer.get_style_scheme()
         if applied_scheme:
-            logging.debug(
+            logger.debug(
                 "apply_source_style_scheme: Successfully applied scheme=%s", applied_scheme.get_id()
             )
-        else:
-            logging.error(
-                "apply_source_style_scheme: Failed to apply the style scheme."
+        else:  # This case should ideally not happen if set_style_scheme was successful with a valid scheme
+            logger.error(
+                "apply_source_style_scheme: Failed to apply the style scheme, even though scheme object was obtained."
             )
     else:
-        logging.error(
+        logger.error(
             "apply_source_style_scheme: Style scheme '%s' not found.", source_style_scheme
         )
-        default_scheme = scheme_manager.get_scheme("Adwaita")
+        default_scheme_id = "Adwaita"  # Adwaita is generally available
+        default_scheme = scheme_manager.get_scheme(default_scheme_id)
         if default_scheme:
             buffer.set_style_scheme(default_scheme)
-            logging.debug("apply_source_style_scheme: Applied fallback scheme=Adwaita")
+            logger.debug("apply_source_style_scheme: Applied fallback scheme=%s", default_scheme_id)
         else:
-            logging.error(
-                "apply_source_style_scheme: Default scheme 'Adwaita' not found."
+            logger.error(
+                "apply_source_style_scheme: Default scheme '%s' not found.", default_scheme_id
             )
 
 
@@ -69,7 +81,7 @@ def set_widget_visibility(visible: bool, *widgets):
         if widget:
             widget.set_visible(visible)
         else:
-            logging.warning("Attempted to set visibility of a None widget")
+            logger.warning("Attempted to set visibility of a None widget")
 
 
 def create_listbox_row(item_text: str) -> Gtk.ListBoxRow:
@@ -87,7 +99,7 @@ def init_source_buffer(language: str = "yaml") -> GtkSource.Buffer:
     if source_language is not None:
         source_buffer.set_language(source_language)
     else:
-        logging.error("%s language definition not found.", language)
+        logger.error("GtkSource language definition '%s' not found.", language)
 
     source_buffer.set_highlight_syntax(True)
     return source_buffer

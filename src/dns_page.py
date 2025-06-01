@@ -36,18 +36,24 @@ class DNSPage(Adw.PreferencesPage):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.header_tag = None  # Initialize to prevent W0201 if _display_result isn't called early
+        # Initialize GSettings early as it's used by signal handlers connected via _connect_signals
+        self.settings = Gio.Settings.new(APP_ID)
+        self.header_tag = None  # For _display_result
+        # Connect signals. Handlers might use self.settings.
         self._connect_signals()
-        # Ensure create_source_view is defined and accessible
+        # Setup SourceView
         self.source_view, self.source_buffer = create_source_view(language_name=None)
-        self.dns_results_scrolled_window.set_child(self.source_view)
-        self.settings = Gio.Settings.new(APP_ID)  # Ensure settings is initialized before use
-        self._apply_source_view_style()  # Initial style application
+        if self.dns_results_scrolled_window is None:  # Corrected variable name
+            logger.critical("DNSPage: Gtk.Template.Child 'dns_results_scrolled_window' not found. UI will be broken.")
+        else:
+            self.dns_results_scrolled_window.set_child(self.source_view)
+        # Apply styles and connect settings listeners
+        self._apply_source_view_style()  # Depends on self.settings and self.source_buffer
         self.settings.connect(
             "changed::source-style-scheme",
             self._on_source_style_scheme_setting_changed
         )
-
+        # Initialize Pango tags for the source_buffer
         try:
             self.bold_tag = self.source_buffer.create_tag(
                 "bold", weight=Pango.Weight.BOLD
@@ -71,6 +77,7 @@ class DNSPage(Adw.PreferencesPage):
             logger.error("Error creating Pango text tags: %s", e, exc_info=True)
         except Exception:  # Fallback for other unexpected errors
             logger.exception("Unexpected error creating text tags.")
+        self.error_banner.set_revealed(False)  # Initial UI state
 
     def _connect_signals(self) -> None:
         """Connect signals for UI elements."""
