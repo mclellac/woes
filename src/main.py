@@ -71,6 +71,7 @@ class WoesApplication(Adw.Application):
         self.create_action("switch-to-webscan", self.switch_to_webscan, ["<primary>4"])  # Added
 
     def do_handle_local_options(self, options):
+        logging.debug("WoesApplication.do_handle_local_options: Entered with options: %s", options)
         # This method is called after options are parsed
         if options.contains('debug'):
             # The presence of 'debug' key means --debug or -d was passed
@@ -84,12 +85,15 @@ class WoesApplication(Adw.Application):
         # If not debug, the INFO level set in __init__ remains.
         # No need to explicitly set logging.INFO here unless changing format or other settings.
 
+        logging.debug("WoesApplication.do_handle_local_options: Returning 0")
         return 0  # Indicate success
 
     def do_activate(self):
         """Called when the application is activated.
         We raise the application's main window, creating it if necessary.
         """
+        print("src/main.py: WoesApplication.do_activate entered (print)")
+        logging.info("src/main.py: WoesApplication.do_activate entered (logging)")
         win = self.props.active_window
         if not win:
             logging.debug("WoesApplication.do_activate: Creating WoesWindow...")
