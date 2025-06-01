@@ -69,6 +69,8 @@ class NmapPage(Adw.PreferencesPage):
         self.scanner = NmapScanner()
 
         self.source_view, self.source_buffer = create_source_view(language_name='yaml')
+        if self.source_buffer and self.source_buffer.get_language() is None:
+            logger.warning("NmapPage: Language 'yaml' not found for results view. Will use plain text.")
         if self.nmap_results_scrolled_window is None:
             logger.critical("NmapPage: Gtk.Template.Child 'nmap_results_scrolled_window' not found. UI will be broken.")
         else:
@@ -122,7 +124,18 @@ class NmapPage(Adw.PreferencesPage):
                 self.nmap_target_listbox_store, self._create_target_listbox_row
             )
         # Initial visibility states are typically set in the UI file.
+        # The following lines are temporarily modified for debugging the app startup issue.
+        # The goal is to see if explicitly setting revealed states here causes issues
+        # during GType registration or early instantiation.
+
+        # Original line that caused an AttributeError, to see if UI changes fixed error_banner being None:
         self.error_banner.set_revealed(False)
+
+        # Temporarily comment out these explicit calls:
+        # if self.targets_group:
+        #     self.targets_group.set_revealed(False)
+        # if self.results_group:
+        #     self.results_group.set_revealed(False)
         self.scan_spinner.set_spinning(False)
         self.scan_spinner.set_visible(False)
         self.status_row.set_subtitle("Idle")
