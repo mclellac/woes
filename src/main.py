@@ -85,8 +85,8 @@ class WoesApplication(Adw.Application):
         # If not debug, the INFO level set in __init__ remains.
         # No need to explicitly set logging.INFO here unless changing format or other settings.
 
-        logging.debug("WoesApplication.do_handle_local_options: Returning 0")
-        return 0  # Indicate success
+        logging.debug("WoesApplication.do_handle_local_options: Returning -1")
+        return -1  # Indicate normal activation should proceed
 
     def do_activate(self):
         """Called when the application is activated.
