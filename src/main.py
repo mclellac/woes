@@ -97,6 +97,10 @@ class WoesApplication(Adw.Application):
         self.create_action("switch-to-dns", self.switch_to_dns, ["<primary>3"])
         self.create_action("switch-to-webscan", self.switch_to_webscan, ["<primary>4"])
 
+    def do_startup(self):
+        logger.info("WoesApplication.do_startup called.")
+        Adw.Application.do_startup(self)
+
     def do_handle_local_options(self, options):
         logger.debug("Handling local options: %s", options)
         if options.contains('debug'):
@@ -113,8 +117,21 @@ class WoesApplication(Adw.Application):
         return -1
 
     def do_command_line(self, command_line):
-        logger.debug("WoesApplication.do_command_line: options = %s", command_line.get_options_dict().print(True))
-        return super().do_command_line(command_line)
+        logger.debug("WoesApplication.do_command_line entered, explicitly calling self.activate().")
+        # Process arguments, e.g., by calling the superclass method
+        # to handle options like --version or --help, or custom ones.
+        # However, for this diagnostic, we want to ensure activate is called.
+        # super_result = super().do_command_line(command_line)
+        # logger.debug(f"super().do_command_line(command_line) returned {super_result}")
+
+        # Regardless of what superclass did, ensure activation for this test
+        self.activate()
+
+        # A return value of 0 typically indicates that the command line was handled successfully
+        # and the application should continue running (if it's the primary instance).
+        # If activate() leads to the app showing a window, it will keep running.
+        # If activate() doesn't result in a window, the app might still exit.
+        return 0
 
     def do_activate(self):
         """Called when the application is activated."""
@@ -144,6 +161,16 @@ class WoesApplication(Adw.Application):
             self.win.present()
             logger.debug("After self.win.present() returns")
             logger.debug("WoesWindow presented.")
+            logger.debug(f"Window visible: {self.win.is_visible()}")
+            logger.debug(f"Window mapped: {self.win.get_mapped()}")
+            logger.debug(f"Window width: {self.win.get_width()}, height: {self.win.get_height()}")
+            logger.debug(f"Window application: {self.win.get_application()}")
+            logger.debug(f"Active window on app: {self.props.active_window}")
+            main_loop = GLib.MainLoop()
+            logger.debug(f"GLib MainLoop running: {main_loop.is_running()}")
+            # We expect it not to be running here yet in this specific spot,
+            # as app.run() hasn't fully established it from this inner scope.
+            # This is more of a sanity check on GLib.MainLoop() state.
         except GLib.Error:
             logger.exception("Error presenting WoesWindow.")
         except Exception:
