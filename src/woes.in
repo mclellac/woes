@@ -12,9 +12,21 @@ VERSION = "@VERSION@"
 DATA_DIR = "@DATADIR@"
 APP_ID = "@APPID@"
 PKG_DATA_DIR = "@PKGDATADIR@"
-PYTHON_SITE_PACKAGES_DIR = "@PYTHON_SITE_PACKAGES_DIR@"
+# PYTHON_SITE_PACKAGES_DIR = "@PYTHON_SITE_PACKAGES_DIR@"
 GSETTINGS_SCHEMA_DIR = "@GSETTINGSSCHEMADIR@"
 LOCALE_DIR = "@LOCALEDIR@"
+
+WOESDIR_EXPANDED = "@WOESDIR@" # Substituted by Meson
+# Calculate the parent directory of WOESDIR_EXPANDED (the actual site-packages directory)
+# Ensure this is done safely, considering WOESDIR_EXPANDED might be empty or unexpected, though unlikely for a Meson var.
+if WOESDIR_EXPANDED and WOESDIR_EXPANDED != "@""WOESDIR@": # Check if substitution happened
+    actual_site_packages_dir = os.path.dirname(WOESDIR_EXPANDED)
+    if actual_site_packages_dir: # Check if dirname returned something sensible
+        sys.path.insert(1, actual_site_packages_dir)
+    else:
+        print("Warning: Could not determine actual_site_packages_dir from WOESDIR_EXPANDED='{}'".format(WOESDIR_EXPANDED), file=sys.stderr)
+else:
+    print("Warning: WOESDIR_EXPANDED was not substituted by Meson or is empty.", file=sys.stderr)
 
 print("APP_ID: ", APP_ID)
 print("VERSION: ", VERSION)
@@ -37,13 +49,19 @@ if __name__ == "__main__":
     print("--- sys.path before import gi ---")
     print(sys.path)
     print("---------------------------------")
-    import gi
-
-    from gi.repository import Gio
-
-    resource = Gio.Resource.load(os.path.join(PKG_DATA_DIR, "woes.gresource"))
-    resource._register()
-
-    from woes import main
-
-    sys.exit(main.main(VERSION))
+    try:
+        # The 'woes' module and its 'main' function will handle all gi initializations.
+        from woes import main
+        # VERSION is a global variable in this script, substituted by Meson.
+        sys.exit(main.main(VERSION))
+    except Exception as e:
+        error_message = "Critical error during application startup (woes.in): {}\n".format(e)
+        # Try to import sys locally in except block if not guaranteed to be imported globally,
+        # though it is imported at the top of woes.in.
+        # Ensure sys is available for sys.stderr and sys.exit.
+        # Python's default `import sys` at the top of the file is sufficient.
+        sys.stderr.write(error_message)
+        # For more detailed debugging, one might print traceback:
+        # import traceback
+        # traceback.print_exc(file=sys.stderr)
+        sys.exit(1)
