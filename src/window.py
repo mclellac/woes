@@ -26,6 +26,7 @@ class WoesWindow(Adw.ApplicationWindow):
 
     switcher_title = Gtk.Template.Child("switcher_title")
     stack = Gtk.Template.Child("stack")
+    webscan_status_page = Gtk.Template.Child("webscan_status_page")
 
     def __init__(self, **kwargs):
         logger.debug("WoesWindow.__init__: Starting")
@@ -47,6 +48,17 @@ class WoesWindow(Adw.ApplicationWindow):
             logger.debug("WoesWindow.__init__: After self.setup_ui()")
         except Exception:
             logger.exception("WoesWindow.__init__: Error during self.setup_ui()")
+
+        # Instantiate WebScanPage
+        # Use the imported alias _WebScanPage_ to be consistent with how other pages are handled for registration
+        webscan_page_instance = _WebScanPage_()
+
+        # Set it as the child of the AdwStatusPage meant for webscan
+        if self.webscan_status_page:
+            self.webscan_status_page.set_child(webscan_page_instance)
+            logger.debug("WoesWindow.__init__: WebScanPage instance created and added to webscan_status_page.")
+        else:
+            logger.error("WoesWindow.__init__: webscan_status_page is None, cannot add WebScanPage instance.")
         logger.debug("WoesWindow.__init__: Finished")
 
     def setup_ui(self):

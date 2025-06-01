@@ -19,13 +19,13 @@ logger = logging.getLogger(__name__)
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/dns_page.ui")
-class DNSPage(Adw.PreferencesPage):
+class DNSPage(Gtk.Box):
     __gtype_name__ = "DNSPage"
 
     dns_ip_entryrow = Gtk.Template.Child("dns_ip_entryrow")
     dns_record_type_dropdown = Gtk.Template.Child("dns_record_type_dropdown")
     dns_results_scrolled_window = Gtk.Template.Child("dns_results_scrolled_window")
-    error_banner = Gtk.Template.Child("error_banner")
+    dns_error_banner = Gtk.Template.Child("dns_error_banner")
 
     def __init__(self, **kwargs):
         logger.debug("DNSPage.__init__: Starting")
@@ -82,8 +82,8 @@ class DNSPage(Adw.PreferencesPage):
             logger.error("DNSPage.__init__: Error creating Pango text tags: %s", e, exc_info=True)
         except Exception:
             logger.exception("DNSPage.__init__: Unexpected error creating text tags.")
-        self.error_banner.set_revealed(False)
-        logger.debug("DNSPage.__init__: error_banner revealed set to False.")
+        self.dns_error_banner.set_revealed(False)
+        logger.debug("DNSPage.__init__: dns_error_banner revealed set to False.")
         logger.debug("DNSPage.__init__: Finished")
 
     def _connect_signals(self) -> None:
@@ -95,6 +95,8 @@ class DNSPage(Adw.PreferencesPage):
             "notify::selected", self._on_record_type_changed
         )
         logger.debug("DNSPage._connect_signals: Connected 'notify::selected' for dns_record_type_dropdown.")
+        self.dns_error_banner.connect("button-clicked", self._on_error_banner_dismiss)
+        logger.debug("DNSPage._connect_signals: Connected 'button-clicked' for dns_error_banner.")
         logger.debug("DNSPage._connect_signals: Finished connecting signals.")
 
     def _on_source_style_scheme_setting_changed(self, _settings, key):
@@ -279,10 +281,10 @@ class DNSPage(Adw.PreferencesPage):
         logger.debug(f"DNSPage._show_error: Called with message: '{message}'")
         self.dns_ip_entryrow.add_css_class("error")
         logger.debug("DNSPage._show_error: 'error' CSS class added to dns_ip_entryrow.")
-        self.error_banner.set_title(message)
-        logger.debug("DNSPage._show_error: error_banner title set.")
-        self.error_banner.set_revealed(True)
-        logger.debug("DNSPage._show_error: error_banner revealed set to True.")
+        self.dns_error_banner.set_title(message)
+        logger.debug("DNSPage._show_error: dns_error_banner title set.")
+        self.dns_error_banner.set_revealed(True)
+        logger.debug("DNSPage._show_error: dns_error_banner revealed set to True.")
         logger.debug("DNSPage._show_error: Finished.")
 
     def _clear_error(self):
@@ -290,10 +292,10 @@ class DNSPage(Adw.PreferencesPage):
         logger.debug("DNSPage._clear_error: Called.")
         self.dns_ip_entryrow.remove_css_class("error")
         logger.debug("DNSPage._clear_error: 'error' CSS class removed from dns_ip_entryrow.")
-        self.error_banner.set_revealed(False)
-        logger.debug("DNSPage._clear_error: error_banner revealed set to False.")
-        self.error_banner.set_title("")
-        logger.debug("DNSPage._clear_error: error_banner title set to empty string.")
+        self.dns_error_banner.set_revealed(False)
+        logger.debug("DNSPage._clear_error: dns_error_banner revealed set to False.")
+        self.dns_error_banner.set_title("")
+        logger.debug("DNSPage._clear_error: dns_error_banner title set to empty string.")
         logger.debug("DNSPage._clear_error: Finished.")
 
     @staticmethod

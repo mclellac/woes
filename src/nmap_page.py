@@ -27,23 +27,24 @@ class NmapItem(GObject.Object):
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/nmap_page.ui")
-class NmapPage(Adw.PreferencesPage):
+class NmapPage(Gtk.Box):
     __gtype_name__ = "NmapPage"
 
     nmap_target_entryrow = Gtk.Template.Child("nmap_target_entryrow")
     nmap_fingerprint_switchrow = Gtk.Template.Child("nmap_fingerprint_switchrow")
     nmap_all_ports_switchrow = Gtk.Template.Child("nmap_all_ports_switchrow")
     nmap_scripts_dropdown = Gtk.Template.Child("nmap_scripts_dropdown")
-    status_row = Gtk.Template.Child("status_row")
+    nmap_status_row = Gtk.Template.Child("nmap_status_row")
     scan_spinner = Gtk.Template.Child("scan_spinner")
 
     error_banner = Gtk.Template.Child("error_banner")
+    nmap_warning_banner = Gtk.Template.Child("nmap_warning_banner")
 
-    targets_group = Gtk.Template.Child("targets_group")
+    nmap_target_group = Gtk.Template.Child("nmap_target_group")
     nmap_target_listbox = Gtk.Template.Child("nmap_target_listbox")
 
-    results_group = Gtk.Template.Child("results_group")
-    nmap_results_scrolled_window = Gtk.Template.Child("nmap_results_scrolled_window")
+    nmap_results_group = Gtk.Template.Child("nmap_results_group")
+    nmap_results_adinw_scrolled_window = Gtk.Template.Child("nmap_results_adinw_scrolled_window")
 
     def __init__(self, **kwargs):
         logger.debug("NmapPage.__init__: Starting.")
@@ -63,11 +64,11 @@ class NmapPage(Adw.PreferencesPage):
         )
         if self.source_buffer and self.source_buffer.get_language() is None:
             logger.warning("NmapPage.__init__: Language 'yaml' not found for results view. Will use plain text.")
-        if self.nmap_results_scrolled_window is None:
-            logger.critical("NmapPage.__init__: Gtk.Template.Child 'nmap_results_scrolled_window' not found. UI will be broken.")
+        if self.nmap_results_adinw_scrolled_window is None:
+            logger.critical("NmapPage.__init__: Gtk.Template.Child 'nmap_results_adinw_scrolled_window' not found. UI will be broken.")
         else:
-            self.nmap_results_scrolled_window.set_child(self.source_view)
-            logger.debug("NmapPage.__init__: nmap_results_scrolled_window child set to source_view.")
+            self.nmap_results_adinw_scrolled_window.set_child(self.source_view)
+            logger.debug("NmapPage.__init__: nmap_results_adinw_scrolled_window child set to source_view.")
 
         self.settings = Gio.Settings.new(APP_ID)
         logger.debug(f"NmapPage.__init__: self.settings initialized: {self.settings}")
@@ -129,8 +130,8 @@ class NmapPage(Adw.PreferencesPage):
         logger.debug("NmapPage._init_page_ui: scan_spinner spinning set to False.")
         self.scan_spinner.set_visible(False)
         logger.debug("NmapPage._init_page_ui: scan_spinner visible set to False.")
-        self.status_row.set_subtitle("Idle")
-        logger.debug("NmapPage._init_page_ui: status_row subtitle set to 'Idle'.")
+        self.nmap_status_row.set_subtitle("Idle")
+        logger.debug("NmapPage._init_page_ui: nmap_status_row subtitle set to 'Idle'.")
         logger.debug("NmapPage._init_page_ui: Finished.")
 
     def _connect_signals(self):
@@ -139,7 +140,16 @@ class NmapPage(Adw.PreferencesPage):
         logger.debug("NmapPage._connect_signals: Connected 'apply' for nmap_target_entryrow.")
         self.nmap_target_listbox.connect("row-selected", self._on_target_selected)
         logger.debug("NmapPage._connect_signals: Connected 'row-selected' for nmap_target_listbox.")
+        self.error_banner.connect("button-clicked", self._on_error_banner_dismiss)
+        logger.debug("NmapPage._connect_signals: Connected 'button-clicked' for error_banner.")
+        self.nmap_warning_banner.connect("button-clicked", self._on_nmap_warning_banner_dismiss)
+        logger.debug("NmapPage._connect_signals: Connected 'button-clicked' for nmap_warning_banner.")
         logger.debug("NmapPage._connect_signals: Finished connecting signals.")
+
+    def _on_nmap_warning_banner_dismiss(self, _banner: Adw.Banner, *_args):
+        logger.debug("NmapPage._on_nmap_warning_banner_dismiss: Triggered.")
+        self.nmap_warning_banner.set_revealed(False)
+        logger.debug("NmapPage._on_nmap_warning_banner_dismiss: nmap_warning_banner revealed set to False.")
 
     def _on_target_activate(self, entry_row: Adw.EntryRow):
         logger.debug(f"NmapPage._on_target_activate: Triggered for entry_row: {entry_row}")
@@ -240,10 +250,10 @@ class NmapPage(Adw.PreferencesPage):
             msg = f"Scan complete for {original_target}. No hosts found or responsive."
             self._set_scan_status(ScanStatus.COMPLETE, msg)
             self._display_error(f"No hosts found or responsive for target: {original_target}")
-            self.targets_group.set_revealed(False)
-            logger.debug("NmapPage._process_scan_results: targets_group revealed set to False.")
-            self.results_group.set_revealed(False)
-            logger.debug("NmapPage._process_scan_results: results_group revealed set to False.")
+            self.nmap_target_group.set_revealed(False)
+            logger.debug("NmapPage._process_scan_results: nmap_target_group revealed set to False.")
+            self.nmap_results_group.set_revealed(False)
+            logger.debug("NmapPage._process_scan_results: nmap_results_group revealed set to False.")
             logger.debug(f"NmapPage._process_scan_results: Finished for '{original_target}' - no hosts found.")
             return
 
@@ -288,8 +298,8 @@ class NmapPage(Adw.PreferencesPage):
                 self.source_buffer.set_text(result_yaml)
                 logger.debug("NmapPage._on_target_selected: After self.source_buffer.set_text()")
                 self._refresh_source_view()
-                self.results_group.set_revealed(True)
-                logger.debug("NmapPage._on_target_selected: results_group revealed set to True.")
+                self.nmap_results_group.set_revealed(True)
+                logger.debug("NmapPage._on_target_selected: nmap_results_group revealed set to True.")
                 logger.debug(f"NmapPage._on_target_selected: Finished for target '{selected_target_key}'.")
                 return
 
@@ -322,10 +332,10 @@ class NmapPage(Adw.PreferencesPage):
 
         if not hosts:
             logger.debug("NmapPage._update_results_view: No hosts provided.")
-            self.targets_group.set_revealed(False)
-            logger.debug("NmapPage._update_results_view: targets_group revealed set to False.")
-            self.results_group.set_revealed(False)
-            logger.debug("NmapPage._update_results_view: results_group revealed set to False.")
+            self.nmap_target_group.set_revealed(False)
+            logger.debug("NmapPage._update_results_view: nmap_target_group revealed set to False.")
+            self.nmap_results_group.set_revealed(False)
+            logger.debug("NmapPage._update_results_view: nmap_results_group revealed set to False.")
             logger.debug("NmapPage._update_results_view: Before source_buffer.set_text('# No hosts found...')")
             self.source_buffer.set_text("# No hosts found in this scan.")
             logger.debug("NmapPage._update_results_view: After source_buffer.set_text('# No hosts found...')")
@@ -340,15 +350,15 @@ class NmapPage(Adw.PreferencesPage):
             self.results_by_host[host_key] = yaml_data
         logger.debug("NmapPage._update_results_view: Finished processing and appending hosts.")
 
-        self.targets_group.set_revealed(True)
-        logger.debug("NmapPage._update_results_view: targets_group revealed set to True.")
+        self.nmap_target_group.set_revealed(True)
+        logger.debug("NmapPage._update_results_view: nmap_target_group revealed set to True.")
 
         if self.nmap_target_listbox_store.get_n_items() > 0:
             logger.debug("NmapPage._update_results_view: Selecting first row in nmap_target_listbox.")
             self.nmap_target_listbox.select_row(self.nmap_target_listbox.get_row_at_index(0))
         else:
             logger.debug("NmapPage._update_results_view: No items in listbox_store, hiding results_group and clearing source_buffer.")
-            self.results_group.set_revealed(False)
+            self.nmap_results_group.set_revealed(False)
             self.source_buffer.set_text("")
         logger.debug("NmapPage._update_results_view: Finished.")
 
@@ -361,29 +371,29 @@ class NmapPage(Adw.PreferencesPage):
 
     def _update_status_ui(self, status_type: ScanStatus, message: str):
         logger.debug(f"NmapPage._update_status_ui: Starting with status_type: {status_type.name}, message: '{message}'")
-        self.status_row.set_subtitle(message)
-        logger.debug(f"NmapPage._update_status_ui: status_row subtitle set to '{message}'.")
+        self.nmap_status_row.set_subtitle(message)
+        logger.debug(f"NmapPage._update_status_ui: nmap_status_row subtitle set to '{message}'.")
         if status_type == ScanStatus.IN_PROGRESS:
             self.scan_spinner.set_visible(True)
             logger.debug("NmapPage._update_status_ui: scan_spinner visibility set to True.")
             self.scan_spinner.start()
             logger.debug("NmapPage._update_status_ui: scan_spinner started.")
-            self.status_row.set_title("Scanning...")
-            logger.debug("NmapPage._update_status_ui: status_row title set to 'Scanning...'.")
+            self.nmap_status_row.set_title("Scanning...")
+            logger.debug("NmapPage._update_status_ui: nmap_status_row title set to 'Scanning...'.")
         else:
             self.scan_spinner.stop()
             logger.debug("NmapPage._update_status_ui: scan_spinner stopped.")
             self.scan_spinner.set_visible(False)
             logger.debug("NmapPage._update_status_ui: scan_spinner visibility set to False.")
             if status_type == ScanStatus.COMPLETE:
-                self.status_row.set_title("Scan Complete")
-                logger.debug("NmapPage._update_status_ui: status_row title set to 'Scan Complete'.")
+                self.nmap_status_row.set_title("Scan Complete")
+                logger.debug("NmapPage._update_status_ui: nmap_status_row title set to 'Scan Complete'.")
             elif status_type == ScanStatus.FAILED:
-                self.status_row.set_title("Scan Failed")
-                logger.debug("NmapPage._update_status_ui: status_row title set to 'Scan Failed'.")
+                self.nmap_status_row.set_title("Scan Failed")
+                logger.debug("NmapPage._update_status_ui: nmap_status_row title set to 'Scan Failed'.")
             else:
-                self.status_row.set_title("Scan Status")
-                logger.debug("NmapPage._update_status_ui: status_row title set to 'Scan Status'.")
+                self.nmap_status_row.set_title("Scan Status")
+                logger.debug("NmapPage._update_status_ui: nmap_status_row title set to 'Scan Status'.")
         logger.debug("NmapPage._update_status_ui: Finished.")
 
     def _clear_results(self):
@@ -398,10 +408,10 @@ class NmapPage(Adw.PreferencesPage):
         self.results_by_host.clear()
         logger.debug("NmapPage._clear_results: After results_by_host.clear()")
 
-        self.targets_group.set_revealed(False)
-        logger.debug("NmapPage._clear_results: targets_group revealed set to False.")
-        self.results_group.set_revealed(False)
-        logger.debug("NmapPage._clear_results: results_group revealed set to False.")
+        self.nmap_target_group.set_revealed(False)
+        logger.debug("NmapPage._clear_results: nmap_target_group revealed set to False.")
+        self.nmap_results_group.set_revealed(False)
+        logger.debug("NmapPage._clear_results: nmap_results_group revealed set to False.")
         self.error_banner.set_revealed(False)
         logger.debug("NmapPage._clear_results: error_banner revealed set to False.")
         self.nmap_target_entryrow.remove_css_class("error")

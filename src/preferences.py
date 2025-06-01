@@ -51,6 +51,8 @@ class Preferences(Adw.PreferencesWindow):
         logger.debug("Preferences.load_ui: Connected 'notify::selected' for source_style_scheme_combo_row.")
         self.dns_server_entryrow.connect("apply", self.on_dns_server_changed)
         logger.debug("Preferences.load_ui: Connected 'apply' for dns_server_entryrow.")
+        self.preferences_error_banner.connect("button-clicked", self.on_error_banner_dismiss_clicked)
+        logger.debug("Preferences.load_ui: Connected 'button-clicked' for preferences_error_banner.")
         logger.debug("Preferences.load_ui: Finished connecting signals.")
 
     def on_error_banner_dismiss_clicked(self, _banner, *_args):
