@@ -141,60 +141,70 @@ class HttpPage(Adw.PreferencesPage):
             # For simplicity, using a generic error domain and code
             # A more robust solution might define a custom error domain
             error_message = self._format_http_error(e)
-            g_error = GLib.Error(message=error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED)
-            task.return_error(g_error)
+            task.return_new_error(Gio.io_error_quark(), Gio.IOErrorEnum.FAILED, "%s", error_message)
             return
         except requests.exceptions.ConnectionError as e:
             logger.warning("Task thread: ConnectionError for %s: %s", url, e, exc_info=True)
             error_message = "Connection Error: Failed to establish a connection."
-            g_error = GLib.Error(message=error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED)
-            task.return_error(g_error)
+            task.return_new_error(Gio.io_error_quark(), Gio.IOErrorEnum.FAILED, "%s", error_message)
             return
         except requests.exceptions.Timeout as e:
             logger.warning("Task thread: Timeout for %s: %s", url, e, exc_info=True)
             error_message = "Timeout Error: The request timed out."
-            g_error = GLib.Error(message=error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED)
-            task.return_error(g_error)
+            task.return_new_error(Gio.io_error_quark(), Gio.IOErrorEnum.FAILED, "%s", error_message)
             return
         except requests.exceptions.RequestException as e:
             logger.error("Task thread: RequestException for %s: %s", url, e, exc_info=True)
             error_message = f"Request Error: {str(e)}"
-            g_error = GLib.Error(message=error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED)
-            task.return_error(g_error)
+            task.return_new_error(Gio.io_error_quark(), Gio.IOErrorEnum.FAILED, "%s", error_message)
             return
         except Exception as e: # Catch any other unexpected errors
             logger.error("Task thread: Unexpected error for %s: %s", url, e, exc_info=True)
             error_message = f"An unexpected error occurred: {str(e)}"
-            g_error = GLib.Error(message=error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED)
-            task.return_error(g_error)
+            task.return_new_error(Gio.io_error_quark(), Gio.IOErrorEnum.FAILED, "%s", error_message)
             return
 
 
     def _fetch_headers_task_done_cb(self, source_object, result: Gio.AsyncResult, user_data):
-        # Re-enable UI elements and hide loading state
-        self.http_entry_row.set_sensitive(True)
-        # e.g., self.spinner.stop()
-
         local_task_ref = self.current_http_task
         headers = None  # Initialize headers
 
         try:
             if local_task_ref:
-                headers = local_task_ref.run_in_thread_finish(result) # May raise GError
-                logger.info("Successfully fetched headers (async)")
-                self._update_column_view_model(headers)
-                self.http_entry_row.remove_css_class("error")
+                # This call will raise a GLib.Error (caught as GObject.GError)
+                # if task.return_error() was called in the thread.
+                returned_value = local_task_ref.propagate_value(result)
+                if returned_value: # Check if propagate_value didn't return None
+                    headers = returned_value.get_boxed() # Assuming the returned value is a Python dict
+                    logger.info("Successfully fetched headers (async)")
+                    self._update_column_view_model(headers)
+                    self.http_entry_row.remove_css_class("error")
+                else:
+                    # This case should ideally not be reached if a value or error was properly set.
+                    logger.error("propagate_value returned None unexpectedly.")
+                    self._display_error("Failed to retrieve task result (returned None).")
+                    self.http_entry_row.add_css_class("error")
+                    self._update_column_view_model(None)
             else:
-                logger.error("current_http_task was None in _fetch_headers_task_done_cb.")
-                self._update_column_view_model(None) # Clear view if no task
-        except GObject.GError as e:
+                logger.error("current_http_task was None in _fetch_headers_task_done_cb. Task might have been superseded or cleared prematurely.")
+                self._update_column_view_model(None) # Clear view if no task to process
+                # Optionally, display a generic error if this state is unexpected
+                # self._display_error("An unexpected error occurred (task not found).")
+
+        except GObject.GError as e: # Catch errors propagated by propagate_value()
             error_message = e.message
-            logger.error("Error fetching headers (async GError): %s", error_message)
+            logger.error("Error fetching headers (async GObject.GError): %s", error_message)
+            # Sanitize message if it contains markup, AdwBanner might not render it well
             error_message = error_message.replace("<b>", "").replace("</b>", "")
             self._display_error(error_message)
             self.http_entry_row.add_css_class("error")
-            self._update_column_view_model(None) # Clear view on error
+            self._update_column_view_model(None) # Clear previous results if error
         finally:
+            # Re-enable UI elements that might have been disabled
+            self.http_entry_row.set_sensitive(True)
+            # e.g., self.spinner.stop() (if a spinner was used)
+
+            # Clear the task reference if it matches the one this callback was for.
             if self.current_http_task is local_task_ref:
                 self.current_http_task = None
 
