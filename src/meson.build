@@ -3,16 +3,17 @@ is_flatpak_build = get_option('prefix') == '/app'
 message('Is Flatpak build: ' + is_flatpak_build.to_string())
 message('Prefix: ' + get_option('prefix'))
 
-# Get the install directory for Python
-python_install_dir = python_bin.get_install_dir()
-message('Python install dir: ' + python_install_dir)
+# Get the install directory for Python (version specific)
+python_purelib = python_bin.get_path('purelib')
+python_install_dir = python_purelib # Use for messages and consistency
+message('Python install dir (purelib): ' + python_install_dir)
 
-# Determine the site-packages directory
-site_packages_dir = python_bin.get_install_dir(subdir: 'woes')
-message('Site packages dir: ' + site_packages_dir)
+# Determine the site-packages directory (version specific)
+site_packages_dir = join_paths(python_purelib, 'woes')
+message('Site packages dir (woes subdir): ' + site_packages_dir)
 
-# Create a new configuration variable for the site-packages directory
-python_site_packages_dir = python_bin.get_install_dir()
+# Create a new configuration variable for the site-packages directory (version specific)
+python_site_packages_dir = python_purelib
 
 # Define paths
 localedir = join_paths(get_option('prefix'), 'share', 'locale')

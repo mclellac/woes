@@ -43,7 +43,7 @@ print("APP_ID: ", APP_ID)
 print("VERSION: ", VERSION)
 print("GSETTINGS_SCHEMA_DIR: ", GSETTINGS_SCHEMA_DIR)
 
-sys.path.insert(1, PYTHON_SITE_PACKAGES_DIR)
+# sys.path.insert(1, PYTHON_SITE_PACKAGES_DIR) # This line is suspected to cause issues
 signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 # Use gettext on macOS, otherwise bindtext
@@ -57,6 +57,9 @@ else:
 gettext.install("woes", LOCALE_DIR)
 
 if __name__ == "__main__":
+    print("--- sys.path before import gi ---")
+    print(sys.path)
+    print("---------------------------------")
     import gi
 
     from gi.repository import Gio
