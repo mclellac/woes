@@ -18,11 +18,12 @@ class WebScanPage(Adw.PreferencesPage):
     results_textview = Gtk.Template.Child()
     error_banner_webscan = Gtk.Template.Child()  # New banner
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    # Removed useless __init__ (W0246)
+    # def __init__(self, **kwargs):
+    # super().__init__(**kwargs)
 
     # Removed @Gtk.Template.Callback() as it's a direct signal handler in UI
-    def on_scan_button_clicked(self, widget):
+    def on_scan_button_clicked(self, _widget):
         target_url = self.url_entry.get_text()
         if not target_url:
             self.show_error_toast("Target URL cannot be empty.")
@@ -30,7 +31,7 @@ class WebScanPage(Adw.PreferencesPage):
 
         # Clear previous results
         buffer = self.results_textview.get_buffer()
-        buffer.set_text("Scanning {}...\n\n".format(target_url))
+        buffer.set_text(f"Scanning {target_url}...\n\n") # C0209
 
         # Disable button during scan
         self.scan_button.set_sensitive(False)
@@ -42,7 +43,7 @@ class WebScanPage(Adw.PreferencesPage):
         task.set_task_data(target_url)  # Pass target_url to the task
         task.run_in_thread(self._run_scan_task_thread_func)
 
-    def _run_scan_task_thread_func(self, task, source_object, task_data, cancellable):
+    def _run_scan_task_thread_func(self, gio_task, _source_object, task_data, _cancellable):
         """Worker function for Gio.Task that runs in a separate thread."""
         target_url = task_data  # Retrieve target_url
 
@@ -50,14 +51,14 @@ class WebScanPage(Adw.PreferencesPage):
             if not target_url.startswith(('http://', 'https://')):
                 target_url = 'http://' + target_url
 
-            process = subprocess.Popen(
+            with subprocess.Popen(
                 ['nikto', '-h', target_url, '-Tuning', 'xCGIVulnerable'],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True
-            )
-            stdout, stderr = process.communicate(timeout=300)
-            task.return_value((stdout, stderr, None))  # Success: (stdout, stderr, None for error_type)
+            ) as process: # R1732: Consider using 'with'
+                stdout, stderr = process.communicate(timeout=300)
+            gio_task.return_value((stdout, stderr, None))  # Success: (stdout, stderr, None for error_type)
 
         except FileNotFoundError:
             task.return_value((None, None, "FileNotFoundError"))
@@ -69,13 +70,12 @@ class WebScanPage(Adw.PreferencesPage):
             # we'll pass error string via return_value.
             # A more robust way would be:
             # error = GLib.Error(str(e), domain="WebScanPageErrorDomain", code=0)
-            # task.return_error(error)
-            task.return_value((None, str(e), "Exception"))
+            # gio_task.return_error(error)
+            gio_task.return_value((None, str(e), "Exception"))
 
-
-    def _on_scan_task_done(self, source_object, result, user_data):
+    def _on_scan_task_done(self, task, result, _user_data): # Renamed source_object to task for clarity
         """Callback for when the Gio.Task is complete. Runs in the main thread."""
-        task = source_object  # In this case, source_object is the task itself
+        # task = source_object # No longer needed with new signature
         target_url = task.get_task_data()  # Retrieve target_url if needed for messages
 
         try:
@@ -123,5 +123,5 @@ class WebScanPage(Adw.PreferencesPage):
         self.error_banner_webscan.set_revealed(True)
 
     # Removed @Gtk.Template.Callback() as it's a direct signal handler in UI
-    def on_error_banner_dismiss_clicked(self, widget, *args):
+    def on_error_banner_dismiss_clicked(self, _widget, *_args):
         self.error_banner_webscan.set_revealed(False)

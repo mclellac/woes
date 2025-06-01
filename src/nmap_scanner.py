@@ -31,17 +31,14 @@ class NmapScanner:
 
     def validate_target_input(self, target: str) -> bool:
         ipv4_segment = r"(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9]|0)"
-        ipv4_address = r"(?:{}\.{}\.{}\.{})".format(
-            ipv4_segment, ipv4_segment, ipv4_segment, ipv4_segment
-        )
+        # Use named argument for repeated segment to avoid W1308
+        ipv4_address = r"(?:{seg}\.{seg}\.{seg}\.{seg})".format(seg=ipv4_segment)
         fqdn = r"(?:[A-Za-z0-9-]{1,63}\.)+[A-Za-z]{2,}"
-        cidr = r"{}\/[0-9]{{1,2}}".format(
-            ipv4_address
-        )  # Escaping curly braces for the CIDR notation
+        # Use f-string for CIDR regex C0209
+        cidr = fr"{ipv4_address}\/[0-9]{{1,2}}"  # Escaping curly braces for the CIDR notation
 
-        addr_regex = (
-            r"^(localhost|" r"{}|" r"{}|" r"{})$".format(ipv4_address, fqdn, cidr)
-        )
+        # Use f-string for address regex C0209
+        addr_regex = fr"^(localhost|{ipv4_address}|{fqdn}|{cidr})$"
 
         targets = re.split(r"[ ,]+", target.strip())
 
@@ -90,10 +87,10 @@ class NmapScanner:
             logging.debug("Nmap scan completed with results: %s", nm.all_hosts())
             return nm
         except nmap.PortScannerError as e:
-            logging.error("Nmap scan failed: %s", e)
+            logging.error("Nmap scan failed for target %s: %s", target, e) # Added target to log
             raise e
         except Exception as e:
-            logging.error("Unexpected error during scan: %s", e)
+            logging.error("Unexpected error during scan for target %s (%s): %s", target, type(e).__name__, e)
             raise e
 
     def convert_results_to_yaml(self, nm: nmap.PortScanner) -> Dict[str, str]:

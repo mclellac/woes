@@ -1,16 +1,17 @@
 import logging
-
 import gi
+
 gi.require_version('Adw', '1')
 gi.require_version('Gtk', '4.0')
+
 from gi.repository import Adw, Gdk, Gio, Gtk
 
+from .constants import APP_ID, RESOURCE_PREFIX
 # Import pages for Gtk.Template type registration, aliasing to avoid direct use conflicts
 from . import DNSPage as _DNSPage_
 from . import HttpPage as _HttpPage_
 from . import NmapPage as _NmapPage_
 from . import WebScanPage as _WebScanPage_
-from .constants import APP_ID, RESOURCE_PREFIX
 from .style_utils import apply_font_size, apply_theme
 
 # Ensure custom page widgets are registered with the type system
@@ -72,8 +73,10 @@ class WoesWindow(Adw.ApplicationWindow):
                 Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
             )
             logging.debug("Loaded CSS from %s", css_path)
-        except Exception as e:
-            logging.error("Failed to load CSS from %s: %s", css_path, e)
+        except GLib.Error as e:  # More specific error for resource loading
+            logging.error("Failed to load CSS resource from %s: %s", css_path, e)
+        except Exception as e:  # Fallback for other errors
+            logging.error("An unexpected error of type %s occurred while loading CSS from %s: %s", type(e).__name__, css_path, e)
 
     def reload_css(self):
         logging.debug("Reloading CSS based on theme preference.")
@@ -90,9 +93,11 @@ class WoesWindow(Adw.ApplicationWindow):
             apply_theme(self.style_manager, dark_theme_enabled)
             # self.load_css()  # load_css is already called in setup_ui
 
-        except Exception as e:
-            logging.error("Error applying preferences: %s", e)
+        except GLib.Error as e: # GSettings errors are often GLib.Error
+            logging.error("Error applying preferences via GSettings: %s", e)
+        except Exception as e:  # Fallback for other errors
+            logging.error("An unexpected error of type %s occurred while applying preferences: %s", type(e).__name__, e)
 
-    def on_page_switched(self, widget, gparam):
+    def on_page_switched(self, _widget, _gparam):
         selected_page = self.stack.get_visible_child()
         logging.debug("Switched to page: %s", selected_page)

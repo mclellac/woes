@@ -1,20 +1,22 @@
 import logging
 # import functools # For functools.partial with GLib.idle_add - Removed unused import
+import logging # Added missing import, used throughout the file
 
 import nmap
-
 import gi
+
 gi.require_version('Adw', '1')
 gi.require_version('Gtk', '4.0')
 gi.require_version('GtkSource', '5')
 from gi.repository import Adw, Gio, GLib, GObject, Gtk, GtkSource
 
-from .constants import RESOURCE_PREFIX, APP_ID # Import APP_ID
+from .constants import APP_ID, RESOURCE_PREFIX # Sorted
 from .nmap_scanner import NmapScanner, ScanStatus
 from .style_utils import apply_source_style_scheme # Keep for source view
 from .utils import create_source_view
 
 
+# pylint: disable=too-few-public-methods
 class NmapItem(GObject.Object):
     key = GObject.Property(type=str)
     value = GObject.Property(type=str)
@@ -75,7 +77,7 @@ class NmapPage(Adw.PreferencesPage):
         if hasattr(self, 'scanner') and self.scanner:
             del self.scanner  # Ensure executor shutdown if NmapScanner has __del__
 
-    def _on_source_style_scheme_setting_changed(self, settings, key):
+    def _on_source_style_scheme_setting_changed(self, _settings, key):
         """Handle changes to the source-style-scheme setting."""
         logging.debug("NmapPage: '%s' setting changed, applying new source view style.", key)
         self._apply_source_view_style()
@@ -116,7 +118,7 @@ class NmapPage(Adw.PreferencesPage):
         # self.nmap_scripts_dropdown.connect("notify::selected-item", self._on_scan_param_changed)
         # error_banner dismiss is connected in UI template
 
-    def _on_target_activate(self, entry_row: Adw.EntryRow):
+    def _on_target_activate(self, entry_row: Adw.EntryRow):  # entry_row is used
         target = entry_row.get_text().strip()
         self._clear_error()  # Clear previous errors
 
@@ -161,9 +163,12 @@ class NmapPage(Adw.PreferencesPage):
         try:
             nm = self.scanner.run_nmap_scan(target, os_fingerprinting, all_ports, script_name)
             GLib.idle_add(self._process_scan_results, nm, target)  # Pass target for context
-        except Exception as e:
-            logging.error("Exception in Nmap scan task for %s: %s", target, e, exc_info=True)
-            GLib.idle_add(self._handle_scan_error, target, "Scan failed: %s" % str(e))
+        except nmap.PortScannerError as e: # More specific for nmap issues
+            logging.error("Nmap PortScannerError for %s: %s", target, e, exc_info=True)
+            GLib.idle_add(self._handle_scan_error, target, "Nmap scan error: %s" % str(e))
+        except Exception as e: # General fallback
+            logging.error("Unexpected exception in Nmap scan task for %s (%s): %s", target, type(e).__name__, e, exc_info=True)
+            GLib.idle_add(self._handle_scan_error, target, "Scan failed unexpectedly: %s" % str(e))
         finally:
             GLib.idle_add(self.nmap_target_entryrow.set_sensitive, True)
             logging.info("Nmap scan task finished for %s.", target)
@@ -199,8 +204,7 @@ class NmapPage(Adw.PreferencesPage):
         # self.results_by_host[target] = error_message
         # self.targets_group.set_revealed(self.nmap_target_listbox_store.get_n_items() > 0)
 
-
-    def _on_target_selected(self, listbox: Gtk.ListBox, row: Gtk.ListBoxRow):
+    def _on_target_selected(self, _listbox: Gtk.ListBox, row: Gtk.ListBoxRow): # row is used
         if row is None:
             self.source_buffer.set_text("")
             # self.results_group.set_revealed(False)  # Don't hide if just deselecting
@@ -284,7 +288,7 @@ class NmapPage(Adw.PreferencesPage):
 
 
     # Removed @Gtk.Template.Callback() as it's a direct signal handler in UI
-    def _on_error_banner_dismiss(self, banner: Adw.Banner, *args):
+    def _on_error_banner_dismiss(self, _banner: Adw.Banner, *_args):
         self._clear_error()
 
     def _display_error(self, message: str):

@@ -1,7 +1,7 @@
 import logging
 import re
-
 import gi
+
 gi.require_version('Adw', '1')
 gi.require_version('Gtk', '4.0')
 from gi.repository import Adw, Gio, Gtk, GLib
@@ -39,7 +39,7 @@ class Preferences(Adw.PreferencesWindow):
         # Banner dismiss signal is connected in UI template if handler _on_error_banner_dismiss_clicked is defined
 
     # Removed @Gtk.Template.Callback() as it's a direct signal handler in UI
-    def on_error_banner_dismiss_clicked(self, banner, *args):  # Renamed to match typical handler name
+    def on_error_banner_dismiss_clicked(self, _banner, *_args):  # Renamed to match typical handler name
         self.hide_banner_and_clear_error_state()
 
     def on_dns_server_changed(self, entryrow: Adw.EntryRow):
@@ -97,7 +97,7 @@ class Preferences(Adw.PreferencesWindow):
         # apply_font_size(self.settings, font_size)  # Handled by main_window listener
         self.settings.set_int("font-size", font_size)
 
-    def on_theme_switch_changed(self, switch_row: Adw.SwitchRow, gparam):
+    def on_theme_switch_changed(self, switch_row: Adw.SwitchRow, _gparam):
         theme_enabled = switch_row.get_active()
         # apply_theme(Adw.StyleManager.get_default(), theme_enabled)  # Handled by main_window listener
         self.settings.set_boolean("dark-theme", theme_enabled)
@@ -115,7 +115,7 @@ class Preferences(Adw.PreferencesWindow):
         # REMOVE:     self.main_window.reload_css()
         logging.debug("Dark theme preference set to %s. WoesWindow will handle the change.", theme_enabled)
 
-    def on_source_style_scheme_changed(self, combo_row: Adw.ComboRow, gparam):
+    def on_source_style_scheme_changed(self, combo_row: Adw.ComboRow, _gparam):
         selected_item = combo_row.get_selected_item()
         if isinstance(selected_item, Gtk.StringObject):
             source_style_scheme = selected_item.get_string()

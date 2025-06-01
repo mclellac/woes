@@ -4,14 +4,14 @@ from datetime import datetime
 
 import dns.resolver
 import dns.reversename
-
 import gi
+
 gi.require_version('Adw', '1')
 gi.require_version('Gtk', '4.0')
 gi.require_version('GtkSource', '5')
 from gi.repository import Adw, Gio, Gtk, GtkSource, Pango
 
-from .constants import RESOURCE_PREFIX, APP_ID
+from .constants import APP_ID, RESOURCE_PREFIX # Sorted
 from .style_utils import apply_source_style_scheme
 from .utils import create_source_view
 
@@ -27,6 +27,7 @@ class DNSPage(Adw.PreferencesPage):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.header_tag = None # Initialize W0201
         self._connect_signals()
         self.source_view, self.source_buffer = create_source_view(language_name='txt')
         self.dns_results_scrolled_window.set_child(self.source_view)
@@ -56,8 +57,10 @@ class DNSPage(Adw.PreferencesPage):
             self.class_color_tag = self.source_buffer.create_tag(
                 "class_color", foreground="#75507b"
             )
-        except Exception as e:
-            logging.error("Error creating text tags: %s", e)
+        except GLib.Error as e: # Pango related errors can be GLib.Error
+            logging.error("Error creating Pango text tags: %s", e)
+        except Exception as e: # Fallback for other unexpected errors
+            logging.error("Unexpected error creating text tags (%s): %s", type(e).__name__, e)
 
     def _connect_signals(self) -> None:
         """Connect signals for UI elements."""
@@ -68,13 +71,14 @@ class DNSPage(Adw.PreferencesPage):
         # The error_banner signal is connected in the UI file:
         # <signal name="button-clicked" handler="_on_error_banner_dismiss"/>
 
-    def _on_source_style_scheme_setting_changed(self, settings, key):
+    def _on_source_style_scheme_setting_changed(self, _settings, key):
         """Handle changes to the source-style-scheme setting."""
         logging.debug("DNSPage: '%s' setting changed, applying new source view style.", key)
         self._apply_source_view_style()
 
     def _apply_source_view_style(self):
         """Apply the style scheme to the GtkSourceView."""
+        # This method is similar to NmapPage._apply_source_view_style due to GSettings linkage.
         # settings = Gio.Settings.new(APP_ID) # Settings is now an instance variable
         source_style_scheme = self.settings.get_string("source-style-scheme")
         apply_source_style_scheme(
@@ -103,16 +107,16 @@ class DNSPage(Adw.PreferencesPage):
         is_domain = bool(domain_pattern.match(input_str))
         return is_ip or is_domain
 
-    def _on_entry_activated(self, entryrow: Gtk.Widget):
+    def _on_entry_activated(self, _entryrow: Gtk.Widget):
         """Handle DNS entry activation event."""
         self._perform_lookup()
 
-    def _on_record_type_changed(self, dropdown: Gtk.Widget, param):
+    def _on_record_type_changed(self, _dropdown: Gtk.Widget, _param):
         """Handle the record type dropdown change event."""
         self._perform_lookup()
 
     # Removed @Gtk.Template.Callback() as it's a direct signal handler in UI
-    def _on_error_banner_dismiss(self, banner: Adw.Banner, *args):
+    def _on_error_banner_dismiss(self, _banner: Adw.Banner, *_args):
         """Handle the error banner dismiss button click."""
         self._clear_error()
 
@@ -153,9 +157,12 @@ class DNSPage(Adw.PreferencesPage):
                 result = self._lookup_record(user_input, record_type, resolver)
 
             self._display_result(result, user_input, record_type, resolver.nameservers)
-        except Exception as e:
-            logging.error("Error performing DNS lookup: %s", e)
-            self._show_error("Error: %s" % str(e)) # Use %s for str(e) as well
+        except dns.exception.DNSException as e: # Already specific
+            logging.error("DNS lookup failed: %s", e)
+            self._show_error("DNS Error: %s" % str(e))
+        except Exception as e: # General fallback
+            logging.error("Unexpected error during DNS lookup (%s): %s", type(e).__name__, e)
+            self._show_error("Error: %s" % str(e))
 
     def _get_selected_record_type(self) -> str:
         """Get the currently selected DNS record type from the dropdown."""
@@ -201,8 +208,10 @@ class DNSPage(Adw.PreferencesPage):
                 self.header_tag = self.source_buffer.create_tag(
                     "header", weight=Pango.Weight.BOLD, size_points=12
                 )
-            except Exception as e:
-                logging.error("Error creating header tag: %s", e)
+            except GLib.Error as e: # Pango related errors
+                logging.error("Error creating Pango header tag: %s", e)
+            except Exception as e: # Fallback
+                logging.error("Unexpected error creating header tag (%s): %s", type(e).__name__, e)
 
         # DNS server info
         dns_server_info = f"DNS server used: {', '.join(dns_servers)}\n"
