@@ -3,26 +3,12 @@
 <interface>
   <requires lib="gtk" version="4.12"/>
   <requires lib="libadwaita" version="1.4"/>
-  <template class="HttpPage" parent="GtkBox">
-    <property name="halign">baseline-fill</property>
-    <property name="margin-top">20</property>
-    <property name="orientation">vertical</property>
+  <template class="HttpPage" parent="AdwPreferencesPage">
     <child>
-      <object class="GtkBox" id="http_page_box">
-        <property name="hexpand">True</property>
-        <property name="margin-bottom">10</property>
-        <property name="margin-end">10</property>
-        <property name="margin-start">10</property>
-        <property name="margin-top">10</property>
-        <property name="orientation">vertical</property>
-        <property name="vexpand">True</property>
+      <object class="AdwPreferencesGroup" id="http_request_group">
+        <property name="title" translatable="yes">Request Parameters</property>
         <child>
-          <object class="AdwPreferencesGroup" id="http_request_group">
-            <property name="title" translatable="yes">Request Parameters</property>
-            <property name="hexpand">True</property>
-            <property name="valign">baseline-center</property>
-            <child>
-              <object class="AdwEntryRow" id="http_entry_row">
+          <object class="AdwEntryRow" id="http_entry_row">
                 <property name="activates-default">True</property>
                 <property name="focusable">True</property>
                 <property name="input-purpose">url</property>
@@ -40,6 +26,8 @@
           </object>
         </child>
         <child>
+      <object class="AdwPreferencesGroup">
+        <child>
           <object class="AdwBanner" id="http_error_banner">
             <property name="button-label" translatable="yes">Dismiss</property>
             <property name="margin-bottom">10</property>
@@ -47,19 +35,15 @@
             <property name="revealed">False</property>
           </object>
         </child>
+          </object>
+        </child>
         <child>
           <object class="AdwPreferencesGroup" id="http_response_group">
             <property name="title" translatable="yes">Response Headers</property>
-            <property name="halign">baseline-fill</property>
-            <property name="hexpand">True</property>
-            <property name="margin-top">20</property>
-            <property name="vexpand">True</property>
             <property name="visible">False</property>
             <child>
               <object class="GtkColumnView" id="http_column_view">
                 <property name="enable-rubberband">True</property>
-                <property name="halign">baseline-fill</property>
-                <property name="hexpand">True</property>
                 <property name="margin-bottom">10</property>
                 <property name="margin-end">10</property>
                 <property name="margin-start">10</property>
@@ -71,7 +55,6 @@
                 <property name="reorderable">False</property>
                 <property name="show-column-separators">true</property>
                 <property name="show-row-separators">true</property>
-                <property name="valign">start</property>
                 <property name="vexpand">True</property>
                 <child>
                   <object class="GtkColumnViewColumn" id="header_name_column">

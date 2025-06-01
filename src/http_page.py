@@ -26,7 +26,7 @@ class HeaderItem(GObject.Object):
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/http_page.ui")
-class HttpPage(Gtk.Box):
+class HttpPage(Adw.PreferencesPage):
     __gtype_name__ = "HttpPage"
 
     http_entry_row = Gtk.Template.Child("http_entry_row")

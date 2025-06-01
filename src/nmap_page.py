@@ -27,7 +27,7 @@ class NmapItem(GObject.Object):
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/nmap_page.ui")
-class NmapPage(Gtk.Box):
+class NmapPage(Adw.PreferencesPage):
     __gtype_name__ = "NmapPage"
 
     nmap_target_entryrow = Gtk.Template.Child("nmap_target_entryrow")
@@ -272,7 +272,7 @@ class NmapPage(Gtk.Box):
         self._set_scan_status(ScanStatus.FAILED, f"Scan failed for {target}")
         logger.debug(f"NmapPage._handle_scan_error: Finished for target '{target}'.")
 
-    def _on_target_selected(self, _listbox: Gtk.ListBox, row: Optional[Gtk.ListBoxRow]):
+    def _on_target_selected(self, _listbox: Adw.ListBox, row: Optional[Adw.ActionRow]):
         logger.debug(f"NmapPage._on_target_selected: Triggered with listbox: {_listbox}, row: {row}")
         if row is None:
             logger.debug("NmapPage._on_target_selected: Row is None, clearing source_buffer.")
@@ -280,14 +280,11 @@ class NmapPage(Gtk.Box):
             logger.debug("NmapPage._on_target_selected: Finished due to None row.")
             return
 
-        child_widget = row.get_child()
-        logger.debug(f"NmapPage._on_target_selected: Row child_widget: {child_widget}")
-        if child_widget:
-            item_obj = child_widget.get_data("NmapItem")
-            logger.debug(f"NmapPage._on_target_selected: Retrieved item_obj from child_widget data: {item_obj} (type: {type(item_obj)})")
-            if isinstance(item_obj, NmapItem):
-                selected_target_key = item_obj.key
-                logger.debug(f"NmapPage._on_target_selected: Target selected: {selected_target_key}")
+        item_obj = row.get_data("NmapItem")
+        logger.debug(f"NmapPage._on_target_selected: Retrieved item_obj from row data: {item_obj} (type: {type(item_obj)})")
+        if isinstance(item_obj, NmapItem):
+            selected_target_key = item_obj.key
+            logger.debug(f"NmapPage._on_target_selected: Target selected: {selected_target_key}")
 
                 result_yaml = self.results_by_host.get(
                     selected_target_key,
@@ -303,7 +300,7 @@ class NmapPage(Gtk.Box):
                 logger.debug(f"NmapPage._on_target_selected: Finished for target '{selected_target_key}'.")
                 return
 
-        logger.warning("NmapPage._on_target_selected: Could not retrieve NmapItem from selected row or row child.")
+        logger.warning("NmapPage._on_target_selected: Could not retrieve NmapItem from selected row.")
         logger.debug("NmapPage._on_target_selected: Before self.source_buffer.set_text('') (due to bad item).")
         self.source_buffer.set_text("")
         logger.debug("NmapPage._on_target_selected: After self.source_buffer.set_text('') (due to bad item).")
@@ -444,14 +441,11 @@ class NmapPage(Gtk.Box):
         logger.debug("NmapPage._clear_error: error_banner title set to empty string.")
         logger.debug("NmapPage._clear_error: Finished.")
 
-    def _create_target_listbox_row(self, item: NmapItem) -> Gtk.ListBoxRow:
-        logger.debug(f"NmapPage._create_target_listbox_row: Creating row for item with key: '{item.key}'")
-        simple_row = Gtk.ListBoxRow()
-        logger.debug(f"NmapPage._create_target_listbox_row: Gtk.ListBoxRow created: {simple_row}")
-        simple_label = Gtk.Label(label=item.key, halign=Gtk.Align.START, margin_start=6, margin_end=6)
-        logger.debug(f"NmapPage._create_target_listbox_row: Gtk.Label created: {simple_label} with label '{item.key}'")
-        simple_label.set_data("NmapItem", item)
-        logger.debug(f"NmapPage._create_target_listbox_row: Stored NmapItem ({item}) as data on label.")
-        simple_row.set_child(simple_label)
-        logger.debug(f"NmapPage._create_target_listbox_row: Set label as child of row. Returning row: {simple_row}")
+    def _create_target_listbox_row(self, item: NmapItem) -> Adw.ActionRow:
+        logger.debug(f"NmapPage._create_target_listbox_row: Creating ActionRow for item with key: '{item.key}'")
+        simple_row = Adw.ActionRow(title=item.key)
+        logger.debug(f"NmapPage._create_target_listbox_row: Adw.ActionRow created: {simple_row} with title '{item.key}'")
+        simple_row.set_data("NmapItem", item)
+        logger.debug(f"NmapPage._create_target_listbox_row: Stored NmapItem ({item}) as data on ActionRow.")
+        logger.debug(f"NmapPage._create_target_listbox_row: Returning row: {simple_row}")
         return simple_row

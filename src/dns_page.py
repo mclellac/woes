@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/dns_page.ui")
-class DNSPage(Gtk.Box):
+class DNSPage(Adw.PreferencesPage):
     __gtype_name__ = "DNSPage"
 
     dns_ip_entryrow = Gtk.Template.Child("dns_ip_entryrow")
