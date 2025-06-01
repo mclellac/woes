@@ -9,24 +9,24 @@
         <property name="title" translatable="yes">Request Parameters</property>
         <child>
           <object class="AdwEntryRow" id="http_entry_row">
-                <property name="activates-default">True</property>
-                <property name="focusable">True</property>
-                <property name="input-purpose">url</property>
-                <property name="max-width-chars">250</property>
-                <property name="show-apply-button">True</property>
-                <property name="title" translatable="yes">URL to fetch HTTP headers from</property>
-              </object>
-            </child>
-            <child>
-              <object class="AdwSwitchRow" id="http_pragma_switch_row">
-                <property name="subtitle" translatable="yes">Enable this to send Akamai Pragma headers in your request</property>
-                <property name="title" translatable="yes">Akamai Debug Headers</property>
-              </object>
-            </child>
+            <property name="activates-default">True</property>
+            <property name="focusable">True</property>
+            <property name="input-purpose">url</property>
+            <property name="max-width-chars">250</property>
+            <property name="show-apply-button">True</property>
+            <property name="title" translatable="yes">URL to fetch HTTP headers from</property>
           </object>
         </child>
         <child>
-      <object class="AdwPreferencesGroup">
+          <object class="AdwSwitchRow" id="http_pragma_switch_row">
+            <property name="subtitle" translatable="yes">Enable this to send Akamai Pragma headers in your request</property>
+            <property name="title" translatable="yes">Akamai Debug Headers</property>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="AdwPreferencesGroup"> <!-- Group for the error banner -->
         <child>
           <object class="AdwBanner" id="http_error_banner">
             <property name="button-label" translatable="yes">Dismiss</property>
@@ -35,51 +35,49 @@
             <property name="revealed">False</property>
           </object>
         </child>
-          </object>
-        </child>
+      </object>
+    </child>
+    <child>
+      <object class="AdwPreferencesGroup" id="http_response_group">
+        <property name="title" translatable="yes">Response Headers</property>
+        <property name="visible">False</property>
         <child>
-          <object class="AdwPreferencesGroup" id="http_response_group">
-            <property name="title" translatable="yes">Response Headers</property>
-            <property name="visible">False</property>
+          <object class="GtkColumnView" id="http_column_view">
+            <property name="enable-rubberband">True</property>
+            <property name="margin-bottom">10</property>
+            <property name="margin-end">10</property>
+            <property name="margin-start">10</property>
+            <property name="margin-top">10</property>
+            <property name="model">
+              <object class="GtkMultiSelection"/>
+            </property>
+            <property name="overflow">hidden</property>
+            <property name="reorderable">False</property>
+            <property name="show-column-separators">true</property>
+            <property name="show-row-separators">true</property>
+            <property name="vexpand">True</property>
             <child>
-              <object class="GtkColumnView" id="http_column_view">
-                <property name="enable-rubberband">True</property>
-                <property name="margin-bottom">10</property>
-                <property name="margin-end">10</property>
-                <property name="margin-start">10</property>
-                <property name="margin-top">10</property>
-                <property name="model">
-                  <object class="GtkMultiSelection"/>
+              <object class="GtkColumnViewColumn" id="header_name_column">
+                <property name="factory">
+                  <object class="GtkSignalListItemFactory"/>
                 </property>
-                <property name="overflow">hidden</property>
-                <property name="reorderable">False</property>
-                <property name="show-column-separators">true</property>
-                <property name="show-row-separators">true</property>
-                <property name="vexpand">True</property>
-                <child>
-                  <object class="GtkColumnViewColumn" id="header_name_column">
-                    <property name="factory">
-                      <object class="GtkSignalListItemFactory"/>
-                    </property>
-                    <property name="fixed-width">0</property>
-                    <property name="title" translatable="yes">Response Header</property>
-                    <property name="visible">False</property>
-                  </object>
-                </child>
-                <child>
-                  <object class="GtkColumnViewColumn" id="header_value_column">
-                    <property name="expand">True</property>
-                    <property name="factory">
-                      <object class="GtkSignalListItemFactory"/>
-                    </property>
-                    <property name="resizable">True</property>
-                    <property name="sorter">
-                      <object class="GtkColumnViewSorter"/>
-                    </property>
-                    <property name="title" translatable="yes">Response Header Value</property>
-                    <property name="visible">False</property>
-                  </object>
-                </child>
+                <property name="fixed-width">0</property>
+                <property name="title" translatable="yes">Response Header</property>
+                <property name="visible">False</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkColumnViewColumn" id="header_value_column">
+                <property name="expand">True</property>
+                <property name="factory">
+                  <object class="GtkSignalListItemFactory"/>
+                </property>
+                <property name="resizable">True</property>
+                <property name="sorter">
+                  <object class="GtkColumnViewSorter"/>
+                </property>
+                <property name="title" translatable="yes">Response Header Value</property>
+                <property name="visible">False</property>
               </object>
             </child>
           </object>
