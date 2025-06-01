@@ -192,25 +192,25 @@ class WoesApplication(Adw.Application):
 
     def switch_to_http(self, *_args):
         if self.win and hasattr(self.win, 'stack'):
-            self.win.stack.set_visible_child_name("http_page")
+            self.win.stack.set_visible_child_name("http")
         else:
             logging.warning("Cannot switch to http_page: window or stack not available.")
 
     def switch_to_nmap(self, *_args):
         if self.win and hasattr(self.win, 'stack'):
-            self.win.stack.set_visible_child_name("nmap_page")
+            self.win.stack.set_visible_child_name("nmap")
         else:
             logging.warning("Cannot switch to nmap_page: window or stack not available.")
 
     def switch_to_dns(self, *_args):
         if self.win and hasattr(self.win, 'stack'):
-            self.win.stack.set_visible_child_name("dns_page")
+            self.win.stack.set_visible_child_name("dns")
         else:
             logging.warning("Cannot switch to dns_page: window or stack not available.")
 
     def switch_to_webscan(self, *_args):
         if self.win and hasattr(self.win, 'stack'):
-            self.win.stack.set_visible_child_name("webscan_page")
+            self.win.stack.set_visible_child_name("webscan")
         else:
             logging.warning("Cannot switch to webscan_page: window or stack not available.")
 
