@@ -8,7 +8,7 @@ import gi
 
 gi.require_version('Adw', '1')
 gi.require_version('Gtk', '4.0')
-from gi.repository import Adw, Gio, GObject, Gtk
+from gi.repository import Adw, Gio, GObject, Gtk, GLib
 
 from .constants import RESOURCE_PREFIX
 # Removed Helper import as it's unused
@@ -42,6 +42,7 @@ class HttpPage(Adw.PreferencesPage):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         logger.debug("HttpPage initialized.")
+        self.current_http_task = None
 
         # Initialize ColumnView model and columns here
         self.header_list_store = Gio.ListStore.new(HeaderItem)
@@ -97,6 +98,7 @@ class HttpPage(Adw.PreferencesPage):
             "use_akamai_pragma": self.http_pragma_switch_row.get_active()
         }
         task = Gio.Task.new(self, None, self._fetch_headers_task_done_cb, None)
+        self.current_http_task = task
         # The problematic task.set_task_data line is now fully removed.
         task.run_in_thread(self._fetch_headers_task_thread_func)
 
@@ -139,28 +141,33 @@ class HttpPage(Adw.PreferencesPage):
             # For simplicity, using a generic error domain and code
             # A more robust solution might define a custom error domain
             error_message = self._format_http_error(e)
-            g_error = Gio.IOErrorEnum.FAILED.new_literal(error_message)
+            g_error = GLib.Error(message=error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED)
             task.return_error(g_error)
+            return
         except requests.exceptions.ConnectionError as e:
             logger.warning("Task thread: ConnectionError for %s: %s", url, e, exc_info=True)
             error_message = "Connection Error: Failed to establish a connection."
-            g_error = Gio.IOErrorEnum.FAILED.new_literal(error_message)
+            g_error = GLib.Error(message=error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED)
             task.return_error(g_error)
+            return
         except requests.exceptions.Timeout as e:
             logger.warning("Task thread: Timeout for %s: %s", url, e, exc_info=True)
             error_message = "Timeout Error: The request timed out."
-            g_error = Gio.IOErrorEnum.FAILED.new_literal(error_message)
+            g_error = GLib.Error(message=error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED)
             task.return_error(g_error)
+            return
         except requests.exceptions.RequestException as e:
             logger.error("Task thread: RequestException for %s: %s", url, e, exc_info=True)
             error_message = f"Request Error: {str(e)}"
-            g_error = Gio.IOErrorEnum.FAILED.new_literal(error_message)
+            g_error = GLib.Error(message=error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED)
             task.return_error(g_error)
+            return
         except Exception as e: # Catch any other unexpected errors
             logger.error("Task thread: Unexpected error for %s: %s", url, e, exc_info=True)
             error_message = f"An unexpected error occurred: {str(e)}"
-            g_error = Gio.IOErrorEnum.FAILED.new_literal(error_message)
+            g_error = GLib.Error(message=error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED)
             task.return_error(g_error)
+            return
 
 
     def _fetch_headers_task_done_cb(self, source_object, result: Gio.AsyncResult, user_data):
@@ -168,21 +175,28 @@ class HttpPage(Adw.PreferencesPage):
         self.http_entry_row.set_sensitive(True)
         # e.g., self.spinner.stop()
 
-        try:
-            headers = source_object.run_in_thread_finish(result) # Gets value from task.return_value()
-            # If task.return_error() was called, run_in_thread_finish will raise a GLib.Error
+        local_task_ref = self.current_http_task
+        headers = None  # Initialize headers
 
-            logger.info("Successfully fetched headers (async)")
-            self._update_column_view_model(headers)
-            self.http_entry_row.remove_css_class("error")
-        except GObject.GError as e: # Specifically catch GLib.Error (GObject.GError in Python)
+        try:
+            if local_task_ref:
+                headers = local_task_ref.run_in_thread_finish(result) # May raise GError
+                logger.info("Successfully fetched headers (async)")
+                self._update_column_view_model(headers)
+                self.http_entry_row.remove_css_class("error")
+            else:
+                logger.error("current_http_task was None in _fetch_headers_task_done_cb.")
+                self._update_column_view_model(None) # Clear view if no task
+        except GObject.GError as e:
             error_message = e.message
-            logger.error("Error fetching headers (async): %s", error_message)
-            # Remove HTML bold tags for AdwBanner, as it might handle styling differently
+            logger.error("Error fetching headers (async GError): %s", error_message)
             error_message = error_message.replace("<b>", "").replace("</b>", "")
             self._display_error(error_message)
             self.http_entry_row.add_css_class("error")
-            self._update_column_view_model(None)  # Clear previous results if error
+            self._update_column_view_model(None) # Clear view on error
+        finally:
+            if self.current_http_task is local_task_ref:
+                self.current_http_task = None
 
 
     @staticmethod
