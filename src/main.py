@@ -133,6 +133,7 @@ class WoesApplication(Adw.Application):
             sys.exit(1)
 
         self.win = win
+        self.add_window(self.win) # Add this line
         logger.debug("Presenting WoesWindow.")
         try:
             self.win.present()
