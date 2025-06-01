@@ -8,19 +8,19 @@ gi.require_version("Adw", "1")
 # gi.require_version("GtkSource", "5") # Only if GtkSource is used by WoesApplication directly
 
 # Import GUI related modules here
-from gi.repository import Adw, Gio, GLib # Added GLib for OptionArg/OptionFlags
+from gi.repository import Adw, Gio, GLib  # Added GLib for OptionArg/OptionFlags
 
 from .constants import APP_ID, VERSION
-from .preferences import Preferences
-# from .window import WoesWindow
-from .minimal_window import MinimalWoesWindow
+from .preferences import Preferences  # Ensure Preferences is imported
+from .window import WoesWindow  # Changed from MinimalWoesWindow
+
 
 class WoesApplication(Adw.Application):
     """The main application singleton class."""
 
     def __init__(self, version=VERSION, **kwargs):
-        self.version = version # Simple assignment first
-        self.debug_enabled = False # Initialize debug status early
+        self.version = version  # Simple assignment first
+        self.debug_enabled = False  # Initialize debug status early
 
         # Initial logging setup - will be overridden if --debug is passed
         logging.basicConfig(level=logging.INFO, format='%(levelname)s:%(name)s:%(message)s')
@@ -35,7 +35,7 @@ class WoesApplication(Adw.Application):
         # Add command line options after super().__init__
         self.add_main_option(
             "debug",
-            ord("d"), # Using 'd' as a short option for debug
+            ord("d"),  # Using 'd' as a short option for debug
             GLib.OptionFlags.NONE,
             GLib.OptionArg.NONE,
             "Enable debug logging",
@@ -47,9 +47,11 @@ class WoesApplication(Adw.Application):
         # Create actions and set accelerators
         self.create_action("quit", lambda *_: self.quit(), ["<primary>q"])
         self.create_action("about", self.on_about_action)
-        # self.create_action("preferences", self.on_preferences_action)
-        # self.create_action("switch-to-http", self.switch_to_http, ["<primary>1"])
-        # self.create_action("switch-to-nmap", self.switch_to_nmap, ["<primary>2"])
+        self.create_action("preferences", self.on_preferences_action)  # Uncommented
+        self.create_action("switch-to-http", self.switch_to_http, ["<primary>1"])  # Uncommented
+        self.create_action("switch-to-nmap", self.switch_to_nmap, ["<primary>2"])  # Uncommented
+        self.create_action("switch-to-dns", self.switch_to_dns, ["<primary>3"])  # Added
+        self.create_action("switch-to-webscan", self.switch_to_webscan, ["<primary>4"])  # Added
 
     def do_handle_local_options(self, options):
         # This method is called after options are parsed
@@ -65,7 +67,7 @@ class WoesApplication(Adw.Application):
         # If not debug, the INFO level set in __init__ remains.
         # No need to explicitly set logging.INFO here unless changing format or other settings.
 
-        return 0 # Indicate success
+        return 0  # Indicate success
 
     def do_activate(self):
         """Called when the application is activated.
@@ -73,21 +75,33 @@ class WoesApplication(Adw.Application):
         """
         win = self.props.active_window
         if not win:
-            win = MinimalWoesWindow(application=self)
+            win = WoesWindow(application=self)  # Changed to WoesWindow
         win.present()
         self.win = win
 
     def switch_to_http(self, *args):
-        # if self.win:
-        #     self.win.stack.set_visible_child_name("http_page")
-        logging.debug("switch_to_http called, but is a stub for minimal test.")
-        pass
+        if self.win and hasattr(self.win, 'stack'):
+            self.win.stack.set_visible_child_name("http_page")
+        else:
+            logging.warning("Cannot switch to http_page: window or stack not available.")
 
     def switch_to_nmap(self, *args):
-        # if self.win:
-        #     self.win.stack.set_visible_child_name("nmap_page")
-        logging.debug("switch_to_nmap called, but is a stub for minimal test.")
-        pass
+        if self.win and hasattr(self.win, 'stack'):
+            self.win.stack.set_visible_child_name("nmap_page")
+        else:
+            logging.warning("Cannot switch to nmap_page: window or stack not available.")
+
+    def switch_to_dns(self, *args):
+        if self.win and hasattr(self.win, 'stack'):
+            self.win.stack.set_visible_child_name("dns_page")
+        else:
+            logging.warning("Cannot switch to dns_page: window or stack not available.")
+
+    def switch_to_webscan(self, *args):
+        if self.win and hasattr(self.win, 'stack'):
+            self.win.stack.set_visible_child_name("webscan_page")
+        else:
+            logging.warning("Cannot switch to webscan_page: window or stack not available.")
 
     def on_about_action(self, widget, _):
         """Callback for the app.about action."""
@@ -103,12 +117,12 @@ class WoesApplication(Adw.Application):
         about.present()
 
     def on_preferences_action(self, widget, _):
-        """Callback for the app.preferences action."""
-        # preferences = Preferences(main_window=self.win)
-        # preferences.set_transient_for(self.win)
-        # preferences.present()
-        logging.debug("on_preferences_action called, but is a stub for minimal test.")
-        pass
+        if not self.win:
+            logging.error("Main window not available for preferences.")
+            return
+        preferences_dialog = Preferences(main_window=self.win)
+        preferences_dialog.present()
+        # preferences_dialog.set_transient_for(self.win)  # Already set in Preferences.__init__
 
     def create_action(self, name, callback, shortcuts=None):
         """Add an application action."""
@@ -117,6 +131,7 @@ class WoesApplication(Adw.Application):
         self.add_action(action)
         if shortcuts:
             self.set_accels_for_action(f"app.{name}", shortcuts)
+
 
 def main(version=VERSION):
     """The application's entry point."""

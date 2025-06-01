@@ -3,19 +3,20 @@ gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
 from gi.repository import Gtk, Adw, Gio, GLib
 
-import subprocess
 import logging
+import subprocess
 
-from .constants import RESOURCE_PREFIX # Import RESOURCE_PREFIX
+from .constants import RESOURCE_PREFIX  # Import RESOURCE_PREFIX
 
-@Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/webscan_page.ui") # Use resource_path and constant
+
+@Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/webscan_page.ui")  # Use resource_path and constant
 class WebScanPage(Adw.PreferencesPage):
     __gtype_name__ = 'WebScanPage'
 
     url_entry = Gtk.Template.Child()
     scan_button = Gtk.Template.Child()
     results_textview = Gtk.Template.Child()
-    error_banner_webscan = Gtk.Template.Child() # New banner
+    error_banner_webscan = Gtk.Template.Child()  # New banner
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -36,14 +37,14 @@ class WebScanPage(Adw.PreferencesPage):
 
         # Run Nikto scan in a separate thread to avoid blocking UI
         # Using Gio.Task for modern asynchronous programming
-        cancellable = Gio.Cancellable() # Optional: can be used to cancel the task
+        cancellable = Gio.Cancellable()  # Optional: can be used to cancel the task
         task = Gio.Task.new(self, cancellable, self._on_scan_task_done)
-        task.set_task_data(target_url) # Pass target_url to the task
+        task.set_task_data(target_url)  # Pass target_url to the task
         task.run_in_thread(self._run_scan_task_thread_func)
 
     def _run_scan_task_thread_func(self, task, source_object, task_data, cancellable):
         """Worker function for Gio.Task that runs in a separate thread."""
-        target_url = task_data # Retrieve target_url
+        target_url = task_data  # Retrieve target_url
 
         try:
             if not target_url.startswith(('http://', 'https://')):
@@ -56,7 +57,7 @@ class WebScanPage(Adw.PreferencesPage):
                 text=True
             )
             stdout, stderr = process.communicate(timeout=300)
-            task.return_value((stdout, stderr, None)) # Success: (stdout, stderr, None for error_type)
+            task.return_value((stdout, stderr, None))  # Success: (stdout, stderr, None for error_type)
 
         except FileNotFoundError:
             task.return_value((None, None, "FileNotFoundError"))
@@ -74,8 +75,8 @@ class WebScanPage(Adw.PreferencesPage):
 
     def _on_scan_task_done(self, source_object, result, user_data):
         """Callback for when the Gio.Task is complete. Runs in the main thread."""
-        task = source_object # In this case, source_object is the task itself
-        target_url = task.get_task_data() # Retrieve target_url if needed for messages
+        task = source_object  # In this case, source_object is the task itself
+        target_url = task.get_task_data()  # Retrieve target_url if needed for messages
 
         try:
             # This will re-raise an error if task.return_error() was called
@@ -91,16 +92,15 @@ class WebScanPage(Adw.PreferencesPage):
             elif error_type == "Exception":
                 self.show_error_toast(f"An error occurred: {stderr_or_error_msg}")
                 self._update_textview("", f"An error occurred: {stderr_or_error_msg}")
-            else: # Success
+            else:  # Success
                 self._update_textview(stdout, stderr_or_error_msg)
 
-        except GLib.Error as e: # Catches errors set by task.return_error()
-            logging.error(f"Error in scan task: {e.message}")
-            self.show_error_toast(f"An error occurred: {e.message}")
-            self._update_textview("", f"An error occurred: {e.message}")
+        except GLib.Error as e:  # Catches errors set by task.return_error()
+            logging.error("Error in scan task: %s", e.message)
+            self.show_error_toast(f"An error occurred: {e.message}")  # f-string for UI message is fine
+            self._update_textview("", f"An error occurred: {e.message}")  # f-string for UI message is fine
         finally:
             self.scan_button.set_sensitive(True)
-
 
     def _update_textview(self, stdout, stderr):
         buffer = self.results_textview.get_buffer()
@@ -118,7 +118,7 @@ class WebScanPage(Adw.PreferencesPage):
     def show_error_toast(self, message):
         # A helper function to show toasts, assuming this page is within a context that can display them
         # (e.g., Adw.ApplicationWindow or a view that has access to Adw.ToastOverlay)
-        logging.error(f"Displaying error: {message}")
+        logging.error("Displaying error: %s", message)
         self.error_banner_webscan.set_title(message)
         self.error_banner_webscan.set_revealed(True)
 

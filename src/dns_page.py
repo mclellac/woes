@@ -30,8 +30,12 @@ class DNSPage(Adw.PreferencesPage):
         self._connect_signals()
         self.source_view, self.source_buffer = create_source_view(language_name='txt')
         self.dns_results_scrolled_window.set_child(self.source_view)
-        self._apply_source_view_style()
-        self.settings = Gio.Settings.new(APP_ID)
+        self.settings = Gio.Settings.new(APP_ID)  # Ensure settings is initialized before use
+        self._apply_source_view_style()  # Initial style application
+        self.settings.connect(
+            "changed::source-style-scheme",
+            self._on_source_style_scheme_setting_changed
+        )  # Connect listener
 
         try:
             self.bold_tag = self.source_buffer.create_tag(
@@ -53,7 +57,7 @@ class DNSPage(Adw.PreferencesPage):
                 "class_color", foreground="#75507b"
             )
         except Exception as e:
-            logging.error(f"Error creating text tags: {e}")
+            logging.error("Error creating text tags: %s", e)
 
     def _connect_signals(self) -> None:
         """Connect signals for UI elements."""
@@ -64,11 +68,15 @@ class DNSPage(Adw.PreferencesPage):
         # The error_banner signal is connected in the UI file:
         # <signal name="button-clicked" handler="_on_error_banner_dismiss"/>
 
+    def _on_source_style_scheme_setting_changed(self, settings, key):
+        """Handle changes to the source-style-scheme setting."""
+        logging.debug("DNSPage: '%s' setting changed, applying new source view style.", key)
+        self._apply_source_view_style()
 
     def _apply_source_view_style(self):
         """Apply the style scheme to the GtkSourceView."""
-        settings = Gio.Settings.new(APP_ID)
-        source_style_scheme = settings.get_string("source-style-scheme")
+        # settings = Gio.Settings.new(APP_ID) # Settings is now an instance variable
+        source_style_scheme = self.settings.get_string("source-style-scheme")
         apply_source_style_scheme(
             GtkSource.StyleSchemeManager.get_default(),
             self.source_buffer,
@@ -115,7 +123,7 @@ class DNSPage(Adw.PreferencesPage):
             self._show_error("Input cannot be empty.")
             return
 
-        self._clear_error() # Clear previous errors first
+        self._clear_error()  # Clear previous errors first
 
         if not self._is_valid_ip_or_domain(user_input):
             self._show_error("Invalid IP address or domain name.")
@@ -139,15 +147,15 @@ class DNSPage(Adw.PreferencesPage):
                     if model.get_string(i) == "PTR":
                         self.dns_record_type_dropdown.set_selected(i)
                         break
-                record_type = "PTR" # Ensure this is used for the lookup
+                record_type = "PTR"  # Ensure this is used for the lookup
                 result = self._lookup_record(user_input, "PTR", resolver)
             else:
                 result = self._lookup_record(user_input, record_type, resolver)
 
             self._display_result(result, user_input, record_type, resolver.nameservers)
         except Exception as e:
-            logging.error(f"Error performing DNS lookup: {e}")
-            self._show_error(f"Error: {str(e)}")
+            logging.error("Error performing DNS lookup: %s", e)
+            self._show_error("Error: %s" % str(e)) # Use %s for str(e) as well
 
     def _get_selected_record_type(self) -> str:
         """Get the currently selected DNS record type from the dropdown."""
@@ -167,7 +175,6 @@ class DNSPage(Adw.PreferencesPage):
         self.error_banner.set_revealed(False)
         self.error_banner.set_title("")
 
-
     @staticmethod
     def _lookup_record(domain_or_ip: str, record_type: str, resolver: dns.resolver.Resolver) -> str:
         try:
@@ -185,7 +192,7 @@ class DNSPage(Adw.PreferencesPage):
 
     def _display_result(self, result: str, domain_or_ip: str, record_type: str, dns_servers: list):
         """Display the DNS lookup results in the source buffer with enhanced formatting."""
-        self.source_buffer.set_text("") # Clear previous results
+        self.source_buffer.set_text("")  # Clear previous results
 
         # Check if the header tag already exists in the tag table
         self.header_tag = self.source_buffer.get_tag_table().lookup("header")
@@ -195,7 +202,7 @@ class DNSPage(Adw.PreferencesPage):
                     "header", weight=Pango.Weight.BOLD, size_points=12
                 )
             except Exception as e:
-                logging.error(f"Error creating header tag: {e}")
+                logging.error("Error creating header tag: %s", e)
 
         # DNS server info
         dns_server_info = f"DNS server used: {', '.join(dns_servers)}\n"
@@ -255,4 +262,3 @@ class DNSPage(Adw.PreferencesPage):
                 self.source_buffer.insert(
                     self.source_buffer.get_end_iter(), line + "\n"
                 )
-

@@ -14,9 +14,9 @@ setattr(gi_repo_mock, 'GtkSource', MagicMock())
 setattr(gi_repo_mock, 'Pango', MagicMock())
 
 import unittest
-from unittest.mock import patch, call # call is used by the test output, not explicitly here now
+from unittest.mock import patch  # call is used by the test output, not explicitly here now - Removed 'call'
 import logging
-import argparse
+# import argparse # Removed unused import
 
 current_script_path = os.path.abspath(__file__)
 tests_dir = os.path.dirname(current_script_path)
@@ -27,6 +27,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from src.main import parse_arguments_and_setup_logging
+
 
 class TestMainAppArgs(unittest.TestCase):
 
@@ -66,6 +67,7 @@ class TestMainAppArgs(unittest.TestCase):
         test_argv = ['main.py', '--unknown-arg']
         with self.assertRaises(SystemExit):
             parse_arguments_and_setup_logging(test_argv)
+
 
 if __name__ == '__main__':
     unittest.main()

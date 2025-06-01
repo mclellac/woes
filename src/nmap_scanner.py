@@ -19,6 +19,7 @@ class ScanStatus(Enum):
     IN_PROGRESS = (0.0, "Scanning {target}...")
     COMPLETE = (1.0, "Scan complete")
     FAILED = (1.0, "Scan failed unexpectedly")
+    IDLE = (0.0, "Idle")  # Added IDLE state
 
 
 class NmapScanner:
@@ -46,9 +47,9 @@ class NmapScanner:
 
         for t in targets:
             if re.match(addr_regex, t):
-                logging.debug(f"Target '{t}' matched the pattern.")
+                logging.debug("Target '%s' matched the pattern.", t)
             else:
-                logging.debug(f"Target '{t}' did NOT match the pattern.")
+                logging.debug("Target '%s' did NOT match the pattern.", t)
 
         return all(re.match(addr_regex, t) for t in targets)
 
@@ -62,7 +63,7 @@ class NmapScanner:
             options += f" {ScanOptions.ALL_PORTS.value}"
         if selected_script and selected_script != "None":
             options += f" {ScanOptions.SCRIPT.value}{selected_script}"
-        logging.debug(f"Nmap options constructed: {options}")
+        logging.debug("Nmap options constructed: %s", options)
         return options
 
     def run_nmap_scan(
@@ -72,30 +73,35 @@ class NmapScanner:
         scan_all_ports: bool,
         selected_script: str,
     ):
-        logging.debug(
-            f"Running Nmap scan for target: {target} with options: {self.build_nmap_options(os_fingerprinting, scan_all_ports, selected_script)}"
+        nmap_options = self.build_nmap_options(
+            os_fingerprinting, scan_all_ports, selected_script
         )
-        options = self.build_nmap_options(
+        logging.debug(
+            "Running Nmap scan for target: %s with options: %s",
+            target,
+            nmap_options
+        )
+        options = self.build_nmap_options(  # Re-assign options for clarity, already captured in log
             os_fingerprinting, scan_all_ports, selected_script
         )
         try:
             nm = nmap.PortScanner()
             nm.scan(hosts=target, arguments=options)
-            logging.debug(f"Nmap scan completed with results: {nm.all_hosts()}")
+            logging.debug("Nmap scan completed with results: %s", nm.all_hosts())
             return nm
         except nmap.PortScannerError as e:
-            logging.error(f"Nmap scan failed: {e}")
+            logging.error("Nmap scan failed: %s", e)
             raise e
         except Exception as e:
-            logging.error(f"Unexpected error during scan: {e}")
+            logging.error("Unexpected error during scan: %s", e)
             raise e
 
     def convert_results_to_yaml(self, nm: nmap.PortScanner) -> Dict[str, str]:
         all_results = {}
         for host in nm.all_hosts():
-            logging.debug(f"Processing results for host: {host}")
+            logging.debug("Processing results for host: %s", host)
             host_data = nm[host]
-            logging.debug(f"Raw host data: {host_data}")
+            logging.debug("Raw host data: %s", host_data)
             plain_dict = self.to_plain_dict(host_data)
             yaml_output = yaml.safe_dump(plain_dict, default_flow_style=False)
             all_results[host] = yaml_output

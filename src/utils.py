@@ -3,8 +3,8 @@ gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
 gi.require_version('GtkSource', '5')
 
-import logging # Added import
-from gi.repository import Gtk, GtkSource, Adw
+import logging  # Added import
+from gi.repository import Gtk, GtkSource  # Removed Adw as it's unused
 
 def create_source_view(language_name='txt'):
     """
@@ -22,11 +22,11 @@ def create_source_view(language_name='txt'):
     language = language_manager.get_language(language_name)
 
     if language is None:
-        logging.warning(f"GtkSourceView language '{language_name}' not found. Falling back to a plain buffer.")
-        source_buffer = GtkSource.Buffer() # Create a plain GtkSource.Buffer
+        logging.warning("GtkSourceView language '%s' not found. Falling back to a plain buffer.", language_name)
+        source_buffer = GtkSource.Buffer()  # Create a plain GtkSource.Buffer
     else:
         source_buffer = GtkSource.Buffer.new_with_language(language)
-        source_buffer.set_highlight_syntax(True) # Only set this if language is found
+        source_buffer.set_highlight_syntax(True)  # Only set this if language is found
 
     source_view = GtkSource.View.new_with_buffer(source_buffer)
     source_view.set_show_line_numbers(True)
