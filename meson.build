@@ -34,21 +34,6 @@ dependencies = [
     dependency('pygobject-3.0', version: '>= 3.46.0'),
 ]
 
-# Verify and install Python dependencies
-python_modules = [
-    'requests',
-    'python-nmap',
-    'PyYAML',
-    'dnspython'
-]
-
-foreach module : python_modules
-    dep_check = run_command(python_bin, ['-m', 'pip', 'show', module], check: false)
-    if dep_check.returncode() != 0
-        error('Python module \'' + module + '\' not found. Please install it using pip.')
-    endif
-endforeach
-
 # Installation directories
 prefix = get_option('prefix')
 modulesdir = python_bin.get_install_dir() # Modules directory for post-install

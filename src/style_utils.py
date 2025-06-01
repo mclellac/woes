@@ -32,7 +32,7 @@ def apply_source_style_scheme(
     source_style_scheme: str,
 ):
     logging.debug(
-        f"apply_source_style_scheme: Called with source_style_scheme={source_style_scheme}"
+        "apply_source_style_scheme: Called with source_style_scheme=%s", source_style_scheme
     )
 
     if source_style_scheme not in ["Adwaita", "Adwaita-dark"]:
@@ -44,7 +44,7 @@ def apply_source_style_scheme(
         applied_scheme = buffer.get_style_scheme()
         if applied_scheme:
             logging.debug(
-                f"apply_source_style_scheme: Successfully applied scheme={applied_scheme.get_id()}"
+                "apply_source_style_scheme: Successfully applied scheme=%s", applied_scheme.get_id()
             )
         else:
             logging.error(
@@ -52,7 +52,7 @@ def apply_source_style_scheme(
             )
     else:
         logging.error(
-            f"apply_source_style_scheme: Style scheme '{source_style_scheme}' not found."
+            "apply_source_style_scheme: Style scheme '%s' not found.", source_style_scheme
         )
         default_scheme = scheme_manager.get_scheme("Adwaita")
         if default_scheme:
@@ -87,7 +87,7 @@ def init_source_buffer(language: str = "yaml") -> GtkSource.Buffer:
     if source_language is not None:
         source_buffer.set_language(source_language)
     else:
-        logging.error(f"{language} language definition not found.")
+        logging.error("%s language definition not found.", language)
 
     source_buffer.set_highlight_syntax(True)
     return source_buffer
