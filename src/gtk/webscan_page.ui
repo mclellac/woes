@@ -5,10 +5,14 @@
   <template class="WebScanPage" parent="AdwPreferencesPage">
     <property name="title">Web Scan</property>
     <child>
-      <object class="AdwBanner" id="error_banner_webscan">
-        <property name="button-label" translatable="yes">Dismiss</property>
-        <property name="revealed">False</property>
-        <signal name="button-clicked" handler="on_error_banner_dismiss_clicked"/>
+      <object class="AdwPreferencesGroup"> <!-- Wrapper for the banner -->
+        <child>
+          <object class="AdwBanner" id="error_banner_webscan">
+            <property name="button-label" translatable="yes">Dismiss</property>
+            <property name="revealed">False</property>
+            <signal name="button-clicked" handler="on_error_banner_dismiss_clicked"/>
+          </object>
+        </child>
       </object>
     </child>
     <child>
