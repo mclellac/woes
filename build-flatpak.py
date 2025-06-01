@@ -5,11 +5,11 @@ import shutil
 import sys
 
 # Constants
-FLATPAK_MANIFEST = "com.github.mclellac.webops.json"
+FLATPAK_MANIFEST = "com.github.mclellac.woes.json"
 BUILD_DIR = "build-dir"
 REPO_DIR = "repo"
 FLATPAK_DIR = "flatpak"
-FLATPAK_BUNDLE = "webops.flatpak"
+FLATPAK_BUNDLE = "woes.flatpak"
 
 
 def run_command(command, check=True):

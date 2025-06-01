@@ -1,7 +1,7 @@
 {
   "app-id": "com.github.mclellac.woes",
   "runtime": "org.gnome.Platform",
-  "runtime-version": "master",
+  "runtime-version": "48",
   "sdk": "org.gnome.Sdk",
   "command": "woes",
   "finish-args": [
