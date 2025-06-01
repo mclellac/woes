@@ -1,8 +1,7 @@
 import sys
 import logging
-
-# Import gi and set versions first - this needs to be at the top for the class def.
 import gi
+
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 # gi.require_version("GtkSource", "5") # Only if GtkSource is used by WoesApplication directly
@@ -79,31 +78,31 @@ class WoesApplication(Adw.Application):
         win.present()
         self.win = win
 
-    def switch_to_http(self, *args):
+    def switch_to_http(self, *_args):
         if self.win and hasattr(self.win, 'stack'):
             self.win.stack.set_visible_child_name("http_page")
         else:
             logging.warning("Cannot switch to http_page: window or stack not available.")
 
-    def switch_to_nmap(self, *args):
+    def switch_to_nmap(self, *_args):
         if self.win and hasattr(self.win, 'stack'):
             self.win.stack.set_visible_child_name("nmap_page")
         else:
             logging.warning("Cannot switch to nmap_page: window or stack not available.")
 
-    def switch_to_dns(self, *args):
+    def switch_to_dns(self, *_args):
         if self.win and hasattr(self.win, 'stack'):
             self.win.stack.set_visible_child_name("dns_page")
         else:
             logging.warning("Cannot switch to dns_page: window or stack not available.")
 
-    def switch_to_webscan(self, *args):
+    def switch_to_webscan(self, *_args):
         if self.win and hasattr(self.win, 'stack'):
             self.win.stack.set_visible_child_name("webscan_page")
         else:
             logging.warning("Cannot switch to webscan_page: window or stack not available.")
 
-    def on_about_action(self, widget, _):
+    def on_about_action(self, _widget, _):
         """Callback for the app.about action."""
         about = Adw.AboutWindow(
             transient_for=self.props.active_window,
@@ -116,7 +115,7 @@ class WoesApplication(Adw.Application):
         )
         about.present()
 
-    def on_preferences_action(self, widget, _):
+    def on_preferences_action(self, _widget, _):
         if not self.win:
             logging.error("Main window not available for preferences.")
             return

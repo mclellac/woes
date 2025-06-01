@@ -4,15 +4,15 @@ from typing import Dict, Optional
 from urllib.parse import urlparse
 
 import requests
+import gi
 
-from gi import require_version
 require_version('Adw', '1')
 require_version('Gtk', '4.0')
 from gi.repository import Adw, Gio, GObject, Gtk
 
 from .constants import RESOURCE_PREFIX
 # Removed Helper import as it's unused
-# from .style_utils import set_widget_visibility # This is no longer needed
+# from .style_utils import set_widget_visibility  # This is no longer needed
 
 # Configure logger for the module
 logger = logging.getLogger(__name__)
@@ -176,7 +176,7 @@ class HttpPage(Adw.PreferencesPage):
         return f"HTTP Error {status_code}: {e.response.reason}." # f-string is fine here as it's not logging
 
     def _on_pragma_toggled(
-        self, widget: Gtk.Switch, gparam: GObject.ParamSpec
+        self, widget: Gtk.Switch, _gparam: GObject.ParamSpec
     ) -> None:
         logger.debug("Akamai Pragma toggled to: %s", widget.get_active())
         if self.http_entry_row.get_text().strip():
@@ -212,11 +212,11 @@ class HttpPage(Adw.PreferencesPage):
         self.http_entry_row.remove_css_class("error")
 
     # Removed @Gtk.Template.Callback() as it's a direct signal handler in UI
-    def _on_error_banner_dismiss(self, banner: Adw.Banner, *args):
+    def _on_error_banner_dismiss(self, _banner: Adw.Banner, *_args):
         self._clear_error()
 
     # Removed @Gtk.Template.Callback() as it's a direct signal handler in UI
-    def _on_clear_results_clicked(self, button: Gtk.Button, *args):
+    def _on_clear_results_clicked(self, _button: Gtk.Button, *_args):
         logger.info("Results cleared by user.")
         self._update_column_view_model(None)  # Clears the view
         self._clear_error()  # Clear any errors

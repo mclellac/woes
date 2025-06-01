@@ -4,7 +4,9 @@ gi.require_version('Adw', '1')
 gi.require_version('GtkSource', '5')
 
 import logging  # Added import
+
 from gi.repository import Gtk, GtkSource  # Removed Adw as it's unused
+
 
 def create_source_view(language_name='txt'):
     """
