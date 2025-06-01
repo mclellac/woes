@@ -10,25 +10,10 @@ gnome = import('gnome')
 python = import('python')
 
 # Find Python installation
-python_versions_to_try = ['python3.13', 'python3.12', 'python3.11', 'python3.10', 'python3']
-found_python = false
-# Initialize python_bin to a default or error state if necessary,
-# though the loop structure should assign it if a version is found.
-# Declaring it here to ensure it's in scope.
-python_bin = find_program('false', required : false) # Placeholder
+python_bin = python.find_installation('python3')
 
-foreach py_version : python_versions_to_try
-    _python_bin_candidate = python.find_installation(py_version, required : false)
-    if _python_bin_candidate.found()
-        python_bin = _python_bin_candidate
-        found_python = true
-        message('Found Python interpreter: ' + python_bin.full_path())
-        break
-    endif
-endforeach
-
-if not found_python
-    error('No suitable Python interpreter found. Tried: ' + ', '.join(python_versions_to_try))
+if not python_bin.found()
+    error('No valid Python installation found!')
 endif
 
 # Ensure Python 3.10 or newer is used
@@ -47,7 +32,6 @@ dependencies = [
     dependency('gtk4', version: '>= 4.14.0'),
     dependency('libadwaita-1', version: '>= 1.5.0'),
     dependency('pygobject-3.0', version: '>= 3.46.0'),
-    dependency('gtksourceview-5', version: '>= 5.0'),
 ]
 
 # Verify and install Python dependencies

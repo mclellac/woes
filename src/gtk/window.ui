@@ -1,47 +1,107 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Created with Cambalache 0.96.1 -->
 <interface>
-  <requires lib="gtk" version="4.0"/>
-  <requires lib="libadwaita" version="1.0"/>
-  <template class="WoesWindow" parent="AdwApplicationWindow">
-    <property name="title">Woes</property>
-    <property name="default-width">600</property>
-    <property name="default-height">400</property>
+  <!-- interface-name http_page.ui -->
+  <requires lib="gtk" version="4.18"/>
+  <requires lib="libadwaita" version="1.7"/>
+  <template class="HttpPage" parent="GtkBox">
+    <property name="halign">baseline-fill</property>
+    <property name="margin-top">20</property>
+    <property name="orientation">vertical</property>
     <child>
-      <object class="GtkBox">
+      <object class="GtkBox" id="http_page_box">
+        <property name="hexpand">True</property>
+        <property name="margin-bottom">10</property>
+        <property name="margin-end">10</property>
+        <property name="margin-start">10</property>
+        <property name="margin-top">10</property>
         <property name="orientation">vertical</property>
+        <property name="vexpand">True</property>
         <child>
-          <object class="AdwHeaderBar" id="header_bar">
-            <child type="title">
-              <object class="AdwViewSwitcherTitle" id="switcher_title">
-                <property name="stack">stack</property>
+          <object class="GtkListBox" id="http_list_box">
+            <property name="activate-on-single-click">False</property>
+            <property name="hexpand">True</property>
+            <property name="selection-mode">browse</property>
+            <property name="valign">baseline-center</property>
+            <child>
+              <object class="AdwEntryRow" id="http_entry_row">
+                <property name="activates-default">True</property>
+                <property name="focusable">True</property>
+                <property name="input-purpose">url</property>
+                <property name="max-width-chars">250</property>
+                <property name="show-apply-button">True</property>
+                <property name="title" translatable="yes">URL to fetch HTTP headers from</property>
               </object>
             </child>
+            <child>
+              <object class="AdwSwitchRow" id="http_pragma_switch_row">
+                <property name="subtitle" translatable="yes">Enable this to send Akamai Praga headers in your request</property>
+                <property name="title" translatable="yes">Akamai Debug Headers</property>
+              </object>
+            </child>
+            <style>
+              <class name="boxed-list"/>
+            </style>
           </object>
         </child>
         <child>
-          <object class="GtkStack" id="stack">
+          <object class="GtkLabel" id="http_error_label">
+            <property name="margin-bottom">10</property>
+            <property name="margin-top">15</property>
+            <property name="use-markup">True</property>
+            <property name="visible">False</property>
+            <property name="wrap">True</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkFrame" id="http_header_frame">
+            <property name="halign">baseline-fill</property>
+            <property name="hexpand">True</property>
+            <property name="margin-top">20</property>
             <property name="vexpand">True</property>
+            <property name="visible">False</property>
             <child>
-              <object class="HttpPage" id="http">
-                <property name="name">HTTP</property>
-                <property name="title">HTTP Headers</property>
-              </object>
-            </child>
-            <child>
-              <object class="NmapPage" id="nmap">
-                <property name="name">Nmap</property>
-                <property name="title">Nmap Scan</property>
-              </object>
-            </child>
-            <child>
-              <object class="DNSPage" id="dns">
-                <property name="name">DNS</property>
-                <property name="title">DNS Lookup</property>
-              </object>
-            </child>
-            <child>
-              <object class="WebScanPage" id="webscan">
-                <property name="name">WebScan</property>
-                <property name="title">Web Scanner</property>
+              <object class="GtkColumnView" id="http_column_view">
+                <property name="enable-rubberband">True</property>
+                <property name="halign">baseline-fill</property>
+                <property name="hexpand">True</property>
+                <property name="margin-bottom">10</property>
+                <property name="margin-end">10</property>
+                <property name="margin-start">10</property>
+                <property name="margin-top">10</property>
+                <property name="model">
+                  <object class="GtkMultiSelection"/>
+                </property>
+                <property name="overflow">hidden</property>
+                <property name="reorderable">False</property>
+                <property name="show-column-separators">true</property>
+                <property name="show-row-separators">true</property>
+                <property name="valign">start</property>
+                <property name="vexpand">True</property>
+                <child>
+                  <object class="GtkColumnViewColumn" id="header_name_column">
+                    <property name="factory">
+                      <object class="GtkSignalListItemFactory"/>
+                    </property>
+                    <property name="fixed-width">0</property>
+                    <property name="title" translatable="yes">Response Header</property>
+                    <property name="visible">False</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkColumnViewColumn" id="header_value_column">
+                    <property name="expand">True</property>
+                    <property name="factory">
+                      <object class="GtkSignalListItemFactory"/>
+                    </property>
+                    <property name="resizable">True</property>
+                    <property name="sorter">
+                      <object class="GtkColumnViewSorter"/>
+                    </property>
+                    <property name="title" translatable="yes">Response Header Value</property>
+                    <property name="visible">False</property>
+                  </object>
+                </child>
               </object>
             </child>
           </object>
