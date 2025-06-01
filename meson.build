@@ -10,15 +10,15 @@ gnome = import('gnome')
 python = import('python')
 
 # Find Python installation
-python_bin = python.find_installation('python3.12') # Changed to python3.12
+python_bin = python.find_installation('python3', required_version: '>=3.10')
 
 if not python_bin.found()
-    error('No valid Python 3.12 installation found!') # Updated error message
+    error('No valid Python >= 3.10 installation found!')
 endif
 
-# Ensure Python 3.12 or newer is used
-if not python_bin.language_version().version_compare('>= 3.12') # Changed to 3.12
-    error('Python 3.12 or newer is required.') # Updated error message
+# Ensure Python 3.10 or newer is used (redundant due to required_version, but good for clarity)
+if not python_bin.language_version().version_compare('>= 3.10')
+    error('Python 3.10 or newer is required.')
 endif
 
 # macOS-specific prefix correction
