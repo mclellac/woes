@@ -30,7 +30,12 @@ class WoesWindow(Adw.ApplicationWindow):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.settings = Gio.Settings(schema_id=APP_ID)
+        try:
+            self.settings = Gio.Settings(schema_id=APP_ID)
+            logging.debug("WoesWindow: GSettings loaded successfully.")
+        except Exception as e:
+            logging.error(f"WoesWindow: Failed to load GSettings: {e}")
+            self.settings = None
         self.style_manager = Adw.StyleManager.get_default()
 
         # Connect settings listener
@@ -80,6 +85,9 @@ class WoesWindow(Adw.ApplicationWindow):
         self.load_css()
 
     def apply_preferences(self):
+        if not self.settings:
+            logging.warning("WoesWindow.apply_preferences: self.settings is None, skipping.")
+            return
         try:
             font_size = self.settings.get_int("font-size")
             dark_theme_enabled = self.settings.get_boolean("dark-theme")

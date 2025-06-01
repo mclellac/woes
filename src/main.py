@@ -15,6 +15,7 @@ from .preferences import Preferences  # Ensure Preferences is imported
 from .window import WoesWindow  # Changed from MinimalWoesWindow
 
 
+
 class WoesApplication(Adw.Application):
     """The main application singleton class."""
 
@@ -53,6 +54,7 @@ class WoesApplication(Adw.Application):
         self.create_action("switch-to-dns", self.switch_to_dns, ["<primary>3"])  # Added
         self.create_action("switch-to-webscan", self.switch_to_webscan, ["<primary>4"])  # Added
 
+
     def do_handle_local_options(self, options):
         # This method is called after options are parsed
         if options.contains('debug'):
@@ -76,6 +78,7 @@ class WoesApplication(Adw.Application):
         win = self.props.active_window
         if not win:
             win = WoesWindow(application=self)  # Changed to WoesWindow
+
         win.present()
         self.win = win
 
@@ -103,6 +106,7 @@ class WoesApplication(Adw.Application):
         else:
             logging.warning("Cannot switch to webscan_page: window or stack not available.")
 
+
     def on_about_action(self, widget, _):
         """Callback for the app.about action."""
         about = Adw.AboutWindow(
@@ -122,7 +126,7 @@ class WoesApplication(Adw.Application):
             return
         preferences_dialog = Preferences(main_window=self.win)
         preferences_dialog.present()
-        # preferences_dialog.set_transient_for(self.win)  # Already set in Preferences.__init__
+
 
     def create_action(self, name, callback, shortcuts=None):
         """Add an application action."""
