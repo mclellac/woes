@@ -1,11 +1,55 @@
-<?xml version='1.0' encoding='UTF-8'?>
-<interface>
-  <requires lib="gtk" version="4.14"/>
-  <requires lib="libadwaita" version="1.5"/>
+<?xml version="1.0" encoding="UTF-8"?>
+<interfaceنگارنده>
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="libadwaita" version="1"/>
   <template class="WoesWindow" parent="AdwApplicationWindow">
-    <property name="title" translatable="yes">WebOps Evaluation Suite (Simplified)</property>
-    <!-- Content removed for testing -->
+    <property name="title">Woes</property>
     <property name="default-width">600</property>
     <property name="default-height">400</property>
+    <property name="content">
+      <object class="GtkBox">
+        <property name="orientation">vertical</property>
+        <child>
+          <object class="AdwHeaderBar">
+            <property name="centering-policy">loose</property>
+            <child type="title">
+              <object class="AdwViewSwitcherTitle" id="switcher_title">
+                <property name="stack">stack</property>
+                <property name="title">Woes Application</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="GtkStack" id="stack">
+            <property name="vexpand">true</property>
+            <child>
+              <object class="HttpPage" id="http_page_content">
+                <property name="name">http_page</property>
+                <property name="title" translatable="yes">HTTP Details</property>
+              </object>
+            </child>
+            <child>
+              <object class="NmapPage" id="nmap_page_content">
+                <property name="name">nmap_page</property>
+                <property name="title" translatable="yes">Nmap Scan</property>
+              </object>
+            </child>
+            <child>
+              <object class="DNSPage" id="dns_page_content">
+                <property name="name">dns_page</property>
+                <property name="title" translatable="yes">DNS Lookup</property>
+              </object>
+            </child>
+            <child>
+              <object class="WebScanPage" id="webscan_page_content">
+                <property name="name">webscan_page</property>
+                <property name="title" translatable="yes">Web Scan</property>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </property>
   </template>
 </interface>
