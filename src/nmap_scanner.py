@@ -7,6 +7,9 @@ from typing import Any, Dict, Union
 import nmap
 import yaml
 
+# Initialize logger - AFTER all imports
+logger = logging.getLogger(__name__)
+
 
 class ScanOptions(Enum):
     DEFAULT = "-T4"
@@ -19,7 +22,7 @@ class ScanStatus(Enum):
     IN_PROGRESS = (0.0, "Scanning {target}...")
     COMPLETE = (1.0, "Scan complete")
     FAILED = (1.0, "Scan failed unexpectedly")
-    IDLE = (0.0, "Idle")  # Added IDLE state
+    IDLE = (0.0, "Idle")
 
 
 class NmapScanner:
@@ -34,19 +37,16 @@ class NmapScanner:
         # Use named argument for repeated segment to avoid W1308
         ipv4_address = r"(?:{seg}\.{seg}\.{seg}\.{seg})".format(seg=ipv4_segment)
         fqdn = r"(?:[A-Za-z0-9-]{1,63}\.)+[A-Za-z]{2,}"
-        # Use f-string for CIDR regex C0209
         cidr = fr"{ipv4_address}\/[0-9]{{1,2}}"  # Escaping curly braces for the CIDR notation
-
-        # Use f-string for address regex C0209
         addr_regex = fr"^(localhost|{ipv4_address}|{fqdn}|{cidr})$"
 
         targets = re.split(r"[ ,]+", target.strip())
 
         for t in targets:
             if re.match(addr_regex, t):
-                logging.debug("Target '%s' matched the pattern.", t)
+                logger.debug("Target '%s' matched the pattern.", t)
             else:
-                logging.debug("Target '%s' did NOT match the pattern.", t)
+                logger.debug("Target '%s' did NOT match the pattern.", t)
 
         return all(re.match(addr_regex, t) for t in targets)
 
@@ -60,7 +60,7 @@ class NmapScanner:
             options += f" {ScanOptions.ALL_PORTS.value}"
         if selected_script and selected_script != "None":
             options += f" {ScanOptions.SCRIPT.value}{selected_script}"
-        logging.debug("Nmap options constructed: %s", options)
+        logger.debug("Nmap options constructed: %s", options)
         return options
 
     def run_nmap_scan(
@@ -73,32 +73,30 @@ class NmapScanner:
         nmap_options = self.build_nmap_options(
             os_fingerprinting, scan_all_ports, selected_script
         )
-        logging.debug(
+        logger.debug(
             "Running Nmap scan for target: %s with options: %s",
             target,
             nmap_options
         )
-        options = self.build_nmap_options(  # Re-assign options for clarity, already captured in log
-            os_fingerprinting, scan_all_ports, selected_script
-        )
         try:
             nm = nmap.PortScanner()
-            nm.scan(hosts=target, arguments=options)
-            logging.debug("Nmap scan completed with results: %s", nm.all_hosts())
+            nm.scan(hosts=target, arguments=nmap_options)  # Use nmap_options
+            logger.debug("Nmap scan completed with results: %s", nm.all_hosts())
             return nm
         except nmap.PortScannerError as e:
-            logging.error("Nmap scan failed for target %s: %s", target, e) # Added target to log
+            logger.error("Nmap scan failed for target %s with options '%s': %s", target, nmap_options, e, exc_info=True)
             raise e
         except Exception as e:
-            logging.error("Unexpected error during scan for target %s (%s): %s", target, type(e).__name__, e)
+            # Shorten log message for E501
+            logger.error("Unexpected error for target %s, options '%s': %s", target, nmap_options, e, exc_info=True)
             raise e
 
     def convert_results_to_yaml(self, nm: nmap.PortScanner) -> Dict[str, str]:
         all_results = {}
         for host in nm.all_hosts():
-            logging.debug("Processing results for host: %s", host)
+            logger.debug("Processing results for host: %s", host)
             host_data = nm[host]
-            logging.debug("Raw host data: %s", host_data)
+            logger.debug("Raw host data: %s", host_data)  # Potentially very verbose
             plain_dict = self.to_plain_dict(host_data)
             yaml_output = yaml.safe_dump(plain_dict, default_flow_style=False)
             all_results[host] = yaml_output
@@ -107,9 +105,9 @@ class NmapScanner:
     def to_plain_dict(self, data: Any) -> Union[Dict[str, Any], Any]:
         if isinstance(data, nmap.PortScannerHostDict):
             return {k: self.to_plain_dict(v) for k, v in data.items()}
-        elif isinstance(data, list):
+        if isinstance(data, list):  # Changed from elif to if
             return [self.to_plain_dict(item) for item in data]
-        elif isinstance(data, dict):
+        if isinstance(data, dict):  # Changed from elif to if
             return {k: self.to_plain_dict(v) for k, v in data.items()}
-        else:
-            return data
+        # else: # No else needed if all prior if/elifs return
+        return data

@@ -111,9 +111,16 @@ class NmapPage(Adw.PreferencesPage):
 
     def _init_page_ui(self):
         logger.debug("Initializing NmapPage UI components.")
-        self.nmap_target_listbox.bind_model(
-            self.nmap_target_listbox_store, self._create_target_listbox_row
-        )
+        if self.nmap_target_listbox is None:
+            logger.critical(
+                "NmapPage: Gtk.Template.Child 'nmap_target_listbox' not found. "
+                "This is likely due to the UI template failing to load, possibly because of the "
+                "'AdwPreferencesGroup.revealed' issue in nmap_page.ui. UI will be broken."
+            )
+        else:
+            self.nmap_target_listbox.bind_model(
+                self.nmap_target_listbox_store, self._create_target_listbox_row
+            )
         # Initial visibility states are typically set in the UI file.
         self.error_banner.set_revealed(False)
         self.scan_spinner.set_spinning(False)
