@@ -138,7 +138,7 @@
                     <property name="margin-top">10</property>
                     <property name="vexpand">True</property>
                     <child>
-                      <object class="AdwListBox" id="nmap_target_listbox">
+                      <object class="GtkListBox" id="nmap_target_listbox">
                         <property name="vexpand">True</property>
                       </object>
                     </child>
