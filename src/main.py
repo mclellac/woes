@@ -74,9 +74,28 @@ class WoesApplication(Adw.Application):
         """
         win = self.props.active_window
         if not win:
-            win = WoesWindow(application=self)  # Changed to WoesWindow
-        win.present()
-        self.win = win
+            logging.debug("WoesApplication.do_activate: Creating WoesWindow...")
+            try:
+                win = WoesWindow(application=self)  # Changed to WoesWindow
+                logging.debug("WoesApplication.do_activate: WoesWindow created.")
+            except Exception as e:
+                logging.exception("WoesApplication.do_activate: Error creating WoesWindow instance")
+                # Exit or handle critical failure, as the app cannot run without a window
+                sys.exit(1)
+
+        if win: # Ensure win is not None if creation failed
+            logging.debug("WoesApplication.do_activate: Calling win.present()...")
+            try:
+                win.present()
+                logging.debug("WoesApplication.do_activate: win.present() called.")
+            except Exception as e:
+                logging.exception("WoesApplication.do_activate: Error during win.present()")
+            self.win = win
+        else:
+            logging.error("WoesApplication.do_activate: Window object is None, cannot proceed.")
+            # Optionally, exit here too if window creation failed and wasn't handled above
+            # sys.exit(1)
+
 
     def switch_to_http(self, *_args):
         if self.win and hasattr(self.win, 'stack'):
