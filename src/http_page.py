@@ -161,13 +161,15 @@ class HttpPage(Adw.PreferencesPage):
 
         try:
             if cancellable and cancellable.is_cancelled():
-                task.return_error(GLib.Error("User cancelled.", Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED))
+                g_error = GLib.Error("User cancelled.", Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED.value)
+                task.return_error(g_error)
                 return
 
             response = requests.get(url, headers=request_headers, allow_redirects=False, timeout=10)
 
             if cancellable and cancellable.is_cancelled():
-                task.return_error(GLib.Error("Cancelled during req.", Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED))
+                g_error = GLib.Error("Cancelled during req.", Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED.value)
+                task.return_error(g_error)
                 return
 
             response.raise_for_status()  # Raises HTTPError for 4xx/5xx
@@ -179,21 +181,26 @@ class HttpPage(Adw.PreferencesPage):
             # Shorten error_message if it's too long for GLib.Error
             if len(error_message) > 100:  # Adjusted limit based on typical GLib.Error call structure
                 error_message = "HTTP Error (see logs)."
-            task.return_error(GLib.Error(error_message, Gio.io_error_quark(), Gio.IOErrorEnum.FAILED_HANDLED))
+            g_error = GLib.Error(error_message, Gio.io_error_quark(), Gio.IOErrorEnum.FAILED_HANDLED.value)
+            task.return_error(g_error)
         except requests.exceptions.ConnectionError as e:
             logger.error("Task thread: ConnectionError for %s: %s", url, e, exc_info=True)
-            task.return_error(GLib.Error("Connection Error.", Gio.io_error_quark(), Gio.IOErrorEnum.CONNECTION_REFUSED))
+            g_error = GLib.Error("Connection Error.", Gio.io_error_quark(), Gio.IOErrorEnum.CONNECTION_REFUSED.value)
+            task.return_error(g_error)
         except requests.exceptions.Timeout as e:
             logger.error("Task thread: Timeout for %s: %s", url, e, exc_info=True)
-            task.return_error(GLib.Error("Request Timed Out.", Gio.io_error_quark(), Gio.IOErrorEnum.TIMED_OUT))
+            g_error = GLib.Error("Request Timed Out.", Gio.io_error_quark(), Gio.IOErrorEnum.TIMED_OUT.value)
+            task.return_error(g_error)
         except requests.exceptions.RequestException as e:  # Other requests-related errors
             logger.error("Task thread: RequestException for %s: %s", url, e, exc_info=True)
             err_name = type(e).__name__
-            task.return_error(GLib.Error(f"Request Err: {err_name}", Gio.io_error_quark(), Gio.IOErrorEnum.FAILED))
+            g_error = GLib.Error(f"Request Err: {err_name}", Gio.io_error_quark(), Gio.IOErrorEnum.FAILED.value)
+            task.return_error(g_error)
         except Exception as e:
             logger.exception("Task thread: Unexpected error for %s.", url)  # Use logger.exception for general errors
             err_name = type(e).__name__
-            task.return_error(GLib.Error(f"Unexpected Err: {err_name}", Gio.io_error_quark(), Gio.IOErrorEnum.FAILED))
+            g_error = GLib.Error(f"Unexpected Err: {err_name}", Gio.io_error_quark(), Gio.IOErrorEnum.FAILED.value)
+            task.return_error(g_error)
 
     def _fetch_headers_task_done_cb(self, source_object, task: Gio.Task, user_data):
         # Ensure this callback is for the current task, ignore if it's an old one.
