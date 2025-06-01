@@ -1,112 +1,214 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <!-- Created with Cambalache 0.96.1 -->
 <interface>
-  <!-- interface-name http_page.ui -->
+  <!-- interface-name window.ui -->
+  <!-- interface-copyright (c) 2025 -->
+  <!-- interface-authors Carey McLelland <careymclelland@gmail.com> -->
+  <requires lib="gio" version="2.44"/>
   <requires lib="gtk" version="4.18"/>
   <requires lib="libadwaita" version="1.7"/>
-  <template class="HttpPage" parent="GtkBox">
-    <property name="halign">baseline-fill</property>
-    <property name="margin-top">20</property>
-    <property name="orientation">vertical</property>
-    <child>
-      <object class="GtkBox" id="http_page_box">
-        <property name="hexpand">True</property>
-        <property name="margin-bottom">10</property>
-        <property name="margin-end">10</property>
-        <property name="margin-start">10</property>
-        <property name="margin-top">10</property>
+  <template class="WoesWindow" parent="AdwApplicationWindow">
+    <property name="content">
+      <object class="GtkBox" id="main_box">
+        <property name="halign">baseline-fill</property>
         <property name="orientation">vertical</property>
-        <property name="vexpand">True</property>
         <child>
-          <object class="GtkListBox" id="http_list_box">
-            <property name="activate-on-single-click">False</property>
-            <property name="hexpand">True</property>
-            <property name="selection-mode">browse</property>
-            <property name="valign">baseline-center</property>
-            <child>
-              <object class="AdwEntryRow" id="http_entry_row">
-                <property name="activates-default">True</property>
-                <property name="focusable">True</property>
-                <property name="input-purpose">url</property>
-                <property name="max-width-chars">250</property>
-                <property name="show-apply-button">True</property>
-                <property name="title" translatable="yes">URL to fetch HTTP headers from</property>
-              </object>
-            </child>
-            <child>
-              <object class="AdwSwitchRow" id="http_pragma_switch_row">
-                <property name="subtitle" translatable="yes">Enable this to send Akamai Praga headers in your request</property>
-                <property name="title" translatable="yes">Akamai Debug Headers</property>
-              </object>
-            </child>
-            <style>
-              <class name="boxed-list"/>
-            </style>
-          </object>
-        </child>
-        <child>
-          <object class="GtkLabel" id="http_error_label">
-            <property name="margin-bottom">10</property>
-            <property name="margin-top">15</property>
-            <property name="use-markup">True</property>
-            <property name="visible">False</property>
-            <property name="wrap">True</property>
-          </object>
-        </child>
-        <child>
-          <object class="GtkFrame" id="http_header_frame">
-            <property name="halign">baseline-fill</property>
-            <property name="hexpand">True</property>
-            <property name="margin-top">20</property>
-            <property name="vexpand">True</property>
-            <property name="visible">False</property>
-            <child>
-              <object class="GtkColumnView" id="http_column_view">
-                <property name="enable-rubberband">True</property>
+          <object class="AdwHeaderBar" id="header_bar">
+            <property name="title-widget">
+              <object class="AdwViewSwitcher" id="switcher_title">
                 <property name="halign">baseline-fill</property>
-                <property name="hexpand">True</property>
-                <property name="margin-bottom">10</property>
-                <property name="margin-end">10</property>
-                <property name="margin-start">10</property>
-                <property name="margin-top">10</property>
-                <property name="model">
-                  <object class="GtkMultiSelection"/>
-                </property>
-                <property name="overflow">hidden</property>
-                <property name="reorderable">False</property>
-                <property name="show-column-separators">true</property>
-                <property name="show-row-separators">true</property>
-                <property name="valign">start</property>
-                <property name="vexpand">True</property>
-                <child>
-                  <object class="GtkColumnViewColumn" id="header_name_column">
-                    <property name="factory">
-                      <object class="GtkSignalListItemFactory"/>
-                    </property>
-                    <property name="fixed-width">0</property>
-                    <property name="title" translatable="yes">Response Header</property>
-                    <property name="visible">False</property>
-                  </object>
-                </child>
-                <child>
-                  <object class="GtkColumnViewColumn" id="header_value_column">
-                    <property name="expand">True</property>
-                    <property name="factory">
-                      <object class="GtkSignalListItemFactory"/>
-                    </property>
-                    <property name="resizable">True</property>
-                    <property name="sorter">
-                      <object class="GtkColumnViewSorter"/>
-                    </property>
-                    <property name="title" translatable="yes">Response Header Value</property>
-                    <property name="visible">False</property>
-                  </object>
-                </child>
+                <property name="policy">wide</property>
+                <property name="stack">stack</property>
+              </object>
+            </property>
+            <child type="end">
+              <object class="GtkMenuButton" id="menu_button">
+                <property name="icon-name">open-menu-symbolic</property>
+                <property name="menu-model">primary_menu</property>
+                <property name="primary">True</property>
+                <property name="tooltip-text" translatable="yes">Menu</property>
+                <style>
+                  <class name="GtkMenuButton"/>
+                </style>
               </object>
             </child>
+          </object>
+        </child>
+        <child>
+          <object class="AdwViewStack" id="stack">
+            <property name="vexpand">True</property>
+            <property name="vexpand-set">True</property>
+            <child>
+              <object class="AdwViewStackPage" id="http_page">
+                <property name="child">
+                  <object class="AdwStatusPage" id="http_status_page">
+                    <property name="description">This tool is ideal for developers, as well as systems and network administrators, who need to inspect HTTP headers for debugging, troubleshooting, and security analysis.</property>
+                    <property name="icon-name" bind-source="http_page" bind-property="icon-name" bind-flags="sync-create"/>
+                    <property name="overflow">hidden</property>
+                    <property name="title" bind-source="http_page" bind-property="title" bind-flags="sync-create"/>
+                    <property name="valign">start</property>
+                    <child>
+                      <object class="AdwClampScrollable" id="http_clamp_scrollable">
+                        <property name="hadjustment">
+                          <object class="GtkAdjustment"/>
+                        </property>
+                        <property name="maximum-size">1400</property>
+                        <property name="tightening-threshold">500</property>
+                        <property name="unit">px</property>
+                        <property name="vadjustment">
+                          <object class="GtkAdjustment"/>
+                        </property>
+                        <child>
+                          <object class="GtkBox" id="HttpPage">
+                            <child>
+                              <object class="HttpPage">
+                                <property name="overflow">hidden</property>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                  </object>
+                </property>
+                <property name="icon-name">network-transmit-receive-symbolic</property>
+                <property name="name">http_page</property>
+                <property name="title">HTTP Headers</property>
+                <property name="use-underline">true</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwViewStackPage" id="nmap_page">
+                <property name="child">
+                  <object class="AdwStatusPage" id="nmap_status_page">
+                    <property name="description">This tool is designed to facilitate network scanning, reconnaissance, and exploit detection using Nmap, a powerful network scanning tool. This interface provides the capability to perform various types of scans, including &lt;b&gt;service detection&lt;/b&gt;, &lt;b&gt;OS fingerprinting&lt;/b&gt;, &lt;b&gt;port scanning&lt;/b&gt;, and &lt;b&gt;vulnerability assessments&lt;/b&gt; using the &lt;i&gt;Nmap Scripting Engine (NSE)&lt;/i&gt;.</property>
+                    <property name="icon-name" bind-source="nmap_page" bind-property="icon-name" bind-flags="sync-create"/>
+                    <property name="title" bind-source="nmap_page" bind-property="title" bind-flags="sync-create">Port Scanning</property>
+                    <property name="vexpand">True</property>
+                    <property name="vexpand-set">True</property>
+                    <child>
+                      <object class="AdwClampScrollable">
+                        <property name="maximum-size">1400</property>
+                        <property name="unit">px</property>
+                        <property name="vexpand">True</property>
+                        <child>
+                          <object class="GtkBox" id="NmapPage">
+                            <property name="height-request">1000</property>
+                            <property name="hexpand">True</property>
+                            <property name="hexpand-set">True</property>
+                            <property name="valign">center</property>
+                            <property name="vexpand">True</property>
+                            <property name="vexpand-set">True</property>
+                            <child>
+                              <object class="NmapPage">
+                                <property name="vexpand">True</property>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                  </object>
+                </property>
+                <property name="icon-name">face-devilish</property>
+                <property name="name">nmap_page</property>
+                <property name="title">Port Scan</property>
+                <property name="use-underline">true</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwViewStackPage" id="dns_page">
+                <property name="badge-number">0</property>
+                <property name="child">
+                  <object class="AdwStatusPage" id="dns_status_page">
+                    <property name="description">The DNS tool allows users to perform DNS queries for various record types, including &lt;b&gt;A&lt;/b&gt;, &lt;b&gt;TXT&lt;/b&gt;, &lt;b&gt;CNAME&lt;/b&gt; and others. By entering an IP address, users can perform reverse DNS lookups.</property>
+                    <property name="icon-name">org.gnome.Epiphany-symbolic</property>
+                    <property name="margin-end">15</property>
+                    <property name="margin-start">15</property>
+                    <property name="title" bind-source="dns_page" bind-property="title" bind-flags="sync-create">Domain Name Lookup</property>
+                    <property name="valign">start</property>
+                    <child>
+                      <object class="AdwClampScrollable">
+                        <property name="maximum-size">1400</property>
+                        <property name="unit">px</property>
+                        <property name="vexpand">True</property>
+                        <child>
+                          <object class="GtkBox" id="DnsPageBox">
+                            <child>
+                              <object class="DNSPage" id="DNSPage"/>
+                            </child>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                  </object>
+                </property>
+                <property name="icon-name">org.gnome.Epiphany-symbolic</property>
+                <property name="title">DNS</property>
+                <property name="use-underline">true</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwViewStackPage" id="webscan_page">
+                <property name="child">
+                  <object class="AdwStatusPage" id="webscan_status_page">
+                    <property name="child">
+                      <object class="GtkBox" id="webscan_box">
+                        <property name="orientation">vertical</property>
+                        <property name="valign">center</property>
+                      </object>
+                    </property>
+                    <property name="description">TODO</property>
+                    <property name="icon-name" bind-source="webscan_page" bind-property="icon-name" bind-flags="sync-create">org.gnome.Loupe-symbolic</property>
+                    <property name="title" bind-source="webscan_page" bind-property="title" bind-flags="sync-create">Web Scanner</property>
+                    <property name="valign">start</property>
+                  </object>
+                </property>
+                <property name="icon-name">face-cool</property>
+                <property name="name">webscan_page</property>
+                <property name="title">Web Scan</property>
+                <property name="use-underline">true</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="AdwViewSwitcherBar" id="switcher_bar">
+            <property name="halign">baseline-fill</property>
+            <property name="stack">stack</property>
           </object>
         </child>
       </object>
+    </property>
+    <property name="default-height">1000</property>
+    <property name="default-width">1000</property>
+    <property name="height-request">500</property>
+    <property name="overflow">hidden</property>
+    <property name="title" translatable="yes">WebOps Evaluation Suite</property>
+    <property name="width-request">800</property>
+    <child>
+      <object class="AdwBreakpoint">
+        <!-- Custom object fragments -->
+        <condition>max-width: 550sp</condition>
+        <setter object="header_bar" property="title-widget"/>
+        <setter object="switcher_bar" property="reveal">true</setter>
+      </object>
     </child>
   </template>
+  <menu id="primary_menu">
+    <section>
+      <item>
+        <attribute name="action">app.preferences</attribute>
+        <attribute name="label" translatable="yes">_Preferences</attribute>
+      </item>
+      <item>
+        <attribute name="action">win.show-help-overlay</attribute>
+        <attribute name="label" translatable="yes">_Keyboard Shortcuts</attribute>
+      </item>
+      <item>
+        <attribute name="action">app.about</attribute>
+        <attribute name="label" translatable="yes">_About WebOps Evaluation Suite</attribute>
+      </item>
+    </section>
+  </menu>
 </interface>
