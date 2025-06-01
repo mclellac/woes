@@ -10,7 +10,6 @@
       <object class="AdwBanner" id="warning_banner">
         <property name="title" translatable="yes">WARNING: Do not use this tool on any hosts or networks you do not have explicit permission to scan.</property>
         <property name="revealed">True</property>
-        <property name="type">warning</property> <!-- Adw.BannerType.WARNING -->
       </object>
     </child>
     <child>

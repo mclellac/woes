@@ -21,7 +21,7 @@
           </object>
         </child>
         <child>
-          <object class="GtkStack" id="stack">
+          <object class="AdwViewStack" id="stack">
             <property name="vexpand">true</property>
             <child>
               <object class="HttpPage" id="http_page_content">
