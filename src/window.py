@@ -1,39 +1,23 @@
 import logging
-import gi
 
-# GTK version requirements
+import gi
 gi.require_version('Adw', '1')
 gi.require_version('Gtk', '4.0')
+from gi.repository import Adw, Gdk, Gio, Gtk, GLib
 
-# Now import GTK libraries
-# pylint: disable=wrong-import-position
-from gi.repository import Adw, Gdk, Gio, Gtk, GLib  # Added GLib for load_css exception
-
-# Local application imports
-# Import pages for Gtk.Template type registration, aliasing to avoid direct use conflicts
-# pylint: disable=wrong-import-position
-from .dns_page import DNSPage as _DNSPage_
-# pylint: disable=wrong-import-position
-from .http_page import HttpPage as _HttpPage_
-# pylint: disable=wrong-import-position
-from .nmap_page import NmapPage as _NmapPage_
-# pylint: disable=wrong-import-position
-from .webscan_page import WebScanPage as _WebScanPage_
-# pylint: disable=wrong-import-position
 from .constants import APP_ID, RESOURCE_PREFIX
-# pylint: disable=wrong-import-position
+from .dns_page import DNSPage as _DNSPage_
+from .http_page import HttpPage as _HttpPage_
+from .nmap_page import NmapPage as _NmapPage_
 from .style_utils import apply_font_size, apply_theme
+from .webscan_page import WebScanPage as _WebScanPage_
 
-# Initialize logger and other module-level assignments after all imports
 logger = logging.getLogger(__name__)
 
-# Ensure custom page widgets are registered with the type system
-# by referencing the aliased imports. This ensures Gtk.Template can find them.
 _ = _DNSPage_
 _ = _HttpPage_
 _ = _NmapPage_
 _ = _WebScanPage_
-# The lines above also suppress W0611 (unused-import) for _DNSPage_, etc. in Pylint.
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/window.ui")
@@ -61,7 +45,7 @@ class WoesWindow(Adw.ApplicationWindow):
         try:
             self.setup_ui()
             logger.debug("WoesWindow.__init__: After self.setup_ui()")
-        except Exception:  # Catching general Exception during critical UI setup
+        except Exception:
             logger.exception("WoesWindow.__init__: Error during self.setup_ui()")
         logger.debug("WoesWindow.__init__: Finished")
 
@@ -72,24 +56,22 @@ class WoesWindow(Adw.ApplicationWindow):
         try:
             self.load_css()
             logger.debug("WoesWindow.setup_ui: After self.load_css()")
-        except Exception:  # General catch during setup_ui for load_css
+        except Exception:
             logger.exception("WoesWindow.setup_ui: Error during self.load_css()")
-        # logger.debug("WoesWindow.setup_ui: load_css finished.") # Replaced by specific after
 
         logger.debug("WoesWindow.setup_ui: Before self.apply_preferences()")
         try:
             self.apply_preferences()
             logger.debug("WoesWindow.setup_ui: After self.apply_preferences()")
-        except Exception:  # General catch during setup_ui for apply_preferences
+        except Exception:
             logger.exception("WoesWindow.setup_ui: Error during self.apply_preferences()")
-        # logger.debug("WoesWindow.setup_ui: apply_preferences finished.") # Replaced by specific after
 
         if self.switcher_title and self.stack:
             logger.debug("WoesWindow.setup_ui: Before self.switcher_title.connect(...)")
             try:
                 self.switcher_title.connect("notify::selected-page", self.on_page_switched)
                 logger.debug("WoesWindow.setup_ui: After self.switcher_title.connect(...)")
-            except Exception:  # General catch for signal connection
+            except Exception:
                 logger.exception("WoesWindow.setup_ui: Error connecting switcher_title signal")
         else:
             logger.warning("switcher_title or stack not found during setup_ui.")
@@ -103,12 +85,11 @@ class WoesWindow(Adw.ApplicationWindow):
         apply_theme(self.style_manager, dark_theme_enabled)
         logger.debug("WoesWindow._on_dark_theme_setting_changed: After apply_theme()")
         logger.debug("WoesWindow._on_dark_theme_setting_changed: Before self.load_css()")
-        self.load_css()  # Reload CSS to apply theme-specific styles
+        self.load_css()
         logger.debug("WoesWindow._on_dark_theme_setting_changed: After self.load_css()")
 
     def load_css(self):
         logger.debug("WoesWindow.load_css: Starting")
-        # Determine which CSS file to use based on the current theme
         css_file = (
             "style-dark.css"
             if self.style_manager.get_color_scheme() == Adw.ColorScheme.PREFER_DARK
@@ -123,7 +104,6 @@ class WoesWindow(Adw.ApplicationWindow):
             logger.debug(f"WoesWindow.load_css: Before style_provider.load_from_resource({css_path})")
             style_provider.load_from_resource(css_path)
             logger.debug(f"WoesWindow.load_css: After style_provider.load_from_resource({css_path})")
-            # logger.debug("WoesWindow.load_css: Loaded style from resource: %s", css_path) # Replaced by more specific log
             logger.debug("WoesWindow.load_css: Before Gtk.StyleContext.add_provider_for_display()")
             Gtk.StyleContext.add_provider_for_display(
                 Gdk.Display.get_default(),
@@ -133,7 +113,7 @@ class WoesWindow(Adw.ApplicationWindow):
             logger.debug("WoesWindow.load_css: After Gtk.StyleContext.add_provider_for_display()")
         except GLib.Error as e:
             logger.error("Failed to load CSS resource from %s: %s", css_path, e, exc_info=True)
-        except Exception as e:  # General fallback for unexpected errors
+        except Exception as e:
             logger.error("Unexpected error loading CSS from %s: %s", css_path, e, exc_info=True)
         logger.debug("WoesWindow.load_css: Finished")
 

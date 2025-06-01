@@ -17,10 +17,9 @@
         <property name="orientation">vertical</property>
         <property name="vexpand">True</property>
         <child>
-          <object class="GtkListBox" id="http_list_box">
-            <property name="activate-on-single-click">False</property>
+          <object class="AdwPreferencesGroup" id="http_request_group">
+            <property name="title" translatable="yes">Request Parameters</property>
             <property name="hexpand">True</property>
-            <property name="selection-mode">browse</property>
             <property name="valign">baseline-center</property>
             <child>
               <object class="AdwEntryRow" id="http_entry_row">
@@ -38,22 +37,19 @@
                 <property name="title" translatable="yes">Akamai Debug Headers</property>
               </object>
             </child>
-            <style>
-              <class name="boxed-list"/>
-            </style>
           </object>
         </child>
         <child>
-          <object class="GtkLabel" id="http_error_label">
+          <object class="AdwBanner" id="http_error_banner">
+            <property name="button-label" translatable="yes">Dismiss</property>
             <property name="margin-bottom">10</property>
             <property name="margin-top">15</property>
-            <property name="use-markup">True</property>
-            <property name="visible">False</property>
-            <property name="wrap">True</property>
+            <property name="revealed">False</property>
           </object>
         </child>
         <child>
-          <object class="GtkFrame" id="http_header_frame">
+          <object class="AdwPreferencesGroup" id="http_response_group">
+            <property name="title" translatable="yes">Response Headers</property>
             <property name="halign">baseline-fill</property>
             <property name="hexpand">True</property>
             <property name="margin-top">20</property>

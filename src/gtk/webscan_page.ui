@@ -42,7 +42,7 @@
         <property name="title">Scan Results</property>
         <property name="description">Output from the web vulnerability scan will appear here.</property>
         <child>
-          <object class="GtkScrolledWindow">
+          <object class="AdwScrolledWindow">
             <property name="min-content-height">200</property>
             <property name="vexpand">True</property>
             <child>

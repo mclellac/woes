@@ -1,14 +1,12 @@
-import logging  # Standard library first
+import logging
 import gi
 
 gi.require_version('Gtk', '4.0')
-gi.require_version('Adw', '1')  # Though Adw is not used, this was in original
+gi.require_version('Adw', '1')
 gi.require_version('GtkSource', '5')
 
-# pylint: disable=wrong-import-position
 from gi.repository import Gtk, GtkSource
 
-# Configure logger for the module - AFTER all imports
 logger = logging.getLogger(__name__)
 
 
@@ -27,7 +25,7 @@ def create_source_view(language_name='txt'):
     logger.debug(f"utils.create_source_view: Starting with language_name: '{language_name}'")
     if language_name is None:
         logger.debug("utils.create_source_view: language_name is None, defaulting to 'txt'.")
-        language_name = 'txt'  # Ensure a default string value if None is explicitly passed
+        language_name = 'txt'
 
     language_manager = GtkSource.LanguageManager.get_default()
     logger.debug(f"utils.create_source_view: GtkSource.LanguageManager.get_default(): {language_manager}")
@@ -35,13 +33,13 @@ def create_source_view(language_name='txt'):
     logger.debug(f"utils.create_source_view: Language manager get_language('{language_name}') returned: {language}")
 
     if language is None:
-        logger.warning(f"utils.create_source_view: GtkSourceView language '{language_name}' not found. Falling back to a plain buffer.") # Existing
-        source_buffer = GtkSource.Buffer()  # Create a plain GtkSource.Buffer
+        logger.warning(f"utils.create_source_view: GtkSourceView language '{language_name}' not found. Falling back to a plain buffer.")
+        source_buffer = GtkSource.Buffer()
         logger.debug(f"utils.create_source_view: Created plain GtkSource.Buffer: {source_buffer}")
     else:
         source_buffer = GtkSource.Buffer.new_with_language(language)
         logger.debug(f"utils.create_source_view: Created GtkSource.Buffer with language '{language.get_name()}': {source_buffer}")
-        source_buffer.set_highlight_syntax(True)  # Only set this if language is found
+        source_buffer.set_highlight_syntax(True)
         logger.debug("utils.create_source_view: Syntax highlighting set to True for source_buffer.")
 
     source_view = GtkSource.View.new_with_buffer(source_buffer)

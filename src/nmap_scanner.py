@@ -7,7 +7,6 @@ from typing import Any, Dict, Union
 import nmap
 import yaml
 
-# Initialize logger - AFTER all imports
 logger = logging.getLogger(__name__)
 
 
@@ -42,10 +41,9 @@ class NmapScanner:
     def validate_target_input(self, target: str) -> bool:
         logger.debug(f"NmapScanner.validate_target_input: Starting with target: '{target}'")
         ipv4_segment = r"(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9]|0)"
-        # Use named argument for repeated segment to avoid W1308
         ipv4_address = r"(?:{seg}\.{seg}\.{seg}\.{seg})".format(seg=ipv4_segment)
         fqdn = r"(?:[A-Za-z0-9-]{1,63}\.)+[A-Za-z]{2,}"
-        cidr = fr"{ipv4_address}\/[0-9]{{1,2}}"  # Escaping curly braces for the CIDR notation
+        cidr = fr"{ipv4_address}/[0-9]{{1,2}}"
         addr_regex = fr"^(localhost|{ipv4_address}|{fqdn}|{cidr})$"
 
         targets = re.split(r"[ ,]+", target.strip())
@@ -75,7 +73,7 @@ class NmapScanner:
             options += f" {ScanOptions.ALL_PORTS.value}"
         if selected_script and selected_script != "None":
             options += f" {ScanOptions.SCRIPT.value}{selected_script}"
-        logger.debug(f"NmapScanner.build_nmap_options: Nmap options constructed: {options}") # Existing, made f-string
+        logger.debug(f"NmapScanner.build_nmap_options: Nmap options constructed: {options}")
         logger.debug(f"NmapScanner.build_nmap_options: Returning: '{options}'")
         return options
 
@@ -86,28 +84,36 @@ class NmapScanner:
         scan_all_ports: bool,
         selected_script: str,
     ):
-        logger.debug(f"NmapScanner.run_nmap_scan: Starting with target: '{target}', os_fingerprinting: {os_fingerprinting}, scan_all_ports: {scan_all_ports}, selected_script: '{selected_script}'")
+        logger.debug(
+            f"NmapScanner.run_nmap_scan: Starting with target: '{target}', os_fingerprinting: {os_fingerprinting}, "
+            f"scan_all_ports: {scan_all_ports}, selected_script: '{selected_script}'"
+        )
         nmap_options = self.build_nmap_options(
             os_fingerprinting, scan_all_ports, selected_script
-        ) # build_nmap_options already logs itself
+        )
         logger.debug(
-            f"NmapScanner.run_nmap_scan: Running Nmap scan for target: {target} with options: {nmap_options}" # Existing, made f-string
+            f"NmapScanner.run_nmap_scan: Running Nmap scan for target: {target} with options: {nmap_options}"
         )
         try:
             nm = nmap.PortScanner()
             logger.debug(f"NmapScanner.run_nmap_scan: nmap.PortScanner() created: {nm}")
             logger.debug(f"NmapScanner.run_nmap_scan: Before nm.scan(hosts='{target}', arguments='{nmap_options}')")
-            nm.scan(hosts=target, arguments=nmap_options)  # Use nmap_options
-            logger.debug(f"NmapScanner.run_nmap_scan: After nm.scan(). Scan completed with results for hosts: {nm.all_hosts()}") # Existing, made f-string
+            nm.scan(hosts=target, arguments=nmap_options)
+            logger.debug(f"NmapScanner.run_nmap_scan: After nm.scan(). Scan completed with results for hosts: {nm.all_hosts()}")
             logger.debug(f"NmapScanner.run_nmap_scan: Returning nm object: {nm}")
             return nm
         except nmap.PortScannerError as e:
-            logger.error(f"NmapScanner.run_nmap_scan: Nmap scan failed for target {target} with options '{nmap_options}': {e}", exc_info=True) # Existing, made f-string
+            logger.error(
+                f"NmapScanner.run_nmap_scan: Nmap scan failed for target {target} with options '{nmap_options}': {e}",
+                exc_info=True
+            )
             raise
         except Exception as e:
-            logger.error(f"NmapScanner.run_nmap_scan: Unexpected error for target {target}, options '{nmap_options}': {e}", exc_info=True) # Existing, made f-string
+            logger.error(
+                f"NmapScanner.run_nmap_scan: Unexpected error for target {target}, options '{nmap_options}': {e}",
+                exc_info=True
+            )
             raise
-        # No explicit "Finished" log here as it either returns or raises.
 
     def convert_results_to_yaml(self, nm: nmap.PortScanner) -> Dict[str, str]:
         logger.debug(f"NmapScanner.convert_results_to_yaml: Starting with nmap.PortScanner object: {nm}")
@@ -117,8 +123,11 @@ class NmapScanner:
         for host in hosts:
             logger.debug(f"NmapScanner.convert_results_to_yaml: Processing results for host: {host}")
             host_data = nm[host]
-            logger.debug(f"NmapScanner.convert_results_to_yaml: Raw host data for {host} (type {type(host_data)}): {list(host_data.keys()) if isinstance(host_data, dict) else 'Not a dict'}") # Log keys or type
-            plain_dict = self.to_plain_dict(host_data) # Logs itself
+            logger.debug(
+                f"NmapScanner.convert_results_to_yaml: Raw host data for {host} (type {type(host_data)}): "
+                f"{list(host_data.keys()) if isinstance(host_data, dict) else 'Not a dict'}"
+            )
+            plain_dict = self.to_plain_dict(host_data)
             logger.debug(f"NmapScanner.convert_results_to_yaml: Converted host data for {host} to plain_dict.")
             yaml_output = yaml.safe_dump(plain_dict, default_flow_style=False)
             logger.debug(f"NmapScanner.convert_results_to_yaml: YAML output for {host} (len {len(yaml_output)}): '{yaml_output[:100]}...'")
@@ -127,9 +136,8 @@ class NmapScanner:
         return all_results
 
     def to_plain_dict(self, data: Any) -> Union[Dict[str, Any], Any]:
-        # Adding a check to prevent excessive logging for deep recursion if data is already plain
         if not isinstance(data, (nmap.PortScannerHostDict, list, dict)):
-            return data # No logging for already plain data types to reduce noise
+            return data
 
         logger.debug(f"NmapScanner.to_plain_dict: Starting with data type: {type(data)}")
         if isinstance(data, nmap.PortScannerHostDict):
@@ -142,11 +150,10 @@ class NmapScanner:
             res = [self.to_plain_dict(item) for item in data]
             logger.debug(f"NmapScanner.to_plain_dict: Returning list with {len(res)} items.")
             return res
-        if isinstance(data, dict): # Standard dict
+        if isinstance(data, dict):
             logger.debug(f"NmapScanner.to_plain_dict: Processing dict with keys: {list(data.keys())}")
             res = {k: self.to_plain_dict(v) for k, v in data.items()}
             logger.debug(f"NmapScanner.to_plain_dict: Returning dict with keys: {list(res.keys())}")
             return res
-        # This part should ideally not be reached if the initial check is comprehensive
         logger.debug(f"NmapScanner.to_plain_dict: Data is of type {type(data)}, returning as is.")
         return data

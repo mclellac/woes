@@ -4,24 +4,17 @@ from datetime import datetime
 
 import dns.resolver
 import dns.reversename
-import gi
 
-# GTK version requirements (must be before gi.repository imports)
+import gi
 gi.require_version('Adw', '1')
 gi.require_version('Gtk', '4.0')
 gi.require_version('GtkSource', '5')
-
-# Now import GTK libraries and other dependencies
-# pylint: disable=wrong-import-position
 from gi.repository import Adw, Gio, Gtk, GtkSource, Pango, GLib
-# pylint: disable=wrong-import-position
+
 from .constants import APP_ID, RESOURCE_PREFIX
-# pylint: disable=wrong-import-position
 from .style_utils import apply_source_style_scheme
-# pylint: disable=wrong-import-position
 from .utils import create_source_view
 
-# Initialize logger after all imports
 logger = logging.getLogger(__name__)
 
 
@@ -37,31 +30,32 @@ class DNSPage(Adw.PreferencesPage):
     def __init__(self, **kwargs):
         logger.debug("DNSPage.__init__: Starting")
         super().__init__(**kwargs)
-        # Initialize GSettings early as it's used by signal handlers connected via _connect_signals
         self.settings = Gio.Settings.new(APP_ID)
         logger.debug(f"DNSPage.__init__: self.settings initialized: {self.settings}")
-        self.header_tag = None  # For _display_result
+        self.header_tag = None
         logger.debug(f"DNSPage.__init__: self.header_tag initialized to {self.header_tag}")
-        # Connect signals. Handlers might use self.settings.
-        self._connect_signals() # Will log its own start/finish
-        # Setup SourceView
+        self._connect_signals()
         logger.debug("DNSPage.__init__: Calling create_source_view()")
         self.source_view, self.source_buffer = create_source_view(language_name=None)
-        logger.debug(f"DNSPage.__init__: create_source_view() returned source_view: {self.source_view}, source_buffer: {self.source_buffer}")
-        if self.dns_results_scrolled_window is None:  # Corrected variable name
-            logger.critical("DNSPage.__init__: Gtk.Template.Child 'dns_results_scrolled_window' not found. UI will be broken.")
+        logger.debug(
+            f"DNSPage.__init__: create_source_view() returned source_view: {self.source_view}, "
+            f"source_buffer: {self.source_buffer}"
+        )
+        if self.dns_results_scrolled_window is None:
+            logger.critical(
+                "DNSPage.__init__: Gtk.Template.Child 'dns_results_scrolled_window' not found. "
+                "UI will be broken."
+            )
         else:
             self.dns_results_scrolled_window.set_child(self.source_view)
             logger.debug("DNSPage.__init__: dns_results_scrolled_window child set to source_view.")
-        # Apply styles and connect settings listeners
-        self._apply_source_view_style()  # Depends on self.settings and self.source_buffer. Logs itself.
+        self._apply_source_view_style()
         logger.debug("DNSPage.__init__: Before self.settings.connect('changed::source-style-scheme')")
         self.settings.connect(
             "changed::source-style-scheme",
             self._on_source_style_scheme_setting_changed
         )
         logger.debug("DNSPage.__init__: After self.settings.connect('changed::source-style-scheme')")
-        # Initialize Pango tags for the source_buffer
         logger.debug("DNSPage.__init__: Initializing Pango tags.")
         try:
             self.bold_tag = self.source_buffer.create_tag(
@@ -80,18 +74,15 @@ class DNSPage(Adw.PreferencesPage):
                 "value_color", foreground="#73d216"
             )
             logger.debug(f"DNSPage.__init__: self.value_color_tag created: {self.value_color_tag}")
-            # self.ttl_color_tag = self.source_buffer.create_tag(  # TTL not currently parsed/used
-            # "ttl_color", foreground="#fce94f"
-            # )
             self.class_color_tag = self.source_buffer.create_tag(
                 "class_color", foreground="#75507b"
             )
             logger.debug(f"DNSPage.__init__: self.class_color_tag created: {self.class_color_tag}")
-        except GLib.Error as e:  # Pango related errors can be GLib.Error
+        except GLib.Error as e:
             logger.error("DNSPage.__init__: Error creating Pango text tags: %s", e, exc_info=True)
-        except Exception:  # Fallback for other unexpected errors
+        except Exception:
             logger.exception("DNSPage.__init__: Unexpected error creating text tags.")
-        self.error_banner.set_revealed(False)  # Initial UI state
+        self.error_banner.set_revealed(False)
         logger.debug("DNSPage.__init__: error_banner revealed set to False.")
         logger.debug("DNSPage.__init__: Finished")
 
@@ -104,16 +95,13 @@ class DNSPage(Adw.PreferencesPage):
             "notify::selected", self._on_record_type_changed
         )
         logger.debug("DNSPage._connect_signals: Connected 'notify::selected' for dns_record_type_dropdown.")
-        # The error_banner signal <signal name="button-clicked" handler="_on_error_banner_dismiss"/>
-        # is connected in the UI file, so no explicit @Gtk.Template.Callback() is needed here.
         logger.debug("DNSPage._connect_signals: Finished connecting signals.")
 
     def _on_source_style_scheme_setting_changed(self, _settings, key):
         """Handle changes to the source-style-scheme setting."""
         logger.debug(f"DNSPage._on_source_style_scheme_setting_changed: Triggered for key: '{key}'")
-        # logger.debug("DNSPage: '%s' setting changed, applying new source view style.", key) # Replaced by above
         logger.debug("DNSPage._on_source_style_scheme_setting_changed: Before self._apply_source_view_style()")
-        self._apply_source_view_style() # Logs itself
+        self._apply_source_view_style()
         logger.debug("DNSPage._on_source_style_scheme_setting_changed: After self._apply_source_view_style()")
         logger.debug(f"DNSPage._on_source_style_scheme_setting_changed: Finished for key: '{key}'")
 
@@ -124,12 +112,12 @@ class DNSPage(Adw.PreferencesPage):
         logger.debug(f"DNSPage._apply_source_view_style: Retrieved source-style-scheme: '{source_style_scheme}'")
         logger.debug("DNSPage._apply_source_view_style: Before apply_source_style_scheme()")
         apply_source_style_scheme(
-            GtkSource.StyleSchemeManager.get_default(),  # GtkSource.StyleSchemeManager() is a singleton.
+            GtkSource.StyleSchemeManager.get_default(),
             self.source_buffer,
             source_style_scheme,
         )
         logger.debug("DNSPage._apply_source_view_style: After apply_source_style_scheme()")
-        self.source_view.set_editable(False)  # Ensure view is not editable.
+        self.source_view.set_editable(False)
         logger.debug("DNSPage._apply_source_view_style: source_view editable set to False.")
         logger.debug("DNSPage._apply_source_view_style: Finished.")
 
@@ -197,16 +185,18 @@ class DNSPage(Adw.PreferencesPage):
         Sets the dropdown to PTR and returns "PTR".
         """
         logger.debug(f"DNSPage._handle_ip_address_lookup: Starting for ip_address: '{ip_address}'")
-        # If it's an IP, always use PTR. Find PTR in the model and set it.
         model = self.dns_record_type_dropdown.get_model()
         logger.debug(f"DNSPage._handle_ip_address_lookup: Model for dropdown: {model}")
         for i in range(model.get_n_items()):
             if model.get_string(i) == "PTR":
                 self.dns_record_type_dropdown.set_selected(i)
-                logger.debug(f"DNSPage._handle_ip_address_lookup: Input is IP ('{ip_address}'), selected PTR record type (index {i}) in dropdown.") # Existing, made f-string
+                logger.debug(
+                    f"DNSPage._handle_ip_address_lookup: Input is IP ('{ip_address}'), "
+                    f"selected PTR record type (index {i}) in dropdown."
+                )
                 break
         logger.debug("DNSPage._handle_ip_address_lookup: Returning 'PTR'.")
-        return "PTR"  # This is the record type to be used for lookup
+        return "PTR"
 
     def _perform_lookup(self):
         """Perform the DNS lookup based on the user input and selected record type."""
@@ -215,49 +205,63 @@ class DNSPage(Adw.PreferencesPage):
         logger.debug(f"DNSPage._perform_lookup: user_input: '{user_input}'")
         if not user_input:
             logger.debug("DNSPage._perform_lookup: User input is empty.")
-            self._show_error("Input cannot be empty.") # Already logs
+            self._show_error("Input cannot be empty.")
             logger.debug("DNSPage._perform_lookup: Finished due to empty input.")
             return
 
-        self._clear_error()  # Clear previous errors first, already logs
+        self._clear_error()
 
         is_valid_input = self._is_valid_ip_or_domain(user_input)
         logger.debug(f"DNSPage._perform_lookup: Input validation status for '{user_input}': {is_valid_input}")
         if not is_valid_input:
-            self._show_error("Invalid IP address or domain name.") # Already logs
+            self._show_error("Invalid IP address or domain name.")
             logger.debug("DNSPage._perform_lookup: Finished due to invalid input.")
             return
 
-        # Get initially selected type, but it might be overridden for IP lookups
-        lookup_record_type = self._get_selected_record_type() # Already logs
+        lookup_record_type = self._get_selected_record_type()
         logger.debug(f"DNSPage._perform_lookup: Initial lookup_record_type: '{lookup_record_type}'")
 
         try:
             logger.debug("DNSPage._perform_lookup: Before self._configure_resolver()")
-            resolver = self._configure_resolver() # Already logs
+            resolver = self._configure_resolver()
             logger.debug(f"DNSPage._perform_lookup: After self._configure_resolver(), resolver: {resolver}")
 
             if self._is_ip_address(user_input):
-                logger.debug(f"DNSPage._perform_lookup: Input '{user_input}' is an IP address. Calling _handle_ip_address_lookup.")
+                logger.debug(
+                    f"DNSPage._perform_lookup: Input '{user_input}' is an IP address. "
+                    "Calling _handle_ip_address_lookup."
+                )
                 logger.debug("DNSPage._perform_lookup: Before self._handle_ip_address_lookup()")
-                lookup_record_type = self._handle_ip_address_lookup(user_input) # Already logs
-                logger.debug(f"DNSPage._perform_lookup: After self._handle_ip_address_lookup(), lookup_record_type is now: '{lookup_record_type}'")
+                lookup_record_type = self._handle_ip_address_lookup(user_input)
+                logger.debug(
+                    f"DNSPage._perform_lookup: After self._handle_ip_address_lookup(), "
+                    f"lookup_record_type is now: '{lookup_record_type}'"
+                )
 
-            logger.info("DNSPage._perform_lookup: Performing DNS lookup for %s, type %s", user_input, lookup_record_type) # Existing
+            logger.info(
+                "DNSPage._perform_lookup: Performing DNS lookup for %s, type %s",
+                user_input, lookup_record_type
+            )
             logger.debug("DNSPage._perform_lookup: Before self._lookup_record()")
-            result = self._lookup_record(user_input, lookup_record_type, resolver) # Logs itself
+            result = self._lookup_record(user_input, lookup_record_type, resolver)
             logger.debug(f"DNSPage._perform_lookup: After self._lookup_record(), result: '{result}'")
-            self._display_result(result, user_input, lookup_record_type, resolver.nameservers) # Logs itself
+            self._display_result(result, user_input, lookup_record_type, resolver.nameservers)
 
-        except dns.exception.DNSException as e:  # Specific DNS exceptions.
-            logger.error(f"DNSPage._perform_lookup: DNS lookup failed for {user_input} ({lookup_record_type}): {e}", exc_info=True) # Existing
-            self._show_error(f"DNS Error: {e}")  # User-friendly, e often has good info. Logs itself.
-        except ValueError as e:  # For invalid input not caught by initial validation.
-            logger.error(f"DNSPage._perform_lookup: Invalid input for DNS lookup: {e}", exc_info=True) # Existing
-            self._show_error(f"Invalid Input: {e}") # Logs itself
-        except Exception:  # General fallback for other unexpected errors.
-            logger.exception(f"DNSPage._perform_lookup: Unexpected error during DNS lookup for {user_input} ({lookup_record_type}).") # Existing
-            self._show_error("An unexpected error occurred during lookup.") # Logs itself
+        except dns.exception.DNSException as e:
+            logger.error(
+                f"DNSPage._perform_lookup: DNS lookup failed for {user_input} ({lookup_record_type}): {e}",
+                exc_info=True
+            )
+            self._show_error(f"DNS Error: {e}")
+        except ValueError as e:
+            logger.error(f"DNSPage._perform_lookup: Invalid input for DNS lookup: {e}", exc_info=True)
+            self._show_error(f"Invalid Input: {e}")
+        except Exception:
+            logger.exception(
+                f"DNSPage._perform_lookup: Unexpected error during DNS lookup for {user_input} "
+                f"({lookup_record_type})."
+            )
+            self._show_error("An unexpected error occurred during lookup.")
         logger.debug("DNSPage._perform_lookup: Finished.")
 
     def _get_selected_record_type(self) -> str:
@@ -294,7 +298,10 @@ class DNSPage(Adw.PreferencesPage):
 
     @staticmethod
     def _lookup_record(domain_or_ip: str, record_type: str, resolver: dns.resolver.Resolver) -> str:
-        logger.debug(f"DNSPage._lookup_record: Starting for domain_or_ip: '{domain_or_ip}', record_type: '{record_type}', resolver: {resolver}")
+        logger.debug(
+            f"DNSPage._lookup_record: Starting for domain_or_ip: '{domain_or_ip}', "
+            f"record_type: '{record_type}', resolver: {resolver}"
+        )
         try:
             if record_type == "PTR":
                 rev_name = dns.reversename.from_address(domain_or_ip)
@@ -313,25 +320,32 @@ class DNSPage(Adw.PreferencesPage):
             logger.debug(f"DNSPage._lookup_record: Formatted result: '{formatted_result}'")
             return formatted_result
         except dns.exception.DNSException as e:
-            logger.error(f"DNSPage._lookup_record: DNSException for {domain_or_ip} ({record_type}): {e}", exc_info=True)
+            logger.error(
+                f"DNSPage._lookup_record: DNSException for {domain_or_ip} ({record_type}): {e}",
+                exc_info=True
+            )
             error_message = f"{record_type} record lookup failed for {domain_or_ip}: {e}"
             logger.debug(f"DNSPage._lookup_record: Returning error message: '{error_message}'")
             return error_message
-        except Exception as e: # Catch any other unexpected errors during lookup
-            logger.error(f"DNSPage._lookup_record: Unexpected exception for {domain_or_ip} ({record_type}): {e}", exc_info=True)
+        except Exception as e:
+            logger.error(
+                f"DNSPage._lookup_record: Unexpected exception for {domain_or_ip} ({record_type}): {e}",
+                exc_info=True
+            )
             error_message = f"Unexpected error during {record_type} lookup for {domain_or_ip}: {e}"
             logger.debug(f"DNSPage._lookup_record: Returning unexpected error message: '{error_message}'")
             return error_message
 
-
     def _display_result(self, result: str, domain_or_ip: str, record_type: str, dns_servers: list):
         """Display the DNS lookup results in the source buffer with enhanced formatting."""
-        logger.debug(f"DNSPage._display_result: Starting for result: '{result}', domain_or_ip: '{domain_or_ip}', record_type: '{record_type}', dns_servers: {dns_servers}")
+        logger.debug(
+            f"DNSPage._display_result: Starting for result: '{result}', domain_or_ip: '{domain_or_ip}', "
+            f"record_type: '{record_type}', dns_servers: {dns_servers}"
+        )
         logger.debug("DNSPage._display_result: Before self.source_buffer.set_text('')")
-        self.source_buffer.set_text("")  # Clear previous results
+        self.source_buffer.set_text("")
         logger.debug("DNSPage._display_result: After self.source_buffer.set_text('')")
 
-        # Check if the header tag already exists in the tag table
         self.header_tag = self.source_buffer.get_tag_table().lookup("header")
         logger.debug(f"DNSPage._display_result: Looked up 'header' tag: {self.header_tag}")
         if not self.header_tag:
@@ -341,9 +355,9 @@ class DNSPage(Adw.PreferencesPage):
                     "header", weight=Pango.Weight.BOLD, size_points=12
                 )
                 logger.debug(f"DNSPage._display_result: Created 'header' tag: {self.header_tag}")
-            except GLib.Error as e:  # Pango related errors
+            except GLib.Error as e:
                 logger.error("DNSPage._display_result: Error creating Pango header tag: %s", e, exc_info=True)
-            except Exception:  # Fallback
+            except Exception:
                 logger.exception("DNSPage._display_result: Unexpected error creating header tag.")
 
         dns_server_info = f"DNS server used: {', '.join(dns_servers) if dns_servers else 'System default'}\n"
@@ -374,7 +388,7 @@ class DNSPage(Adw.PreferencesPage):
         self.source_buffer.insert(self.source_buffer.get_end_iter(), "\n\n")
 
         logger.debug("DNSPage._display_result: Before self._format_result_in_buffer()")
-        self._format_result_in_buffer(result) # Logs itself
+        self._format_result_in_buffer(result)
         logger.debug("DNSPage._display_result: After self._format_result_in_buffer()")
         logger.debug("DNSPage._display_result: Finished.")
 
@@ -385,14 +399,14 @@ class DNSPage(Adw.PreferencesPage):
         logger.debug(f"DNSPage._format_result_in_buffer: Processing {len(lines)} lines.")
 
         for i, line in enumerate(lines):
-            # logger.debug(f"DNSPage._format_result_in_buffer: Processing line {i+1}: '{line}'") # Can be too verbose
-            # Improved regex to handle potential extra spaces and variations in DNS output
             match = re.match(r"^\s*([\w.-]+)\s+\d*\s*(IN)\s+([A-Z]+)\s+(.*)$", line, re.IGNORECASE)
             if match:
                 domain, record_class, record_type_str, value = match.groups()
-                logger.debug(f"DNSPage._format_result_in_buffer: Line {i+1} matched. Domain: '{domain}', Class: '{record_class}', Type: '{record_type_str}', Value: '{value[:30]}...'")
+                logger.debug(
+                    f"DNSPage._format_result_in_buffer: Line {i+1} matched. Domain: '{domain}', "
+                    f"Class: '{record_class}', Type: '{record_type_str}', Value: '{value[:30]}...'"
+                )
 
-                # Logging each insert_with_tags can be very verbose. A summary log after loop might be better if needed.
                 self.source_buffer.insert_with_tags(
                     self.source_buffer.get_end_iter(),
                     domain + "\t",
@@ -400,22 +414,24 @@ class DNSPage(Adw.PreferencesPage):
                 )
                 self.source_buffer.insert_with_tags(
                     self.source_buffer.get_end_iter(),
-                    record_class.upper() + "\t",  # Ensure IN is uppercase.
+                    record_class.upper() + "\t",
                     self.class_color_tag,
                 )
                 self.source_buffer.insert_with_tags(
                     self.source_buffer.get_end_iter(),
-                    record_type_str.upper() + "\t",  # Ensure record type is uppercase.
+                    record_type_str.upper() + "\t",
                     self.record_type_color_tag,
                 )
                 self.source_buffer.insert_with_tags(
                     self.source_buffer.get_end_iter(),
-                    value.strip() + "\n",  # Strip trailing spaces from value.
+                    value.strip() + "\n",
                     self.value_color_tag,
                 )
             else:
-                logger.debug(f"DNSPage._format_result_in_buffer: Line {i+1} ('{line}') did not match expected format, inserting as is.")
-                # If line doesn't match expected format, insert it as is.
+                logger.debug(
+                    f"DNSPage._format_result_in_buffer: Line {i+1} ('{line}') "
+                    "did not match expected format, inserting as is."
+                )
                 self.source_buffer.insert(
                     self.source_buffer.get_end_iter(), line + "\n"
                 )

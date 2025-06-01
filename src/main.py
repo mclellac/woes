@@ -1,23 +1,18 @@
-import sys
-import os
 import logging
+import os
+import sys
 
 import gi
-
-# GTK version requirements must be called before importing from gi.repository
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-
-# Now import GTK libraries and other dependencies
-# pylint: disable=wrong-import-position
 from gi.repository import Adw, Gio, GLib
-# pylint: disable=wrong-import-position
-from .constants import APP_ID, VERSION, RESOURCE_PREFIX, PKGDATADIR
 
-# Basic logging configuration. This can be early.
+from .constants import APP_ID, VERSION, RESOURCE_PREFIX, PKGDATADIR
+from .preferences import Preferences
+from .window import WoesWindow
+
+# Basic logging configuration can be early.
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(name)s:%(message)s')
-# Configure module-level logger - AFTER all imports normally, but basicConfig is okay earlier.
-# For consistency with other files, define logger after imports.
 logger = logging.getLogger(__name__)
 
 logger.info("Script execution started.")
@@ -35,7 +30,8 @@ def _load_gresources_early():
     try:
         resource = Gio.Resource.load(resource_file_path)
         if resource:
-            Gio.Resource._register(resource)  # pylint: disable=protected-access
+            # pylint: disable=protected-access # _register is the intended way for applications to manually register resources
+            Gio.Resource._register(resource)
             logger.info("Successfully loaded and registered GResource: %s", resource_file_path)
             available_resources = resource.enumerate_children(RESOURCE_PREFIX, Gio.ResourceLookupFlags.NONE)
             logger.debug("Available resources under %s: %s", RESOURCE_PREFIX, available_resources)
@@ -54,12 +50,6 @@ def _load_gresources_early():
 _load_gresources_early()
 
 
-# pylint: disable=wrong-import-position
-from .preferences import Preferences
-# pylint: disable=wrong-import-position
-from .window import WoesWindow
-
-
 class WoesApplication(Adw.Application):
     """The main application singleton class."""
 
@@ -67,10 +57,6 @@ class WoesApplication(Adw.Application):
         logger.info("Initializing WoesApplication.")
         self.version = version
         self.debug_enabled = False
-
-        # Logging level will be updated in do_handle_local_options if --debug is passed.
-        # The initial basicConfig at the top of the file sets a default.
-        # If basicConfig was not called earlier, it would be called here or by the first log.
 
         super().__init__(
             application_id=APP_ID,
@@ -106,8 +92,6 @@ class WoesApplication(Adw.Application):
         if options.contains('debug'):
             self.debug_enabled = True
             logger.debug(f"Debug mode set to: {self.debug_enabled}")
-            # Reconfigure root logger for DEBUG level
-            # Force ensures this overrides previous basicConfig handlers/levels if needed.
             logging.basicConfig(
                 level=logging.DEBUG,
                 format='%(asctime)s %(levelname)s:%(name)s:%(message)s',
@@ -154,7 +138,7 @@ class WoesApplication(Adw.Application):
             sys.exit(1)
 
         self.win = win
-        self.add_window(self.win) # Add this line
+        self.add_window(self.win)
         logger.debug("Presenting WoesWindow.")
         logger.debug("Before self.win.present()")
         try:
@@ -179,32 +163,28 @@ class WoesApplication(Adw.Application):
     def switch_to_http(self, *_args):
         logger.debug("Action 'switch-to-http' triggered.")
         if self.win and self.win.stack:
-            result = self.win.stack.set_visible_child_name("http")
-            logger.debug(f"self.win.stack.set_visible_child_name('http') result: {result}")
+            self.win.stack.set_visible_child_name("http")
         else:
             logger.warning("Cannot switch to http_page: window or stack not available.")
 
     def switch_to_nmap(self, *_args):
         logger.debug("Action 'switch-to-nmap' triggered.")
         if self.win and self.win.stack:
-            result = self.win.stack.set_visible_child_name("nmap")
-            logger.debug(f"self.win.stack.set_visible_child_name('nmap') result: {result}")
+            self.win.stack.set_visible_child_name("nmap")
         else:
             logger.warning("Cannot switch to nmap_page: window or stack not available.")
 
     def switch_to_dns(self, *_args):
         logger.debug("Action 'switch-to-dns' triggered.")
         if self.win and self.win.stack:
-            result = self.win.stack.set_visible_child_name("dns")
-            logger.debug(f"self.win.stack.set_visible_child_name('dns') result: {result}")
+            self.win.stack.set_visible_child_name("dns")
         else:
             logger.warning("Cannot switch to dns_page: window or stack not available.")
 
     def switch_to_webscan(self, *_args):
         logger.debug("Action 'switch-to-webscan' triggered.")
         if self.win and self.win.stack:
-            result = self.win.stack.set_visible_child_name("webscan")
-            logger.debug(f"self.win.stack.set_visible_child_name('webscan') result: {result}")
+            self.win.stack.set_visible_child_name("webscan")
         else:
             logger.warning("Cannot switch to webscan_page: window or stack not available.")
 
