@@ -78,11 +78,11 @@ class WoesApplication(Adw.Application):
 
     def switch_to_http(self, *args):
         if self.win:
-            self.win.stack.set_visible_child(self.win.http_page)
+            self.win.stack.set_visible_child_name("http_page")
 
     def switch_to_nmap(self, *args):
         if self.win:
-            self.win.stack.set_visible_child(self.win.nmap_page)
+            self.win.stack.set_visible_child_name("nmap_page")
 
     def on_about_action(self, widget, _):
         """Callback for the app.about action."""
