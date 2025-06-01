@@ -1,17 +1,16 @@
 import logging
-import gi
 
+import gi
 gi.require_version('Adw', '1')
 gi.require_version('Gtk', '4.0')
+from gi.repository import Adw, Gdk, Gio, Gtk, GLib # Added GLib for load_css exception
 
-from gi.repository import Adw, Gdk, Gio, Gtk
-
-from .constants import APP_ID, RESOURCE_PREFIX
 # Import pages for Gtk.Template type registration, aliasing to avoid direct use conflicts
 from . import DNSPage as _DNSPage_
 from . import HttpPage as _HttpPage_
 from . import NmapPage as _NmapPage_
 from . import WebScanPage as _WebScanPage_
+from .constants import APP_ID, RESOURCE_PREFIX
 from .style_utils import apply_font_size, apply_theme
 
 # Ensure custom page widgets are registered with the type system
@@ -30,74 +29,112 @@ class WoesWindow(Adw.ApplicationWindow):
     stack = Gtk.Template.Child("stack")
 
     def __init__(self, **kwargs):
+        logging.debug("WoesWindow.__init__: Starting")
         super().__init__(**kwargs)
+        logging.debug("WoesWindow.__init__: Initializing GSettings...")
         self.settings = Gio.Settings(schema_id=APP_ID)
+        logging.debug("WoesWindow.__init__: GSettings initialized.")
+        logging.debug("WoesWindow.__init__: Getting StyleManager...")
         self.style_manager = Adw.StyleManager.get_default()
+        logging.debug("WoesWindow.__init__: StyleManager obtained.")
 
-        # Connect settings listener
+        logging.debug("WoesWindow.__init__: Connecting dark-theme setting change listener...")
         self.settings.connect("changed::dark-theme", self._on_dark_theme_setting_changed)
+        logging.debug("WoesWindow.__init__: dark-theme listener connected.")
 
-        self.setup_ui()
+        logging.debug("WoesWindow.__init__: Calling setup_ui...")
+        try:
+            self.setup_ui()
+        except Exception as e:
+            logging.exception("WoesWindow.__init__: Error during self.setup_ui()")
+        logging.debug("WoesWindow.__init__: Finished")
 
     def setup_ui(self):
-        # load_css and apply_preferences will be called here.
-        # apply_preferences reads initial settings and applies them.
-        self.load_css()
-        self.apply_preferences()
-        if self.switcher_title and self.stack:  # Add checks for switcher_title
-            self.switcher_title.connect("notify::selected-page", self.on_page_switched)
+        logging.debug("WoesWindow.setup_ui: Starting")
+
+        logging.debug("WoesWindow.setup_ui: Calling load_css...")
+        try:
+            self.load_css()
+        except Exception as e:
+            logging.exception("WoesWindow.setup_ui: Error during self.load_css()")
+        logging.debug("WoesWindow.setup_ui: load_css finished.")
+
+        logging.debug("WoesWindow.setup_ui: Calling apply_preferences...")
+        try:
+            self.apply_preferences()
+        except Exception as e:
+            logging.exception("WoesWindow.setup_ui: Error during self.apply_preferences()")
+        logging.debug("WoesWindow.setup_ui: apply_preferences finished.")
+
+        if self.switcher_title and self.stack:
+            logging.debug("WoesWindow.setup_ui: Connecting switcher_title signal...")
+            try:
+                self.switcher_title.connect("notify::selected-page", self.on_page_switched)
+                logging.debug("WoesWindow.setup_ui: switcher_title signal connected.")
+            except Exception as e:
+                logging.exception("WoesWindow.setup_ui: Error connecting switcher_title signal")
         else:
             logging.warning("switcher_title or stack not found during setup_ui.")
+        logging.debug("WoesWindow.setup_ui: Finished")
 
-    def _on_dark_theme_setting_changed(self, settings, key):
-        logging.debug("'%s' setting changed, reloading theme and CSS.", key)
+    def _on_dark_theme_setting_changed(self, settings, key): # Added method
+        logging.debug(f"WoesWindow._on_dark_theme_setting_changed: '{key}' setting changed.")
         dark_theme_enabled = settings.get_boolean(key)
         apply_theme(self.style_manager, dark_theme_enabled)
-        self.load_css()  # Reload CSS to match the potentially new theme
+        self.load_css()
 
     def load_css(self):
+        logging.debug("WoesWindow.load_css: Starting")
         # Determine which CSS file to use based on the current theme
         css_file = (
             "style-dark.css"
             if self.style_manager.get_color_scheme() == Adw.ColorScheme.PREFER_DARK
             else "style.css"
         )
+        logging.debug(f"WoesWindow.load_css: Determined css_file: {css_file}")
         css_path = f"{RESOURCE_PREFIX}/{css_file}"
+        logging.debug(f"WoesWindow.load_css: css_path: {css_path}")
         style_provider = Gtk.CssProvider()
 
         try:
             style_provider.load_from_resource(css_path)
+            logging.debug("WoesWindow.load_css: Loaded style from resource.")
             Gtk.StyleContext.add_provider_for_display(
                 Gdk.Display.get_default(),
                 style_provider,
                 Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
             )
-            logging.debug("Loaded CSS from %s", css_path)
-        except GLib.Error as e:  # More specific error for resource loading
-            logging.error("Failed to load CSS resource from %s: %s", css_path, e)
-        except Exception as e:  # Fallback for other errors
-            logging.error("An unexpected error of type %s occurred while loading CSS from %s: %s", type(e).__name__, css_path, e)
+            # logging.debug(f"Loaded CSS from {css_path}") # Already logged path, this is redundant
+        except GLib.Error as e: # More specific error
+            logging.error(f"Failed to load CSS resource from {css_path}: {e}")
+        except Exception as e: # General fallback
+            logging.error(f"An unexpected error of type {type(e).__name__} occurred while loading CSS from {css_path}: {e}")
+        logging.debug("WoesWindow.load_css: Finished")
 
     def reload_css(self):
+        logging.debug("WoesWindow.reload_css: Starting") # Added log
         logging.debug("Reloading CSS based on theme preference.")
         self.load_css()
+        logging.debug("WoesWindow.reload_css: Finished") # Added log
 
     def apply_preferences(self):
+        logging.debug("WoesWindow.apply_preferences: Starting")
         try:
             font_size = self.settings.get_int("font-size")
+            logging.debug(f"WoesWindow.apply_preferences: Font size from settings: {font_size}")
             dark_theme_enabled = self.settings.get_boolean("dark-theme")
+            logging.debug(f"WoesWindow.apply_preferences: Dark theme from settings: {dark_theme_enabled}")
 
-            apply_font_size(self.settings, font_size)  # Assuming this works or is handled elsewhere
-
-            # Apply theme directly on startup
+            apply_font_size(self.settings, font_size)
             apply_theme(self.style_manager, dark_theme_enabled)
-            # self.load_css()  # load_css is already called in setup_ui
+        except GLib.Error as e: # More specific error
+            logging.error(f"Error applying preferences (GSettings): {e}")
+        except Exception as e: # General fallback
+            logging.error(f"An unexpected error of type {type(e).__name__} occurred while applying preferences: {e}")
+        logging.debug("WoesWindow.apply_preferences: Finished")
 
-        except GLib.Error as e: # GSettings errors are often GLib.Error
-            logging.error("Error applying preferences via GSettings: %s", e)
-        except Exception as e:  # Fallback for other errors
-            logging.error("An unexpected error of type %s occurred while applying preferences: %s", type(e).__name__, e)
-
-    def on_page_switched(self, _widget, _gparam):
+    def on_page_switched(self, _widget, _gparam): # Prefixed unused arguments
+        logging.debug("WoesWindow.on_page_switched: Starting") # Added log
         selected_page = self.stack.get_visible_child()
-        logging.debug("Switched to page: %s", selected_page)
+        logging.debug(f"Switched to page: {selected_page}")
+        logging.debug("WoesWindow.on_page_switched: Finished") # Added log
