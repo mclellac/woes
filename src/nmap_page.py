@@ -286,19 +286,19 @@ class NmapPage(Adw.PreferencesPage):
             selected_target_key = item_obj.key
             logger.debug(f"NmapPage._on_target_selected: Target selected: {selected_target_key}")
 
-                result_yaml = self.results_by_host.get(
-                    selected_target_key,
-                    f"# No results found for {selected_target_key}"
-                )
-                logger.debug(f"NmapPage._on_target_selected: YAML for target '{selected_target_key}' (first 100 chars): '{result_yaml[:100]}...'")
-                logger.debug("NmapPage._on_target_selected: Before self.source_buffer.set_text()")
-                self.source_buffer.set_text(result_yaml)
-                logger.debug("NmapPage._on_target_selected: After self.source_buffer.set_text()")
-                self._refresh_source_view()
-                self.nmap_results_group.set_revealed(True)
-                logger.debug("NmapPage._on_target_selected: nmap_results_group revealed set to True.")
-                logger.debug(f"NmapPage._on_target_selected: Finished for target '{selected_target_key}'.")
-                return
+            result_yaml = self.results_by_host.get(
+                selected_target_key,
+                f"# No results found for {selected_target_key}"
+            )
+            logger.debug(f"NmapPage._on_target_selected: YAML for target '{selected_target_key}' (first 100 chars): '{result_yaml[:100]}...'")
+            logger.debug("NmapPage._on_target_selected: Before self.source_buffer.set_text()")
+            self.source_buffer.set_text(result_yaml)
+            logger.debug("NmapPage._on_target_selected: After self.source_buffer.set_text()")
+            self._refresh_source_view()
+            self.nmap_results_group.set_revealed(True)
+            logger.debug("NmapPage._on_target_selected: nmap_results_group revealed set to True.")
+            logger.debug(f"NmapPage._on_target_selected: Finished for target '{selected_target_key}'.")
+            return
 
         logger.warning("NmapPage._on_target_selected: Could not retrieve NmapItem from selected row.")
         logger.debug("NmapPage._on_target_selected: Before self.source_buffer.set_text('') (due to bad item).")
