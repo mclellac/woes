@@ -3,18 +3,10 @@
 <interface>
   <requires lib="gtk" version="4.10"/>
   <requires lib="libadwaita" version="1.4"/>
-  <template class="DNSPage" parent="GtkBox">
-    <property name="halign">baseline-fill</property>
-    <property name="hexpand">True</property>
-    <property name="hexpand-set">True</property>
-    <property name="orientation">vertical</property>
-    <property name="vexpand">True</property>
-    <property name="vexpand-set">True</property>
+  <template class="DNSPage" parent="AdwPreferencesPage">
     <child>
       <object class="AdwPreferencesGroup" id="dns_params_group">
         <property name="title" translatable="yes">Lookup Parameters</property>
-        <property name="halign">baseline-fill</property>
-        <property name="valign">baseline-center</property>
         <child>
           <object class="AdwEntryRow" id="dns_ip_entryrow">
             <property name="input-purpose">url</property>
@@ -48,50 +40,31 @@
       </object>
     </child>
     <child>
-      <object class="AdwBanner" id="dns_error_banner">
-        <property name="button-label" translatable="yes">Dismiss</property>
-        <property name="revealed">False</property>
-        <property name="margin-bottom">10</property>
-        <property name="margin-end">10</property>
-        <property name="margin-start">10</property>
-        <property name="margin-top">10</property>
+      <object class="AdwPreferencesGroup">
+        <child>
+          <object class="AdwBanner" id="dns_error_banner">
+            <property name="button-label" translatable="yes">Dismiss</property>
+            <property name="revealed">False</property>
+            <property name="margin-bottom">10</property>
+            <property name="margin-end">10</property>
+            <property name="margin-start">10</property>
+            <property name="margin-top">10</property>
+          </object>
+        </child>
       </object>
     </child>
     <child>
-      <object class="GtkGrid" id="dns_results_grid">
-        <property name="halign">baseline-fill</property>
-        <property name="hexpand">True</property>
-        <property name="margin-bottom">10</property>
-        <property name="margin-top">10</property>
-        <property name="valign">baseline-fill</property>
-        <property name="vexpand">True</property>
-        <property name="vexpand-set">True</property>
+      <object class="AdwPreferencesGroup" id="dns_results_group">
+        <property name="title" translatable="yes">Lookup Results</property>
         <child>
-          <object class="AdwPreferencesGroup" id="dns_results_group">
-            <property name="title" translatable="yes">Lookup Results</property>
+          <object class="AdwScrolledWindow" id="dns_results_scrolled_window">
             <property name="halign">baseline-fill</property>
             <property name="hexpand">True</property>
             <property name="hexpand-set">True</property>
+            <property name="min-content-height">400</property> <!-- Retained from GtkScrolledWindow -->
             <property name="vexpand">True</property>
             <property name="vexpand-set">True</property>
-            <!-- label-xalign and overflow from GtkFrame are not directly applicable or needed for AdwPreferencesGroup -->
-            <child>
-              <object class="AdwScrolledWindow" id="dns_results_scrolled_window">
-                <property name="halign">baseline-fill</property>
-                <property name="hexpand">True</property>
-                <property name="hexpand-set">True</property>
-                <property name="min-content-height">400</property> <!-- Retained from GtkScrolledWindow -->
-                <property name="vexpand">True</property>
-                <property name="vexpand-set">True</property>
-                <!-- Removed has-frame, kinetic-scrolling, max-content-width, overflow as they are not for AdwScrolledWindow or handled differently -->
-              </object>
-            </child>
-            <layout>
-              <property name="column">0</property>
-              <property name="column-span">5</property>
-              <property name="row">0</property>
-              <property name="row-span">10</property>
-            </layout>
+            <!-- Removed has-frame, kinetic-scrolling, max-content-width, overflow as they are not for AdwScrolledWindow or handled differently -->
           </object>
         </child>
       </object>

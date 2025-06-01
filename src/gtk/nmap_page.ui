@@ -3,18 +3,10 @@
 <interface>
   <requires lib="gtk" version="4.10"/>
   <requires lib="libadwaita" version="1.4"/>
-  <template class="NmapPage" parent="GtkBox">
-    <property name="halign">baseline-fill</property>
-    <property name="hexpand">True</property>
-    <property name="hexpand-set">True</property>
-    <property name="orientation">vertical</property>
-    <property name="vexpand">True</property>
-    <property name="vexpand-set">True</property>
+  <template class="NmapPage" parent="AdwPreferencesPage">
     <child>
       <object class="AdwPreferencesGroup" id="nmap_config_group">
         <property name="title" translatable="yes">Scan Configuration</property>
-        <property name="halign">baseline-fill</property>
-        <property name="valign">baseline-center</property>
         <child>
           <object class="AdwEntryRow" id="nmap_target_entryrow">
             <property name="activates-default">True</property>
@@ -38,8 +30,6 @@
         </child>
         <child>
           <object class="AdwComboRow" id="nmap_scripts_dropdown">
-            <property name="hexpand">True</property>
-            <property name="hexpand-set">True</property>
             <property name="icon-name">emblem-documents-symbolic</property>
             <property name="model">
               <object class="GtkStringList" id="nmap_list">
@@ -67,129 +57,117 @@
             <property name="subtitle">Select script to use if desired</property>
             <property name="subtitle-lines">1</property>
             <property name="title">Nmap Scripts</property>
-            <property name="valign">baseline-fill</property>
           </object>
         </child>
       </object>
     </child>
     <child>
-      <object class="AdwBanner" id="nmap_warning_banner">
-        <property name="title" translatable="yes">&lt;b&gt;WARNING:&lt;/b&gt; Do not use this tool on any hosts or networks &lt;u&gt;you do not explicitely have permission&lt;/u&gt; to scan.</property>
-        <property name="button-label" translatable="yes">Dismiss</property>
-        <property name="revealed">True</property>
-        <property name="margin-bottom">10</property>
-        <property name="margin-end">10</property>
-        <property name="margin-start">10</property>
-        <property name="margin-top">10</property>
-      </object>
-    </child>
-    <child>
-      <object class="AdwBanner" id="error_banner">
-        <property name="button-label" translatable="yes">Dismiss</property>
-        <property name="revealed">False</property>
-        <property name="margin-bottom">10</property>
-        <property name="margin-end">10</property>
-        <property name="margin-start">10</property>
-        <property name="margin-top">10</property>
-      </object>
-    </child>
-    <child>
-      <!-- Corrected AdwActionRow with GtkSpinner as a suffix -->
-      <object class="AdwActionRow" id="nmap_status_row">
-        <property name="title" translatable="yes">Scan Status</property>
-        <property name="subtitle" translatable="yes"></property>
-        <property name="subtitle-visible">False</property>
-        <property name="halign">baseline-fill</property> <!-- Changed to fill -->
-        <property name="margin-start">10</property>
-        <property name="margin-end">10</property>
-        <suffix>
-          <object class="GtkSpinner" id="nmap_spinner">
-            <property name="spinning">True</property>
-            <property name="visible">False</property>
-          </object>
-        </suffix>
-      </object>
-    </child>
-    <child>
-      <object class="GtkGrid" id="nmap_results_grid">
-        <property name="halign">baseline-fill</property>
-        <property name="hexpand">True</property>
-        <property name="margin-bottom">10</property>
-        <property name="margin-top">10</property>
-        <property name="valign">baseline-fill</property>
-        <property name="vexpand">True</property>
-        <property name="vexpand-set">True</property>
+      <object class="AdwPreferencesGroup">
         <child>
-          <object class="AdwPreferencesGroup" id="nmap_target_group">
-            <property name="title" translatable="yes">Targets</property>
-            <property name="halign">baseline-fill</property>
-            <property name="hexpand">True</property>
-            <property name="hexpand-set">True</property>
+          <object class="AdwBanner" id="nmap_warning_banner">
+            <property name="title" translatable="yes">&lt;b&gt;WARNING:&lt;/b&gt; Do not use this tool on any hosts or networks &lt;u&gt;you do not explicitely have permission&lt;/u&gt; to scan.</property>
+            <property name="button-label" translatable="yes">Dismiss</property>
+            <property name="revealed">True</property>
             <property name="margin-bottom">10</property>
-            <property name="margin-end">5</property>
+            <property name="margin-end">10</property>
+            <property name="margin-start">10</property>
             <property name="margin-top">10</property>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="AdwPreferencesGroup">
+        <child>
+          <object class="AdwBanner" id="error_banner">
+            <property name="button-label" translatable="yes">Dismiss</property>
+            <property name="revealed">False</property>
+            <property name="margin-bottom">10</property>
+            <property name="margin-end">10</property>
+            <property name="margin-start">10</property>
+            <property name="margin-top">10</property>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="AdwPreferencesGroup">
+        <child>
+          <!-- Corrected AdwActionRow with GtkSpinner as a suffix -->
+          <object class="AdwActionRow" id="nmap_status_row">
+            <property name="title" translatable="yes">Scan Status</property>
+            <property name="subtitle" translatable="yes"></property>
+            <property name="subtitle-visible">False</property>
+            <property name="margin-start">10</property>
+            <property name="margin-end">10</property>
+            <suffix>
+              <object class="AdwSpinner" id="nmap_spinner">
+                <property name="spinning">True</property>
+                <property name="visible">False</property>
+              </object>
+            </suffix>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="AdwPreferencesGroup">
+        <property name="title" translatable="yes">Scan Output</property>
+        <child>
+          <object class="GtkBox">
+            <property name="orientation">horizontal</property>
+            <property name="spacing">6</property> <!-- Optional: adds some space between the two groups -->
+            <property name="halign">fill</property>
+            <property name="hexpand">True</property>
+            <property name="valign">fill</property>
             <property name="vexpand">True</property>
-            <property name="vexpand-set">True</property>
             <child>
-              <object class="AdwScrolledWindow" id="nmap_target_scrolled_window">
+              <object class="AdwPreferencesGroup" id="nmap_target_group">
+                <property name="title" translatable="yes">Targets</property>
+                <property name="halign">fill</property>
+                <property name="hexpand">True</property>
                 <property name="margin-bottom">10</property>
-                <property name="margin-end">10</property>
-                <property name="margin-start">10</property>
+                <property name="margin-end">5</property>
                 <property name="margin-top">10</property>
                 <property name="vexpand">True</property>
-                <property name="vexpand-set">True</property>
                 <child>
-                  <object class="GtkListBox" id="nmap_target_listbox">
-                    <property name="css-classes">card
-</property>
+                  <object class="AdwScrolledWindow" id="nmap_target_scrolled_window">
+                    <property name="margin-bottom">10</property>
+                    <property name="margin-end">10</property>
+                    <property name="margin-start">10</property>
+                    <property name="margin-top">10</property>
                     <property name="vexpand">True</property>
-                    <property name="vexpand-set">True</property>
+                    <child>
+                      <object class="AdwListBox" id="nmap_target_listbox">
+                        <property name="vexpand">True</property>
+                      </object>
+                    </child>
                   </object>
                 </child>
               </object>
             </child>
-            <layout>
-              <property name="column">0</property>
-              <property name="column-span">1</property>
-              <property name="row">0</property>
-              <property name="row-span">10</property>
-            </layout>
-          </object>
-        </child>
-        <child>
-          <object class="AdwPreferencesGroup" id="nmap_results_group">
-            <property name="title" translatable="yes">Scan Results</property>
-            <property name="halign">baseline-fill</property>
-            <property name="hexpand">True</property>
-            <property name="hexpand-set">True</property>
-            <property name="margin-bottom">10</property>
-            <property name="margin-start">5</property>
-            <property name="margin-top">10</property>
-            <property name="vexpand">True</property>
-            <property name="vexpand-set">True</property>
             <child>
-              <object class="AdwScrolledWindow" id="nmap_results_adinw_scrolled_window">
-                <property name="halign">baseline-fill</property>
-                <!-- <property name="has-frame">True</property> AdwScrolledWindow doesn't have has-frame -->
+              <object class="AdwPreferencesGroup" id="nmap_results_group">
+                <property name="title" translatable="yes">Scan Results</property>
+                <property name="halign">fill</property>
                 <property name="hexpand">True</property>
-                <property name="hexpand-set">True</property>
-                <!-- <property name="kinetic-scrolling">False</property> Not a direct AdwScrolledWindow property -->
                 <property name="margin-bottom">10</property>
-                <property name="margin-end">10</property>
-                <property name="margin-start">10</property>
+                <property name="margin-start">5</property>
                 <property name="margin-top">10</property>
-                <!-- <property name="max-content-width">150</property> Not a direct AdwScrolledWindow property -->
-                <!-- <property name="min-content-height">50</property> Not a direct AdwScrolledWindow property -->
                 <property name="vexpand">True</property>
-                <property name="vexpand-set">True</property>
+                <child>
+                  <object class="AdwScrolledWindow" id="nmap_results_adinw_scrolled_window">
+                    <property name="halign">fill</property>
+                    <property name="hexpand">True</property>
+                    <property name="margin-bottom">10</property>
+                    <property name="margin-end">10</property>
+                    <property name="margin-start">10</property>
+                    <property name="margin-top">10</property>
+                    <property name="vexpand">True</property>
+                  </object>
+                </child>
               </object>
             </child>
-            <layout>
-              <property name="column">1</property>
-              <property name="column-span">5</property>
-              <property name="row">0</property>
-              <property name="row-span">10</property>
-            </layout>
           </object>
         </child>
       </object>
