@@ -5,11 +5,12 @@ import shutil
 import sys
 
 # Constants
-FLATPAK_MANIFEST = "com.github.mclellac.WebOpsEvaluationSuite.json"
+FLATPAK_MANIFEST = "com.github.mclellac.webops.json"
 BUILD_DIR = "build-dir"
 REPO_DIR = "repo"
 FLATPAK_DIR = "flatpak"
-FLATPAK_BUNDLE = "WebOpsEvaluationSuite.flatpak"
+FLATPAK_BUNDLE = "webops.flatpak"
+
 
 def run_command(command, check=True):
     """Run a shell command with error handling and verbosity."""
@@ -20,17 +21,27 @@ def run_command(command, check=True):
         print(f"Error: Command '{' '.join(command)}' failed with return code {e.returncode}")
         sys.exit(1)
 
+
 def ensure_flatpak_installed():
     """Ensure that flatpak and flatpak-builder are installed."""
     try:
-        subprocess.run(["flatpak", "--version"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        subprocess.run(["flatpak-builder", "--version"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        subprocess.run(
+            ["flatpak", "--version"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        subprocess.run(
+            ["flatpak-builder", "--version"],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
     except subprocess.CalledProcessError:
         print("Flatpak or flatpak-builder not installed. Installing...")
         try:
             distro = subprocess.check_output(["lsb_release", "-is"], text=True).strip().lower()
         except subprocess.CalledProcessError:
-            print("Failed to detect distribution. Please install flatpak and flatpak-builder manually.")
+            print(
+                "Failed to detect distribution. Please install flatpak and flatpak-builder manually."
+            )
             sys.exit(1)
 
         if distro in ["arch", "manjaro"]:
@@ -44,6 +55,7 @@ def ensure_flatpak_installed():
             print("Unsupported distribution. Please install flatpak and flatpak-builder manually.")
             sys.exit(1)
 
+
 def clean_up():
     """Clean up build directories and repository."""
     if os.path.exists(BUILD_DIR):
@@ -53,6 +65,7 @@ def clean_up():
     if os.path.exists(REPO_DIR):
         print(f"Removing directory: {REPO_DIR}")
         shutil.rmtree(REPO_DIR, ignore_errors=True)
+
 
 def build_flatpak():
     """Build the Flatpak application and bundle it."""
@@ -68,20 +81,31 @@ def build_flatpak():
     run_command(["flatpak-builder", "--force-clean", "-v", BUILD_DIR, FLATPAK_MANIFEST])
 
     # Create a repository from the build
-    run_command(["flatpak-builder", "--repo=" + REPO_DIR, "--force-clean", BUILD_DIR, FLATPAK_MANIFEST])
+    run_command(
+        ["flatpak-builder", "--repo=" + REPO_DIR, "--force-clean", BUILD_DIR, FLATPAK_MANIFEST]
+    )
 
     # Create the Flatpak bundle
     if not os.path.exists(FLATPAK_DIR):
         os.makedirs(FLATPAK_DIR)
 
     flatpak_bundle_path = os.path.join(FLATPAK_DIR, FLATPAK_BUNDLE)
-    run_command(["flatpak", "build-bundle", "-v", REPO_DIR, flatpak_bundle_path, "com.github.mclellac.WebOpsEvaluationSuite"])
+    run_command(
+        [
+            "flatpak",
+            "build-bundle",
+            "-v",
+            REPO_DIR,
+            flatpak_bundle_path,
+            "com.github.mclellac.webops",
+        ]
+    )
 
     print(f"Flatpak bundle created at {flatpak_bundle_path}")
 
     # Clean up build directories and repo after bundling
     clean_up()
 
+
 if __name__ == "__main__":
     build_flatpak()
-
