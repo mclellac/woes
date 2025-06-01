@@ -1,12 +1,12 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<!-- Created with Cambalache 0.96.1 -->
+<!-- Created with Cambalache 0.91.3 -->
 <interface>
   <!-- interface-name window.ui -->
-  <!-- interface-copyright (c) 2025 -->
+  <!-- interface-copyright (c) 2024 -->
   <!-- interface-authors Carey McLelland <careymclelland@gmail.com> -->
   <requires lib="gio" version="2.44"/>
-  <requires lib="gtk" version="4.18"/>
-  <requires lib="libadwaita" version="1.7"/>
+  <requires lib="gtk" version="4.14"/>
+  <requires lib="libadwaita" version="1.5"/>
   <template class="WoesWindow" parent="AdwApplicationWindow">
     <property name="content">
       <object class="GtkBox" id="main_box">
@@ -49,9 +49,15 @@
                     <property name="valign">start</property>
                     <child>
                       <object class="AdwClampScrollable" id="http_clamp_scrollable">
+                        <property name="hadjustment">
+                          <object class="GtkAdjustment"/>
+                        </property>
                         <property name="maximum-size">1400</property>
                         <property name="tightening-threshold">500</property>
                         <property name="unit">px</property>
+                        <property name="vadjustment">
+                          <object class="GtkAdjustment"/>
+                        </property>
                         <child>
                           <object class="GtkBox" id="HttpPage">
                             <child>
@@ -90,7 +96,7 @@
                             <property name="height-request">1000</property>
                             <property name="hexpand">True</property>
                             <property name="hexpand-set">True</property>
-                            <property name="valign">center</property>
+                            <property name="valign">3</property>
                             <property name="vexpand">True</property>
                             <property name="vexpand-set">True</property>
                             <child>
@@ -120,7 +126,7 @@
                     <property name="margin-end">15</property>
                     <property name="margin-start">15</property>
                     <property name="title" bind-source="dns_page" bind-property="title" bind-flags="sync-create">Domain Name Lookup</property>
-                    <property name="valign">start</property>
+                    <property name="valign">1</property>
                     <child>
                       <object class="AdwClampScrollable">
                         <property name="maximum-size">1400</property>
@@ -148,11 +154,8 @@
                   <object class="AdwStatusPage" id="webscan_status_page">
                     <property name="child">
                       <object class="GtkBox" id="webscan_box">
-                        <property name="orientation">vertical</property>
-                        <property name="valign">center</property>
-                        <child>
-                          <object class="WebScanPage"/>
-                        </child>
+                        <property name="orientation">1</property>
+                        <property name="valign">3</property>
                       </object>
                     </property>
                     <property name="description">TODO</property>

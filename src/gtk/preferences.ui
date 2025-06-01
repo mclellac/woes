@@ -10,23 +10,30 @@
     <child>
       <object class="AdwPreferencesPage" id="preferences_page">
         <child>
-          <object class="AdwBanner" id="preferences_error_banner">
-            <property name="revealed">False</property> <!-- Initially hidden -->
-            <property name="valign">start</property> <!-- Keep it at the top -->
-            <!-- Title/message will be set from code -->
-             <property name="button-label" translatable="yes">Dismiss</property> <!-- Optional: if you want a dismiss button -->
-             <signal name="button-clicked" handler="on_error_banner_dismiss_clicked"/>
+          <object class="GtkBox" id="preferences_box">
+            <property name="homogeneous">True</property>
+            <property name="orientation">vertical</property>
+            <property name="valign">start</property>
+            <child>
+              <object class="AdwBanner" id="preferences_error_banner">
+                <property name="valign">start</property>
+              </object>
+            </child>
           </object>
         </child>
         <child>
           <object class="AdwPreferencesGroup" id="appearance_group">
-            <!-- Removed margin-top to let banner be flush if at top -->
+            <property name="margin-top">40</property>
             <property name="title">Appearance</property>
             <child>
-              <object class="AdwSwitchRow" id="theme_switch_row">
+              <object class="AdwActionRow" id="theme_row">
                 <property name="title">Dark Theme</property>
-                <property name="subtitle">Toggle application-wide dark theme</property>
-                <!-- Binding will be done in code or via GSettings -->
+                <child type="suffix">
+                  <object class="GtkSwitch" id="theme_switch">
+                    <property name="halign">end</property>
+                    <property name="valign">center</property>
+                  </object>
+                </child>
               </object>
             </child>
             <child>
@@ -71,7 +78,6 @@
                     <property name="digits">0</property>
                     <property name="hexpand">true</property>
                     <property name="orientation">horizontal</property>
-                    <property name="width-request">200</property> <!-- Give it some minimum width -->
                   </object>
                 </child>
               </object>
@@ -85,11 +91,12 @@
               <object class="AdwEntryRow" id="dns_server_entryrow">
                 <property name="activates-default">True</property>
                 <property name="show-apply-button">True</property>
-                <property name="title">Custom DNS Server (Optional)</property>
-                <property name="subtitle">Leave empty to use system default DNS</property>
+                <property name="title">DNS Server</property>
               </object>
             </child>
-            <!-- Removed empty AdwActionRow -->
+            <child>
+              <object class="AdwActionRow"/>
+            </child>
           </object>
         </child>
       </object>
