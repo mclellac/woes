@@ -12,7 +12,8 @@ from gi.repository import Adw, Gio, GLib # Added GLib for OptionArg/OptionFlags
 
 from .constants import APP_ID, VERSION
 from .preferences import Preferences
-from .window import WoesWindow
+# from .window import WoesWindow
+from .minimal_window import MinimalWoesWindow
 
 class WoesApplication(Adw.Application):
     """The main application singleton class."""
@@ -46,9 +47,9 @@ class WoesApplication(Adw.Application):
         # Create actions and set accelerators
         self.create_action("quit", lambda *_: self.quit(), ["<primary>q"])
         self.create_action("about", self.on_about_action)
-        self.create_action("preferences", self.on_preferences_action)
-        self.create_action("switch-to-http", self.switch_to_http, ["<primary>1"])
-        self.create_action("switch-to-nmap", self.switch_to_nmap, ["<primary>2"])
+        # self.create_action("preferences", self.on_preferences_action)
+        # self.create_action("switch-to-http", self.switch_to_http, ["<primary>1"])
+        # self.create_action("switch-to-nmap", self.switch_to_nmap, ["<primary>2"])
 
     def do_handle_local_options(self, options):
         # This method is called after options are parsed
@@ -72,17 +73,21 @@ class WoesApplication(Adw.Application):
         """
         win = self.props.active_window
         if not win:
-            win = WoesWindow(application=self)
+            win = MinimalWoesWindow(application=self)
         win.present()
         self.win = win
 
     def switch_to_http(self, *args):
-        if self.win:
-            self.win.stack.set_visible_child_name("http_page")
+        # if self.win:
+        #     self.win.stack.set_visible_child_name("http_page")
+        logging.debug("switch_to_http called, but is a stub for minimal test.")
+        pass
 
     def switch_to_nmap(self, *args):
-        if self.win:
-            self.win.stack.set_visible_child_name("nmap_page")
+        # if self.win:
+        #     self.win.stack.set_visible_child_name("nmap_page")
+        logging.debug("switch_to_nmap called, but is a stub for minimal test.")
+        pass
 
     def on_about_action(self, widget, _):
         """Callback for the app.about action."""
@@ -99,9 +104,11 @@ class WoesApplication(Adw.Application):
 
     def on_preferences_action(self, widget, _):
         """Callback for the app.preferences action."""
-        preferences = Preferences(main_window=self.win)
-        preferences.set_transient_for(self.win)
-        preferences.present()
+        # preferences = Preferences(main_window=self.win)
+        # preferences.set_transient_for(self.win)
+        # preferences.present()
+        logging.debug("on_preferences_action called, but is a stub for minimal test.")
+        pass
 
     def create_action(self, name, callback, shortcuts=None):
         """Add an application action."""
