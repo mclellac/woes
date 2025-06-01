@@ -10,7 +10,7 @@ gnome = import('gnome')
 python = import('python')
 
 # Find Python installation
-python_bin = python.find_installation('python3')
+python_bin = python.find_installation('python3', install_dir_method: 'prefix')
 
 if not python_bin.found()
     error('No valid Python installation found!')
