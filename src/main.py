@@ -144,6 +144,16 @@ class WoesApplication(Adw.Application):
             self.win.present()
             logger.debug("After self.win.present() returns")
             logger.debug("WoesWindow presented.")
+            logger.debug(f"Window visible: {self.win.is_visible()}")
+            logger.debug(f"Window mapped: {self.win.get_mapped()}")
+            logger.debug(f"Window width: {self.win.get_width()}, height: {self.win.get_height()}")
+            logger.debug(f"Window application: {self.win.get_application()}")
+            logger.debug(f"Active window on app: {self.props.active_window}")
+            main_loop = GLib.MainLoop()
+            logger.debug(f"GLib MainLoop running: {main_loop.is_running()}")
+            # We expect it not to be running here yet in this specific spot,
+            # as app.run() hasn't fully established it from this inner scope.
+            # This is more of a sanity check on GLib.MainLoop() state.
         except GLib.Error:
             logger.exception("Error presenting WoesWindow.")
         except Exception:
