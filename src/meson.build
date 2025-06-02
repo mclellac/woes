@@ -43,24 +43,6 @@ endif
 
 conf.set('RESOURCE_PATH', resource_path)
 
-# Define Blueprint sources
-gtk_dir = 'gtk'
-blueprint_sources = files(
-  join_paths(gtk_dir, 'window.blp'),
-  join_paths(gtk_dir, 'http_page.blp'),
-  join_paths(gtk_dir, 'nmap_page.blp'),
-  join_paths(gtk_dir, 'dns_page.blp'),
-  join_paths(gtk_dir, 'preferences.blp'),
-  join_paths(gtk_dir, 'help-overlay.blp'),
-  join_paths(gtk_dir, 'webscan_page.blp')
-)
-
-# Compile Blueprint files
-compiled_blueprints = gnome.blueprint(
-  'woesgtk',
-  sources: blueprint_sources
-)
-
 # Configure the woes script file
 configure_file(
   input: 'woes.in',
@@ -72,6 +54,48 @@ configure_file(
 )
 
 gnome = import('gnome')
+blueprint_compiler = find_program('blueprint-compiler', required: true)
+
+# Define Blueprint source files and prepare for custom targets
+gtk_dir_relative = 'gtk' // Relative path from current meson.build (src/) to gtk blueprint files
+blp_files = [
+  'window.blp',
+  'http_page.blp',
+  'nmap_page.blp',
+  'dns_page.blp',
+  'preferences.blp',
+  'help-overlay.blp',
+  'webscan_page.blp'
+]
+
+compiled_ui_outputs = [] // To hold the File objects from custom_target
+
+foreach blp_file_name : blp_files
+  local_ui_file_name = blp_file_name.replace('.blp', '.ui')
+  
+  # Define the output path for the .ui file. Since this meson.build is in 'src/',
+  # an output of 'gtk/file.ui' will result in '<build_dir>/src/gtk/file.ui'.
+  # This matches what woes.gresource.xml expects (<file>gtk/file.ui</file>)
+  # when gnome.compile_resources (also defined in src/meson.build) resolves paths.
+  output_ui_path = join_paths(gtk_dir_relative, local_ui_file_name)
+
+  compiled_blp_target = custom_target(
+    'compile_blueprint_'.format(blp_file_name.replace('.blp','')), // Unique target name
+    input: join_paths(gtk_dir_relative, blp_file_name), // Input .blp file, relative to src/
+    output: output_ui_path, // Output .ui file, relative to build/src/
+    command: [
+      blueprint_compiler,
+      'batch-compile',
+      # Output directory for blueprint-compiler: <build_dir>/src/gtk/
+      join_paths(meson.current_build_dir(), gtk_dir_relative),
+      # Input directory for blueprint-compiler: <source_dir>/src/gtk/
+      join_paths(meson.current_source_dir(), gtk_dir_relative),
+      # File to compile, relative to the input directory specified above
+      blp_file_name
+    ]
+  )
+  compiled_ui_outputs += compiled_blp_target
+endforeach
 
 # Compile GNOME resources
 gnome.compile_resources(
@@ -80,8 +104,7 @@ gnome.compile_resources(
   gresource_bundle: true,
   install: true,
   install_dir: conf.get('PKGDATADIR'),
-  # Meson should automatically infer dependency on compiled_blueprints
-  # if woes.gresource.xml refers to the generated .ui files.
+  depends: compiled_ui_outputs // Explicit dependency on all custom_target outputs
 )
 
 # List of source files
