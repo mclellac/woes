@@ -83,12 +83,13 @@ foreach blp_file_name : blp_files
     'compile_blueprint_' + blp_file_name.replace('.blp',''),
     input: join_paths(gtk_dir_relative, blp_file_name),
     output: local_ui_file_name,
+    working_directory: join_paths(meson.current_source_dir(), gtk_dir_relative),
     command: [
       blueprint_compiler,
-      'compile',
-      '--output',
-      '@OUTPUT@',
-      '@INPUT@'
+      'batch-compile',
+      meson.current_build_dir(), # Absolute path to <build_dir>/src/
+      '.',                       # Input directory for blueprint-compiler (current dir, which is now src/gtk/)
+      blp_file_name              # Filename (e.g., "window.blp")
     ]
   )
   compiled_ui_outputs += compiled_blp_target
