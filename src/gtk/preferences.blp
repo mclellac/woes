@@ -1,0 +1,81 @@
+// Converted from src/gtk/preferences.ui by an AI assistant
+using Gtk 4.0;
+using Adw 1;
+
+template Preferences: Adw.PreferencesWindow {
+  modal: true;
+  title: _("Preferences"); // Assuming translatable, though not marked in .ui
+
+  Adw.PreferencesPage preferences_page {
+    Adw.Banner preferences_error_banner {
+      valign: Gtk.Align.start;
+      // The .ui file had comments about this banner's position.
+      // In Blueprint, order implies visual order for direct children of a container.
+      // If it needs to be explicitly first and overlay other content,
+      // that might require a Gtk.Overlay or similar, or be handled in code.
+      // For now, direct child implies it's part of the sequential layout.
+    }
+
+    Adw.PreferencesGroup appearance_group {
+      margin-top: 40; // This might need adjustment based on the banner's actual rendering
+      title: _("Appearance"); // Assuming translatable
+
+      Adw.SwitchRow theme_switch_row {
+        title: _("Dark Theme"); // Assuming translatable
+      }
+
+      Adw.ComboRow source_style_scheme_combo_row {
+        halign: Gtk.Align.baseline_fill; // Gtk.Align.baseline_fill is unusual, Gtk.Align.fill or Gtk.Align.start/end is more common for halign. Or it might be intended for valign.
+                                        // For AdwComboRow, typically hexpand is used rather than halign for width management.
+                                        // Let's assume hexpand: true might be more idiomatic if it's meant to fill horizontal space.
+        hexpand: true; // Added based on common practice for combo rows that should take available width.
+        model: Gtk.StringList color_scheme_list {
+          strings: [
+            "Adwaita",
+            "Adwaita-dark",
+            "Classic",
+            "Classic-dark",
+            "Cobalt-light",
+            "Cobalt",
+            "Kate",
+            "Kate-dark",
+            "Oblivion",
+            "Tango",
+            "Solarized-light",
+            "solarized-dark", // Note: inconsistent capitalization in .ui, kept as is.
+          ];
+        };
+        selected: 0;
+        subtitle: _("Choose a color scheme for the SourceView"); // Assuming translatable
+        title: _("Syntax Highlighting Color Scheme"); // Assuming translatable
+      }
+
+      Adw.ActionRow font_size_row {
+        title: _("Font Size"); // Assuming translatable
+
+        [suffix]
+        Gtk.Scale font_size_scale {
+          adjustment: Gtk.Adjustment {
+            lower: 8;
+            step-increment: 1;
+            upper: 32;
+            value: 12;
+          };
+          digits: 0;
+          hexpand: true;
+          // orientation: Gtk.Orientation.horizontal; // Default for Gtk.Scale
+        }
+      }
+    }
+
+    Adw.PreferencesGroup advanced_group {
+      title: _("Tool settings"); // Assuming translatable
+
+      Adw.EntryRow dns_server_entryrow {
+        activates-default: true;
+        show-apply-button: true;
+        title: _("DNS Server"); // Assuming translatable
+      }
+    }
+  }
+}

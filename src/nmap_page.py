@@ -26,7 +26,7 @@ class NmapItem(GObject.Object):
         self.value = value
 
 
-@Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/nmap_page.ui")
+@Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/nmap_page.blp")
 class NmapPage(Adw.PreferencesPage):
     __gtype_name__ = "NmapPage"
 

@@ -25,7 +25,7 @@ class HeaderItem(GObject.Object):
         self.value = value
 
 
-@Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/http_page.ui")
+@Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/http_page.blp")
 class HttpPage(Adw.PreferencesPage):
     __gtype_name__ = "HttpPage"
 

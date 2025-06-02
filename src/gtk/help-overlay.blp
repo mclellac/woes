@@ -1,0 +1,25 @@
+// Converted from src/gtk/help-overlay.ui by an AI assistant
+using Gtk 4.0;
+
+Gtk.ShortcutsWindow help_overlay {
+  modal: true;
+
+  Gtk.ShortcutsSection {
+    section-name: "shortcuts";
+    max-height: 10;
+
+    Gtk.ShortcutsGroup {
+      title: _("General"); // context="shortcut window" - Blueprint does not have direct context for translations like this.
+
+      Gtk.ShortcutsShortcut {
+        title: _("Show Shortcuts"); // context="shortcut window"
+        action-name: "win.show-help-overlay";
+      }
+
+      Gtk.ShortcutsShortcut {
+        title: _("Quit"); // context="shortcut window"
+        action-name: "app.quit";
+      }
+    }
+  }
+}
