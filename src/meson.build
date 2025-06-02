@@ -57,7 +57,7 @@ gnome = import('gnome')
 blueprint_compiler = find_program('blueprint-compiler', required: true)
 
 # Define Blueprint source files and prepare for custom targets
-gtk_dir_relative = 'gtk' // Relative path from current meson.build (src/) to gtk blueprint files
+gtk_dir_relative = 'gtk' # Relative path from current meson.build (src/) to gtk blueprint files
 blp_files = [
   'window.blp',
   'http_page.blp',
