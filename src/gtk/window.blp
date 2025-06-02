@@ -60,7 +60,7 @@ template WoesWindow: Adw.ApplicationWindow {
             maximum-size: 1400;
             tightening-threshold: 500;
             // unit: "px"; // unit is not a property of AdwClampScrollable. It's for GtkScale. Assume pixels is default interpretation for maximum-size.
-
+            
             // Assuming HttpPage is a defined template/widget
             HttpPage {
               // overflow: hidden;
@@ -86,7 +86,7 @@ template WoesWindow: Adw.ApplicationWindow {
             maximum-size: 1400;
             // unit: "px";
             vexpand: true; // If the NmapPage itself should expand
-
+            
             // Assuming NmapPage is a defined template/widget
             NmapPage {
               vexpand: true;
@@ -109,13 +109,13 @@ template WoesWindow: Adw.ApplicationWindow {
           margin-start: 15;
           title: bind dns_page_stack_entry.title sync; // Binding to page title "DNS"
           // valign: 1; // This is Gtk.Align.fill. Explicitly: Gtk.Align.fill
-          valign: Gtk.Align.fill;
+          valign: Gtk.Align.fill; 
 
           Adw.ClampScrollable {
             maximum-size: 1400;
             // unit: "px";
             vexpand: true;
-
+            
             // Assuming DNSPage is a defined template/widget
             DNSPage DNSPage {} // Giving it an ID as in .ui
           }
