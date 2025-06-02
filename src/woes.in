@@ -53,7 +53,7 @@ if __name__ == "__main__":
         # The 'woes' module and its 'main' function will handle all gi initializations.
         from woes import main
         # VERSION is a global variable in this script, substituted by Meson.
-        sys.exit(main.main(VERSION))
+        sys.exit(main.main(VERSION, PKG_DATA_DIR))
     except Exception as e:
         error_message = "Critical error during application startup (woes.in): {}\n".format(e)
         # Try to import sys locally in except block if not guaranteed to be imported globally,

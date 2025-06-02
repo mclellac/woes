@@ -7,7 +7,12 @@ gi.require_version('Adw', '1')
 gi.require_version('Gtk', '4.0')
 from gi.repository import Adw, Gio, GLib
 
-from .constants import APP_ID, VERSION, RESOURCE_PREFIX, PKGDATADIR
+# Updated to reflect changes in constants.py
+from . import constants
+# Ensure specific constants used directly are still accessible if needed,
+# or adjust to use constants.VARIABLE syntax throughout.
+# For this change, we primarily need constants.DEFAULT_PKGDATADIR_FALLBACK
+# and constants.VERSION, constants.APP_ID, constants.RESOURCE_PREFIX
 from .preferences import Preferences
 from .window import WoesWindow
 
@@ -17,15 +22,33 @@ logger = logging.getLogger(__name__)
 
 logger.info("Script execution started.")
 
+ACTUAL_PKGDATADIR_FOR_RESOURCES = None
 
-def _load_gresources_early():
+
+def _configure_resource_path(pkgdatadir_from_exec):
+    global ACTUAL_PKGDATADIR_FOR_RESOURCES, logger
+    if pkgdatadir_from_exec:
+        logger.info(f"Using PKGDATADIR from execution environment: {pkgdatadir_from_exec}")
+        ACTUAL_PKGDATADIR_FOR_RESOURCES = pkgdatadir_from_exec
+    else:
+        logger.warning("PKGDATADIR not provided by execution environment, falling back to constants.DEFAULT_PKGDATADIR_FALLBACK.")
+        ACTUAL_PKGDATADIR_FOR_RESOURCES = constants.DEFAULT_PKGDATADIR_FALLBACK
+    logger.debug(f"Effective PKGDATADIR for resources set to: {ACTUAL_PKGDATADIR_FOR_RESOURCES}")
+
+
+def _perform_resource_loading():
     """Loads GResources and logs detailed information."""
-    resource_file_path = os.path.join(PKGDATADIR, "woes.gresource")
+    global ACTUAL_PKGDATADIR_FOR_RESOURCES, logger
+    if not ACTUAL_PKGDATADIR_FOR_RESOURCES:
+        logger.error("ACTUAL_PKGDATADIR_FOR_RESOURCES not set. Cannot load resources.")
+        return False
+
+    resource_file_path = os.path.join(ACTUAL_PKGDATADIR_FOR_RESOURCES, "woes.gresource")
     logger.info("Attempting to load GResource file from: %s", resource_file_path)
 
     if not os.path.exists(resource_file_path):
         logger.error("GResource file not found at %s.", resource_file_path)
-        return
+        return False
 
     try:
         resource = Gio.Resource.load(resource_file_path)
@@ -33,33 +56,40 @@ def _load_gresources_early():
             # pylint: disable=protected-access # _register is the intended way for applications to manually register resources
             Gio.Resource._register(resource)
             logger.info("Successfully loaded and registered GResource: %s", resource_file_path)
-            available_resources = resource.enumerate_children(RESOURCE_PREFIX, Gio.ResourceLookupFlags.NONE)
-            logger.debug("Available resources under %s: %s", RESOURCE_PREFIX, available_resources)
+            # Use constants.RESOURCE_PREFIX after import style change
+            available_resources = resource.enumerate_children(constants.RESOURCE_PREFIX, Gio.ResourceLookupFlags.NONE)
+            logger.debug("Available resources under %s: %s", constants.RESOURCE_PREFIX, available_resources)
             if not available_resources:
-                logger.warning("No resources found under %s in %s.", RESOURCE_PREFIX, resource_file_path)
+                logger.warning("No resources found under %s in %s.", constants.RESOURCE_PREFIX, resource_file_path)
+            return True
         else:
             logger.error("Gio.Resource.load() returned None for %s.", resource_file_path)
+            return False
     except GLib.Error as e:
         logger.error("Failed to load GResource %s: %s. Bundle invalid?", resource_file_path, e, exc_info=True)
-    except FileNotFoundError:
+        return False
+    except FileNotFoundError: # Should be caught by os.path.exists, but as a safeguard.
         logger.exception("GResource file not found (FileNotFoundError): %s", resource_file_path)
+        return False
     except Exception:
         logger.exception("Unexpected error loading GResource %s.", resource_file_path)
+        return False
 
 
-_load_gresources_early()
+# _load_gresources_early() # Original call removed
 
 
 class WoesApplication(Adw.Application):
     """The main application singleton class."""
 
-    def __init__(self, version=VERSION, **kwargs):
+    # Use constants.VERSION after import style change
+    def __init__(self, version=constants.VERSION, **kwargs):
         logger.info("Initializing WoesApplication.")
         self.version = version
         self.debug_enabled = False
 
         super().__init__(
-            application_id=APP_ID,
+            application_id=constants.APP_ID, # Use constants.APP_ID
             flags=Gio.ApplicationFlags.DEFAULT_FLAGS,
             **kwargs
         )
@@ -85,6 +115,8 @@ class WoesApplication(Adw.Application):
 
     def do_startup(self):
         logger.info("WoesApplication.do_startup called.")
+        # Ensure constants is available if not already imported where VERSION is used.
+        # from . import constants # Not strictly needed if already at top and main passes version
         Adw.Application.do_startup(self)
 
     def do_handle_local_options(self, options):
@@ -194,7 +226,7 @@ class WoesApplication(Adw.Application):
         about = Adw.AboutWindow(
             transient_for=self.props.active_window,
             application_name="woes",
-            application_icon=APP_ID,
+            application_icon=constants.APP_ID, # Use constants.APP_ID
             developer_name="Carey McLelland",
             version=self.version,
             developers=["Carey McLelland"],
@@ -221,11 +253,21 @@ class WoesApplication(Adw.Application):
             self.set_accels_for_action(f"app.{name}", shortcuts)
 
 
-def main(version=VERSION):
+def main(version=constants.VERSION, pkgdatadir_from_exec=None):
     """The application's entry point."""
+    _configure_resource_path(pkgdatadir_from_exec)
+
+    if not _perform_resource_loading():
+        # Logger might not be fully working if basicConfig failed or was overridden,
+        # so also print to stderr directly.
+        sys.stderr.write("Critical: Failed to load application resources. Exiting.\n")
+        # Attempt to log, but acknowledge it might not be visible.
+        logger.error("Failed to load application resources. Exiting.")
+        sys.exit(1) # Ensure sys is imported
+
     logger.info("Starting Woes application main function.")
     logger.debug(f"Before app = WoesApplication(version={version})")
-    app = WoesApplication(version=version)
+    app = WoesApplication(version=version) # version is now from main's arg
     logger.debug(f"After app = WoesApplication(version={version}), app: {app}")
     logger.info("WoesApplication instance created.")
 
@@ -238,4 +280,7 @@ def main(version=VERSION):
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    # This block is not executed when Woes is run via `woes.in` normally,
+    # but useful for direct module testing if needed.
+    # In that case, PKGDATADIR would come from constants.
+    sys.exit(main(pkgdatadir_from_exec=constants.DEFAULT_PKGDATADIR_FALLBACK))
