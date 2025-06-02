@@ -43,6 +43,24 @@ endif
 
 conf.set('RESOURCE_PATH', resource_path)
 
+# Define Blueprint sources
+gtk_dir = 'gtk'
+blueprint_sources = files(
+  join_paths(gtk_dir, 'window.blp'),
+  join_paths(gtk_dir, 'http_page.blp'),
+  join_paths(gtk_dir, 'nmap_page.blp'),
+  join_paths(gtk_dir, 'dns_page.blp'),
+  join_paths(gtk_dir, 'preferences.blp'),
+  join_paths(gtk_dir, 'help-overlay.blp'),
+  join_paths(gtk_dir, 'webscan_page.blp')
+)
+
+# Compile Blueprint files
+compiled_blueprints = gnome.blueprint(
+  'woesgtk',
+  sources: blueprint_sources
+)
+
 # Configure the woes script file
 configure_file(
   input: 'woes.in',
@@ -62,6 +80,8 @@ gnome.compile_resources(
   gresource_bundle: true,
   install: true,
   install_dir: conf.get('PKGDATADIR'),
+  # Meson should automatically infer dependency on compiled_blueprints
+  # if woes.gresource.xml refers to the generated .ui files.
 )
 
 # List of source files
