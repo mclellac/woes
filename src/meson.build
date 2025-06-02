@@ -77,17 +77,17 @@ foreach blp_file_name : blp_files
   # an output of 'gtk/file.ui' will result in '<build_dir>/src/gtk/file.ui'.
   # This matches what woes.gresource.xml expects (<file>gtk/file.ui</file>)
   # when gnome.compile_resources (also defined in src/meson.build) resolves paths.
-  output_ui_path = join_paths(gtk_dir_relative, local_ui_file_name)
+  output_ui_path = join_paths(gtk_dir_relative, local_ui_file_name) # This variable is no longer used for 'output' but comment is kept for context
 
   compiled_blp_target = custom_target(
     'compile_blueprint_'.format(blp_file_name.replace('.blp','')),
     input: join_paths(gtk_dir_relative, blp_file_name),
-    output: output_ui_path,
+    output: local_ui_file_name,
     command: [
       blueprint_compiler,
       'batch-compile',
-      # Output directory for blueprint-compiler: <build_dir>/src/gtk/
-      join_paths(meson.current_build_dir(), gtk_dir_relative),
+      # Output directory for blueprint-compiler: <build_dir>/src/
+      meson.current_build_dir(),
       # Input directory for blueprint-compiler: <source_dir>/src/gtk/
       join_paths(meson.current_source_dir(), gtk_dir_relative),
       # File to compile, relative to the input directory specified above
