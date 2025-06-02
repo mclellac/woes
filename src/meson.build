@@ -1,6 +1,6 @@
 # Determine if we're in a Flatpak build
 is_flatpak_build = get_option('prefix') == '/app'
-message('Is Flatpak build: ' + is_flatpak_build.to_string())
+message('Is Flatpak :build ' + is_flatpak_.to_string())
 message('Prefix: ' + get_option('prefix'))
 
 # Get the install directory for Python
@@ -68,7 +68,7 @@ blp_files = [
   'webscan_page.blp'
 ]
 
-compiled_ui_outputs = [] // To hold the File objects from custom_target
+compiled_ui_outputs = []
 
 foreach blp_file_name : blp_files
   local_ui_file_name = blp_file_name.replace('.blp', '.ui')
@@ -80,9 +80,9 @@ foreach blp_file_name : blp_files
   output_ui_path = join_paths(gtk_dir_relative, local_ui_file_name)
 
   compiled_blp_target = custom_target(
-    'compile_blueprint_'.format(blp_file_name.replace('.blp','')), // Unique target name
-    input: join_paths(gtk_dir_relative, blp_file_name), // Input .blp file, relative to src/
-    output: output_ui_path, // Output .ui file, relative to build/src/
+    'compile_blueprint_'.format(blp_file_name.replace('.blp','')),
+    input: join_paths(gtk_dir_relative, blp_file_name),
+    output: output_ui_path,
     command: [
       blueprint_compiler,
       'batch-compile',
@@ -104,7 +104,7 @@ gnome.compile_resources(
   gresource_bundle: true,
   install: true,
   install_dir: conf.get('PKGDATADIR'),
-  depends: compiled_ui_outputs // Explicit dependency on all custom_target outputs
+  depends: compiled_ui_outputs
 )
 
 # List of source files
