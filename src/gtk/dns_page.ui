@@ -57,7 +57,7 @@
       <object class="AdwPreferencesGroup" id="dns_results_group">
         <property name="title" translatable="yes">Lookup Results</property>
         <child>
-          <object class="AdwScrolledWindow" id="dns_results_scrolled_window">
+          <object class="GtkScrolledWindow" id="dns_results_scrolled_window">
             <property name="halign">baseline-fill</property>
             <property name="hexpand">True</property>
             <property name="hexpand-set">True</property>

@@ -49,15 +49,9 @@
                     <property name="valign">start</property>
                     <child>
                       <object class="AdwClampScrollable" id="http_clamp_scrollable">
-                        <property name="hadjustment">
-                          <object class="GtkAdjustment"/>
-                        </property>
                         <property name="maximum-size">1400</property>
                         <property name="tightening-threshold">500</property>
                         <property name="unit">px</property>
-                        <property name="vadjustment">
-                          <object class="GtkAdjustment"/>
-                        </property>
                         <child>
                           <object class="HttpPage">
                             <property name="overflow">hidden</property>

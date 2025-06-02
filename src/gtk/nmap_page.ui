@@ -97,7 +97,6 @@
           <object class="AdwActionRow" id="nmap_status_row">
             <property name="title" translatable="yes">Scan Status</property>
             <property name="subtitle" translatable="yes"></property>
-            <property name="subtitle-visible">False</property>
             <property name="margin-start">10</property>
             <property name="margin-end">10</property>
             <suffix>
