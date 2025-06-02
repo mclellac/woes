@@ -1,6 +1,6 @@
 # Determine if we're in a Flatpak build
 is_flatpak_build = get_option('prefix') == '/app'
-message('Is Flatpak :build ' + is_flatpak_.to_string())
+message('Is Flatpak :build ' + is_flatpak_build.to_string())
 message('Prefix: ' + get_option('prefix'))
 
 # Get the install directory for Python
