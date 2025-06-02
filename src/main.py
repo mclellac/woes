@@ -7,7 +7,7 @@ import logging
 from . import constants
 
 # Logger setup
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(name)s:%(message)s')
+logging.basicConfig(level=logging.WARNING, format='%(asctime)s %(levelname)s:%(name)s:%(message)s')
 logger = logging.getLogger(__name__)
 logger.info("Script execution started (main.py top level).")
 
@@ -137,14 +137,9 @@ class WoesApplication(Adw.Application):
         logger.debug("Handling local options: %s", options)
         if options.contains('debug'):
             self.debug_enabled = True
-            logger.debug(f"Debug mode set to: {self.debug_enabled}")
-            # Ensure logging is forced if already configured by basicConfig
-            logging.basicConfig(
-                level=logging.DEBUG,
-                format='%(asctime)s %(levelname)s:%(name)s:%(message)s',
-                force=True
-            )
-            logger.debug("Debug mode enabled via command line. Logging reconfigured.")
+            # Get the root logger and set its level to DEBUG
+            logging.getLogger().setLevel(logging.DEBUG)
+            logger.debug("Debug mode enabled via command line. Logging level set to DEBUG.")
         return -1
 
     def do_command_line(self, command_line):

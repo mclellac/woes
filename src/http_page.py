@@ -137,27 +137,35 @@ class HttpPage(Adw.PreferencesPage):
         logger.debug(f"HttpPage._on_entry_row_activated: task_specific_data: {task_specific_data}")
         cancellable = Gio.Cancellable.new()
         logger.debug(f"HttpPage._on_entry_row_activated: Created Gio.Cancellable: {cancellable}")
-        new_task = Gio.Task.new(self, cancellable, self._fetch_headers_task_done_cb, None)
-        logger.debug(f"HttpPage._on_entry_row_activated: Created Gio.Task: {new_task}")
+        new_task = Gio.Task.new(self, cancellable, self._fetch_headers_task_done_cb, task_specific_data)
+        logger.debug(f"HttpPage._on_entry_row_activated: Created Gio.Task: {new_task} with task_data")
         # self._http_task_data_for_thread assignment removed
         self.current_http_task = new_task
         logger.debug(f"HttpPage._on_entry_row_activated: self.current_http_task set to: {self.current_http_task}")
         logger.debug(f"HttpPage._on_entry_row_activated: Starting async task fetch-headers by calling new_task.run_in_thread()")
-        new_task.run_in_thread(self._fetch_headers_task_thread_func, task_data=task_specific_data)
+        new_task.run_in_thread(self._fetch_headers_task_thread_func) # task_data removed from here
         logger.debug(f"HttpPage._on_entry_row_activated: After new_task.run_in_thread()")
 
     def _fetch_headers_task_thread_func(
         self,
         task: Gio.Task,
         _source_object_do_not_use, # Renamed from source_object
-        task_data: dict, # Changed from _task_data_ignored
+        _task_data_from_run_in_thread, # This is the task_data from run_in_thread, now unused
         cancellable: Optional[Gio.Cancellable]
     ):
         logger.debug(
             f"HttpPage._fetch_headers_task_thread_func: Starting for task {task}, "
-            f"_source_object_do_not_use: {_source_object_do_not_use}, task_data: {task_data}, cancellable: {cancellable}"
+            f"_source_object_do_not_use: {_source_object_do_not_use}, "
+            f"_task_data_from_run_in_thread: {_task_data_from_run_in_thread}, cancellable: {cancellable}"
         )
-        current_task_data = task_data # Use passed task_data
+        current_task_data = task.get_task_data() # Retrieve data from the task object
+        if current_task_data is None:
+            logger.error("HttpPage._fetch_headers_task_thread_func: task.get_task_data() returned None. Cannot proceed.")
+            # Handle error: Maybe return an error on the task
+            g_error = GLib.Error("Task data missing.", Gio.io_error_quark(), Gio.IOErrorEnum.FAILED.value)
+            task.return_error(g_error)
+            return
+
         url = current_task_data["url"]
         use_akamai_pragma = current_task_data["use_akamai_pragma"]
         logger.debug(f"HttpPage._fetch_headers_task_thread_func: Parameters - url: '{url}', use_akamai_pragma: {use_akamai_pragma}")
