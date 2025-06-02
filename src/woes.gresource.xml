@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gresources>
   <gresource prefix="/com/github/mclellac/woes">
-    <file preprocess="xml-stripblanks">gtk/window.ui</file>
-    <file preprocess="xml-stripblanks">gtk/http_page.ui</file>
-    <file preprocess="xml-stripblanks">gtk/nmap_page.ui</file>
-    <file preprocess="xml-stripblanks">gtk/dns_page.ui</file>
-    <file preprocess="xml-stripblanks">gtk/preferences.ui</file>
-    <file preprocess="xml-stripblanks">gtk/help-overlay.ui</file>
-    <file preprocess="xml-stripblanks">gtk/webscan_page.ui</file>
+    <file>gtk/window.blp</file>
+    <file>gtk/http_page.blp</file>
+    <file>gtk/nmap_page.blp</file>
+    <file>gtk/dns_page.blp</file>
+    <file>gtk/preferences.blp</file>
+    <file>gtk/help-overlay.blp</file>
+    <file>gtk/webscan_page.blp</file>
     <file compressed="true">gtk/style.css</file>
     <file compressed="true">gtk/style-dark.css</file>
     <file preprocess="xml-stripblanks">../data/icons/hicolor/symbolic/emotes/face-angel-symbolic.svg</file>

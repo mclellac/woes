@@ -18,7 +18,7 @@ from .utils import create_source_view
 logger = logging.getLogger(__name__)
 
 
-@Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/dns_page.ui")
+@Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/dns_page.blp")
 class DNSPage(Adw.PreferencesPage):
     __gtype_name__ = "DNSPage"
 

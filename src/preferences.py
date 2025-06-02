@@ -11,7 +11,7 @@ from .constants import APP_ID, RESOURCE_PREFIX
 logger = logging.getLogger(__name__)
 
 
-@Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/preferences.ui")
+@Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/preferences.blp")
 class Preferences(Adw.PreferencesWindow):
     __gtype_name__ = "Preferences"
 

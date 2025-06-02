@@ -21,7 +21,7 @@ class WebScanError:
     UNKNOWN = 3
 
 
-@Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/webscan_page.ui")
+@Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/webscan_page.blp")
 class WebScanPage(Adw.PreferencesPage):
     __gtype_name__ = 'WebScanPage'
 

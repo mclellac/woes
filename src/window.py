@@ -20,7 +20,7 @@ _ = _NmapPage_
 _ = _WebScanPage_
 
 
-@Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/window.ui")
+@Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/window.blp")
 class WoesWindow(Adw.ApplicationWindow):
     __gtype_name__ = "WoesWindow"
 
