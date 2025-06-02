@@ -88,10 +88,10 @@ foreach blp_file_name : blp_files
       'batch-compile',
       # Output directory for blueprint-compiler: <build_dir>/src/
       meson.current_build_dir(),
-      # Input directory for blueprint-compiler: <source_dir>/src/
-      meson.current_source_dir(),
+      # Input directory for blueprint-compiler: <source_dir>/src/gtk/
+      join_paths(meson.current_source_dir(), gtk_dir_relative),
       # File to compile, relative to the input directory specified above
-      join_paths(gtk_dir_relative, blp_file_name)
+      '@INPUT@'
     ]
   )
   compiled_ui_outputs += compiled_blp_target
