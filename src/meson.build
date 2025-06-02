@@ -80,7 +80,7 @@ foreach blp_file_name : blp_files
   output_ui_path = join_paths(gtk_dir_relative, local_ui_file_name) # This variable is no longer used for 'output' but comment is kept for context
 
   compiled_blp_target = custom_target(
-    'compile_blueprint_{}'.format(blp_file_name.replace('.blp','')),
+    'compile_blueprint_' + blp_file_name.replace('.blp',''),
     input: join_paths(gtk_dir_relative, blp_file_name),
     output: local_ui_file_name,
     command: [
