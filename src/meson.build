@@ -20,7 +20,6 @@ gsettings_schemadir = join_paths(get_option('prefix'), 'share', 'glib-2.0', 'sch
 
 # Prepare configuration data
 conf = configuration_data()
-conf.set('PYTHON_SITE_PACKAGES_DIR', site_packages_dir)
 conf.set('PYTHON', python_bin.full_path())
 conf.set('VERSION', meson.project_version())
 conf.set('LOCALEDIR', localedir)
@@ -105,7 +104,7 @@ gnome.compile_resources(
   gresource_bundle: true,
   install: true,
   install_dir: conf.get('PKGDATADIR'),
-  dependencies: compiled_ui_outputs
+  depends: compiled_ui_outputs
 )
 
 # List of source files
