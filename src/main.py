@@ -22,28 +22,28 @@ logger = logging.getLogger(__name__)
 
 logger.info("Script execution started.")
 
-ACTUAL_PKGDATADIR_FOR_RESOURCES = None
-
-
-def _configure_resource_path(pkgdatadir_from_exec):
-    global ACTUAL_PKGDATADIR_FOR_RESOURCES, logger
-    if pkgdatadir_from_exec:
-        logger.info(f"Using PKGDATADIR from execution environment: {pkgdatadir_from_exec}")
-        ACTUAL_PKGDATADIR_FOR_RESOURCES = pkgdatadir_from_exec
-    else:
-        logger.warning("PKGDATADIR not provided by execution environment, falling back to constants.DEFAULT_PKGDATADIR_FALLBACK.")
-        ACTUAL_PKGDATADIR_FOR_RESOURCES = constants.DEFAULT_PKGDATADIR_FALLBACK
-    logger.debug(f"Effective PKGDATADIR for resources set to: {ACTUAL_PKGDATADIR_FOR_RESOURCES}")
-
+# ACTUAL_PKGDATADIR_FOR_RESOURCES removed
+# _configure_resource_path removed
 
 def _perform_resource_loading():
     """Loads GResources and logs detailed information."""
-    global ACTUAL_PKGDATADIR_FOR_RESOURCES, logger
-    if not ACTUAL_PKGDATADIR_FOR_RESOURCES:
-        logger.error("ACTUAL_PKGDATADIR_FOR_RESOURCES not set. Cannot load resources.")
-        return False
+    # logger must be defined before this function if used within it.
+    # Ensure logger is accessible (e.g., global logger = logging.getLogger(__name__))
+    pkdatadir_from_env = os.environ.get('WOES_RUNTIME_PKGDATADIR')
+    datadir_to_use = None
+    if pkdatadir_from_env:
+        logger.info(f"Using WOES_RUNTIME_PKGDATADIR from environment: {pkdatadir_from_env}")
+        datadir_to_use = pkdatadir_from_env
+    else:
+        logger.warning("WOES_RUNTIME_PKGDATADIR not found in environment. Falling back to constants.DEFAULT_PKGDATADIR_FALLBACK.")
+        datadir_to_use = constants.DEFAULT_PKGDATADIR_FALLBACK
 
-    resource_file_path = os.path.join(ACTUAL_PKGDATADIR_FOR_RESOURCES, "woes.gresource")
+    if not datadir_to_use:
+        logger.critical("No valid PKGDATADIR found. Cannot load resources.")
+        return False # Indicate failure
+
+    logger.debug(f"Effective PKGDATADIR for resources: {datadir_to_use}")
+    resource_file_path = os.path.join(datadir_to_use, "woes.gresource")
     logger.info("Attempting to load GResource file from: %s", resource_file_path)
 
     if not os.path.exists(resource_file_path):
@@ -75,8 +75,17 @@ def _perform_resource_loading():
         logger.exception("Unexpected error loading GResource %s.", resource_file_path)
         return False
 
-
-# _load_gresources_early() # Original call removed
+# Initial logger setup should be before this point
+# Ensure constants is imported before this
+if not _perform_resource_loading():
+    # If resources fail to load at import time, the application is non-functional.
+    # Log a critical error. Further actions depend on desired behavior:
+    # - Could raise an ImportError/RuntimeError.
+    # - Or allow import to succeed, and main() will fail later (less ideal).
+    # For now, just logging. The subsequent GTK template loading will fail if resources aren't there.
+    logger.critical("Module-level GResource loading failed. Application may not function correctly.")
+    # Consider if sys.exit should be called here, though it's unusual for a module import to sys.exit.
+    # The failure of @Gtk.Template will likely raise an error that stops the app.
 
 
 class WoesApplication(Adw.Application):
@@ -253,21 +262,14 @@ class WoesApplication(Adw.Application):
             self.set_accels_for_action(f"app.{name}", shortcuts)
 
 
-def main(version=constants.VERSION, pkgdatadir_from_exec=None):
+def main(version=constants.VERSION):
     """The application's entry point."""
-    _configure_resource_path(pkgdatadir_from_exec)
-
-    if not _perform_resource_loading():
-        # Logger might not be fully working if basicConfig failed or was overridden,
-        # so also print to stderr directly.
-        sys.stderr.write("Critical: Failed to load application resources. Exiting.\n")
-        # Attempt to log, but acknowledge it might not be visible.
-        logger.error("Failed to load application resources. Exiting.")
-        sys.exit(1) # Ensure sys is imported
+    # _configure_resource_path and the resource loading check removed from here
+    # Resource loading is now done at module import time.
 
     logger.info("Starting Woes application main function.")
     logger.debug(f"Before app = WoesApplication(version={version})")
-    app = WoesApplication(version=version) # version is now from main's arg
+    app = WoesApplication(version=version)
     logger.debug(f"After app = WoesApplication(version={version}), app: {app}")
     logger.info("WoesApplication instance created.")
 
@@ -282,5 +284,5 @@ def main(version=constants.VERSION, pkgdatadir_from_exec=None):
 if __name__ == '__main__':
     # This block is not executed when Woes is run via `woes.in` normally,
     # but useful for direct module testing if needed.
-    # In that case, PKGDATADIR would come from constants.
-    sys.exit(main(pkgdatadir_from_exec=constants.DEFAULT_PKGDATADIR_FALLBACK))
+    # Resource loading now happens at module import time using environment variables or fallbacks.
+    sys.exit(main())
