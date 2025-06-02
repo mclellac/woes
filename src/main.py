@@ -27,9 +27,11 @@ logger.info("Script execution started.")
 
 def _perform_resource_loading():
     """Loads GResources and logs detailed information."""
+    print("DIAGNOSTIC (main.py/_perform_resource_loading): Function called.", file=sys.stderr)
     # logger must be defined before this function if used within it.
     # Ensure logger is accessible (e.g., global logger = logging.getLogger(__name__))
     pkdatadir_from_env = os.environ.get('WOES_RUNTIME_PKGDATADIR')
+    print(f"DIAGNOSTIC (main.py/_perform_resource_loading): os.environ.get('WOES_RUNTIME_PKGDATADIR') = {pkdatadir_from_env}", file=sys.stderr)
     datadir_to_use = None
     if pkdatadir_from_env:
         logger.info(f"Using WOES_RUNTIME_PKGDATADIR from environment: {pkdatadir_from_env}")
@@ -38,23 +40,37 @@ def _perform_resource_loading():
         logger.warning("WOES_RUNTIME_PKGDATADIR not found in environment. Falling back to constants.DEFAULT_PKGDATADIR_FALLBACK.")
         datadir_to_use = constants.DEFAULT_PKGDATADIR_FALLBACK
 
+    print(f"DIAGNOSTIC (main.py/_perform_resource_loading): datadir_to_use = {datadir_to_use}", file=sys.stderr)
     if not datadir_to_use:
+        print("DIAGNOSTIC (main.py/_perform_resource_loading): datadir_to_use is None or empty. Cannot load resources.", file=sys.stderr)
+        sys.stderr.flush() # Add flush here
         logger.critical("No valid PKGDATADIR found. Cannot load resources.")
         return False # Indicate failure
 
     logger.debug(f"Effective PKGDATADIR for resources: {datadir_to_use}")
     resource_file_path = os.path.join(datadir_to_use, "woes.gresource")
+    print(f"DIAGNOSTIC (main.py/_perform_resource_loading): Calculated resource_file_path = {resource_file_path}", file=sys.stderr)
     logger.info("Attempting to load GResource file from: %s", resource_file_path)
 
     if not os.path.exists(resource_file_path):
+        print(f"DIAGNOSTIC (main.py/_perform_resource_loading): os.path.exists({resource_file_path}) is FALSE.", file=sys.stderr)
+        sys.stderr.flush() # Add flush here
         logger.error("GResource file not found at %s.", resource_file_path)
         return False
+    else:
+        print(f"DIAGNOSTIC (main.py/_perform_resource_loading): os.path.exists({resource_file_path}) is TRUE.", file=sys.stderr)
 
     try:
+        print(f"DIAGNOSTIC (main.py/_perform_resource_loading): Attempting Gio.Resource.load('{resource_file_path}')", file=sys.stderr)
+        sys.stderr.flush() # Add flush here
         resource = Gio.Resource.load(resource_file_path)
+        print("DIAGNOSTIC (main.py/_perform_resource_loading): Gio.Resource.load() call completed.", file=sys.stderr)
         if resource:
+            print("DIAGNOSTIC (main.py/_perform_resource_loading): Resource loaded successfully. Attempting to register.", file=sys.stderr)
             # pylint: disable=protected-access # _register is the intended way for applications to manually register resources
             Gio.Resource._register(resource)
+            print("DIAGNOSTIC (main.py/_perform_resource_loading): Resource registered successfully.", file=sys.stderr)
+            sys.stderr.flush() # Add flush here
             logger.info("Successfully loaded and registered GResource: %s", resource_file_path)
             # Use constants.RESOURCE_PREFIX after import style change
             available_resources = resource.enumerate_children(constants.RESOURCE_PREFIX, Gio.ResourceLookupFlags.NONE)
@@ -63,15 +79,21 @@ def _perform_resource_loading():
                 logger.warning("No resources found under %s in %s.", constants.RESOURCE_PREFIX, resource_file_path)
             return True
         else:
+            print(f"DIAGNOSTIC (main.py/_perform_resource_loading): Gio.Resource.load() returned None for {resource_file_path}.", file=sys.stderr)
+            sys.stderr.flush() # Add flush here
             logger.error("Gio.Resource.load() returned None for %s.", resource_file_path)
             return False
     except GLib.Error as e:
+        print(f"DIAGNOSTIC (main.py/_perform_resource_loading): GLib.Error during Gio.Resource.load(): {e}", file=sys.stderr)
+        sys.stderr.flush() # Add flush here
         logger.error("Failed to load GResource %s: %s. Bundle invalid?", resource_file_path, e, exc_info=True)
         return False
     except FileNotFoundError: # Should be caught by os.path.exists, but as a safeguard.
         logger.exception("GResource file not found (FileNotFoundError): %s", resource_file_path)
         return False
-    except Exception:
+    except Exception as e:
+        print(f"DIAGNOSTIC (main.py/_perform_resource_loading): Unexpected Exception during Gio.Resource.load(): {e}", file=sys.stderr)
+        sys.stderr.flush() # Add flush here
         logger.exception("Unexpected error loading GResource %s.", resource_file_path)
         return False
 

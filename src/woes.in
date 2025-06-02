@@ -49,7 +49,10 @@ if __name__ == "__main__":
     print("--- sys.path before import gi ---")
     print(sys.path)
     print("---------------------------------")
+    print(f"DIAGNOSTIC (woes.in): Value of PKG_DATA_DIR before setting env: {PKG_DATA_DIR}", file=sys.stderr)
     os.environ['WOES_RUNTIME_PKGDATADIR'] = PKG_DATA_DIR
+    print(f"DIAGNOSTIC (woes.in): WOES_RUNTIME_PKGDATADIR set in os.environ to: {os.environ.get('WOES_RUNTIME_PKGDATADIR')}", file=sys.stderr)
+    sys.stderr.flush()
     try:
         # The 'woes' module and its 'main' function will handle all gi initializations.
         from woes import main
