@@ -104,7 +104,7 @@ gnome.compile_resources(
   gresource_bundle: true,
   install: true,
   install_dir: conf.get('PKGDATADIR'),
-  depends: compiled_ui_outputs
+  dependencies: compiled_ui_outputs
 )
 
 # List of source files
