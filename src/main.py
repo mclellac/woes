@@ -1,35 +1,26 @@
-import logging
+# Basic imports
 import os
 import sys
+import logging
 
+# Constants import
+from . import constants
+
+# Logger setup
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(name)s:%(message)s')
+logger = logging.getLogger(__name__)
+logger.info("Script execution started (main.py top level).")
+
+# GI and GIO/GLib imports (needed by _perform_resource_loading)
 import gi
 gi.require_version('Adw', '1')
 gi.require_version('Gtk', '4.0')
 from gi.repository import Adw, Gio, GLib
 
-# Updated to reflect changes in constants.py
-from . import constants
-# Ensure specific constants used directly are still accessible if needed,
-# or adjust to use constants.VARIABLE syntax throughout.
-# For this change, we primarily need constants.DEFAULT_PKGDATADIR_FALLBACK
-# and constants.VERSION, constants.APP_ID, constants.RESOURCE_PREFIX
-from .preferences import Preferences
-from .window import WoesWindow
-
-# Basic logging configuration can be early.
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(name)s:%(message)s')
-logger = logging.getLogger(__name__)
-
-logger.info("Script execution started.")
-
-# ACTUAL_PKGDATADIR_FOR_RESOURCES removed
-# _configure_resource_path removed
-
+# GResource Loading Function Definition (with all its diagnostics)
 def _perform_resource_loading():
     """Loads GResources and logs detailed information."""
     print("DIAGNOSTIC (main.py/_perform_resource_loading): Function called.", file=sys.stderr)
-    # logger must be defined before this function if used within it.
-    # Ensure logger is accessible (e.g., global logger = logging.getLogger(__name__))
     pkdatadir_from_env = os.environ.get('WOES_RUNTIME_PKGDATADIR')
     print(f"DIAGNOSTIC (main.py/_perform_resource_loading): os.environ.get('WOES_RUNTIME_PKGDATADIR') = {pkdatadir_from_env}", file=sys.stderr)
     datadir_to_use = None
@@ -43,7 +34,7 @@ def _perform_resource_loading():
     print(f"DIAGNOSTIC (main.py/_perform_resource_loading): datadir_to_use = {datadir_to_use}", file=sys.stderr)
     if not datadir_to_use:
         print("DIAGNOSTIC (main.py/_perform_resource_loading): datadir_to_use is None or empty. Cannot load resources.", file=sys.stderr)
-        sys.stderr.flush() # Add flush here
+        sys.stderr.flush()
         logger.critical("No valid PKGDATADIR found. Cannot load resources.")
         return False # Indicate failure
 
@@ -54,7 +45,7 @@ def _perform_resource_loading():
 
     if not os.path.exists(resource_file_path):
         print(f"DIAGNOSTIC (main.py/_perform_resource_loading): os.path.exists({resource_file_path}) is FALSE.", file=sys.stderr)
-        sys.stderr.flush() # Add flush here
+        sys.stderr.flush()
         logger.error("GResource file not found at %s.", resource_file_path)
         return False
     else:
@@ -62,17 +53,15 @@ def _perform_resource_loading():
 
     try:
         print(f"DIAGNOSTIC (main.py/_perform_resource_loading): Attempting Gio.Resource.load('{resource_file_path}')", file=sys.stderr)
-        sys.stderr.flush() # Add flush here
+        sys.stderr.flush()
         resource = Gio.Resource.load(resource_file_path)
         print("DIAGNOSTIC (main.py/_perform_resource_loading): Gio.Resource.load() call completed.", file=sys.stderr)
         if resource:
             print("DIAGNOSTIC (main.py/_perform_resource_loading): Resource loaded successfully. Attempting to register.", file=sys.stderr)
-            # pylint: disable=protected-access # _register is the intended way for applications to manually register resources
-            Gio.Resource._register(resource)
+            Gio.Resource._register(resource) # Intended way
             print("DIAGNOSTIC (main.py/_perform_resource_loading): Resource registered successfully.", file=sys.stderr)
-            sys.stderr.flush() # Add flush here
+            sys.stderr.flush()
             logger.info("Successfully loaded and registered GResource: %s", resource_file_path)
-            # Use constants.RESOURCE_PREFIX after import style change
             available_resources = resource.enumerate_children(constants.RESOURCE_PREFIX, Gio.ResourceLookupFlags.NONE)
             logger.debug("Available resources under %s: %s", constants.RESOURCE_PREFIX, available_resources)
             if not available_resources:
@@ -80,47 +69,43 @@ def _perform_resource_loading():
             return True
         else:
             print(f"DIAGNOSTIC (main.py/_perform_resource_loading): Gio.Resource.load() returned None for {resource_file_path}.", file=sys.stderr)
-            sys.stderr.flush() # Add flush here
+            sys.stderr.flush()
             logger.error("Gio.Resource.load() returned None for %s.", resource_file_path)
             return False
     except GLib.Error as e:
         print(f"DIAGNOSTIC (main.py/_perform_resource_loading): GLib.Error during Gio.Resource.load(): {e}", file=sys.stderr)
-        sys.stderr.flush() # Add flush here
+        sys.stderr.flush()
         logger.error("Failed to load GResource %s: %s. Bundle invalid?", resource_file_path, e, exc_info=True)
         return False
     except FileNotFoundError: # Should be caught by os.path.exists, but as a safeguard.
         logger.exception("GResource file not found (FileNotFoundError): %s", resource_file_path)
         return False
-    except Exception as e:
+    except Exception as e: # Generic exception
         print(f"DIAGNOSTIC (main.py/_perform_resource_loading): Unexpected Exception during Gio.Resource.load(): {e}", file=sys.stderr)
-        sys.stderr.flush() # Add flush here
+        sys.stderr.flush()
         logger.exception("Unexpected error loading GResource %s.", resource_file_path)
         return False
 
-# Initial logger setup should be before this point
-# Ensure constants is imported before this
+# Module-level call to load resources
 if not _perform_resource_loading():
-    # If resources fail to load at import time, the application is non-functional.
-    # Log a critical error. Further actions depend on desired behavior:
-    # - Could raise an ImportError/RuntimeError.
-    # - Or allow import to succeed, and main() will fail later (less ideal).
-    # For now, just logging. The subsequent GTK template loading will fail if resources aren't there.
     logger.critical("Module-level GResource loading failed. Application may not function correctly.")
-    # Consider if sys.exit should be called here, though it's unusual for a module import to sys.exit.
-    # The failure of @Gtk.Template will likely raise an error that stops the app.
+    # Depending on severity, could raise ImportError or allow app to try and fail at UI construction.
 
+# Local module imports that use Gtk.Template or GResources
+from .preferences import Preferences
+from .window import WoesWindow
 
+# Class definitions (WoesApplication, etc.) and main() function definition.
 class WoesApplication(Adw.Application):
     """The main application singleton class."""
 
-    # Use constants.VERSION after import style change
     def __init__(self, version=constants.VERSION, **kwargs):
         logger.info("Initializing WoesApplication.")
         self.version = version
         self.debug_enabled = False
 
         super().__init__(
-            application_id=constants.APP_ID, # Use constants.APP_ID
+            application_id=constants.APP_ID,
             flags=Gio.ApplicationFlags.DEFAULT_FLAGS,
             **kwargs
         )
@@ -146,8 +131,6 @@ class WoesApplication(Adw.Application):
 
     def do_startup(self):
         logger.info("WoesApplication.do_startup called.")
-        # Ensure constants is available if not already imported where VERSION is used.
-        # from . import constants # Not strictly needed if already at top and main passes version
         Adw.Application.do_startup(self)
 
     def do_handle_local_options(self, options):
@@ -155,6 +138,7 @@ class WoesApplication(Adw.Application):
         if options.contains('debug'):
             self.debug_enabled = True
             logger.debug(f"Debug mode set to: {self.debug_enabled}")
+            # Ensure logging is forced if already configured by basicConfig
             logging.basicConfig(
                 level=logging.DEBUG,
                 format='%(asctime)s %(levelname)s:%(name)s:%(message)s',
@@ -165,63 +149,50 @@ class WoesApplication(Adw.Application):
 
     def do_command_line(self, command_line):
         logger.debug("WoesApplication.do_command_line entered, explicitly calling self.activate().")
-        # Process arguments, e.g., by calling the superclass method
-        # to handle options like --version or --help, or custom ones.
-        # However, for this diagnostic, we want to ensure activate is called.
-        # super_result = super().do_command_line(command_line)
-        # logger.debug(f"super().do_command_line(command_line) returned {super_result}")
-
-        # Regardless of what superclass did, ensure activation for this test
         self.activate()
-
-        # A return value of 0 typically indicates that the command line was handled successfully
-        # and the application should continue running (if it's the primary instance).
-        # If activate() leads to the app showing a window, it will keep running.
-        # If activate() doesn't result in a window, the app might still exit.
         return 0
 
     def do_activate(self):
         """Called when the application is activated."""
         logger.info("Activating WoesApplication.")
         win = self.props.active_window
-        logger.debug(f"self.props.active_window: {win}")
         if not win:
             logger.debug("No active window, creating WoesWindow.")
-            logger.debug("Before WoesWindow(application=self)")
             try:
                 win = WoesWindow(application=self)
-                logger.debug("After WoesWindow(application=self)")
                 logger.debug("WoesWindow created successfully.")
-            except Exception:
-                logger.exception("Failed to create WoesWindow.")
+            except Exception as e: # Catching generic Exception
+                logger.exception(f"Failed to create WoesWindow: {e}")
+                # It's crucial to see this error if it happens.
+                print(f"DIAGNOSTIC (main.py/do_activate): Failed to create WoesWindow: {e}", file=sys.stderr)
+                sys.stderr.flush()
+                # Optionally re-raise or sys.exit depending on desired behavior
+                # For now, let it propagate or be handled by GTK's default exception handler
+                # To ensure exit for this critical failure:
                 sys.exit(1)
 
-        if not win:
+
+        if not win: # Should be redundant if above exception handling exits
             logger.error("Window object is None after creation attempt, cannot proceed.")
             sys.exit(1)
 
         self.win = win
         self.add_window(self.win)
         logger.debug("Presenting WoesWindow.")
-        logger.debug("Before self.win.present()")
         try:
             self.win.present()
-            logger.debug("After self.win.present() returns")
             logger.debug("WoesWindow presented.")
-            logger.debug(f"Window visible: {self.win.is_visible()}")
-            logger.debug(f"Window mapped: {self.win.get_mapped()}")
-            logger.debug(f"Window width: {self.win.get_width()}, height: {self.win.get_height()}")
-            logger.debug(f"Window application: {self.win.get_application()}")
-            logger.debug(f"Active window on app: {self.props.active_window}")
-            main_loop = GLib.MainLoop()
-            logger.debug(f"GLib MainLoop running: {main_loop.is_running()}")
-            # We expect it not to be running here yet in this specific spot,
-            # as app.run() hasn't fully established it from this inner scope.
-            # This is more of a sanity check on GLib.MainLoop() state.
-        except GLib.Error:
-            logger.exception("Error presenting WoesWindow.")
-        except Exception:
-            logger.exception("Unexpected error during WoesWindow.present().")
+        except GLib.Error as e: # Catching specific GLib.Error
+            logger.exception(f"Error presenting WoesWindow: {e}")
+            print(f"DIAGNOSTIC (main.py/do_activate): GLib.Error presenting WoesWindow: {e}", file=sys.stderr)
+            sys.stderr.flush()
+            sys.exit(1) # Exit on presentation error
+        except Exception as e: # Catching other exceptions during present
+            logger.exception(f"Unexpected error during WoesWindow.present(): {e}")
+            print(f"DIAGNOSTIC (main.py/do_activate): Unexpected error presenting WoesWindow: {e}", file=sys.stderr)
+            sys.stderr.flush()
+            sys.exit(1) # Exit on presentation error
+
 
     def switch_to_http(self, *_args):
         logger.debug("Action 'switch-to-http' triggered.")
@@ -257,7 +228,7 @@ class WoesApplication(Adw.Application):
         about = Adw.AboutWindow(
             transient_for=self.props.active_window,
             application_name="woes",
-            application_icon=constants.APP_ID, # Use constants.APP_ID
+            application_icon=constants.APP_ID,
             developer_name="Carey McLelland",
             version=self.version,
             developers=["Carey McLelland"],
@@ -278,33 +249,19 @@ class WoesApplication(Adw.Application):
         logger.debug("Creating action: app.%s", name)
         action = Gio.SimpleAction.new(name, None)
         action.connect("activate", callback)
-        logger.debug(f"Connected 'activate' signal for action: app.{name}")
         self.add_action(action)
         if shortcuts:
             self.set_accels_for_action(f"app.{name}", shortcuts)
 
-
 def main(version=constants.VERSION):
     """The application's entry point."""
-    # _configure_resource_path and the resource loading check removed from here
-    # Resource loading is now done at module import time.
-
     logger.info("Starting Woes application main function.")
-    logger.debug(f"Before app = WoesApplication(version={version})")
     app = WoesApplication(version=version)
-    logger.debug(f"After app = WoesApplication(version={version}), app: {app}")
     logger.info("WoesApplication instance created.")
-
     logger.info("Running WoesApplication.")
-    logger.debug("Before app.run(sys.argv)")
     exit_status = app.run(sys.argv)
-    logger.debug(f"app.run returned: {exit_status}")
     logger.info("WoesApplication finished with exit status: %s", exit_status)
     return exit_status
 
-
 if __name__ == '__main__':
-    # This block is not executed when Woes is run via `woes.in` normally,
-    # but useful for direct module testing if needed.
-    # Resource loading now happens at module import time using environment variables or fallbacks.
     sys.exit(main())
