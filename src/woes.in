@@ -49,11 +49,12 @@ if __name__ == "__main__":
     print("--- sys.path before import gi ---")
     print(sys.path)
     print("---------------------------------")
+    os.environ['WOES_RUNTIME_PKGDATADIR'] = PKG_DATA_DIR
     try:
         # The 'woes' module and its 'main' function will handle all gi initializations.
         from woes import main
         # VERSION is a global variable in this script, substituted by Meson.
-        sys.exit(main.main(VERSION, PKG_DATA_DIR))
+        sys.exit(main.main(VERSION))
     except Exception as e:
         error_message = "Critical error during application startup (woes.in): {}\n".format(e)
         # Try to import sys locally in except block if not guaranteed to be imported globally,
