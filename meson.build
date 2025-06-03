@@ -35,11 +35,6 @@ dependencies = [
 ]
 
 # Python-based check for PyGObject
-python_exe = import('python').find_installation('python3') # python_bin is already defined, use that
-if not python_bin.found() # Use python_bin as defined earlier
-  error('Python3 installation not found by find_installation().')
-endif
-
 pygobject_check_script = '''#!/usr/bin/env python3
 import gi; print(gi.__version__)'''
 pygobject_check = run_command(python_bin, '-c', pygobject_check_script, check: false)
