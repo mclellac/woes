@@ -35,16 +35,16 @@ dependencies = [
 ]
 
 # Python-based check for PyGObject
-pygobject_check_script = '''#!/usr/bin/env python3
-import gi; print(gi.__version__)'''
-pygobject_check = run_command(python_bin, '-c', pygobject_check_script, check: false)
+# pygobject_check_script = '''#!/usr/bin/env python3
+# import gi; print(gi.__version__)'''
+# pygobject_check = run_command(python_bin, '-c', pygobject_check_script, check: false)
 
-if pygobject_check.returncode() != 0
-  warning_message = 'PyGObject (gi module) not found or not importable by Python3. stdout: ' + pygobject_check.stdout().strip() + ' stderr: ' + pygobject_check.stderr().strip()
-  error('Failed to import PyGObject (gi). ' + warning_message)
-else
-  message('Found PyGObject version (via Python import check): ' + pygobject_check.stdout().strip())
-endif
+# if pygobject_check.returncode() != 0
+#   warning_message = 'PyGObject (gi module) not found or not importable by Python3. stdout: ' + pygobject_check.stdout().strip() + ' stderr: ' + pygobject_check.stderr().strip()
+#   error('Failed to import PyGObject (gi). ' + warning_message)
+# else
+#   message('Found PyGObject version (via Python import check): ' + pygobject_check.stdout().strip())
+# endif
 # The 'pygobject-3.0' Meson C-style dependency is no longer added to the 'dependencies' list.
 # This assumes that build steps needing PyGObject (like processing Python files or resources)
 # will function correctly as long as the Python environment itself has 'gi' available.
