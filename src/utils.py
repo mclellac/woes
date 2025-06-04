@@ -21,6 +21,8 @@ def create_source_view(language_name='txt'):
                GtkSource.Buffer.
     """
     language_manager = GtkSource.LanguageManager.get_default()
+    if language_name is None:
+        language_name = 'txt'  # Default to plain text if None is explicitly passed
     language = language_manager.get_language(language_name)
 
     if language is None:
