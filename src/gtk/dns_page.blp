@@ -7,7 +7,7 @@ template DNSPage: Adw.PreferencesPage {
     title: _("Lookup Parameters");
 
     Adw.EntryRow dns_ip_entryrow {
-      input-purpose: Gtk.InputPurpose.url;
+      input-purpose: url;
       show-apply-button: true;
       title: "Domain to lookup (or use an IP for reverse)";
     }
@@ -29,7 +29,7 @@ template DNSPage: Adw.PreferencesPage {
       selected: 0;
       subtitle-lines: 1;
       title: "Record type";
-      valign: Gtk.Align.baseline_fill;
+      valign: baseline_fill;
     }
   }
 
@@ -48,7 +48,7 @@ template DNSPage: Adw.PreferencesPage {
     title: _("Lookup Results");
 
     Gtk.ScrolledWindow dns_results_scrolled_window {
-      halign: Gtk.Align.baseline_fill;
+      halign: baseline_fill;
       hexpand: true;
       hexpand-set: true;
       min-content-height: 400;

@@ -82,13 +82,13 @@ foreach blp_file_name : blp_files
   compiled_blp_target = custom_target(
     'compile_blueprint_' + blp_file_name.replace('.blp',''),
     input: join_paths(gtk_dir_relative, blp_file_name),
-    output: join_paths(gtk_dir_relative, local_ui_file_name),
+    output: local_ui_file_name,
     command: [
       blueprint_compiler,
       'batch-compile',
       join_paths(meson.current_build_dir(), gtk_dir_relative),
       join_paths(meson.current_source_dir(), gtk_dir_relative),
-      blp_file_name
+      '@INPUT@'
     ]
   )
   compiled_ui_outputs += compiled_blp_target

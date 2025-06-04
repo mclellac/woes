@@ -8,7 +8,7 @@ template NmapPage: Adw.PreferencesPage {
 
     Adw.EntryRow nmap_target_entryrow {
       activates-default: true;
-      input-purpose: Gtk.InputPurpose.url;
+      input-purpose: url;
       show-apply-button: true;
       title: _("IP/CIDR/FQDN to scan");
     }
@@ -95,16 +95,16 @@ template NmapPage: Adw.PreferencesPage {
     title: _("Scan Output");
 
     Gtk.Box {
-      orientation: Gtk.Orientation.horizontal;
+      orientation: horizontal;
       spacing: 6;
-      halign: Gtk.Align.fill;
+      halign: fill;
       hexpand: true;
-      valign: Gtk.Align.fill;
+      valign: fill;
       vexpand: true;
 
       Adw.PreferencesGroup nmap_target_group {
         title: _("Targets");
-        halign: Gtk.Align.fill;
+        halign: fill;
         hexpand: true;
         margin-bottom: 10;
         margin-end: 5;
@@ -127,7 +127,7 @@ template NmapPage: Adw.PreferencesPage {
 
       Adw.PreferencesGroup nmap_results_group {
         title: _("Scan Results");
-        halign: Gtk.Align.fill;
+        halign: fill;
         hexpand: true;
         margin-bottom: 10;
         margin-start: 5; // Adjusted from margin-end in target group for spacing
@@ -135,7 +135,7 @@ template NmapPage: Adw.PreferencesPage {
         vexpand: true;
 
         Adw.ScrolledWindow nmap_results_adinw_scrolled_window { // Typo in original ID 'adinw', kept for consistency if referenced elsewhere
-          halign: Gtk.Align.fill;
+          halign: fill;
           hexpand: true;
           margin-bottom: 10;
           margin-end: 10;

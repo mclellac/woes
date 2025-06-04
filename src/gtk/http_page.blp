@@ -9,7 +9,7 @@ template HttpPage: Adw.PreferencesPage {
     Adw.EntryRow http_entry_row {
       activates-default: true;
       // focusable: true; // Generally managed by the toolkit, true by default for EntryRow
-      input-purpose: Gtk.InputPurpose.url;
+      input-purpose: url;
       max-width-chars: 250;
       show-apply-button: true;
       title: _("URL to fetch HTTP headers from");

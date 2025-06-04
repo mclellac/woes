@@ -8,7 +8,7 @@ template Preferences: Adw.PreferencesWindow {
 
   Adw.PreferencesPage preferences_page {
     Adw.Banner preferences_error_banner {
-      valign: Gtk.Align.start;
+      valign: start;
       // The .ui file had comments about this banner's position.
       // In Blueprint, order implies visual order for direct children of a container.
       // If it needs to be explicitly first and overlay other content,
@@ -25,7 +25,7 @@ template Preferences: Adw.PreferencesWindow {
       }
 
       Adw.ComboRow source_style_scheme_combo_row {
-        halign: Gtk.Align.baseline_fill; // Gtk.Align.baseline_fill is unusual, Gtk.Align.fill or Gtk.Align.start/end is more common for halign. Or it might be intended for valign.
+        halign: baseline_fill; // Gtk.Align.baseline_fill is unusual, Gtk.Align.fill or Gtk.Align.start/end is more common for halign. Or it might be intended for valign.
                                         // For AdwComboRow, typically hexpand is used rather than halign for width management.
                                         // Let's assume hexpand: true might be more idiomatic if it's meant to fill horizontal space.
         hexpand: true; // Added based on common practice for combo rows that should take available width.

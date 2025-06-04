@@ -9,7 +9,7 @@ template WebScanPage: Adw.PreferencesPage {
     Adw.Banner error_banner_webscan {
       button-label: _("Dismiss");
       revealed: false;
-      [signal(button-clicked)]
+      [signal button-clicked] // Corrected signal syntax
       handler: "on_error_banner_dismiss_clicked";
     }
   }
@@ -28,10 +28,10 @@ template WebScanPage: Adw.PreferencesPage {
       [suffix]
       Gtk.Button scan_button {
         label: _("Start Scan"); // Assuming translatable
-        halign: Gtk.Align.end;
-        valign: Gtk.Align.center;
+        halign: end;
+        valign: center;
         styles: [ "suggested-action" ];
-        [signal(clicked)]
+        [signal clicked] // Corrected signal syntax
         handler: "on_scan_button_clicked";
       }
     }
@@ -48,7 +48,7 @@ template WebScanPage: Adw.PreferencesPage {
       Gtk.TextView results_textview {
         editable: false;
         cursor-visible: false;
-        wrap-mode: Gtk.WrapMode.word_char;
+        wrap-mode: word_char;
       }
     }
   }

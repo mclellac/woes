@@ -24,7 +24,7 @@
       "name": "python-nmap",
       "buildsystem": "simple",
       "build-commands": [
-        "pip3 install --no-cache-dir --prefix=/app python-nmap"
+        "pip3 install --no-cache-dir python-nmap"
       ]
     },
     {
@@ -44,7 +44,6 @@
       "buildsystem": "simple",
       "build-commands": [
         "pip3 install --no-cache-dir --prefix=/app git+https://github.com/psf/requests.git"
-      ],
       ]
     },
     {

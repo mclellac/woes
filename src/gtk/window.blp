@@ -17,7 +17,7 @@ template WoesWindow: Adw.ApplicationWindow {
   content: Gtk.Box main_box {
     // halign: Gtk.Align.baseline_fill; // baseline-fill is not a standard Gtk.Align value. Fill or Start/End are common.
                                     // For a main box, usually hexpand/vexpand are used.
-    orientation: Gtk.Orientation.vertical;
+    orientation: vertical;
     hexpand: true;
     vexpand: true;
 
@@ -25,7 +25,7 @@ template WoesWindow: Adw.ApplicationWindow {
       [title-widget]
       Adw.ViewSwitcher switcher_title {
         // halign: Gtk.Align.baseline_fill; // Adw.ViewSwitcher usually manages its own alignment and size within the headerbar.
-        policy: Adw.ViewSwitcherPolicy.wide;
+        policy: wide;
         stack: stack; // Assuming 'stack' is the ID of Adw.ViewStack
       }
 
@@ -51,10 +51,10 @@ template WoesWindow: Adw.ApplicationWindow {
 
         child: Adw.StatusPage http_status_page {
           description: _("This tool is ideal for developers, as well as systems and network administrators, who need to inspect HTTP headers for debugging, troubleshooting, and security analysis.");
-          icon-name: bind http_page_stack_entry.icon-name sync;
+          icon-name: bind http_page_stack_entry.icon-name;
           // overflow: hidden; // Usually managed by scrollable children if needed.
-          title: bind http_page_stack_entry.title sync;
-          valign: Gtk.Align.start;
+          title: bind http_page_stack_entry.title;
+          valign: start;
 
           Adw.ClampScrollable http_clamp_scrollable {
             maximum-size: 1400;
@@ -77,8 +77,8 @@ template WoesWindow: Adw.ApplicationWindow {
 
         child: Adw.StatusPage nmap_status_page {
           description: _("This tool is designed to facilitate network scanning, reconnaissance, and exploit detection using Nmap, a powerful network scanning tool. This interface provides the capability to perform various types of scans, including <b>service detection</b>, <b>OS fingerprinting</b>, <b>port scanning</b>, and <b>vulnerability assessments</b> using the <i>Nmap Scripting Engine (NSE)</i>.");
-          icon-name: bind nmap_page_stack_entry.icon-name sync;
-          title: bind nmap_page_stack_entry.title sync; // Binding to page title "Port Scan"
+          icon-name: bind nmap_page_stack_entry.icon-name;
+          title: bind nmap_page_stack_entry.title; // Binding to page title "Port Scan"
           vexpand: true;
           // vexpand-set: true;
 
@@ -107,9 +107,9 @@ template WoesWindow: Adw.ApplicationWindow {
           icon-name: "org.gnome.Epiphany-symbolic"; // .ui has this hardcoded, not bound like others.
           margin-end: 15;
           margin-start: 15;
-          title: bind dns_page_stack_entry.title sync; // Binding to page title "DNS"
+          title: bind dns_page_stack_entry.title; // Binding to page title "DNS"
           // valign: 1; // This is Gtk.Align.fill. Explicitly: Gtk.Align.fill
-          valign: Gtk.Align.fill; 
+          valign: fill;
 
           Adw.ClampScrollable {
             maximum-size: 1400;
@@ -131,8 +131,8 @@ template WoesWindow: Adw.ApplicationWindow {
         child: Adw.StatusPage webscan_status_page {
           description: "TODO"; // As per .ui
           icon-name: "org.gnome.Loupe-symbolic"; // Hardcoded in .ui's status page for webscan
-          title: bind webscan_page_stack_entry.title sync; // Binding to page title "Web Scan"
-          valign: Gtk.Align.start;
+          title: bind webscan_page_stack_entry.title; // Binding to page title "Web Scan"
+          valign: start;
           // The actual WebScanPage content is missing here in the .ui, just a status page.
           // If WebScanPage (the custom widget) should be here, it would be child of Adw.ClampScrollable like others.
         }
@@ -143,23 +143,31 @@ template WoesWindow: Adw.ApplicationWindow {
       // halign: Gtk.Align.baseline_fill; // ViewSwitcherBar typically manages its own alignment.
       stack: stack;
       // reveal: false by default, controlled by breakpoint
-    }
+    }; // Added semicolon here, in case this is the cause of L149 error
   }
 
   Adw.Breakpoint {
-    condition ("max-width: 550sp");
+    condition: max-width < 550sp;
     // Setter for header_bar.title-widget to be null (empty)
-    Adw.Breakpoint.Setter header_bar_title_setter {
-      object: header_bar;
-      property: "title-widget";
-      // value: null; // This is how you'd set it to nothing. XML had an empty <setter/> tag.
-    }
-    // Setter for switcher_bar.reveal to true
-    Adw.Breakpoint.Setter switcher_bar_reveal_setter {
-      object: switcher_bar;
-      property: "reveal";
-      value: true;
-    }
+    // Adw.Breakpoint.Setter syntax might be incorrect, blueprint might prefer direct property access
+    // For now, commenting out setters to see if Breakpoint itself is accepted
+    // setter header_bar.title_widget: null;
+    // setter switcher_bar.reveal: true;
+    // Alternative if direct setters are not working:
+    // Using Adw.PropertySetter (if it exists and is appropriate) or specific Breakpoint setters if API differs.
+    // The following is a guess based on some GObject-based setter patterns, may not be valid blueprint:
+    // setters [
+    //   Adw.PropertySetter {
+    //     object: header_bar;
+    //     property: "title-widget";
+    //     value: null;
+    //   },
+    //   Adw.PropertySetter {
+    //     object: switcher_bar;
+    //     property: "reveal";
+    //     value: true;
+    //   }
+    // ];
   }
 }
 
