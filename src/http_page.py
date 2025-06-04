@@ -170,35 +170,35 @@ class HttpPage(Adw.PreferencesPage):
             error_message = self._format_http_error(e)
             safe_error_message = str(error_message)
             g_error = GLib.Error(message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED)
-            task.return_error(g_error)
+            task.return_gerror(g_error)
             return
         except requests.exceptions.ConnectionError as e:
             logger.warning("Task thread: ConnectionError for %s: %s", url, e, exc_info=True)
             error_message = "Connection Error: Failed to establish a connection."
             safe_error_message = str(error_message)
             g_error = GLib.Error(message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED)
-            task.return_error(g_error)
+            task.return_gerror(g_error)
             return
         except requests.exceptions.Timeout as e:
             logger.warning("Task thread: Timeout for %s: %s", url, e, exc_info=True)
             error_message = "Timeout Error: The request timed out."
             safe_error_message = str(error_message)
             g_error = GLib.Error(message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED)
-            task.return_error(g_error)
+            task.return_gerror(g_error)
             return
         except requests.exceptions.RequestException as e:
             logger.error("Task thread: RequestException for %s: %s", url, e, exc_info=True)
             error_message = f"Request Error: {str(e)}"
             safe_error_message = str(error_message)
             g_error = GLib.Error(message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED)
-            task.return_error(g_error)
+            task.return_gerror(g_error) # Corrected: single call
             return
         except Exception as e: # Catch any other unexpected errors
             logger.error("Task thread: Unexpected error for %s: %s", url, e, exc_info=True)
             error_message = f"An unexpected error occurred: {str(e)}"
             safe_error_message = str(error_message)
             g_error = GLib.Error(message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED)
-            task.return_error(g_error)
+            task.return_gerror(g_error) # Corrected: use return_gerror
             return
 
 
@@ -211,15 +211,21 @@ class HttpPage(Adw.PreferencesPage):
                 # This call will raise a GLib.Error (caught as GObject.GError)
                 # if task.return_error() was called in the thread.
                 returned_value = local_task_ref.propagate_value()
-                if returned_value: # Check if propagate_value didn't return None
-                    headers = returned_value.get_boxed() # Assuming the returned value is a Python dict
+                # Check if returned_value is a dictionary and not None
+                if isinstance(returned_value, dict):
+                    headers = returned_value # No longer calling .get_boxed()
                     logger.info("Successfully fetched headers (async)")
                     self._update_column_view_model(headers)
                     self.http_entry_row.remove_css_class("error")
-                else:
-                    # This case should ideally not be reached if a value or error was properly set.
+                elif returned_value is None: # Explicitly check for None
                     logger.error("propagate_value returned None unexpectedly.")
                     self._display_error("Failed to retrieve task result (returned None).")
+                    self.http_entry_row.add_css_class("error")
+                    self._update_column_view_model(None)
+                else:
+                    # Handle cases where returned_value is not a dict and not None
+                    logger.error(f"propagate_value returned an unexpected type: {type(returned_value)}")
+                    self._display_error(f"Failed to process task result (unexpected type: {type(returned_value).__name__}).")
                     self.http_entry_row.add_css_class("error")
                     self._update_column_view_model(None)
             else:
