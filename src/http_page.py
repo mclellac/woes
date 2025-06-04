@@ -10,7 +10,7 @@ gi.require_version('Adw', '1')
 gi.require_version('Gtk', '4.0')
 from gi.repository import Adw, Gio, GObject, Gtk, GLib
 
-from .constants import RESOURCE_PREFIX
+from .constants import RESOURCE_PREFIX, USER_AGENTS
 # Removed Helper import as it's unused
 # from .style_utils import set_widget_visibility  # This is no longer needed
 
@@ -33,6 +33,8 @@ class HttpPage(Adw.PreferencesPage):
     __gtype_name__ = "HttpPage"
 
     http_entry_row = Gtk.Template.Child("http_entry_row")
+    http_host_header_row = Gtk.Template.Child("http_host_header_row")
+    http_user_agent_row = Gtk.Template.Child("http_user_agent_row")
     http_pragma_switch_row = Gtk.Template.Child("http_pragma_switch_row")
     http_column_view = Gtk.Template.Child("http_column_view")
     error_banner = Gtk.Template.Child("error_banner")
@@ -64,6 +66,11 @@ class HttpPage(Adw.PreferencesPage):
         self._clear_error()
         self._hide_results()
 
+        # Populate User-Agent dropdown
+        user_agent_options = ["None"] + USER_AGENTS
+        self.http_user_agent_row.set_model(Gtk.StringList.new(user_agent_options))
+        self.http_user_agent_row.set_selected(0) # Select "None" by default
+
     def _connect_signals(self) -> None:
         self.http_entry_row.connect(
             "entry-activated", self._on_entry_row_activated
@@ -93,9 +100,18 @@ class HttpPage(Adw.PreferencesPage):
         self.http_entry_row.set_sensitive(False)
         # You might want to add a spinner here, e.g., self.spinner.start()
 
+        host_header = self.http_host_header_row.get_text().strip()
+        selected_ua_index = self.http_user_agent_row.get_selected()
+        user_agent = None
+        if selected_ua_index > 0: # 0 is "None"
+            user_agent_model = self.http_user_agent_row.get_model()
+            user_agent = user_agent_model.get_string(selected_ua_index)
+
         self._http_task_data_for_thread = {
             "url": url,
-            "use_akamai_pragma": self.http_pragma_switch_row.get_active()
+            "use_akamai_pragma": self.http_pragma_switch_row.get_active(),
+            "host_header": host_header,
+            "user_agent": user_agent,
         }
         task = Gio.Task.new(self, None, self._fetch_headers_task_done_cb, None)
         self.current_http_task = task
@@ -109,9 +125,20 @@ class HttpPage(Adw.PreferencesPage):
 
         url = current_task_data["url"]
         use_akamai_pragma = current_task_data["use_akamai_pragma"]
-        logger.debug("Task thread: Making GET request to %s with Akamai headers: %s", url, use_akamai_pragma)
+        host_header = current_task_data.get("host_header")
+        user_agent = current_task_data.get("user_agent")
+
+        logger.debug(
+            "Task thread: Making GET request to %s with Akamai headers: %s, Host: %s, UA: %s",
+            url, use_akamai_pragma, host_header, user_agent
+        )
 
         request_headers = {}
+        if host_header:
+            request_headers["Host"] = host_header
+        if user_agent and user_agent != "None":
+            request_headers["User-Agent"] = user_agent
+
         if use_akamai_pragma:
             akamai_pragma_directives = [
                 "akamai-x-get-request-id",
