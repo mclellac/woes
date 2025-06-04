@@ -83,13 +83,21 @@ foreach blp_file_name : blp_files
     'compile_blueprint_' + blp_file_name.replace('.blp',''),
     input: join_paths(gtk_dir_relative, blp_file_name),
     output: local_ui_file_name,
-    working_directory: join_paths(meson.current_source_dir(), gtk_dir_relative),
+    # The working directory is set to src/gtk.
+    # blueprint-compiler expects the output directory to be relative to the current build directory (which is <build_dir>/src),
+    # and the input directory to be relative to the current source directory (which is <source_dir>/src).
+    # However, 'batch-compile' seems to interpret both paths relative to the CWD if they are relative.
+    # By setting CWD to src/gtk, output dir becomes <build_dir>/src/gtk and input becomes <source_dir>/src/gtk.
+    working_directory: meson.current_source_dir() / gtk_dir_relative,
     command: [
       blueprint_compiler,
       'batch-compile',
-      meson.current_build_dir(), # Absolute path to <build_dir>/src/
-      '.',                       # Input directory for blueprint-compiler (current dir, which is now src/gtk/)
-      blp_file_name              # Filename (e.g., "window.blp")
+      # Output directory: <build_dir>/src/gtk (blueprint-compiler needs this to be relative to <build_dir>/src, so just 'gtk')
+      # However, if working_directory is set, it seems paths for batch-compile are relative to that.
+      # Let's try making them absolute to avoid ambiguity.
+      meson.current_build_dir() / gtk_dir_relative, # Output directory
+      meson.current_source_dir() / gtk_dir_relative, # Input directory
+      blp_file_name
     ]
   )
   compiled_ui_outputs += compiled_blp_target
