@@ -96,7 +96,7 @@ foreach blp_file_name : blp_files
       # Let's try making them absolute to avoid ambiguity.
       meson.current_build_dir() / gtk_dir_relative, # Output directory
       meson.current_source_dir() / gtk_dir_relative, # Input directory
-      blp_file_name
+      '@INPUT@'
     ]
   )
   compiled_ui_outputs += compiled_blp_target
