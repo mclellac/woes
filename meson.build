@@ -16,9 +16,9 @@ if not python_bin.found()
     error('No valid Python installation found!')
 endif
 
-# Ensure Python 3.10 or newer is used
-if not python_bin.language_version().version_compare('>= 3.10')
-    error('Python 3.10 or newer is required.')
+# Ensure Python 3.12 or newer is used
+if not python_bin.language_version().version_compare('>= 3.12')
+    error('Python 3.12 or newer is required.')
 endif
 
 # macOS-specific prefix correction
@@ -28,9 +28,9 @@ endif
 
 # Declare runtime dependencies
 dependencies = [
-    dependency('glib-2.0', version: '>= 2.78.0'),
+    dependency('glib-2.0', version: '>= 2.80.0'),
     dependency('gtk4', version: '>= 4.14.0'),
-    dependency('libadwaita-1', version: '>= 1.5.0'),
+    dependency('libadwaita-1', version: '>= 1.6.0'),
     # PyGObject dependency will be checked via Python import below
 ]
 
