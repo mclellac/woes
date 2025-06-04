@@ -1,0 +1,65 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Created with Cambalache 0.91.3 -->
+<interface>
+  <requires lib="gtk" version="4.10"/>
+  <requires lib="libadwaita" version="1.4"/>
+  <template class="DNSPage" parent="AdwPreferencesPage">
+    <property name="title" translatable="yes">DNS Lookup</property>
+    <property name="icon-name">org.gnome.Epiphany-symbolic</property>
+    <child>
+      <object class="AdwPreferencesGroup">
+        <property name="title" translatable="yes">Lookup Parameters</property>
+        <child>
+          <object class="AdwEntryRow" id="dns_ip_entryrow">
+            <property name="input-purpose">url</property>
+            <property name="show-apply-button">True</property>
+            <property name="title" translatable="yes">Domain or IP Address</property>
+            <property name="tooltip-text" translatable="yes">Enter a domain name or an IP address for reverse lookup</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwComboRow" id="dns_record_type_dropdown">
+            <property name="icon-name">preferences-system-network-symbolic</property>
+            <property name="model">
+              <object class="GtkStringList" id="dns_record_type_list">
+                <property name="strings">A</property> <!-- Default selection -->
+                <items>
+                  <item>AAAA</item>
+                  <item>TXT</item>
+                  <item>CNAME</item>
+                  <item>MX</item>
+                  <item>NS</item>
+                  <item>PTR</item> <!-- Added PTR for completeness, though it's auto-selected for IPs -->
+                </items>
+              </object>
+            </property>
+            <property name="selected">0</property>
+            <property name="title" translatable="yes">Record Type</property>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="AdwBanner" id="error_banner">
+        <property name="button-label" translatable="yes">Dismiss</property>
+        <property name="revealed">False</property> <!-- Initially hidden -->
+        <property name="title"></property> <!-- Title will be set from code -->
+        <signal name="button-clicked" handler="_on_error_banner_dismiss"/>
+      </object>
+    </child>
+    <child>
+      <object class="AdwPreferencesGroup">
+        <property name="title" translatable="yes">Results</property>
+        <property name="description" translatable="yes">DNS lookup results will appear below.</property>
+        <child>
+          <object class="GtkScrolledWindow" id="dns_results_scrolled_window">
+            <property name="min-content-height">300</property> <!-- Ensure it has some minimum height -->
+            <property name="vexpand">True</property> <!-- Allow it to expand vertically -->
+            <property name="hexpand">True</property> <!-- Allow it to expand horizontally -->
+            <!-- GtkSourceView will be added here from code -->
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+</interface>

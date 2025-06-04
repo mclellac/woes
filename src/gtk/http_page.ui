@@ -1,0 +1,63 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Created with Cambalache 0.91.3 -->
+<interface>
+  <requires lib="gtk" version="4.12"/>
+  <requires lib="libadwaita" version="1.4"/>
+  <template class="HttpPage" parent="AdwPreferencesPage">
+    <property name="title" translatable="yes">HTTP Headers</property>
+    <property name="icon-name">network-transmit-receive-symbolic</property>
+    <child>
+      <object class="AdwPreferencesGroup" id="http_request_group">
+        <property name="title" translatable="yes">Request Parameters</property>
+        <child>
+          <object class="AdwEntryRow" id="http_entry_row">
+            <property name="activates-default">True</property>
+            <property name="focusable">True</property>
+            <property name="input-purpose">url</property>
+            <property name="show-apply-button">True</property>
+            <property name="title" translatable="yes">URL to fetch HTTP headers from</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwSwitchRow" id="http_pragma_switch_row">
+            <property name="subtitle" translatable="yes">Enable this to send Akamai Pragma headers in your request</property>
+            <property name="title" translatable="yes">Akamai Debug Headers</property>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="AdwBanner" id="error_banner">
+        <property name="button-label" translatable="yes">Dismiss</property>
+        <property name="revealed">False</property> <!-- Initially hidden -->
+        <property name="title"></property> <!-- Title will be set from code -->
+        <signal name="button-clicked" handler="_on_error_banner_dismiss"/>
+      </object>
+    </child>
+    <child>
+      <object class="AdwPreferencesGroup" id="http_results_group">
+        <property name="title" translatable="yes">Response Headers</property>
+        <property name="description" translatable="yes">HTTP response headers will appear below.</property>
+        <property name="header-suffix">
+          <object class="GtkButton" id="clear_results_button">
+            <property name="icon-name">edit-clear-all-symbolic</property>
+            <property name="tooltip-text" translatable="yes">Clear Results</property>
+            <property name="valign">center</property>
+            <signal name="clicked" handler="_on_clear_results_clicked"/>
+          </object>
+        </property>
+        <property name="visible">False</property> <!-- Initially hidden, shown when there are results -->
+        <child>
+          <object class="GtkColumnView" id="http_column_view">
+            <property name="enable-rubberband">True</property>
+            <property name="hexpand">True</property>
+            <property name="vexpand">True</property> <!-- Allow vertical expansion -->
+            <!-- Model and columns are set up in code -->
+            <property name="show-column-separators">true</property>
+            <property name="show-row-separators">true</property>
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+</interface>

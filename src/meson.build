@@ -1,15 +1,19 @@
 # Determine if we're in a Flatpak build
 is_flatpak_build = get_option('prefix') == '/app'
-message('Is Flatpak :build ' + is_flatpak_build.to_string())
+message('Is Flatpak build: ' + is_flatpak_build.to_string())
 message('Prefix: ' + get_option('prefix'))
 
-# Get the install directory for Python
-python_install_dir = python_bin.get_install_dir()
-message('Python install dir: ' + python_install_dir)
+# Get the install directory for Python (version specific)
+python_purelib = python_bin.get_path('purelib')
+python_install_dir = python_purelib # Use for messages and consistency
+message('Python install dir (purelib): ' + python_install_dir)
 
-# Determine the site-packages directory
-site_packages_dir = python_bin.get_install_dir(subdir: 'woes')
-message('Site packages dir: ' + site_packages_dir)
+# Determine the site-packages directory (version specific)
+site_packages_dir = join_paths(python_purelib, 'woes')
+message('Site packages dir (woes subdir): ' + site_packages_dir)
+
+# Create a new configuration variable for the site-packages directory (version specific)
+python_site_packages_dir = python_purelib
 
 # Define paths
 localedir = join_paths(get_option('prefix'), 'share', 'locale')
@@ -24,6 +28,7 @@ conf.set('PYTHON', python_bin.full_path())
 conf.set('VERSION', meson.project_version())
 conf.set('LOCALEDIR', localedir)
 conf.set('WOESDIR', site_packages_dir)
+conf.set('PYTHON_SITE_PACKAGES_DIR', python_site_packages_dir)
 conf.set('APPID', meson.project_name())
 conf.set('GSETTINGSSCHEMADIR', gsettings_schemadir) # Add this line
 
@@ -54,50 +59,6 @@ configure_file(
 )
 
 gnome = import('gnome')
-blueprint_compiler = find_program('blueprint-compiler', required: true)
-
-# Define Blueprint source files and prepare for custom targets
-gtk_dir_relative = 'gtk' # Relative path from current meson.build (src/) to gtk blueprint files
-blp_files = [
-  'window.blp',
-  'http_page.blp',
-  'nmap_page.blp',
-  'dns_page.blp',
-  'preferences.blp',
-  'help-overlay.blp',
-  'webscan_page.blp'
-]
-
-compiled_ui_outputs = []
-
-foreach blp_file_name : blp_files
-  local_ui_file_name = blp_file_name.replace('.blp', '.ui')
-  
-  # Define the output path for the .ui file. Since this meson.build is in 'src/',
-  # an output of 'gtk/file.ui' will result in '<build_dir>/src/gtk/file.ui'.
-  # This matches what woes.gresource.xml expects (<file>gtk/file.ui</file>)
-  # when gnome.compile_resources (also defined in src/meson.build) resolves paths.
-  output_ui_path = join_paths(gtk_dir_relative, local_ui_file_name) # This variable is no longer used for 'output' but comment is kept for context
-
-  compiled_blp_target = custom_target(
-    'compile_blueprint_' + blp_file_name.replace('.blp',''),
-    input: join_paths(gtk_dir_relative, blp_file_name),
-    output: join_paths(gtk_dir_relative, local_ui_file_name),
-    # The working directory is set to src/gtk.
-    # blueprint-compiler expects the output directory to be relative to the current build directory (which is <build_dir>/src),
-    # and the input directory to be relative to the current source directory (which is <source_dir>/src).
-    # However, 'batch-compile' seems to interpret both paths relative to the CWD if they are relative.
-    # By setting CWD to src/gtk, output dir becomes <build_dir>/src/gtk and input becomes <source_dir>/src/gtk.
-    command: [
-      blueprint_compiler,
-      'compile',
-      '@INPUT@',
-      '--output',
-      '@OUTPUT@'
-    ]
-  )
-  compiled_ui_outputs += compiled_blp_target
-endforeach
 
 # Compile GNOME resources
 gnome.compile_resources(
@@ -106,7 +67,6 @@ gnome.compile_resources(
   gresource_bundle: true,
   install: true,
   install_dir: conf.get('PKGDATADIR'),
-  dependencies: compiled_ui_outputs
 )
 
 # List of source files
@@ -121,7 +81,9 @@ woes_sources = files(
   'nmap_scanner.py',
   'preferences.py',
   'style_utils.py',
+  'utils.py',
   'window.py',
+  'webscan_page.py',
 )
 
 # Install the Python source files

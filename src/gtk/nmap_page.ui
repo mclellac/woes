@@ -1,0 +1,128 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Created with Cambalache 0.91.3 -->
+<interface>
+  <requires lib="gtk" version="4.10"/>
+  <requires lib="libadwaita" version="1.4"/>
+  <template class="NmapPage" parent="AdwPreferencesPage">
+    <property name="title" translatable="yes">Nmap Scanner</property>
+    <property name="icon-name">face-devilish-symbolic</property> <!-- Or an appropriate network scanning icon -->
+    <child>
+      <object class="AdwBanner" id="warning_banner">
+        <property name="title" translatable="yes">WARNING: Do not use this tool on any hosts or networks you do not have explicit permission to scan.</property>
+        <property name="revealed">True</property>
+      </object>
+    </child>
+    <child>
+      <object class="AdwPreferencesGroup" id="nmap_scan_parameters_group">
+        <property name="title" translatable="yes">Scan Parameters</property>
+        <child>
+          <object class="AdwEntryRow" id="nmap_target_entryrow">
+            <property name="activates-default">True</property>
+            <property name="input-purpose">url</property> <!-- Changed from generic to url-like -->
+            <property name="show-apply-button">True</property>
+            <property name="title" translatable="yes">Target (IP/CIDR/Hostname)</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwSwitchRow" id="nmap_fingerprint_switchrow">
+            <property name="subtitle" translatable="yes">Enable this to attempt OS detection (often requires root/administrator privileges)</property>
+            <property name="title" translatable="yes">OS Fingerprinting</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwSwitchRow" id="nmap_all_ports_switchrow">
+            <property name="subtitle" translatable="yes">Scan all 65535 TCP ports (default is top ~1000)</property>
+            <property name="title" translatable="yes">Scan All Ports</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwComboRow" id="nmap_scripts_dropdown">
+            <property name="icon-name">emblem-documents-symbolic</property>
+            <property name="model">
+              <object class="GtkStringList" id="nmap_scripts_list_store">
+                <property name="strings">None</property>
+                <items>
+                  <item>default</item>
+                  <item>vuln</item>
+                  <item>discovery</item>
+                  <item>broadcast</item>
+                  <item>exploit</item>
+                  <item>http-grep</item>
+                  <item>http-enum</item>
+                  <item>http-config-backup</item>
+                  <item>http-wordpress-enum</item>
+                  <item>http-cors</item>
+                  <item>http-csrf</item>
+                  <item>http-cross-domain-policy</item>
+                  <item>mysql-users</item>
+                  <item>vulscan/vulscan</item>
+                  <item>firewalk</item>
+                </items>
+              </object>
+            </property>
+            <property name="selected">0</property>
+            <property name="title" translatable="yes">Nmap Scripting Engine (NSE)</property>
+            <property name="subtitle" translatable="yes">Select a script or script category</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwActionRow" id="status_row">
+            <property name="title" translatable="yes">Scan Status</property>
+            <property name="subtitle" translatable="yes">Idle</property> <!-- Initial status message -->
+            <property name="activatable">False</property>
+            <property name="visible">true</property> <!-- Always visible, content changes -->
+            <child>
+              <object class="GtkSpinner" id="scan_spinner">
+                <property name="spinning">False</property>
+                <property name="visible">False</property> <!-- Initially hidden -->
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="AdwBanner" id="error_banner">
+        <property name="button-label" translatable="yes">Dismiss</property>
+        <property name="revealed">False</property> <!-- Initially hidden -->
+        <property name="title"></property> <!-- Title will be set from code -->
+        <signal name="button-clicked" handler="_on_error_banner_dismiss"/>
+      </object>
+    </child>
+    <child>
+      <object class="AdwPreferencesGroup" id="targets_group">
+        <property name="title" translatable="yes">Scanned Targets</property>
+        <property name="description" translatable="yes">Select a target to view its scan results.</property>
+        <property name="revealed">False</property> <!-- Initially hidden -->
+        <child>
+          <object class="GtkScrolledWindow" id="nmap_target_scrolled_window">
+            <property name="min-content-height">150</property>
+            <property name="vexpand">False</property> <!-- Let it take natural height or min-content-height -->
+            <property name="hexpand">True</property>
+            <child>
+              <object class="GtkListBox" id="nmap_target_listbox">
+                <property name="selection-mode">single</property>
+                <property name="css-classes">boxed-list</property> <!-- Keep boxed-list style -->
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="AdwPreferencesGroup" id="results_group">
+        <property name="title" translatable="yes">Scan Results</property>
+        <property name="description" translatable="yes">Results for the selected target.</property>
+        <property name="revealed">False</property> <!-- Initially hidden -->
+        <child>
+          <object class="GtkScrolledWindow" id="nmap_results_scrolled_window">
+            <property name="min-content-height">300</property>
+            <property name="vexpand">True</property>
+            <property name="hexpand">True</property>
+            <!-- GtkSourceView for results will be added here from code -->
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+</interface>

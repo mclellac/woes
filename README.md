@@ -1,11 +1,10 @@
-# woes
+# WebOps Evaluation Suite
 
 ![woes](images/app.png)
 
 WOES is a graphical user interface designed for performing various web operations tasks. Built with GTK 4 and Adwaita, it provides an intuitive and user-friendly interface for tasks such as fetching HTTP headers, performing port scans, running OS fingerprint detection, and executing DNS queries.
 
 ## Features
-
 - **Fetch and Display HTTP Headers**: Retrieve and view HTTP headers for any given URL, with the ability to enable Akamai debug headers.
 - **Port Scanning**: Perform port scans on specified targets with customizable options, including OS fingerprint detection and NSE scripts.
 - **OS Fingerprint Detection**: Detect operating systems on scanned targets as part of the port scanning process.
@@ -18,10 +17,9 @@ WOES is a graphical user interface designed for performing various web operation
 - `GtkSourceView`
 - `Python 3`
 
-### Python dependencies
-
-- `requests`
-- `pyYAML`
+### Python dependencies: 
+- `requests` 
+- `pyYAML` 
 - `python-nmap`
 - `dnspython`
 
@@ -29,13 +27,13 @@ WOES is a graphical user interface designed for performing various web operation
 > pip install requests PyYAML python-nmap dnspython
 ```
 
-## System Dependencies
+## System Dependencies:
 
 Ensure you have the following tools installed for building the project:
 
-- `Meson`
-- `Ninja`
-- `Flatpak`
+* `Meson`
+* `Ninja`
+* `Flatpak`
 
 For most systems, you can install these with your package manager:
 
@@ -58,7 +56,7 @@ First, clone the repository to your local machine:
 
 ## Build the Project
 
-### Using Meson and Ninja
+### Using Meson and Ninja:
 
 Set up the build directory and compile the project using Meson and Ninja:
 
@@ -67,13 +65,13 @@ Set up the build directory and compile the project using Meson and Ninja:
 > ninja -C build --verbose
 ```
 
-### Install the application
+### Install the application:
 
 ```bash
 > sudo ninja -C build install --verbose
 ```
 
-### Using Flatpak
+### Using Flatpak:
 
 Build the Flatpak package:
 
@@ -84,5 +82,4 @@ Build the Flatpak package:
 Once the build is successful, you can install and run the Flatpak package in the flatpak directory.
 
 ## Development Status
-
 This application is currently in early development. The HTTP Headers, Nmap, and DNS pages are functional, with more features planned for future releases.

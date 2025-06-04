@@ -97,7 +97,7 @@ def build_flatpak():
             "-v",
             REPO_DIR,
             flatpak_bundle_path,
-            "com.github.mclellac.woes",
+            "com.github.mclellac.webops",
         ]
     )
 

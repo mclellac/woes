@@ -1,21 +1,25 @@
-import os
-import subprocess
-import sys
 import unittest
-from unittest.mock import ANY, MagicMock, patch
+from unittest.mock import patch, MagicMock, ANY
+import os
+import sys
+import subprocess
 
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
-from gi.repository import Adw, Gtk
+from gi.repository import Gtk, Adw  # Removed unused GLib, Gio
+# import subprocess # Removed duplicate import, already imported by test runner or above
 
+# Ensure the src directory is in the Python path for imports
 src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if src_path not in sys.path:
     sys.path.insert(0, src_path)
 
+# Import the class to be tested
 from webscan_page import WebScanPage
 
 
+# Helper to process GTK events
 def process_gtk_events():
     while Gtk.events_pending():
         Gtk.main_iteration_do(False)
@@ -25,9 +29,12 @@ class TestWebScanPage(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        # Initialize GTK application context for testing
+        # Needed if your widget interacts with Adw.Application or similar
         cls.app = Adw.Application(application_id="com.example.test.woes")
-        cls.app.register()
+        cls.app.register()  # Important for Adw.Application based widgets or features
 
+        # It's good practice to have a window for pages, even if not shown
         cls.window = Adw.Window()
         cls.app.add_window(cls.window)
 
@@ -36,8 +43,11 @@ class TestWebScanPage(unittest.TestCase):
         cls.app.quit()
 
     def setUp(self):
+        # Create an instance of the WebScanPage
+        # Ensure that the GType is registered if WebScanPage is in a separate module
+        # This should be handled by `from webscan_page import WebScanPage` if __init__.py is correct
         self.page = WebScanPage()
-        self.window.set_content(self.page)
+        self.window.set_content(self.page)  # Add page to window to ensure it's fully initialized
         process_gtk_events()
 
     def tearDown(self):
@@ -64,26 +74,34 @@ class TestWebScanPage(unittest.TestCase):
 
     def test_03_empty_url_shows_error(self):
         """Test that clicking scan with an empty URL shows an error and does not run nikto."""
+        # initial_text variable was unused
+        # initial_text = self.page.results_textview.get_buffer().get_text(
+        #     self.page.results_textview.get_buffer().get_start_iter(),
+        #     self.page.results_textview.get_buffer().get_end_iter(),
+        #     False
+        # )
+
         with patch('webscan_page.subprocess.Popen') as mock_popen:
+            # Mock show_error_toast to check if it's called
             with patch.object(self.page, 'show_error_toast') as mock_show_error:
                 self.page.url_entry.set_text("")
                 self.page.scan_button.clicked()
-                process_gtk_events()
+                process_gtk_events()  # Allow signals and GLib.idle_add to run
 
                 mock_show_error.assert_called_once_with("Target URL cannot be empty.")
                 mock_popen.assert_not_called()
 
+                # Check that results_textview contains the error (due to fallback in show_error_toast)
                 final_text_buffer = self.page.results_textview.get_buffer()
-                final_text = final_text_buffer.get_text(
-                    final_text_buffer.get_start_iter(), final_text_buffer.get_end_iter(), False
-                )
+                final_text = final_text_buffer.get_text(final_text_buffer.get_start_iter(), final_text_buffer.get_end_iter(), False)
                 self.assertIn("ERROR: Target URL cannot be empty.", final_text)
+
 
     @patch('webscan_page.subprocess.Popen')
     def test_04_scan_button_triggers_nikto(self, mock_popen_class):
         """Test that the scan button callback triggers the nikto command and updates UI."""
         mock_process = MagicMock()
-        mock_process.communicate.return_value = ("Nikto scan successful!", "")
+        mock_process.communicate.return_value = ("Nikto scan successful!", "")  # stdout, stderr
         mock_popen_class.return_value = mock_process
 
         target_url = "http://example.com"
@@ -92,17 +110,21 @@ class TestWebScanPage(unittest.TestCase):
         self.assertTrue(self.page.scan_button.get_sensitive(), "Button should be sensitive initially")
 
         self.page.scan_button.clicked()
-        process_gtk_events()
+        process_gtk_events()  # Initial click to start thread
 
+        # Button should be insensitive right after click (before thread finishes mock)
         self.assertFalse(self.page.scan_button.get_sensitive(), "Button should be insensitive during scan")
 
-        for _ in range(5):
+        # Allow Gio.Thread and GLib.idle_add calls to complete
+        # In a real test environment, might need more robust waiting for thread completion
+        # For mocked Popen, GLib.idle_add should execute fairly quickly
+        for _ in range(5):  # Process events multiple times
             process_gtk_events()
 
         mock_popen_class.assert_called_once_with(
             ['nikto', '-h', target_url, '-Tuning', 'xCGIVulnerable'],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,  # Ensure subprocess is imported
+            stderr=subprocess.PIPE,  # Ensure subprocess is imported
             text=True
         )
         mock_process.communicate.assert_called_once_with(timeout=300)
@@ -186,18 +208,18 @@ class TestWebScanPage(unittest.TestCase):
             mock_process.communicate.return_value = ("", "")
             mock_popen_class.return_value = mock_process
 
-            self.page.url_entry.set_text("example.com")
+            self.page.url_entry.set_text("example.com")  # No scheme
             self.page.scan_button.clicked()
             process_gtk_events()
             for _ in range(5):
                 process_gtk_events()
 
             mock_popen_class.assert_called_once_with(
-                ['nikto', '-h', 'http://example.com', '-Tuning', 'xCGIVulnerable'],
+                ['nikto', '-h', 'http://example.com', '-Tuning', 'xCGIVulnerable'],  # Scheme added
                 stdout=ANY, stderr=ANY, text=True
             )
 
-            self.page.url_entry.set_text("https://secure.example.com")
+            self.page.url_entry.set_text("https://secure.example.com")  # Scheme present
             self.page.scan_button.clicked()
             process_gtk_events()
             for _ in range(5):
@@ -211,6 +233,9 @@ class TestWebScanPage(unittest.TestCase):
 
 
 if __name__ == '__main__':
+    # This allows running the tests directly from this file
+    # Set GSETTINGS_SCHEMA_DIR if your application uses GSettings
+    # For example, if schemas are in project_root/data/schemas:
     project_root = os.path.abspath(os.path.join(src_path, '..'))
     schema_dir = os.path.join(project_root, 'data', 'schemas')
     if os.path.isdir(schema_dir):
