@@ -88,7 +88,6 @@ foreach blp_file_name : blp_files
     # and the input directory to be relative to the current source directory (which is <source_dir>/src).
     # However, 'batch-compile' seems to interpret both paths relative to the CWD if they are relative.
     # By setting CWD to src/gtk, output dir becomes <build_dir>/src/gtk and input becomes <source_dir>/src/gtk.
-    working_directory: meson.current_source_dir() / gtk_dir_relative,
     command: [
       blueprint_compiler,
       'batch-compile',
