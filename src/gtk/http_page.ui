@@ -19,6 +19,18 @@
           </object>
         </child>
         <child>
+          <object class="AdwEntryRow" id="http_host_header_row">
+            <property name="title" translatable="yes">Custom Host Header</property>
+            <!-- Add other properties as needed, e.g., placeholder-text -->
+          </object>
+        </child>
+        <child>
+          <object class="AdwComboRow" id="http_user_agent_row">
+            <property name="title" translatable="yes">User-Agent</property>
+            <!-- Add model and other properties as needed -->
+          </object>
+        </child>
+        <child>
           <object class="AdwSwitchRow" id="http_pragma_switch_row">
             <property name="subtitle" translatable="yes">Enable this to send Akamai Pragma headers in your request</property>
             <property name="title" translatable="yes">Akamai Debug Headers</property>
