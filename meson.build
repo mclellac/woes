@@ -31,6 +31,7 @@ dependencies = [
     dependency('glib-2.0', version: '>= 2.80.0'),
     dependency('gtk4', version: '>= 4.14.0'),
     dependency('libadwaita-1', version: '>= 1.6.0'),
+    dependency('gtksourceview-5'),
     # PyGObject dependency will be checked via Python import below
 ]
 
