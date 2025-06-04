@@ -62,9 +62,9 @@ template WoesWindow: Adw.ApplicationWindow {
             // unit: "px"; // unit is not a property of AdwClampScrollable. It's for GtkScale. Assume pixels is default interpretation for maximum-size.
             
             // Assuming HttpPage is a defined template/widget
-            HttpPage {
-              // overflow: hidden;
-            }
+            // HttpPage http_page_inst { // Added ID // Commented out for testing
+            //   // overflow: hidden;
+            // }
           }
         }
       }
@@ -88,9 +88,9 @@ template WoesWindow: Adw.ApplicationWindow {
             vexpand: true; // If the NmapPage itself should expand
             
             // Assuming NmapPage is a defined template/widget
-            NmapPage {
-              vexpand: true;
-            }
+            // NmapPage nmap_page_inst { // Added ID // Commented out for testing
+            //  vexpand: true;
+            // }
           }
         }
       }
@@ -143,11 +143,11 @@ template WoesWindow: Adw.ApplicationWindow {
       // halign: Gtk.Align.baseline_fill; // ViewSwitcherBar typically manages its own alignment.
       stack: stack;
       // reveal: false by default, controlled by breakpoint
-    }; // Added semicolon here, in case this is the cause of L149 error
-  }
+    }
+  }; // Semicolon for content property
 
   Adw.Breakpoint {
-    condition: max-width < 550sp;
+    condition: (max-width: 550px); // Syntax based on Adwaita demo, with px
     // Setter for header_bar.title-widget to be null (empty)
     // Adw.Breakpoint.Setter syntax might be incorrect, blueprint might prefer direct property access
     // For now, commenting out setters to see if Breakpoint itself is accepted

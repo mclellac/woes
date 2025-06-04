@@ -16,16 +16,7 @@ template DNSPage: Adw.PreferencesPage {
       hexpand: true;
       hexpand-set: true;
       icon-name: "preferences-system-network-symbolic";
-      model: Gtk.StringList dns_record_type_list {
-        strings: [
-          "A",
-          "AAAA",
-          "TXT",
-          "CNAME",
-          "MX",
-          "NS",
-        ];
-      };
+      model: Gtk.StringList {};
       selected: 0;
       subtitle-lines: 1;
       title: "Record type";

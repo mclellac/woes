@@ -9,8 +9,7 @@ template WebScanPage: Adw.PreferencesPage {
     Adw.Banner error_banner_webscan {
       button-label: _("Dismiss");
       revealed: false;
-      [signal button-clicked] // Corrected signal syntax
-      handler: "on_error_banner_dismiss_clicked";
+      [signal button-clicked = on_error_banner_dismiss_clicked] // Removed semicolon
     }
   }
 
@@ -30,9 +29,8 @@ template WebScanPage: Adw.PreferencesPage {
         label: _("Start Scan"); // Assuming translatable
         halign: end;
         valign: center;
-        styles: [ "suggested-action" ];
-        [signal clicked] // Corrected signal syntax
-        handler: "on_scan_button_clicked";
+        styles [ "suggested-action" ] // Removed colon
+        [signal clicked = on_scan_button_clicked] // Removed semicolon
       }
     }
   }
@@ -41,7 +39,7 @@ template WebScanPage: Adw.PreferencesPage {
     title: _("Scan Results"); // Assuming translatable
     description: _("Output from the web vulnerability scan will appear here."); // Assuming translatable
 
-    Adw.ScrolledWindow { // Adw.ScrolledWindow is fine, Gtk.ScrolledWindow could also be used if no Adwaita-specific features needed.
+    Gtk.ScrolledWindow { // Changed Adw.ScrolledWindow to Gtk.ScrolledWindow
       min-content-height: 200;
       vexpand: true;
 

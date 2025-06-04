@@ -84,6 +84,8 @@ foreach blp_file_name : blp_files
     input: join_paths(gtk_dir_relative, blp_file_name),
     output: local_ui_file_name,
     command: [
+      'env',
+      'GI_TYPELIB_PATH="/usr/lib/x86_64-linux-gnu/girepository-1.0:/usr/share/gir-1.0"',
       blueprint_compiler,
       'batch-compile',
       join_paths(meson.current_build_dir(), gtk_dir_relative),
