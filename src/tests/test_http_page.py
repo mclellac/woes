@@ -88,35 +88,35 @@ def standalone_fetch_headers_logic(
         error_message = source_object_mock._format_http_error(e)
         safe_error_message = str(error_message)
         g_error = mock_GLib.Error(message=safe_error_message, domain=mock_Gio.io_error_quark(), code=mock_Gio.IOErrorEnum.FAILED)
-        task_mock.return_error(g_error)
+        task_mock.return_gerror(g_error) # Changed to return_gerror
         return
     except requests.exceptions.ConnectionError as e:
         logger.warning("Task thread: ConnectionError for %s: %s", url, e, exc_info=True)
         error_message = "Connection Error: Failed to establish a connection."
         safe_error_message = str(error_message)
         g_error = mock_GLib.Error(message=safe_error_message, domain=mock_Gio.io_error_quark(), code=mock_Gio.IOErrorEnum.FAILED)
-        task_mock.return_error(g_error)
+        task_mock.return_gerror(g_error) # Changed to return_gerror
         return
     except requests.exceptions.Timeout as e:
         logger.warning("Task thread: Timeout for %s: %s", url, e, exc_info=True)
         error_message = "Timeout Error: The request timed out."
         safe_error_message = str(error_message)
         g_error = mock_GLib.Error(message=safe_error_message, domain=mock_Gio.io_error_quark(), code=mock_Gio.IOErrorEnum.FAILED)
-        task_mock.return_error(g_error)
+        task_mock.return_gerror(g_error) # Changed to return_gerror
         return
     except requests.exceptions.RequestException as e:
         logger.error("Task thread: RequestException for %s: %s", url, e, exc_info=True)
         error_message = f"Request Error: {str(e)}"
         safe_error_message = str(error_message)
         g_error = mock_GLib.Error(message=safe_error_message, domain=mock_Gio.io_error_quark(), code=mock_Gio.IOErrorEnum.FAILED)
-        task_mock.return_error(g_error)
+        task_mock.return_gerror(g_error) # Changed to return_gerror
         return
     except Exception as e:
         logger.error("Task thread: Unexpected error for %s: %s", url, e, exc_info=True)
         error_message = f"An unexpected error occurred: {str(e)}"
         safe_error_message = str(error_message)
         g_error = mock_GLib.Error(message=safe_error_message, domain=mock_Gio.io_error_quark(), code=mock_Gio.IOErrorEnum.FAILED)
-        task_mock.return_error(g_error)
+        task_mock.return_gerror(g_error) # Changed to return_gerror
         return
 # --- End Standalone function ---
 
@@ -130,13 +130,11 @@ class TestHttpPageHeaders(unittest.TestCase):
         self.mock_source_object._format_http_error = MagicMock(return_value="Formatted HTTP Error")
 
         # Use the globally mocked Gio/GLib for Task and Cancellable
-        self.mock_task = mock_Gio.Task() # If Task is a class
-        # If Task is a function mock_Gio.Task.return_value = MagicMock()
-        # Ensure it has return_value and return_error methods
+        self.mock_task = MagicMock() # Removed spec for flexibility
         self.mock_task.return_value = MagicMock()
-        self.mock_task.return_error = MagicMock()
+        self.mock_task.return_gerror = MagicMock() # Ensure this is the method called for errors
 
-        self.mock_cancellable = mock_Gio.Cancellable() # If Cancellable is a class
+        self.mock_cancellable = MagicMock() # Removed spec for flexibility
         self.mock_cancellable.is_cancelled.return_value = False
 
 
@@ -246,6 +244,18 @@ class TestHttpPageHeaders(unittest.TestCase):
         self.assertIn("User-Agent", kwargs["headers"])
         self.assertEqual(kwargs["headers"]["User-Agent"], ua_string)
 
+        # Verify task.return_value was called correctly
+        mock_response = mock_requests_get.return_value
+        mock_response.headers = {"Content-Type": "application/json", "X-Test-Header": "TestValue"}
+        # Re-run with this setup to check return_value call
+        mock_requests_get.reset_mock()
+        self.mock_task.reset_mock() # Reset task mocks too
+        standalone_fetch_headers_logic(
+            self.mock_source_object, self.mock_task, self.mock_cancellable
+        )
+        self.mock_task.return_value.assert_called_once_with(dict(mock_response.headers))
+
+
     @patch('requests.get')
     def test_akamai_pragma_headers_added(self, mock_requests_get):
         """Test Akamai Pragma headers are added when use_akamai_pragma is True."""
@@ -259,10 +269,29 @@ class TestHttpPageHeaders(unittest.TestCase):
             self.mock_source_object, self.mock_task, self.mock_cancellable
         )
         mock_requests_get.assert_called_once()
-        args, kwargs = mock_requests_get.call_args
-        self.assertIn("headers", kwargs)
-        self.assertIn("Pragma", kwargs["headers"])
-        self.assertIn("akamai-x-get-request-id", kwargs["headers"]["Pragma"])
+        called_headers = mock_requests_get.call_args.kwargs.get("headers", {})
+        self.assertIn("Pragma", called_headers)
+        self.assertIn("akamai-x-get-request-id", called_headers["Pragma"])
+        self.assertNotIn("Host", called_headers)
+        self.assertNotIn("User-Agent", called_headers)
+
+
+    @patch('requests.get')
+    def test_no_custom_headers_akamai_disabled(self, mock_requests_get):
+        """Test request_headers is empty if no custom headers and Akamai is off."""
+        self.mock_source_object._http_task_data_for_thread = {
+            "url": "http://example.com",
+            "use_akamai_pragma": False,
+            "host_header": None,
+            "user_agent": None,
+        }
+        standalone_fetch_headers_logic(
+            self.mock_source_object, self.mock_task, self.mock_cancellable
+        )
+        mock_requests_get.assert_called_once()
+        called_headers = mock_requests_get.call_args.kwargs.get("headers", {})
+        self.assertEqual(called_headers, {})
+
 
     @patch('requests.get')
     def test_all_headers_added_with_akamai(self, mock_requests_get):
@@ -291,3 +320,101 @@ class TestHttpPageHeaders(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+    # --- Tests for Error Handling ---
+    @patch('requests.get')
+    def test_http_error_handling(self, mock_requests_get):
+        """Test handling of requests.exceptions.HTTPError."""
+        mock_response = MagicMock()
+        mock_response.status_code = 404
+        mock_response.reason = "Not Found"
+        http_error = requests.exceptions.HTTPError(response=mock_response)
+        mock_requests_get.side_effect = http_error
+
+        self.mock_source_object._http_task_data_for_thread = {
+            "url": "http://example.com/notfound",
+            "use_akamai_pragma": False, "host_header": None, "user_agent": None
+        }
+        # Specific mock for _format_http_error for this test
+        self.mock_source_object._format_http_error.return_value = "Error 404: Not Found"
+
+        standalone_fetch_headers_logic(
+            self.mock_source_object, self.mock_task, self.mock_cancellable
+        )
+
+        self.mock_task.return_gerror.assert_called_once()
+        g_error_arg = self.mock_task.return_gerror.call_args[0][0]
+        self.assertEqual(g_error_arg.message, "Error 404: Not Found")
+        self.assertEqual(g_error_arg.domain, mock_Gio.io_error_quark())
+        self.assertEqual(g_error_arg.code, mock_Gio.IOErrorEnum.FAILED)
+        self.mock_source_object._format_http_error.assert_called_once_with(http_error)
+
+
+    @patch('requests.get')
+    def test_connection_error_handling(self, mock_requests_get):
+        """Test handling of requests.exceptions.ConnectionError."""
+        mock_requests_get.side_effect = requests.exceptions.ConnectionError("Failed to connect")
+
+        self.mock_source_object._http_task_data_for_thread = {
+            "url": "http://example.com",
+            "use_akamai_pragma": False, "host_header": None, "user_agent": None
+        }
+        standalone_fetch_headers_logic(
+            self.mock_source_object, self.mock_task, self.mock_cancellable
+        )
+        self.mock_task.return_gerror.assert_called_once()
+        g_error_arg = self.mock_task.return_gerror.call_args[0][0]
+        self.assertEqual(g_error_arg.message, "Connection Error: Failed to establish a connection.")
+
+
+    @patch('requests.get')
+    def test_timeout_error_handling(self, mock_requests_get):
+        """Test handling of requests.exceptions.Timeout."""
+        mock_requests_get.side_effect = requests.exceptions.Timeout("Request timed out")
+
+        self.mock_source_object._http_task_data_for_thread = {
+            "url": "http://example.com",
+            "use_akamai_pragma": False, "host_header": None, "user_agent": None
+        }
+        standalone_fetch_headers_logic(
+            self.mock_source_object, self.mock_task, self.mock_cancellable
+        )
+        self.mock_task.return_gerror.assert_called_once()
+        g_error_arg = self.mock_task.return_gerror.call_args[0][0]
+        self.assertEqual(g_error_arg.message, "Timeout Error: The request timed out.")
+
+
+    @patch('requests.get')
+    def test_generic_request_exception_handling(self, mock_requests_get):
+        """Test handling of a generic requests.exceptions.RequestException."""
+        custom_error_msg = "A custom request error"
+        mock_requests_get.side_effect = requests.exceptions.RequestException(custom_error_msg)
+
+        self.mock_source_object._http_task_data_for_thread = {
+            "url": "http://example.com",
+            "use_akamai_pragma": False, "host_header": None, "user_agent": None
+        }
+        standalone_fetch_headers_logic(
+            self.mock_source_object, self.mock_task, self.mock_cancellable
+        )
+        self.mock_task.return_gerror.assert_called_once()
+        g_error_arg = self.mock_task.return_gerror.call_args[0][0]
+        self.assertEqual(g_error_arg.message, f"Request Error: {custom_error_msg}")
+
+    @patch('requests.get')
+    def test_other_exception_handling(self, mock_requests_get):
+        """Test handling of a non-requests general Exception."""
+        custom_error_msg = "Something broke unexpectedly"
+        mock_requests_get.side_effect = Exception(custom_error_msg)
+
+        self.mock_source_object._http_task_data_for_thread = {
+            "url": "http://example.com",
+            "use_akamai_pragma": False, "host_header": None, "user_agent": None
+        }
+        standalone_fetch_headers_logic(
+            self.mock_source_object, self.mock_task, self.mock_cancellable
+        )
+        self.mock_task.return_gerror.assert_called_once()
+        g_error_arg = self.mock_task.return_gerror.call_args[0][0]
+        self.assertEqual(g_error_arg.message, f"An unexpected error occurred: {custom_error_msg}")
