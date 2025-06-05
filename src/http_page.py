@@ -170,7 +170,7 @@ class HttpPage(Adw.PreferencesPage):
             error_message = self._format_http_error(e)
             safe_error_message = str(error_message)
             g_error = GLib.Error(message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED)
-            task.return_gerror(g_error)
+            task.return_error(g_error)
             return
         except requests.exceptions.ConnectionError as e:
             logger.warning("Task thread: ConnectionError for %s: %s", url, e, exc_info=True)
