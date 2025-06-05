@@ -588,13 +588,29 @@ def _create_mock_response(url, status_code, headers, history_list=None):
         self.assertEqual(len(processed_items), expected_len)
 
         # R1
-        self.assertTrue(processed_items[0].is_special_row); self.assertEqual(processed_items[0].key, f"URL: {r1_url}"); self.assertEqual(processed_items[0].value, f"Status: {r1_stat} (Redirect)");
-        idx = 1; for k,v in r1_hdrs.items(): self.assertFalse(processed_items[idx].is_special_row); self.assertEqual(processed_items[idx].key,k); self.assertEqual(processed_items[idx].value,v); idx+=1
+        self.assertTrue(processed_items[0].is_special_row)
+        self.assertEqual(processed_items[0].key, f"URL: {r1_url}")
+        self.assertEqual(processed_items[0].value, f"Status: {r1_stat} (Redirect)")
+        idx = 1
+        for k, v in r1_hdrs.items():
+            self.assertFalse(processed_items[idx].is_special_row)
+            self.assertEqual(processed_items[idx].key, k)
+            self.assertEqual(processed_items[idx].value, v)
+            idx += 1
         # Spacer
-        self.assertTrue(processed_items[idx].is_special_row); self.assertEqual(processed_items[idx].key, ""); idx+=1
+        self.assertTrue(processed_items[idx].is_special_row)
+        self.assertEqual(processed_items[idx].key, "")
+        idx += 1
         # Final
-        self.assertTrue(processed_items[idx].is_special_row); self.assertEqual(processed_items[idx].key, f"URL: {final_url}"); self.assertEqual(processed_items[idx].value, f"Status: {final_stat} (Final)"); idx+=1
-        for k,v in final_hdrs.items(): self.assertFalse(processed_items[idx].is_special_row); self.assertEqual(processed_items[idx].key,k); self.assertEqual(processed_items[idx].value,v); idx+=1
+        self.assertTrue(processed_items[idx].is_special_row)
+        self.assertEqual(processed_items[idx].key, f"URL: {final_url}")
+        self.assertEqual(processed_items[idx].value, f"Status: {final_stat} (Final)")
+        idx += 1
+        for k, v in final_hdrs.items():
+            self.assertFalse(processed_items[idx].is_special_row)
+            self.assertEqual(processed_items[idx].key, k)
+            self.assertEqual(processed_items[idx].value, v)
+            idx += 1
 
     @patch('src.http_page.requests.get')
     def test_fetch_headers_multiple_redirects(self, mock_requests_get):

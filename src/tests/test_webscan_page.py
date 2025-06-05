@@ -93,9 +93,10 @@ class TestWebScanPage(unittest.TestCase):
 
                 # Check that results_textview contains the error (due to fallback in show_error_toast)
                 final_text_buffer = self.page.results_textview.get_buffer()
-                final_text = final_text_buffer.get_text(final_text_buffer.get_start_iter(), final_text_buffer.get_end_iter(), False)
+                start_iter = final_text_buffer.get_start_iter()
+                end_iter = final_text_buffer.get_end_iter()
+                final_text = final_text_buffer.get_text(start_iter, end_iter, False)
                 self.assertIn("ERROR: Target URL cannot be empty.", final_text)
-
 
     @patch('webscan_page.subprocess.Popen')
     def test_04_scan_button_triggers_nikto(self, mock_popen_class):

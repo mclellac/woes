@@ -1,5 +1,5 @@
 import sys
-import os # Added for path manipulation
+import os  # Added for path manipulation
 import logging
 
 # Ultra-early logging setup
@@ -20,9 +20,10 @@ early_logger.setLevel(logging.DEBUG)
 if not logging.getLogger().hasHandlers():
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(logging.Formatter('%(levelname)s:%(name)s:%(message)s'))
-    logging.getLogger().addHandler(console_handler) # Add to root to catch all
+    logging.getLogger().addHandler(console_handler)  # Add to root to catch all
     # Or add specifically to early_logger if preferred: early_logger.addHandler(console_handler)
 early_logger.info("src/main.py: Script execution started (early_logger)")
+
 
 import gi
 
@@ -32,7 +33,8 @@ gi.require_version("Adw", "1")
 
 # Import GUI related modules here
 from gi.repository import Adw, Gio, GLib  # Added GLib for OptionArg/OptionFlags
-from .constants import APP_ID, VERSION, RESOURCE_PREFIX, PKGDATADIR # Import PKGDATADIR
+from .constants import APP_ID, VERSION, RESOURCE_PREFIX, PKGDATADIR  # Import PKGDATADIR
+
 
 def _load_gresources_early():
     """Loads GResources and logs detailed information."""
@@ -42,13 +44,16 @@ def _load_gresources_early():
     # Create a temporary log file for GResource loading details
     temp_log_file_path_detail = "/tmp/gresource_debug_detail.log"
     with open(temp_log_file_path_detail, "w") as temp_log_detail:
-        temp_log_detail.write(f"Attempting _load_gresources_early()\n")
+        temp_log_detail.write("Attempting _load_gresources_early()\n")
         temp_log_detail.write(f"PKGDATADIR: {PKGDATADIR}\n")
         temp_log_detail.write(f"RESOURCE_PREFIX: {RESOURCE_PREFIX}\n")
         temp_log_detail.write(f"Resource file path: {resource_file_path}\n")
         temp_log_detail.write(f"Resource file exists: {os.path.exists(resource_file_path)}\n")
 
-        logging.info(f"Attempting to load GResource file from: {resource_file_path} (derived from PKGDATADIR: {PKGDATADIR})")
+        logging.info(
+            f"Attempting to load GResource file from: {resource_file_path} "
+            f"(derived from PKGDATADIR: {PKGDATADIR})"
+        )
         try:
             if os.path.exists(resource_file_path):
                 resource = Gio.Resource.load(resource_file_path)
@@ -70,23 +75,37 @@ def _load_gresources_early():
                     logging.debug(f"Available resources under {RESOURCE_PREFIX}: {available_resources}")
                     temp_log_detail.write(f"Available resources under {RESOURCE_PREFIX}: {available_resources}\n")
                     if not available_resources:
-                        logging.warning(f"No resources found under prefix {RESOURCE_PREFIX} after loading {resource_file_path}.")
-                        temp_log_detail.write(f"No resources found under prefix {RESOURCE_PREFIX} after loading {resource_file_path}.\n")
+                        logging.warning(
+                            f"No resources found under prefix {RESOURCE_PREFIX} "
+                            f"after loading {resource_file_path}."
+                        )
+                        temp_log_detail.write(
+                            f"No resources found under prefix {RESOURCE_PREFIX} "
+                            f"after loading {resource_file_path}.\n"
+                        )
                 else:
                     logging.error(f"Gio.Resource.load() returned None for {resource_file_path}.")
                     temp_log_detail.write(f"Gio.Resource.load() returned None for {resource_file_path}.\n")
             else:
-                logging.error(f"GResource file not found at {resource_file_path} (derived from PKGDATADIR: {PKGDATADIR}).")
+                logging.error(
+                    f"GResource file not found at {resource_file_path} "
+                    f"(derived from PKGDATADIR: {PKGDATADIR})."
+                )
                 temp_log_detail.write(f"GResource file not found at {resource_file_path}.\n")
         except GLib.Error as e:
-            logging.error(f"Error loading or registering GResource {resource_file_path}: {e}. Check if the file is a valid GResource bundle.", exc_info=True)
+            logging.error(
+                f"Error loading or registering GResource {resource_file_path}: {e}. "
+                "Check if the file is a valid GResource bundle.", exc_info=True
+            )
             temp_log_detail.write(f"GLib.Error during GResource loading: {e}\n")
         except Exception as e:
             logging.error(f"An unexpected error occurred during GResource loading: {e}", exc_info=True)
             temp_log_detail.write(f"Unexpected error during GResource loading: {e}\n")
 
+
 # Call GResource loading very early
 _load_gresources_early()
+
 
 # Now import other local modules that might use Gtk.Template
 from .preferences import Preferences
@@ -134,6 +153,7 @@ class WoesApplication(Adw.Application):
         self.create_action("switch-to-dns", self.switch_to_dns, ["<primary>3"])  # Added
         self.create_action("switch-to-webscan", self.switch_to_webscan, ["<primary>4"])  # Added
 
+
     def do_handle_local_options(self, options):
         logging.debug("WoesApplication.do_handle_local_options: Entered with options: %s", options)
         # This method is called after options are parsed
@@ -155,9 +175,10 @@ class WoesApplication(Adw.Application):
     def do_command_line(self, options):
         """Overrides the do_command_line virtual method."""
         logging.debug("WoesApplication.do_command_line: Entered with options: %s", options)
-        self.do_handle_local_options(options.get_options_dict()) # Ensure options are passed correctly
+        self.do_handle_local_options(options.get_options_dict())  # Ensure options are passed correctly
         self.activate()
         return 0
+
 
     def do_activate(self):
         """Called when the application is activated.
@@ -171,17 +192,17 @@ class WoesApplication(Adw.Application):
             try:
                 win = WoesWindow(application=self)  # Changed to WoesWindow
                 logging.debug("WoesApplication.do_activate: WoesWindow created.")
-            except Exception as e:
+            except Exception:  # F841: local variable 'e' is assigned to but never used
                 logging.exception("WoesApplication.do_activate: Error creating WoesWindow instance")
                 # Exit or handle critical failure, as the app cannot run without a window
                 sys.exit(1)
 
-        if win: # Ensure win is not None if creation failed
+        if win:  # Ensure win is not None if creation failed
             logging.debug("WoesApplication.do_activate: Calling win.present()...")
             try:
                 win.present()
                 logging.debug("WoesApplication.do_activate: win.present() called.")
-            except Exception as e:
+            except Exception:  # F841: local variable 'e' is assigned to but never used
                 logging.exception("WoesApplication.do_activate: Error during win.present()")
             self.win = win
         else:
@@ -247,7 +268,7 @@ class WoesApplication(Adw.Application):
 def main(version=VERSION):
     """The application's entry point."""
     # Simplified temp log write, as one of the very first actions in main()
-    temp_log_file_path = "/tmp/gresource_debug_entry.log" # This specific log is less critical now
+    temp_log_file_path = "/tmp/gresource_debug_entry.log"  # This specific log is less critical now
     try:
         with open(temp_log_file_path, "w") as temp_log:
             temp_log.write("main() function in src/main.py has been entered.\n")

@@ -3,7 +3,7 @@ import logging
 import gi
 gi.require_version('Adw', '1')
 gi.require_version('Gtk', '4.0')
-from gi.repository import Adw, Gdk, Gio, Gtk, GLib # Added GLib for load_css exception
+from gi.repository import Adw, Gdk, Gio, Gtk, GLib
 
 # Import pages for Gtk.Template type registration, aliasing to avoid direct use conflicts
 from .dns_page import DNSPage as _DNSPage_
@@ -66,10 +66,6 @@ class WoesWindow(Adw.ApplicationWindow):
             logging.exception("WoesWindow.setup_ui: Error during self.apply_preferences()")
         logging.debug("WoesWindow.setup_ui: apply_preferences finished.")
 
-        # logging.debug("WoesWindow.setup_ui: Attempting to explicitly set switcher_title.stack")
-        # self.switcher_title.props.stack = self.stack
-        # logging.debug(f"WoesWindow.setup_ui: switcher_title.stack explicitly set to {self.switcher_title.props.stack}")
-
         if self.switcher_title and self.stack:
             logging.debug("WoesWindow.setup_ui: Connecting switcher_title signal...")
             try:
@@ -108,18 +104,17 @@ class WoesWindow(Adw.ApplicationWindow):
                 style_provider,
                 Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
             )
-            # logging.debug(f"Loaded CSS from {css_path}") # Already logged path, this is redundant
-        except GLib.Error as e: # More specific error
+        except GLib.Error as e:
             logging.error(f"Failed to load CSS resource from {css_path}: {e}")
-        except Exception as e: # General fallback
+        except Exception as e:
             logging.error(f"An unexpected error of type {type(e).__name__} occurred while loading CSS from {css_path}: {e}")
         logging.debug("WoesWindow.load_css: Finished")
 
     def reload_css(self):
-        logging.debug("WoesWindow.reload_css: Starting") # Added log
+        logging.debug("WoesWindow.reload_css: Starting")
         logging.debug("Reloading CSS based on theme preference.")
         self.load_css()
-        logging.debug("WoesWindow.reload_css: Finished") # Added log
+        logging.debug("WoesWindow.reload_css: Finished")
 
     def apply_preferences(self):
         logging.debug("WoesWindow.apply_preferences: Starting")
@@ -131,14 +126,14 @@ class WoesWindow(Adw.ApplicationWindow):
 
             apply_font_size(self.settings, font_size)
             apply_theme(self.style_manager, dark_theme_enabled)
-        except GLib.Error as e: # More specific error
+        except GLib.Error as e:
             logging.error(f"Error applying preferences (GSettings): {e}")
-        except Exception as e: # General fallback
+        except Exception as e:
             logging.error(f"An unexpected error of type {type(e).__name__} occurred while applying preferences: {e}")
         logging.debug("WoesWindow.apply_preferences: Finished")
 
-    def on_page_switched(self, _widget, _gparam): # Prefixed unused arguments
-        logging.debug("WoesWindow.on_page_switched: Starting") # Added log
+    def on_page_switched(self, _widget, _gparam):
+        logging.debug("WoesWindow.on_page_switched: Starting")
         selected_page = self.stack.get_visible_child()
         logging.debug(f"Switched to page: {selected_page}")
-        logging.debug("WoesWindow.on_page_switched: Finished") # Added log
+        logging.debug("WoesWindow.on_page_switched: Finished")
