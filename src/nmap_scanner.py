@@ -98,7 +98,10 @@ class NmapScanner:
         target: str,
         os_fingerprinting: bool,
         scan_all_ports: bool,
-        selected_script: str,
+        selected_script: str = None, # Modified to match nmap_page.py call
+        service_version: bool = False,
+        no_ping: bool = False,
+        timing_template: str = "T3"
     ) -> nmap.PortScanner:
         """
         Executes an Nmap scan against the specified target with the given options.
@@ -116,17 +119,34 @@ class NmapScanner:
             nmap.PortScannerError: If Nmap encounters an error during the scan.
             Exception: For other unexpected errors during the scan process.
         """
-        nmap_options = self.build_nmap_options(
-            os_fingerprinting, scan_all_ports, selected_script
-        )
-        logging.debug(
-            "Running Nmap scan for target: %s with options: %s",
-            target,
-            nmap_options
-        )
+        arguments = []
+        # Base scan type: Default to TCP SYN scan (-sS) if user has root privileges,
+        # otherwise nmap falls back to TCP Connect scan (-sT).
+        # We can explicitly set -sS, nmap handles privilege check.
+        arguments.append("-sS")
+
+        if os_fingerprinting:
+            arguments.append("-O") # OS Detection
+        if service_version:
+            arguments.append("-sV") # Service Version Detection
+        if scan_all_ports: # Renamed from all_ports to match existing param name
+            arguments.append("-p-")
+        if selected_script and selected_script != "None": # Ensure "None" from dropdown isn't treated as a script
+            arguments.append(f"--script={selected_script}")
+        if no_ping:
+            arguments.append("-Pn")
+
+        if timing_template and re.match(r"^T[0-5]$", timing_template):
+            arguments.append(f"-{timing_template}") # Nmap expects -T4
+        else:
+            arguments.append("-T3") # Default timing
+
+        arguments_str = " ".join(arguments)
+        logging.info("Nmap arguments for target '%s': %s", target, arguments_str)
+
         try:
-            nm = nmap.PortScanner()
-            nm.scan(hosts=target, arguments=nmap_options)
+            nm = nmap.PortScanner() # Local instance, not self.nm
+            nm.scan(hosts=target, arguments=arguments_str)
             logging.debug("Nmap scan completed with results: %s", nm.all_hosts())
             return nm
         except nmap.PortScannerError as e:
