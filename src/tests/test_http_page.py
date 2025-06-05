@@ -245,36 +245,50 @@ class TestHttpPage(unittest.TestCase):
 
     @patch('src.http_page.requests.get')
     def test_https_connection_refused_error_handling(self, mock_requests_get):
-        # 1. Configure the mock to raise a ConnectionError simulating 'Connection refused' on HTTPS
-        #    This structure mimics requests.exceptions.ConnectionError -> MaxRetryError -> NewConnectionError
+        # 1. Configure the mock to raise a ConnectionError simulating 'Connection refused' on HTTPS,
+        #    matching a typical traceback structure.
         from requests.packages.urllib3.exceptions import MaxRetryError, NewConnectionError
 
-        # The innermost error message should contain "[Errno 111] Connection refused"
-        # A more complete example message from urllib3:
-        # "<urllib3.connection.HTTPSConnection object at 0x...>: Failed to establish a new connection: [Errno 111] Connection refused"
-        # For the test, just having the key part is enough.
-        connection_refused_msg = "Failed to establish a new connection: [Errno 111] Connection refused"
+        # Define parts of the URL for consistency in the mock error messages
+        mock_url_host = "example.com"
+        mock_url_path = "/some/path/for/test"
+        full_mock_url = f"https://{mock_url_host}{mock_url_path}"
 
-        # Create the nested exception structure
-        # Inner-most error
-        new_conn_error = NewConnectionError(
-            None,  # pool argument (can be None for test purposes)
-            reason=connection_refused_msg
+        # Inner-most error message part we are searching for
+        inner_refused_msg_fragment = "[Errno 111] Connection refused"
+
+        # Construct NewConnectionError:
+        # The message typically includes a representation of the connection object and the OS error.
+        new_conn_error_message = (
+            f"<requests.packages.urllib3.connection.HTTPSConnection object at 0xmockaddress>: "
+            f"Failed to establish a new connection: {inner_refused_msg_fragment}"
         )
-        # For newer urllib3, original_error might be set. Let's simulate that too for completeness,
-        # although the string check in new_conn_error.args[0] (implicitly checked by str(new_conn_error))
-        # or original_error.errno would be primary.
-        # The actual ConnectionRefusedError class is a built-in.
-        # new_conn_error.original_error = ConnectionRefusedError("[Errno 111] Connection refused")
+        # The NewConnectionError usually takes the pool and the message string as positional args.
+        # For testing, the pool can be None.
+        new_conn_error = NewConnectionError(None, new_conn_error_message)
+        # Optionally, to simulate newer urllib3 that might carry the original ConnectionRefusedError:
+        # new_conn_error.original_error = ConnectionRefusedError(inner_refused_msg_fragment)
 
 
-        # Middle error
+        # Construct MaxRetryError:
+        # This error wraps the NewConnectionError as its 'reason'.
+        # Its message includes the pool details (host, port) and the requested URL/path.
+        max_retry_error_message = (
+            f"HTTPSConnectionPool(host='{mock_url_host}', port=443): "
+            f"Max retries exceeded with url: {mock_url_path} (Caused by {new_conn_error!r})"
+        )
         max_retry_error = MaxRetryError(
-            None, # pool argument
-            "https://example.com", # url argument
-            reason=new_conn_error
+            pool=None, # Mock pool or None
+            url=mock_url_path, # The path part of the URL
+            reason=new_conn_error # The NewConnectionError instance
         )
-        # Outer error raised by requests.get
+        # Manually set args to match how requests might construct it if its __str__ is just the message.
+        # Or rely on its default __str__ if it includes the reason.
+        # For this test, ensuring the NewConnectionError is the 'reason' is key.
+
+        # Construct ConnectionError (from requests.exceptions):
+        # This is the top-level exception, and it wraps the MaxRetryError.
+        # Its args[0] will be the max_retry_error.
         connection_error = requests.exceptions.ConnectionError(max_retry_error)
         mock_requests_get.side_effect = connection_error
 
@@ -282,7 +296,7 @@ class TestHttpPage(unittest.TestCase):
 
         # Configure mocks for UI elements accessed in _on_entry_row_activated and callback
         page.http_entry_row = MagicMock(spec=MockAdw.EntryRow)
-        page.http_entry_row.get_text.return_value = "https://example.com" # HTTPS URL
+        page.http_entry_row.get_text.return_value = full_mock_url # Use the same URL for consistency
         page.http_entry_row.get_sensitive.return_value = True
         page.http_entry_row.set_sensitive = MagicMock()
         page.http_entry_row.add_css_class = MagicMock()
@@ -342,6 +356,75 @@ class TestHttpPage(unittest.TestCase):
         # Verify domain and code of the GLib.Error
         self.assertEqual(error_arg.domain, MockGio.io_error_quark.return_value)
         self.assertEqual(error_arg.code, MockGio.IOErrorEnum.FAILED) # Mocked to 1
+        self.assertIsInstance(error_arg.code, int) # Explicitly check type of code
+
+    @patch('src.http_page.requests.get')
+    def test_http_request_to_https_only_service(self, mock_requests_get):
+        # 1. Simulate an http:// URL and a ConnectionRefusedError
+        from requests.packages.urllib3.exceptions import MaxRetryError, NewConnectionError
+
+        connection_refused_msg = "Failed to establish a new connection: [Errno 111] Connection refused"
+        new_conn_error = NewConnectionError(None, reason=connection_refused_msg)
+        max_retry_error = MaxRetryError(None, "http://example-https-only.com", reason=new_conn_error) # HTTP URL
+        connection_error = requests.exceptions.ConnectionError(max_retry_error)
+        mock_requests_get.side_effect = connection_error
+
+        page = self.page
+
+        # Configure mocks for UI elements
+        page.http_entry_row = MagicMock(spec=MockAdw.EntryRow)
+        page.http_entry_row.get_text.return_value = "http://example-https-only.com" # HTTP URL
+        page.http_entry_row.get_sensitive.return_value = True
+        page.http_entry_row.set_sensitive = MagicMock()
+        page.http_entry_row.add_css_class = MagicMock()
+        page.http_entry_row.remove_css_class = MagicMock()
+
+        page.http_user_agent_row = MagicMock(spec=MockAdw.ComboRow)
+        page.http_user_agent_row.get_selected.return_value = 0
+        page.http_host_header_row = MagicMock(spec=MockAdw.EntryRow)
+        page.http_host_header_row.get_text.return_value = ""
+        page.http_pragma_switch_row = MagicMock(spec=MockAdw.SwitchRow)
+        page.http_pragma_switch_row.get_active.return_value = False
+
+        page.error_banner = MagicMock(spec=MockAdw.Banner)
+        page.error_banner.set_revealed = MagicMock()
+        page.error_banner.set_title = MagicMock()
+
+        page.http_results_group = MagicMock(spec=MockGtk.Box)
+        page.http_results_group.set_visible = MagicMock()
+        if not hasattr(page.header_list_store, 'remove_all'):
+             page.header_list_store.remove_all = MagicMock()
+
+        # Setup task behavior for error propagation
+        def mock_propagate_value_based_on_return_error(*args, **kwargs):
+            if self.mock_task_instance.return_error.call_args:
+                g_error_instance = self.mock_task_instance.return_error.call_args[0][0]
+                raise g_error_instance
+            return MagicMock()
+
+        self.mock_task_instance.propagate_value = MagicMock(side_effect=mock_propagate_value_based_on_return_error)
+        self.mock_task_instance.return_error = MagicMock()
+
+        # 2. Simulate activating the entry row
+        # Note: _ensure_scheme will NOT change http:// to https:// if http is already present
+        page._on_entry_row_activated(page.http_entry_row)
+
+        # 3. Assertions
+        expected_message = "The HTTP request failed. The server might only support HTTPS for this resource. Please try with 'https://'."
+
+        page.error_banner.set_revealed.assert_called_with(True)
+        page.error_banner.set_title.assert_called_once_with(expected_message)
+
+        self.assertIsNone(page.current_http_task)
+        page.http_entry_row.set_sensitive.assert_called_with(True)
+        page.http_entry_row.add_css_class.assert_called_with("error")
+
+        self.mock_task_instance.return_error.assert_called_once()
+        error_arg = self.mock_task_instance.return_error.call_args[0][0]
+        self.assertIsInstance(error_arg, MockGLibErrorForTest)
+        self.assertEqual(error_arg.message, expected_message)
+        self.assertEqual(error_arg.domain, MockGio.io_error_quark.return_value)
+        self.assertEqual(error_arg.code, MockGio.IOErrorEnum.FAILED)
 
     def test_clear_results_button_functionality(self):
         page = self.page # Instantiated in setUp

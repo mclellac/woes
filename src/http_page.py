@@ -199,12 +199,16 @@ class HttpPage(Adw.PreferencesPage):
             return
         except requests.exceptions.ConnectionError as e:
             logger.warning("Task thread: ConnectionError for %s: %s", url, e, exc_info=True)
-            if self._is_https_connection_refused(e, url):
-                error_message = "The URL targetted via HTTPS is refusing the connection. It might be an HTTP-only service. Please try with 'http://'."
+            custom_msg = self._get_detailed_connection_error_message(e, url)
+            if custom_msg:
+                error_message = custom_msg
             else:
-                error_message = "Connection Error: Failed to establish a connection."
+                # Generic fallback, but try to get a bit more from the top-level error if possible
+                error_message = f"Connection Error: {str(e)}"
+                if not str(e): # Handle cases where str(e) might be empty
+                     error_message = "Connection Error: Failed to establish a connection."
 
-            safe_error_message = str(error_message)
+            safe_error_message = str(error_message) # Ensure it's a string
             g_error = GLib.Error(message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED.value)
             task.return_error(g_error)
             return
@@ -231,60 +235,118 @@ class HttpPage(Adw.PreferencesPage):
             return
 
 
-    def _is_https_connection_refused(self, exc: requests.exceptions.ConnectionError, url: str) -> bool:
+    def _get_detailed_connection_error_message(self, exc: Exception, url: str) -> Optional[str]:
         """
-        Inspects a ConnectionError to determine if it's due to a "Connection refused"
-        specifically for an HTTPS URL.
+        Traverses an exception chain to find a "Connection refused" error
+        and returns a specific message if it's for an HTTPS URL.
+        Otherwise, returns None.
         """
-        if urlparse(url).scheme != 'https':
-            return False
-
         current_exc = exc
-        # It's common for requests to wrap the original error a few times.
-        # We'll look up to a certain depth for known patterns.
-        for _ in range(3): # Check a few levels of wrapping
-            # Pattern 1: requests.exceptions.ConnectionError -> urllib3.exceptions.MaxRetryError -> urllib3.exceptions.NewConnectionError
-            if isinstance(current_exc, requests.exceptions.ConnectionError) or \
-               isinstance(current_exc, urllib3_exceptions.MaxRetryError):
-                cause = current_exc.args[0] if current_exc.args else None
+        found_connection_refused = False
+        max_depth = 5  # Limit traversal depth
 
-                if isinstance(cause, urllib3_exceptions.NewConnectionError):
-                    # Check reason.args[0] (older urllib3)
-                    if cause.args and isinstance(cause.args[0], str):
-                        msg = cause.args[0].lower()
-                        if "connection refused" in msg or "errno 111" in msg:
-                            logger.debug("Connection refused detected in NewConnectionError args: %s", cause.args[0])
-                            return True
+        logger.debug("Starting connection error analysis for URL: %s", url)
 
-                    # Check original_error (newer urllib3 >= 1.26)
-                    if hasattr(cause, 'original_error') and isinstance(cause.original_error, ConnectionRefusedError):
-                        logger.debug("ConnectionRefusedError detected via original_error attribute.")
-                        return True
-                    # Sometimes original_error might be a plain socket.error with errno
-                    if hasattr(cause, 'original_error') and hasattr(cause.original_error, 'errno'):
-                        if cause.original_error.errno == 111: # errno.ECONNREFUSED
-                             logger.debug("Connection refused detected via original_error.errno == 111.")
-                             return True
-                    current_exc = cause # Continue to inspect the cause
-                    continue
+        for depth in range(max_depth):
+            if current_exc is None:
+                logger.debug("Reached end of exception chain (current_exc is None) at depth %d.", depth)
+                break
 
-                # Pattern 2: Direct ConnectionRefusedError (less common under requests.ConnectionError but possible)
-                # Note: ConnectionRefusedError itself is an OSError subclass.
-                if isinstance(cause, ConnectionRefusedError): # Built-in ConnectionRefusedError
-                    logger.debug("Direct ConnectionRefusedError found as cause.")
-                    return True
+            exc_type_name = type(current_exc).__name__
+            exc_args_str = str(current_exc.args) if hasattr(current_exc, 'args') else "N/A"
+            exc_str = str(current_exc)
 
-                current_exc = cause # Move to the next level of cause
+            logger.debug("Inspecting exception at depth %d: Type=%s, Args=%s, Str=%s",
+                         depth, exc_type_name, exc_args_str, exc_str)
 
-            elif isinstance(current_exc, ConnectionRefusedError): # If the top-level exception was already it
-                logger.debug("Top-level exception is ConnectionRefusedError.")
-                return True
+            # Check for ConnectionRefusedError explicitly
+            if isinstance(current_exc, ConnectionRefusedError):
+                logger.debug("Direct ConnectionRefusedError found: %s", current_exc)
+                found_connection_refused = True
+                break # Found the most specific type
 
-            else:
-                break # Not a recognized intermediate exception type to unwrap further
+            # Check for urllib3.exceptions common in requests
+            if isinstance(current_exc, urllib3_exceptions.NewConnectionError):
+                logger.debug("urllib3.exceptions.NewConnectionError found: %s", current_exc)
+                # This exception's string representation often includes the OS error like "[Errno 111] Connection refused"
+                if "connection refused" in exc_str.lower() or "errno 111" in exc_str.lower():
+                    found_connection_refused = True
+                    break
+                # Also check original_error if present (newer urllib3)
+                if hasattr(current_exc, 'original_error') and isinstance(current_exc.original_error, ConnectionRefusedError):
+                    logger.debug("Nested ConnectionRefusedError found in NewConnectionError.original_error")
+                    found_connection_refused = True
+                    break
+                if hasattr(current_exc, 'original_error') and hasattr(current_exc.original_error, 'errno') and current_exc.original_error.errno == 111:
+                    logger.debug("Nested ConnectionRefusedError (errno 111) found in NewConnectionError.original_error")
+                    found_connection_refused = True
+                    break
 
-        logger.debug("Connection refused not conclusively detected for HTTPS URL.")
-        return False
+
+            if isinstance(current_exc, urllib3_exceptions.MaxRetryError):
+                logger.debug("urllib3.exceptions.MaxRetryError found. Will inspect its reason.")
+                # MaxRetryError's reason is often NewConnectionError
+                if hasattr(current_exc, 'reason') and current_exc.reason is not None:
+                    # Temporarily recurse on the reason without advancing general cause/context chain
+                    # This is a bit of a special case for MaxRetryError
+                    reason_exc = current_exc.reason
+                    reason_exc_type_name = type(reason_exc).__name__
+                    reason_exc_str = str(reason_exc)
+                    logger.debug("Inspecting MaxRetryError.reason: Type=%s, Str=%s", reason_exc_type_name, reason_exc_str)
+                    if isinstance(reason_exc, urllib3_exceptions.NewConnectionError):
+                         if "connection refused" in reason_exc_str.lower() or "errno 111" in reason_exc_str.lower():
+                            found_connection_refused = True
+                            break
+                         if hasattr(reason_exc, 'original_error') and isinstance(reason_exc.original_error, ConnectionRefusedError):
+                             found_connection_refused = True
+                             break
+                         if hasattr(reason_exc, 'original_error') and hasattr(reason_exc.original_error, 'errno') and reason_exc.original_error.errno == 111:
+                             found_connection_refused = True
+                             break
+
+
+            # General check for string messages in args or str(exc)
+            # This is a broader, less precise check
+            if any("connection refused" in str(arg).lower() for arg in current_exc.args if isinstance(arg, str)) or \
+               "connection refused" in exc_str.lower():
+                logger.debug("Found 'connection refused' in string representation of current exception or its args.")
+                found_connection_refused = True
+                # Don't break here if we want to find more specific types like ConnectionRefusedError itself
+
+            if any("errno 111" in str(arg).lower() for arg in current_exc.args if isinstance(arg, str)) or \
+               "errno 111" in exc_str.lower():
+                logger.debug("Found 'errno 111' in string representation of current exception or its args.")
+                found_connection_refused = True
+                # Don't break here
+
+            # Move to the next exception in the chain
+            next_exc = None
+            if hasattr(current_exc, '__cause__') and current_exc.__cause__ is not None:
+                logger.debug("Moving to __cause__: %s", type(current_exc.__cause__).__name__)
+                next_exc = current_exc.__cause__
+            elif hasattr(current_exc, '__context__') and current_exc.__context__ is not None and not current_exc.__suppress_context__:
+                logger.debug("Moving to __context__: %s", type(current_exc.__context__).__name__)
+                next_exc = current_exc.__context__
+
+            if current_exc is next_exc: # Avoid infinite loop on self-referential cause/context
+                logger.debug("Next exception is same as current, stopping traversal.")
+                break
+            current_exc = next_exc
+
+        if found_connection_refused:
+            logger.info("Connection refused condition identified for URL: %s", url)
+            if urlparse(url).scheme == 'https':
+                logger.info("URL is HTTPS and connection was refused. Suggesting HTTP.")
+                return "The URL targetted via HTTPS is refusing the connection. It might be an HTTP-only service. Please try with 'http://'."
+            elif urlparse(url).scheme == 'http': # Specifically check for http
+                logger.info("URL is HTTP and connection was refused. Suggesting HTTPS.")
+                return "The HTTP request failed. The server might only support HTTPS for this resource. Please try with 'https://'."
+            else: # Other schemes, or if somehow scheme is not http/https but connection refused
+                logger.info("URL is non-HTTP/HTTPS (or scheme missing) and connection was refused.")
+                return "Connection Error: The server at the specified URL actively refused the connection." # Generic for other cases
+
+        logger.debug("No specific 'Connection refused' condition found that warrants a custom message.")
+        return None
 
     def _fetch_headers_task_done_cb(self, source_object, result: Gio.AsyncResult, user_data):
         local_task_ref = self.current_http_task
