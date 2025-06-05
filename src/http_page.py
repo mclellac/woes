@@ -10,6 +10,24 @@ gi.require_version('Adw', '1')
 gi.require_version('Gtk', '4.0')
 from gi.repository import Adw, Gio, GObject, Gtk, GLib
 
+# Attempt to import urllib3 exceptions from requests, which vendors it.
+try:
+    from requests.packages.urllib3 import exceptions as urllib3_exceptions
+except ImportError:
+    # Fallback if requests changes its vendoring structure or for older versions
+    try:
+        import urllib3.exceptions as urllib3_exceptions
+    except ImportError:
+        # If urllib3 is not available at all (should not happen with requests installed)
+        # Define dummy classes for isinstance checks to not fail, or handle differently.
+        class _DummyUrllib3Exception(Exception): pass
+        urllib3_exceptions = type('urllib3_exceptions', (), {
+            'MaxRetryError': _DummyUrllib3Exception,
+            'NewConnectionError': _DummyUrllib3Exception,
+        })
+        logger.warning("Could not import urllib3.exceptions. Connection refused detection might be limited.")
+
+
 from .constants import RESOURCE_PREFIX, USER_AGENTS
 # Removed Helper import as it's unused
 # from .style_utils import set_widget_visibility  # This is no longer needed
@@ -156,7 +174,12 @@ class HttpPage(Adw.PreferencesPage):
         try:
             # Check for cancellation before making the request
             if cancellable and cancellable.is_cancelled():
-                task.return_error(Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED, "Task was cancelled")
+                g_error = GLib.Error(
+                    message="Task was cancelled",
+                    domain=Gio.io_error_quark(),
+                    code=Gio.IOErrorEnum.CANCELLED.value
+                )
+                task.return_error(g_error)
                 return
 
             response = requests.get(url, headers=request_headers, allow_redirects=False, timeout=10)
@@ -171,51 +194,97 @@ class HttpPage(Adw.PreferencesPage):
             # A more robust solution might define a custom error domain
             error_message = self._format_http_error(e)
             safe_error_message = str(error_message)
-            g_error = GLib.Error(message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED)
+            g_error = GLib.Error(message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED.value)
             task.return_error(g_error)
             return
         except requests.exceptions.ConnectionError as e:
             logger.warning("Task thread: ConnectionError for %s: %s", url, e, exc_info=True)
-            # Default error message
-            error_message = "Connection Error: Failed to establish a connection."
-            try:
-                # Check for specific condition: 'Connection refused' and 'https' scheme
-                # The full path to the string is e.args[0].reason.args[0] for ConnectionRefusedError
-                if urlparse(url).scheme == 'https' and \
-                   e.args and isinstance(e.args[0], requests.packages.urllib3.exceptions.MaxRetryError) and \
-                   hasattr(e.args[0], 'reason') and isinstance(e.args[0].reason, requests.packages.urllib3.exceptions.NewConnectionError) and \
-                   e.args[0].reason.args and isinstance(e.args[0].reason.args[0], str) and \
-                   'Connection refused' in e.args[0].reason.args[0]:
-                    error_message = "The URL is HTTP only and does not support HTTPS. Please try with 'http://'."
-            except Exception: # Broad exception to catch any issue with accessing nested attributes
-                logger.debug("ConnectionError structure not as expected when trying to extract specific message, using generic message.")
+            if self._is_https_connection_refused(e, url):
+                error_message = "The URL targetted via HTTPS is refusing the connection. It might be an HTTP-only service. Please try with 'http://'."
+            else:
+                error_message = "Connection Error: Failed to establish a connection."
 
             safe_error_message = str(error_message)
-            g_error = GLib.Error(message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED)
+            g_error = GLib.Error(message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED.value)
             task.return_error(g_error)
             return
         except requests.exceptions.Timeout as e:
             logger.warning("Task thread: Timeout for %s: %s", url, e, exc_info=True)
             error_message = "Timeout Error: The request timed out."
             safe_error_message = str(error_message)
-            g_error = GLib.Error(message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED)
+            g_error = GLib.Error(message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED.value)
             task.return_error(g_error)
             return
         except requests.exceptions.RequestException as e:
             logger.error("Task thread: RequestException for %s: %s", url, e, exc_info=True)
             error_message = f"Request Error: {str(e)}"
             safe_error_message = str(error_message)
-            g_error = GLib.Error(message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED)
+            g_error = GLib.Error(message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED.value)
             task.return_error(g_error) # Corrected: single call
             return
         except Exception as e: # Catch any other unexpected errors
             logger.error("Task thread: Unexpected error for %s: %s", url, e, exc_info=True)
             error_message = f"An unexpected error occurred: {str(e)}"
             safe_error_message = str(error_message)
-            g_error = GLib.Error(message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED)
+            g_error = GLib.Error(message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED.value)
             task.return_error(g_error) # Corrected: use return_gerror
             return
 
+
+    def _is_https_connection_refused(self, exc: requests.exceptions.ConnectionError, url: str) -> bool:
+        """
+        Inspects a ConnectionError to determine if it's due to a "Connection refused"
+        specifically for an HTTPS URL.
+        """
+        if urlparse(url).scheme != 'https':
+            return False
+
+        current_exc = exc
+        # It's common for requests to wrap the original error a few times.
+        # We'll look up to a certain depth for known patterns.
+        for _ in range(3): # Check a few levels of wrapping
+            # Pattern 1: requests.exceptions.ConnectionError -> urllib3.exceptions.MaxRetryError -> urllib3.exceptions.NewConnectionError
+            if isinstance(current_exc, requests.exceptions.ConnectionError) or \
+               isinstance(current_exc, urllib3_exceptions.MaxRetryError):
+                cause = current_exc.args[0] if current_exc.args else None
+
+                if isinstance(cause, urllib3_exceptions.NewConnectionError):
+                    # Check reason.args[0] (older urllib3)
+                    if cause.args and isinstance(cause.args[0], str):
+                        msg = cause.args[0].lower()
+                        if "connection refused" in msg or "errno 111" in msg:
+                            logger.debug("Connection refused detected in NewConnectionError args: %s", cause.args[0])
+                            return True
+
+                    # Check original_error (newer urllib3 >= 1.26)
+                    if hasattr(cause, 'original_error') and isinstance(cause.original_error, ConnectionRefusedError):
+                        logger.debug("ConnectionRefusedError detected via original_error attribute.")
+                        return True
+                    # Sometimes original_error might be a plain socket.error with errno
+                    if hasattr(cause, 'original_error') and hasattr(cause.original_error, 'errno'):
+                        if cause.original_error.errno == 111: # errno.ECONNREFUSED
+                             logger.debug("Connection refused detected via original_error.errno == 111.")
+                             return True
+                    current_exc = cause # Continue to inspect the cause
+                    continue
+
+                # Pattern 2: Direct ConnectionRefusedError (less common under requests.ConnectionError but possible)
+                # Note: ConnectionRefusedError itself is an OSError subclass.
+                if isinstance(cause, ConnectionRefusedError): # Built-in ConnectionRefusedError
+                    logger.debug("Direct ConnectionRefusedError found as cause.")
+                    return True
+
+                current_exc = cause # Move to the next level of cause
+
+            elif isinstance(current_exc, ConnectionRefusedError): # If the top-level exception was already it
+                logger.debug("Top-level exception is ConnectionRefusedError.")
+                return True
+
+            else:
+                break # Not a recognized intermediate exception type to unwrap further
+
+        logger.debug("Connection refused not conclusively detected for HTTPS URL.")
+        return False
 
     def _fetch_headers_task_done_cb(self, source_object, result: Gio.AsyncResult, user_data):
         local_task_ref = self.current_http_task
