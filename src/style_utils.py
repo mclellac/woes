@@ -7,7 +7,7 @@ gi.require_version('GtkSource', '5')
 from gi.repository import Adw, Gdk, Gio, Gtk, GtkSource
 
 
-def apply_font_size(_settings: Gio.Settings, font_size: int): # Prefixed unused 'settings'
+def apply_font_size(_settings: Gio.Settings, font_size: int):  # Prefixed unused 'settings'
     css_provider = Gtk.CssProvider()
     css = f"* {{ font-size: {font_size}pt; }}"
     css_provider.load_from_data(css.encode())

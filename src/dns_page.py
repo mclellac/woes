@@ -8,10 +8,10 @@ import gi
 
 gi.require_version('Adw', '1')
 gi.require_version('Gtk', '4.0')
-gi.require_version('GtkSource', '5') # Changed back to version 5
-from gi.repository import Adw, Gio, Gtk, GtkSource, Pango
+gi.require_version('GtkSource', '5')
+from gi.repository import Adw, Gio, Gtk, GtkSource, Pango, GLib
 
-from .constants import APP_ID, RESOURCE_PREFIX # Sorted
+from .constants import APP_ID, RESOURCE_PREFIX
 from .style_utils import apply_source_style_scheme
 from .utils import create_source_view
 
@@ -27,7 +27,7 @@ class DNSPage(Adw.PreferencesPage):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.header_tag = None # Initialize W0201
+        self.header_tag = None
         self._connect_signals()
         self.source_view, self.source_buffer = create_source_view(language_name=None)
         self.dns_results_scrolled_window.set_child(self.source_view)
@@ -57,9 +57,9 @@ class DNSPage(Adw.PreferencesPage):
             self.class_color_tag = self.source_buffer.create_tag(
                 "class_color", foreground="#75507b"
             )
-        except GLib.Error as e: # Pango related errors can be GLib.Error
+        except GLib.Error as e:
             logging.error("Error creating Pango text tags: %s", e)
-        except Exception as e: # Fallback for other unexpected errors
+        except Exception as e:
             logging.error("Unexpected error creating text tags (%s): %s", type(e).__name__, e)
 
     def _connect_signals(self) -> None:
@@ -68,8 +68,6 @@ class DNSPage(Adw.PreferencesPage):
         self.dns_record_type_dropdown.connect(
             "notify::selected", self._on_record_type_changed
         )
-        # The error_banner signal is connected in the UI file:
-        # <signal name="button-clicked" handler="_on_error_banner_dismiss"/>
 
     def _on_source_style_scheme_setting_changed(self, _settings, key):
         """Handle changes to the source-style-scheme setting."""
@@ -78,8 +76,6 @@ class DNSPage(Adw.PreferencesPage):
 
     def _apply_source_view_style(self):
         """Apply the style scheme to the GtkSourceView."""
-        # This method is similar to NmapPage._apply_source_view_style due to GSettings linkage.
-        # settings = Gio.Settings.new(APP_ID) # Settings is now an instance variable
         source_style_scheme = self.settings.get_string("source-style-scheme")
         apply_source_style_scheme(
             GtkSource.StyleSchemeManager.get_default(),
@@ -157,10 +153,10 @@ class DNSPage(Adw.PreferencesPage):
                 result = self._lookup_record(user_input, record_type, resolver)
 
             self._display_result(result, user_input, record_type, resolver.nameservers)
-        except dns.exception.DNSException as e: # Already specific
+        except dns.exception.DNSException as e:
             logging.error("DNS lookup failed: %s", e)
             self._show_error("DNS Error: %s" % str(e))
-        except Exception as e: # General fallback
+        except Exception as e:
             logging.error("Unexpected error during DNS lookup (%s): %s", type(e).__name__, e)
             self._show_error("Error: %s" % str(e))
 
@@ -208,12 +204,11 @@ class DNSPage(Adw.PreferencesPage):
                 self.header_tag = self.source_buffer.create_tag(
                     "header", weight=Pango.Weight.BOLD, size_points=12
                 )
-            except GLib.Error as e: # Pango related errors
+            except GLib.Error as e:
                 logging.error("Error creating Pango header tag: %s", e)
-            except Exception as e: # Fallback
+            except Exception as e:
                 logging.error("Unexpected error creating header tag (%s): %s", type(e).__name__, e)
 
-        # DNS server info
         dns_server_info = f"DNS server used: {', '.join(dns_servers)}\n"
 
         header = (
