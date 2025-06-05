@@ -39,11 +39,13 @@ logger = logging.getLogger(__name__)
 class HeaderItem(GObject.Object):
     key: str
     value: str
+    is_special_row: bool
 
-    def __init__(self, key: str, value: str):
+    def __init__(self, key: str, value: str, is_special_row: bool = False):
         super().__init__()
         self.key = key
         self.value = value
+        self.is_special_row = is_special_row
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/http_page.ui")
@@ -182,13 +184,44 @@ class HttpPage(Adw.PreferencesPage):
                 task.return_error(g_error)
                 return
 
-            response = requests.get(url, headers=request_headers, allow_redirects=False, timeout=10)
-            response.raise_for_status()
-            headers_dict = dict(response.headers)
-            cleaned_headers_dict = {str(k): str(v) for k, v in headers_dict.items()}
-            task.return_value(cleaned_headers_dict) # Return the Python dictionary directly
+            response = requests.get(url, headers=request_headers, allow_redirects=True, timeout=10)
+            response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
+
+            all_responses_data = []
+
+            # Process history (redirect responses)
+            # response.history is a list of Response objects, from oldest to most recent.
+            for hist_resp in response.history:
+                hist_data = {
+                    'type': 'redirect',
+                    'url': str(hist_resp.url), # Ensure URL is string
+                    'status_code': hist_resp.status_code,
+                    'headers': {str(k): str(v) for k, v in dict(hist_resp.headers).items()}
+                }
+                all_responses_data.append(hist_data)
+
+            # Process final response (the one not in history)
+            final_data = {
+                'type': 'final',
+                'url': str(response.url), # Ensure URL is string
+                'status_code': response.status_code,
+                'headers': {str(k): str(v) for k, v in dict(response.headers).items()}
+            }
+            all_responses_data.append(final_data)
+
+            task.return_value(all_responses_data)
         except requests.exceptions.HTTPError as e:
-            logger.error("Task thread: HTTPError for %s: %s", url, e, exc_info=True)
+            # If raise_for_status() was called on the final response and it was an error,
+            # we might still want to capture its details if response object 'e.response' exists.
+            if e.response is not None:
+                logger.error("Task thread: HTTPError for %s: %s. Response was: %s", url, e, e.response.url)
+                # Capture the error response like other responses if needed by UI
+                # For now, just format the error message as before.
+                # Consider if response.history should be processed even on HTTPError for the final response.
+                # The current logic will not include it if an HTTPError occurs.
+            else:
+                logger.error("Task thread: HTTPError for %s: %s. No response object in exception.", url, e)
+
             # Create a GError for HTTP errors
             # For simplicity, using a generic error domain and code
             # A more robust solution might define a custom error domain
@@ -353,34 +386,52 @@ class HttpPage(Adw.PreferencesPage):
         headers = None  # Initialize headers
 
         try:
-            returned_obj = local_task_ref.propagate_value() # Renamed for clarity
-            headers = None  # Initialize headers
+            returned_obj = local_task_ref.propagate_value()
+            all_responses_data = None
 
             if returned_obj is None:
                 logger.error("propagate_value returned None unexpectedly.")
                 self._display_error("Failed to retrieve task result (returned None).")
                 self.http_entry_row.add_css_class("error")
-                self._update_column_view_model(None)
-            elif isinstance(returned_obj, dict): # Ideal case, direct Python dict
-                headers = returned_obj
-                logger.info("Successfully fetched headers (async, direct dict).")
-                self._update_column_view_model(headers)
-                self.http_entry_row.remove_css_class("error")
-            else: # Handle _ResultTuple or other unexpected types
-                logger.info(f"propagate_value returned type {type(returned_obj)}. Attempting to access its '.value' attribute.")
-                if hasattr(returned_obj, 'value') and isinstance(getattr(returned_obj, 'value'), dict):
-                    headers = getattr(returned_obj, 'value')
-                    logger.info("Successfully fetched headers (async, from .value attribute of returned object).")
-                    self._update_column_view_model(headers)
-                    self.http_entry_row.remove_css_class("error")
+                self._update_column_view_model(None) # Pass None to clear
+            elif isinstance(returned_obj, list): # Expecting a list of response data dicts
+                all_responses_data = returned_obj
+                logger.info("Successfully fetched response data (async, list of dicts).")
+
+                processed_headers_for_store = []
+                if not all_responses_data: # Should not happen if task succeeded with data
+                    logger.warning("Received empty list for all_responses_data.")
+                    self._update_column_view_model(None) # Clear if empty list
                 else:
-                    logger.error(f"Returned object of type {type(returned_obj)} does not have a 'value' attribute containing a dict.")
-                    self._display_error(f"Failed to process task result (unexpected data structure: {type(returned_obj).__name__}).")
-                    self.http_entry_row.add_css_class("error")
-                    self._update_column_view_model(None)
+                    for i, response_data in enumerate(all_responses_data):
+                        url_display = f"URL: {response_data.get('url', 'N/A')}"
+                        status_display = f"Status: {response_data.get('status_code', 'N/A')}"
+
+                        if response_data.get('type') == 'redirect':
+                            status_display += " (Redirect)"
+                        elif response_data.get('type') == 'final':
+                            status_display += " (Final)"
+
+                        processed_headers_for_store.append(HeaderItem(key=url_display, value=status_display, is_special_row=True))
+
+                        headers_for_this_response = response_data.get('headers', {})
+                        for header_key, header_value in headers_for_this_response.items():
+                            processed_headers_for_store.append(HeaderItem(key=str(header_key), value=str(header_value), is_special_row=False))
+
+                        # Add spacer, but not after the very last item
+                        if i < len(all_responses_data) - 1:
+                            processed_headers_for_store.append(HeaderItem(key="", value="", is_special_row=True))
+
+                    self._update_column_view_model(processed_headers_for_store)
+                self.http_entry_row.remove_css_class("error")
+            else:
+                logger.error(f"Returned object of unexpected type {type(returned_obj)}. Expected list.")
+                self._display_error(f"Failed to process task result (unexpected data structure: {type(returned_obj).__name__}).")
+                self.http_entry_row.add_css_class("error")
+                self._update_column_view_model(None) # Clear
         except GObject.GError as e: # Catch errors propagated by propagate_value()
-            error_message = e.message
-            logger.error("Error fetching headers (async GObject.GError): %s", error_message)
+            error_message = e.message # type: ignore
+            logger.error("Error fetching headers (async GObject.GError): %s", error_message) # type: ignore
             # Sanitize message if it contains markup, AdwBanner might not render it well
             error_message = error_message.replace("<b>", "").replace("</b>", "")
             self._display_error(error_message)
@@ -439,12 +490,12 @@ class HttpPage(Adw.PreferencesPage):
         if self.http_entry_row.get_text().strip():
             self._on_entry_row_activated(self.http_entry_row)
 
-    def _update_column_view_model(self, headers: Optional[Dict[str, str]]) -> None:
+    def _update_column_view_model(self, header_items: Optional[list[HeaderItem]]) -> None:
         self.header_list_store.remove_all()  # Clear existing items
 
-        if headers and "error" not in headers:
-            for key, value in headers.items():
-                self.header_list_store.append(HeaderItem(key, value))
+        if header_items: # Check if list is not None and not empty implicitly
+            for item in header_items:
+                self.header_list_store.append(item)
             self._show_results()
         else:
             self._hide_results()
@@ -496,10 +547,16 @@ class HttpPage(Adw.PreferencesPage):
 
         def bind_func(_, list_item: Gtk.ListItem) -> None:
             label = list_item.get_child()
-            item = list_item.get_item()
-            text = getattr(item, attr_name, "")
+            item = list_item.get_item() # This is a HeaderItem instance
+            text_to_display = getattr(item, attr_name, "")
             if label:  # Check if label exists
-                label.set_text(text)
+                if item and item.is_special_row:
+                    # For special rows, make the text bold.
+                    # Escape markup in the text to prevent Pango errors if text contains '&', '<', etc.
+                    escaped_text = GLib.markup_escape_text(text_to_display)
+                    label.set_markup(f"<b>{escaped_text}</b>")
+                else:
+                    label.set_text(text_to_display)
 
         factory.connect("setup", setup_func)
         factory.connect("bind", bind_func)
