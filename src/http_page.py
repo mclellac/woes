@@ -162,10 +162,8 @@ class HttpPage(Adw.PreferencesPage):
             response = requests.get(url, headers=request_headers, allow_redirects=False, timeout=10)
             response.raise_for_status()
             headers_dict = dict(response.headers)
-            # Ensure all keys and values in headers_dict are strings for "a{ss}"
             cleaned_headers_dict = {str(k): str(v) for k, v in headers_dict.items()}
-            variant = GLib.Variant("a{ss}", cleaned_headers_dict)
-            task.return_value(variant)
+            task.return_value(cleaned_headers_dict) # Return the Python dictionary directly
         except requests.exceptions.HTTPError as e:
             logger.error("Task thread: HTTPError for %s: %s", url, e, exc_info=True)
             # Create a GError for HTTP errors
@@ -211,38 +209,54 @@ class HttpPage(Adw.PreferencesPage):
         headers = None  # Initialize headers
 
         try:
-            returned_gobject = local_task_ref.propagate_value()
+            returned_obj = local_task_ref.propagate_value() # Renamed for clarity
             headers = None  # Initialize headers
 
-            if isinstance(returned_gobject, GLib.Variant):
-                try:
-                    unpacked_value = returned_gobject.deep_unpack() # deep_unpack is safer for nested variants
-                    if isinstance(unpacked_value, dict):
-                        headers = unpacked_value
-                        logger.info("Successfully fetched headers (async, unpacked from GLib.Variant)")
-                        self._update_column_view_model(headers)
-                        self.http_entry_row.remove_css_class("error")
-                    else:
-                        logger.error(f"Unpacked GLib.Variant but did not get a dict, got {type(unpacked_value)}")
-                        self._display_error(f"Failed to process task result (unpacked unexpected type: {type(unpacked_value).__name__}).")
-                        self.http_entry_row.add_css_class("error")
-                        self._update_column_view_model(None)
-                except Exception as e:
-                    logger.error(f"Error unpacking GLib.Variant: {e}", exc_info=True)
-                    self._display_error(f"Failed to process task result (unpacking error: {e}).")
-                    self.http_entry_row.add_css_class("error")
-                    self._update_column_view_model(None)
-            elif returned_gobject is None: # Check if propagate_value itself returned None
-                logger.error("propagate_value returned None unexpectedly (task might have been cancelled or failed to set result).")
+            if returned_obj is None:
+                logger.error("propagate_value returned None unexpectedly.")
                 self._display_error("Failed to retrieve task result (returned None).")
                 self.http_entry_row.add_css_class("error")
                 self._update_column_view_model(None)
+            elif isinstance(returned_obj, dict): # Ideal case, direct Python dict
+                headers = returned_obj
+                logger.info("Successfully fetched headers (async, direct dict).")
+                self._update_column_view_model(headers)
+                self.http_entry_row.remove_css_class("error")
             else:
-                # This block handles cases where propagate_value returns something other than GLib.Variant or None
-                logger.error(f"propagate_value returned an unexpected GObject type: {type(returned_gobject)}. Expected GLib.Variant.")
-                self._display_error(f"Failed to process task result (unexpected data type: {type(returned_gobject).__name__}).")
-                self.http_entry_row.add_css_class("error")
-                self._update_column_view_model(None)
+                # This is where _ResultTuple or other unexpected types will land.
+                # Let's introspect it.
+                logger.warning(f"propagate_value returned an unexpected type: {type(returned_obj)}. Introspecting...")
+                logger.info(f"Dir of returned_obj: {dir(returned_obj)}")
+
+                # Try common attributes (use getattr to avoid AttributeError if they don't exist)
+                logger.info(f"Attempting getattr(returned_obj, 'value', 'N/A'): {getattr(returned_obj, 'value', 'N/A')}")
+                logger.info(f"Attempting getattr(returned_obj, 'payload', 'N/A'): {getattr(returned_obj, 'payload', 'N/A')}")
+                logger.info(f"Attempting getattr(returned_obj, 'result', 'N/A'): {getattr(returned_obj, 'result', 'N/A')}")
+                logger.info(f"Attempting getattr(returned_obj, '_obj', 'N/A'): {getattr(returned_obj, '_obj', 'N/A')}")
+
+
+                # Check if it's sequence-like (e.g., a tuple wrapper)
+                is_sequence = False
+                try:
+                    logger.info(f"Attempting sequence access: returned_obj[0] = {returned_obj[0] if len(returned_obj) > 0 else 'empty/not applicable'}")
+                    # If the above worked and returned_obj[0] is our dict:
+                    if len(returned_obj) > 0 and isinstance(returned_obj[0], dict):
+                        logger.info("Accessed returned_obj[0] and it is a dict. Attempting to use it.")
+                        headers = returned_obj[0]
+                        # Re-run success path logic
+                        self._update_column_view_model(headers)
+                        self.http_entry_row.remove_css_class("error")
+                    is_sequence = True
+                except TypeError:
+                    logger.info("returned_obj is not sequence-like (TypeError on len() or index).")
+                except Exception as e_seq:
+                    logger.info(f"Error during sequence access attempt: {e_seq}")
+
+                if headers is None: # If introspection didn't yield a dict
+                    logger.error(f"Still unable to extract dict from {type(returned_obj)} after introspection.")
+                    self._display_error(f"Failed to process task result (unexpected data structure: {type(returned_obj).__name__}).")
+                    self.http_entry_row.add_css_class("error")
+                    self._update_column_view_model(None)
         except GObject.GError as e: # Catch errors propagated by propagate_value()
             error_message = e.message
             logger.error("Error fetching headers (async GObject.GError): %s", error_message)
