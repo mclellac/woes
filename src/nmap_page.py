@@ -106,8 +106,8 @@ class NmapPage(Adw.PreferencesPage):
         self.nmap_host_listbox.bind_model( # Changed to nmap_host_listbox
             self.nmap_target_listbox_store, self._create_target_listbox_row
         )
-        if self.nmap_host_listbox.get_model() == self.nmap_target_listbox_store:
-            logging.debug("nmap_host_listbox successfully bound.")
+        # Removed: if self.nmap_host_listbox.get_model() == self.nmap_target_listbox_store:
+        # Removed:     logging.debug("nmap_host_listbox successfully bound.")
 
         # Initial visibility states for split view and placeholder
         self.nmap_split_view.set_show_sidebar(True) # Changed from nmap_results_flap.set_revealed(True)
