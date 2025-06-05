@@ -32,6 +32,13 @@ MOCK_GI_MODULES = {
 MOCK_GI_MODULES['gi'].require_version = MagicMock()
 sys.modules.update(MOCK_GI_MODULES)
 
+# Import the real HeaderItem for type checking and instance creation in tests
+HeaderItem_class_for_test = None
+if 'src.http_page' in sys.modules: # http_page_module might be defined below
+    temp_http_page_module = sys.modules['src.http_page']
+    if hasattr(temp_http_page_module, 'HeaderItem') and inspect.isclass(temp_http_page_module.HeaderItem):
+        HeaderItem_class_for_test = temp_http_page_module.HeaderItem
+
 # Now, when any module (like src.http_page) does 'from gi.repository import Gtk',
 # it will get our MagicMock versions.
 from gi.repository import Adw as MockAdw, Gtk as MockGtk, Gio as MockGio, GLib as MockGLib, GObject as MockGObject
@@ -100,6 +107,14 @@ try:
 except Exception as e:
     print(f"Failed to import/load HttpPage from module: {e}")
 
+# Helper function to create mock response objects for testing redirect history
+def _create_mock_response(url, status_code, headers, history_list=None):
+    mock_resp = MagicMock(spec=requests.Response)
+    mock_resp.url = str(url) # Ensure URL is string
+    mock_resp.status_code = status_code
+    mock_resp.headers = headers # Should be a dict-like object
+    mock_resp.history = history_list if history_list is not None else []
+    return mock_resp
 
 class TestHttpPage(unittest.TestCase):
 
@@ -358,6 +373,8 @@ class TestHttpPage(unittest.TestCase):
         self.assertEqual(error_arg.code, MockGio.IOErrorEnum.FAILED) # Mocked to 1
         self.assertIsInstance(error_arg.code, int) # Explicitly check type of code
 
+    # Test methods for redirect handling will be added after this one.
+
     @patch('src.http_page.requests.get')
     def test_http_request_to_https_only_service(self, mock_requests_get):
         # 1. Simulate an http:// URL and a ConnectionRefusedError
@@ -477,6 +494,397 @@ class TestHttpPage(unittest.TestCase):
         page.http_entry_row.set_text.assert_called_with("")
         page.error_banner.set_revealed.assert_called_with(False) # Called by _clear_error
         page.error_banner.set_title.assert_called_with("") # Also part of _clear_error
+
+# Helper function to create mock response objects for testing redirect history
+def _create_mock_response(url, status_code, headers, history_list=None):
+    mock_resp = MagicMock(spec=requests.Response)
+    mock_resp.url = str(url) # Ensure URL is string
+    mock_resp.status_code = status_code
+    mock_resp.headers = headers # Should be a dict-like object
+    mock_resp.history = history_list if history_list is not None else []
+    return mock_resp
+
+# TestHttpPage class continues...
+# We will append new test methods inside the TestHttpPage class structure.
+# The following search block targets the end of the class to append new tests.
+# This is a common pattern: find a known line, then add after it.
+# In this case, finding the `if __name__ == '__main__':` line and inserting before it.
+
+# Find the last method of TestHttpPage and add new methods after it.
+# The last method currently is test_clear_results_button_functionality.
+# So, the new content will be added after that method's definition.
+
+# This is a placeholder for the diff tool. The actual content will be appended.
+# SEARCH/REPLACE for adding new methods requires careful structure.
+# It's often easier to replace the whole class or a large chunk if adding multiple methods.
+# However, attempting to append:
+
+    @patch('src.http_page.requests.get')
+    def test_fetch_headers_no_redirects(self, mock_requests_get):
+        page = self.page
+        final_url = "http://final.com"
+        final_headers = {"Content-Type": "text/html", "X-Final-Header": "FinalValue"}
+
+        mock_final_response = _create_mock_response(final_url, 200, final_headers, history_list=[])
+        mock_requests_get.return_value = mock_final_response
+
+        page._update_column_view_model = MagicMock()
+
+        # This simulates what _fetch_headers_task_thread_func returns via task.return_value()
+        # which is then retrieved by task.propagate_value() in the callback.
+        self.mock_task_instance.propagate_value = MagicMock(return_value=[
+            {'type': 'final', 'url': final_url, 'status_code': 200, 'headers': final_headers}
+        ])
+
+        page.http_entry_row = MagicMock(spec=MockAdw.EntryRow); page.http_entry_row.get_text.return_value = final_url
+        page.http_user_agent_row = MagicMock(spec=MockAdw.ComboRow); page.http_user_agent_row.get_selected.return_value = 0
+        page.http_host_header_row = MagicMock(spec=MockAdw.EntryRow); page.http_host_header_row.get_text.return_value = ""
+        page.http_pragma_switch_row = MagicMock(spec=MockAdw.SwitchRow); page.http_pragma_switch_row.get_active.return_value = False
+        page.error_banner = MagicMock(spec=MockAdw.Banner); page.error_banner.set_revealed = MagicMock(); page.error_banner.set_title = MagicMock()
+        page.http_entry_row.remove_css_class = MagicMock()
+
+
+        page._on_entry_row_activated(page.http_entry_row)
+        page._update_column_view_model.assert_called_once()
+        processed_items = page._update_column_view_model.call_args[0][0]
+
+        # Expected: URL/Status row (special), header rows (regular). No spacer after the last response block.
+        self.assertEqual(len(processed_items), 1 + len(final_headers))
+        self.assertTrue(processed_items[0].is_special_row)
+        self.assertEqual(processed_items[0].key, f"URL: {final_url}")
+        self.assertEqual(processed_items[0].value, "Status: 200 (Final)")
+        idx = 1
+        for key, value in final_headers.items():
+            self.assertFalse(processed_items[idx].is_special_row); self.assertEqual(processed_items[idx].key, key); self.assertEqual(processed_items[idx].value, value); idx+=1
+
+    @patch('src.http_page.requests.get')
+    def test_fetch_headers_single_redirect(self, mock_requests_get):
+        page = self.page
+        r1_url = "http://initial.com"; r1_hdrs = {"L1": "V1"}; r1_stat = 301
+        final_url = "http://final.com"; final_hdrs = {"L_Final": "V_Final"}; final_stat = 200
+
+        mock_r1 = _create_mock_response(r1_url, r1_stat, r1_hdrs)
+        mock_final = _create_mock_response(final_url, final_stat, final_hdrs, history_list=[mock_r1])
+        mock_requests_get.return_value = mock_final
+
+        page._update_column_view_model = MagicMock()
+        self.mock_task_instance.propagate_value = MagicMock(return_value=[
+            {'type': 'redirect', 'url': r1_url, 'status_code': r1_stat, 'headers': r1_hdrs},
+            {'type': 'final', 'url': final_url, 'status_code': final_stat, 'headers': final_hdrs}
+        ])
+
+        page.http_entry_row = MagicMock(spec=MockAdw.EntryRow); page.http_entry_row.get_text.return_value = r1_url
+        page.http_user_agent_row = MagicMock(spec=MockAdw.ComboRow); page.http_user_agent_row.get_selected.return_value = 0
+        page.http_host_header_row = MagicMock(spec=MockAdw.EntryRow); page.http_host_header_row.get_text.return_value = ""
+        page.http_pragma_switch_row = MagicMock(spec=MockAdw.SwitchRow); page.http_pragma_switch_row.get_active.return_value = False
+        page.error_banner = MagicMock(spec=MockAdw.Banner); page.error_banner.set_revealed = MagicMock(); page.error_banner.set_title = MagicMock()
+        page.http_entry_row.remove_css_class = MagicMock()
+
+        page._on_entry_row_activated(page.http_entry_row)
+        page._update_column_view_model.assert_called_once()
+        processed_items = page._update_column_view_model.call_args[0][0]
+
+        expected_len = (1 + len(r1_hdrs) + 1) + (1 + len(final_hdrs)) # r1_info, r1_hdrs, spacer, final_info, final_hdrs
+        self.assertEqual(len(processed_items), expected_len)
+
+        # R1
+        self.assertTrue(processed_items[0].is_special_row); self.assertEqual(processed_items[0].key, f"URL: {r1_url}"); self.assertEqual(processed_items[0].value, f"Status: {r1_stat} (Redirect)");
+        idx = 1; for k,v in r1_hdrs.items(): self.assertFalse(processed_items[idx].is_special_row); self.assertEqual(processed_items[idx].key,k); self.assertEqual(processed_items[idx].value,v); idx+=1
+        # Spacer
+        self.assertTrue(processed_items[idx].is_special_row); self.assertEqual(processed_items[idx].key, ""); idx+=1
+        # Final
+        self.assertTrue(processed_items[idx].is_special_row); self.assertEqual(processed_items[idx].key, f"URL: {final_url}"); self.assertEqual(processed_items[idx].value, f"Status: {final_stat} (Final)"); idx+=1
+        for k,v in final_hdrs.items(): self.assertFalse(processed_items[idx].is_special_row); self.assertEqual(processed_items[idx].key,k); self.assertEqual(processed_items[idx].value,v); idx+=1
+
+    @patch('src.http_page.requests.get')
+    def test_fetch_headers_multiple_redirects(self, mock_requests_get):
+        page = self.page
+        r1_url="http://r1.com"; r1_h={"R1H":"1"}; r1_s=301
+        r2_url="http://r2.com"; r2_h={"R2H":"2"}; r2_s=302
+        f_url="http://final.com"; f_h={"FH":"F"}; f_s=200
+
+        mock_r1 = _create_mock_response(r1_url, r1_s, r1_h)
+        mock_r2 = _create_mock_response(r2_url, r2_s, r2_h)
+        mock_final = _create_mock_response(f_url, f_s, f_h, history_list=[mock_r1, mock_r2])
+        mock_requests_get.return_value = mock_final
+
+        page._update_column_view_model = MagicMock()
+        self.mock_task_instance.propagate_value = MagicMock(return_value=[
+            {'type': 'redirect', 'url': r1_url, 'status_code': r1_s, 'headers': r1_h},
+            {'type': 'redirect', 'url': r2_url, 'status_code': r2_s, 'headers': r2_h},
+            {'type': 'final', 'url': f_url, 'status_code': f_s, 'headers': f_h}
+        ])
+
+        page.http_entry_row = MagicMock(spec=MockAdw.EntryRow); page.http_entry_row.get_text.return_value = r1_url
+        page.http_user_agent_row = MagicMock(spec=MockAdw.ComboRow); page.http_user_agent_row.get_selected.return_value = 0
+        page.http_host_header_row = MagicMock(spec=MockAdw.EntryRow); page.http_host_header_row.get_text.return_value = ""
+        page.http_pragma_switch_row = MagicMock(spec=MockAdw.SwitchRow); page.http_pragma_switch_row.get_active.return_value = False
+        page.error_banner = MagicMock(spec=MockAdw.Banner); page.error_banner.set_revealed = MagicMock(); page.error_banner.set_title = MagicMock()
+        page.http_entry_row.remove_css_class = MagicMock()
+
+        page._on_entry_row_activated(page.http_entry_row)
+        page._update_column_view_model.assert_called_once()
+        processed_items = page._update_column_view_model.call_args[0][0]
+
+        expected_len = (1+len(r1_h)+1) + (1+len(r2_h)+1) + (1+len(f_h))
+        self.assertEqual(len(processed_items), expected_len)
+
+        # Basic checks for order and type
+        self.assertTrue(processed_items[0].is_special_row); self.assertIn(r1_url, processed_items[0].key) # R1 info
+        self.assertTrue(processed_items[1+len(r1_h)].is_special_row) # Spacer after R1
+        self.assertTrue(processed_items[2+len(r1_h)].is_special_row); self.assertIn(r2_url, processed_items[2+len(r1_h)].key) # R2 info
+        self.assertTrue(processed_items[2+len(r1_h)+1+len(r2_h)].is_special_row) # Spacer after R2
+        self.assertTrue(processed_items[2+len(r1_h)+2+len(r2_h)].is_special_row); self.assertIn(f_url, processed_items[2+len(r1_h)+2+len(r2_h)].key) # Final info
+
+    def test_styling_of_special_rows(self):
+        page = self.page
+        # Ensure HeaderItem_class_for_test is available
+        self.assertIsNotNone(HeaderItem_class_for_test, "HeaderItem class not loaded for test")
+
+        mock_list_item = MagicMock(spec=MockGtk.ListItem)
+        mock_label = MagicMock(spec=MockGtk.Label)
+        mock_list_item.get_child.return_value = mock_label
+
+        # We need a factory instance that has its 'setup' and 'bind' callbacks captured.
+        # The HttpPage.__init__ normally creates these. We'll create one and manually set up capture.
+        factory_capturer = MagicMock(spec=MockGtk.SignalListItemFactory)
+        captured_callbacks = {}
+        def capture_connect(signal_name, func_to_capture):
+            captured_callbacks[signal_name] = func_to_capture
+        factory_capturer.connect = MagicMock(side_effect=capture_connect)
+
+        # Temporarily override the mock for SignalListItemFactory.new
+        original_factory_new = MockGtk.SignalListItemFactory.new
+        MockGtk.SignalListItemFactory.new = MagicMock(return_value=factory_capturer)
+
+        # Call _create_factory which internally calls new() and connect()
+        # This factory will use the factory_capturer and store its connected functions
+        # in captured_callbacks
+        tested_factory = page._create_factory(attr_name="key")
+
+        self.assertIn("setup", captured_callbacks)
+        self.assertIn("bind", captured_callbacks)
+        setup_func = captured_callbacks["setup"]
+        bind_func = captured_callbacks["bind"]
+
+        # Restore the original mock for SignalListItemFactory.new for other tests
+        MockGtk.SignalListItemFactory.new = original_factory_new
+
+        # Call setup_func to simulate Gtk setting up the list item
+        setup_func(None, mock_list_item) # First arg (factory) is not used in setup_func
+
+        # Test Case 1: Special row
+        special_item_key = "URL: http://example.com"
+        special_item = HeaderItem_class_for_test(key=special_item_key, value="Status: 200", is_special_row=True)
+        mock_list_item.get_item.return_value = special_item
+
+        original_markup_escape = MockGLib.markup_escape_text
+        MockGLib.markup_escape_text = MagicMock(side_effect=lambda text: text) # Simple pass-through for this test
+
+        bind_func(None, mock_list_item) # First arg (factory) is not used in bind_func
+
+        expected_markup = f"<b>{special_item_key}</b>"
+        mock_label.set_markup.assert_called_once_with(expected_markup)
+        mock_label.set_text.assert_not_called()
+        mock_label.reset_mock()
+
+        # Test Case 2: Regular row
+        regular_item_key = "Host"
+        regular_item = HeaderItem_class_for_test(key=regular_item_key, value="example.com", is_special_row=False)
+        mock_list_item.get_item.return_value = regular_item
+
+        bind_func(None, mock_list_item)
+
+        mock_label.set_text.assert_called_once_with(regular_item_key)
+        mock_label.set_markup.assert_not_called()
+
+        MockGLib.markup_escape_text = original_markup_escape # Restore
+
+
+    @patch('src.http_page.requests.get')
+    def test_fetch_headers_no_redirects(self, mock_requests_get):
+        page = self.page
+        final_url = "http://final.com"
+        final_headers = {"Content-Type": "text/html", "X-Final-Header": "FinalValue"}
+
+        mock_final_response = _create_mock_response(final_url, 200, final_headers, history_list=[])
+        mock_requests_get.return_value = mock_final_response
+
+        # Mock _update_column_view_model to capture its arguments
+        # This is where the processed HeaderItem list will be sent.
+        page._update_column_view_model = MagicMock()
+
+        # Simulate that the task returns the structured list of response data
+        self.mock_task_instance.propagate_value = MagicMock(return_value=[
+            {'type': 'final', 'url': final_url, 'status_code': 200, 'headers': final_headers}
+        ])
+
+        # Setup other necessary mocks for _on_entry_row_activated
+        page.http_entry_row = MagicMock(spec=MockAdw.EntryRow); page.http_entry_row.get_text.return_value = final_url
+        page.http_user_agent_row = MagicMock(spec=MockAdw.ComboRow); page.http_user_agent_row.get_selected.return_value = 0
+        page.http_host_header_row = MagicMock(spec=MockAdw.EntryRow); page.http_host_header_row.get_text.return_value = ""
+        page.http_pragma_switch_row = MagicMock(spec=MockAdw.SwitchRow); page.http_pragma_switch_row.get_active.return_value = False
+        page.error_banner = MagicMock(spec=MockAdw.Banner); page.error_banner.set_revealed = MagicMock(); page.error_banner.set_title = MagicMock()
+        page.http_entry_row.remove_css_class = MagicMock() # Called in _fetch_headers_task_done_cb
+
+        page._on_entry_row_activated(page.http_entry_row)
+
+        page._update_column_view_model.assert_called_once()
+        processed_items = page._update_column_view_model.call_args[0][0]
+
+        # Expected: 1 special row (URL/Status) + number of headers. No spacer after the last item.
+        self.assertEqual(len(processed_items), 1 + len(final_headers))
+        # Ensure HeaderItem is available for isinstance check
+        self.assertIsNotNone(http_page_module.HeaderItem, "HeaderItem class could not be loaded from http_page_module")
+
+        self.assertIsInstance(processed_items[0], http_page_module.HeaderItem)
+        self.assertTrue(processed_items[0].is_special_row)
+        self.assertEqual(processed_items[0].key, f"URL: {final_url}")
+        self.assertEqual(processed_items[0].value, "Status: 200 (Final)")
+        idx = 1
+        for key, value in final_headers.items():
+            self.assertIsInstance(processed_items[idx], http_page_module.HeaderItem)
+            self.assertFalse(processed_items[idx].is_special_row)
+            self.assertEqual(processed_items[idx].key, str(key))
+            self.assertEqual(processed_items[idx].value, str(value))
+            idx += 1
+
+    @patch('src.http_page.requests.get')
+    def test_fetch_headers_single_redirect(self, mock_requests_get):
+        page = self.page
+        r1_url = "http://initial.com"; r1_hdrs = {"L1": "V1"}; r1_stat = 301
+        final_url = "http://final.com"; final_hdrs = {"L_Final": "V_Final"}; final_stat = 200
+
+        mock_r1 = _create_mock_response(r1_url, r1_stat, r1_hdrs)
+        mock_final = _create_mock_response(final_url, final_stat, final_hdrs, history_list=[mock_r1])
+        mock_requests_get.return_value = mock_final
+
+        page._update_column_view_model = MagicMock()
+        self.mock_task_instance.propagate_value = MagicMock(return_value=[
+            {'type': 'redirect', 'url': r1_url, 'status_code': r1_stat, 'headers': r1_hdrs},
+            {'type': 'final', 'url': final_url, 'status_code': final_stat, 'headers': final_hdrs}
+        ])
+
+        page.http_entry_row = MagicMock(spec=MockAdw.EntryRow); page.http_entry_row.get_text.return_value = r1_url
+        page.http_user_agent_row = MagicMock(spec=MockAdw.ComboRow); page.http_user_agent_row.get_selected.return_value = 0
+        page.http_host_header_row = MagicMock(spec=MockAdw.EntryRow); page.http_host_header_row.get_text.return_value = ""
+        page.http_pragma_switch_row = MagicMock(spec=MockAdw.SwitchRow); page.http_pragma_switch_row.get_active.return_value = False
+        page.error_banner = MagicMock(spec=MockAdw.Banner); page.error_banner.set_revealed = MagicMock(); page.error_banner.set_title = MagicMock()
+        page.http_entry_row.remove_css_class = MagicMock()
+
+        page._on_entry_row_activated(page.http_entry_row)
+        page._update_column_view_model.assert_called_once()
+        processed_items = page._update_column_view_model.call_args[0][0]
+
+        expected_len = (1 + len(r1_hdrs) + 1) + (1 + len(final_hdrs))
+        self.assertEqual(len(processed_items), expected_len)
+
+        # R1
+        self.assertTrue(processed_items[0].is_special_row); self.assertEqual(processed_items[0].key, f"URL: {r1_url}"); self.assertEqual(processed_items[0].value, f"Status: {r1_stat} (Redirect)");
+        idx = 1; for k,v in r1_hdrs.items(): self.assertFalse(processed_items[idx].is_special_row); self.assertEqual(processed_items[idx].key,k); self.assertEqual(processed_items[idx].value,v); idx+=1
+        # Spacer
+        self.assertTrue(processed_items[idx].is_special_row); self.assertEqual(processed_items[idx].key, ""); idx+=1
+        # Final
+        self.assertTrue(processed_items[idx].is_special_row); self.assertEqual(processed_items[idx].key, f"URL: {final_url}"); self.assertEqual(processed_items[idx].value, f"Status: {final_stat} (Final)"); idx+=1
+        for k,v in final_hdrs.items(): self.assertFalse(processed_items[idx].is_special_row); self.assertEqual(processed_items[idx].key,k); self.assertEqual(processed_items[idx].value,v); idx+=1
+
+    @patch('src.http_page.requests.get')
+    def test_fetch_headers_multiple_redirects(self, mock_requests_get):
+        page = self.page
+        r1_url="http://r1.com"; r1_h={"R1H":"1"}; r1_s=301
+        r2_url="http://r2.com"; r2_h={"R2H":"2"}; r2_s=302
+        f_url="http://final.com"; f_h={"FH":"F"}; f_s=200
+
+        mock_r1 = _create_mock_response(r1_url, r1_s, r1_h)
+        mock_r2 = _create_mock_response(r2_url, r2_s, r2_h)
+        mock_final = _create_mock_response(f_url, f_s, f_h, history_list=[mock_r1, mock_r2])
+        mock_requests_get.return_value = mock_final
+
+        page._update_column_view_model = MagicMock()
+        self.mock_task_instance.propagate_value = MagicMock(return_value=[
+            {'type': 'redirect', 'url': r1_url, 'status_code': r1_s, 'headers': r1_h},
+            {'type': 'redirect', 'url': r2_url, 'status_code': r2_s, 'headers': r2_h},
+            {'type': 'final', 'url': f_url, 'status_code': f_s, 'headers': f_h}
+        ])
+
+        page.http_entry_row = MagicMock(spec=MockAdw.EntryRow); page.http_entry_row.get_text.return_value = r1_url
+        page.http_user_agent_row = MagicMock(spec=MockAdw.ComboRow); page.http_user_agent_row.get_selected.return_value = 0
+        page.http_host_header_row = MagicMock(spec=MockAdw.EntryRow); page.http_host_header_row.get_text.return_value = ""
+        page.http_pragma_switch_row = MagicMock(spec=MockAdw.SwitchRow); page.http_pragma_switch_row.get_active.return_value = False
+        page.error_banner = MagicMock(spec=MockAdw.Banner); page.error_banner.set_revealed = MagicMock(); page.error_banner.set_title = MagicMock()
+        page.http_entry_row.remove_css_class = MagicMock()
+
+        page._on_entry_row_activated(page.http_entry_row)
+        page._update_column_view_model.assert_called_once()
+        processed_items = page._update_column_view_model.call_args[0][0]
+
+        expected_len = (1+len(r1_h)+1) + (1+len(r2_h)+1) + (1+len(f_h))
+        self.assertEqual(len(processed_items), expected_len)
+
+        self.assertTrue(processed_items[0].is_special_row); self.assertIn(r1_url, processed_items[0].key)
+        self.assertTrue(processed_items[1+len(r1_h)].is_special_row)
+        self.assertTrue(processed_items[2+len(r1_h)].is_special_row); self.assertIn(r2_url, processed_items[2+len(r1_h)].key)
+        self.assertTrue(processed_items[2+len(r1_h)+1+len(r2_h)].is_special_row)
+        self.assertTrue(processed_items[2+len(r1_h)+2+len(r2_h)].is_special_row); self.assertIn(f_url, processed_items[2+len(r1_h)+2+len(r2_h)].key)
+
+    def test_styling_of_special_rows(self):
+        page = self.page
+        # HeaderItem is part of http_page_module, which should be loaded globally in this test file
+        self.assertIsNotNone(http_page_module.HeaderItem, "HeaderItem class not loaded for test via http_page_module")
+
+        mock_list_item = MagicMock(spec=MockGtk.ListItem)
+        mock_label = MagicMock(spec=MockGtk.Label)
+        mock_list_item.get_child.return_value = mock_label
+
+        factory_capturer = MagicMock(spec=MockGtk.SignalListItemFactory)
+        captured_callbacks = {}
+        # Simplified connect capture
+        def capture_connect(signal_name, func_to_capture, *_): # Added *_ to accept potential extra args
+            captured_callbacks[signal_name] = func_to_capture
+        factory_capturer.connect = MagicMock(side_effect=capture_connect)
+
+        original_factory_new = MockGtk.SignalListItemFactory.new
+        MockGtk.SignalListItemFactory.new = MagicMock(return_value=factory_capturer)
+
+        tested_factory = page._create_factory(attr_name="key")
+
+        self.assertIn("setup", captured_callbacks)
+        self.assertIn("bind", captured_callbacks)
+        setup_func = captured_callbacks["setup"]
+        bind_func = captured_callbacks["bind"]
+
+        MockGtk.SignalListItemFactory.new = original_factory_new # Restore
+
+        # Simulate Gtk's behavior
+        setup_func(tested_factory, mock_list_item) # Pass factory as first arg for consistency with Gtk callbacks
+
+        # Test Case 1: Special row
+        special_item_key = "URL: http://example.com"
+        # Use http_page_module.HeaderItem directly
+        special_item = http_page_module.HeaderItem(key=special_item_key, value="Status: 200", is_special_row=True)
+        mock_list_item.get_item.return_value = special_item
+
+        original_markup_escape = MockGLib.markup_escape_text
+        MockGLib.markup_escape_text = MagicMock(side_effect=lambda text: text)
+
+        bind_func(tested_factory, mock_list_item) # Pass factory as first arg
+
+        expected_markup = f"<b>{special_item_key}</b>"
+        mock_label.set_markup.assert_called_once_with(expected_markup)
+        mock_label.set_text.assert_not_called()
+        mock_label.reset_mock()
+
+        # Test Case 2: Regular row
+        regular_item_key = "Host"
+        regular_item = http_page_module.HeaderItem(key=regular_item_key, value="example.com", is_special_row=False)
+        mock_list_item.get_item.return_value = regular_item
+
+        bind_func(tested_factory, mock_list_item) # Pass factory as first arg
+
+        mock_label.set_text.assert_called_once_with(regular_item_key)
+        mock_label.set_markup.assert_not_called()
+
+        MockGLib.markup_escape_text = original_markup_escape
 
 
 if __name__ == '__main__':
