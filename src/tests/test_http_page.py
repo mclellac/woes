@@ -243,6 +243,135 @@ class TestHttpPage(unittest.TestCase):
         self.assertIsInstance(error_arg, MockGLibErrorForTest)
         self.assertIn("timed out", error_arg.message.lower())
 
+    @patch('src.http_page.requests.get')
+    def test_https_connection_refused_error_handling(self, mock_requests_get):
+        # 1. Configure the mock to raise a ConnectionError simulating 'Connection refused' on HTTPS
+        from requests.packages.urllib3.exceptions import MaxRetryError, NewConnectionError
+
+        # The error message is in reason.args[0] for NewConnectionError,
+        # which is wrapped by MaxRetryError, then by ConnectionError.
+        # The actual string checked for is 'Connection refused'.
+        connection_refused_msg = "[Errno 111] Connection refused"
+        reason_mock = NewConnectionError("mock_pool", connection_refused_msg)
+        max_retry_error = MaxRetryError(None, "https://example.com", reason_mock)
+        connection_error = requests.exceptions.ConnectionError(max_retry_error)
+        mock_requests_get.side_effect = connection_error
+
+        page = self.page # Instantiated in setUp
+
+        # Configure mocks for UI elements accessed in _on_entry_row_activated and callback
+        page.http_entry_row = MagicMock(spec=MockAdw.EntryRow)
+        page.http_entry_row.get_text.return_value = "https://example.com" # HTTPS URL
+        page.http_entry_row.get_sensitive.return_value = True
+        page.http_entry_row.set_sensitive = MagicMock()
+        page.http_entry_row.add_css_class = MagicMock()
+        page.http_entry_row.remove_css_class = MagicMock() # For _clear_error
+
+        page.http_user_agent_row = MagicMock(spec=MockAdw.ComboRow)
+        page.http_user_agent_row.get_selected.return_value = 0 # "None"
+        page.http_host_header_row = MagicMock(spec=MockAdw.EntryRow)
+        page.http_host_header_row.get_text.return_value = ""
+        page.http_pragma_switch_row = MagicMock(spec=MockAdw.SwitchRow)
+        page.http_pragma_switch_row.get_active.return_value = False
+
+        page.error_banner = MagicMock(spec=MockAdw.Banner)
+        page.error_banner.set_revealed = MagicMock()
+        page.error_banner.set_title = MagicMock()
+
+        page.http_results_group = MagicMock(spec=MockGtk.Box) # Used by _hide_results -> _update_column_view_model
+        page.http_results_group.set_visible = MagicMock()
+
+        # Ensure header_list_store mock (from Gio.ListStore.new mock in setUp) has remove_all
+        if not hasattr(page.header_list_store, 'remove_all'):
+             page.header_list_store.remove_all = MagicMock()
+
+
+        # Setup task behavior: propagate_value should raise the error set by return_error
+        def mock_propagate_value_based_on_return_error(*args, **kwargs):
+            if self.mock_task_instance.return_error.call_args:
+                g_error_instance = self.mock_task_instance.return_error.call_args[0][0]
+                raise g_error_instance
+            return MagicMock() # Default return if no error was set (shouldn't happen here)
+
+        self.mock_task_instance.propagate_value = MagicMock(side_effect=mock_propagate_value_based_on_return_error)
+        self.mock_task_instance.return_error = MagicMock() # To capture the GError
+
+        # 2. Simulate activating the entry row
+        page._on_entry_row_activated(page.http_entry_row)
+
+        # 3. Assertions
+        #    - Error banner is revealed
+        #    - Title is the specific message
+        page.error_banner.set_revealed.assert_called_with(True)
+        page.error_banner.set_title.assert_called_once()
+        args_title, _ = page.error_banner.set_title.call_args
+        expected_message = "The URL is HTTP only and does not support HTTPS. Please try with 'http://'."
+        self.assertEqual(args_title[0], expected_message)
+
+        # Other assertions from test_timeout_error_handling that should also apply
+        self.assertIsNone(page.current_http_task, "Task should be cleared after error handling.")
+        page.http_entry_row.set_sensitive.assert_called_with(True) # Re-enabled in finally block
+        page.http_entry_row.add_css_class.assert_called_with("error") # Set in _display_error
+
+        # Check that task.return_error was called with a GLib.Error containing the specific message
+        self.mock_task_instance.return_error.assert_called_once()
+        error_arg = self.mock_task_instance.return_error.call_args[0][0]
+        self.assertIsInstance(error_arg, MockGLibErrorForTest) # MockGLib.Error is MockGLibErrorForTest
+        self.assertEqual(error_arg.message, expected_message)
+
+    def test_clear_results_button_functionality(self):
+        page = self.page # Instantiated in setUp
+
+        # 1. Configure initial state:
+        #    - Populate header_list_store (mocked in setUp)
+        #    - Ensure http_results_group is visible
+        #    - http_entry_row has text
+        #    - error_banner is visible and has a title
+
+        # Mock methods on header_list_store (which is already a MagicMock from setUp)
+        page.header_list_store.append = MagicMock()
+        # page.header_list_store.remove_all is already mocked via Gio.ListStore.new in setUp,
+        # but ensure it is for this test context specifically if setUp changes.
+        if not hasattr(page.header_list_store, 'remove_all'): # Should be there from global mock
+            page.header_list_store.remove_all = MagicMock()
+
+        page.header_list_store.append("dummy_key", "dummy_value") # Simulate adding an item
+
+        page.http_results_group = MagicMock(spec=MockGtk.Box)
+        page.http_results_group.set_visible = MagicMock()
+        page.http_results_group.set_visible(True) # Simulate it's initially visible
+
+        page.http_entry_row = MagicMock(spec=MockAdw.EntryRow)
+        page.http_entry_row.set_text = MagicMock()
+        page.http_entry_row.remove_css_class = MagicMock() # For _clear_error
+        page.http_entry_row.set_text("http://example.com/somepath") # Simulate initial text
+
+        page.error_banner = MagicMock(spec=MockAdw.Banner)
+        page.error_banner.set_revealed = MagicMock()
+        page.error_banner.set_title = MagicMock()
+        page.error_banner.set_title("Old error message") # Simulate initial error
+        page.error_banner.set_revealed(True)
+
+
+        # 2. Simulate a click on the "Clear Results" button
+        # The button itself is not mocked here, we call the handler directly.
+        # The _on_clear_results_clicked method takes (_button, *_args)
+        # We can pass None for the button argument as it's not used in the method.
+        page._on_clear_results_clicked(None)
+
+        # 3. Assert the conditions
+        #    *   `header_list_store` is empty (remove_all was called)
+        #    *   `http_results_group` is not visible
+        #    *   `http_entry_row` text is empty
+        #    *   `error_banner` is not revealed
+
+        page.header_list_store.remove_all.assert_called_once()
+        page.http_results_group.set_visible.assert_called_with(False) # Called by _hide_results
+        page.http_entry_row.set_text.assert_called_with("")
+        page.error_banner.set_revealed.assert_called_with(False) # Called by _clear_error
+        page.error_banner.set_title.assert_called_with("") # Also part of _clear_error
+
+
 if __name__ == '__main__':
     if HttpPage_class:
         unittest.main()

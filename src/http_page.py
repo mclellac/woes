@@ -176,7 +176,20 @@ class HttpPage(Adw.PreferencesPage):
             return
         except requests.exceptions.ConnectionError as e:
             logger.warning("Task thread: ConnectionError for %s: %s", url, e, exc_info=True)
+            # Default error message
             error_message = "Connection Error: Failed to establish a connection."
+            try:
+                # Check for specific condition: 'Connection refused' and 'https' scheme
+                # The full path to the string is e.args[0].reason.args[0] for ConnectionRefusedError
+                if urlparse(url).scheme == 'https' and \
+                   e.args and isinstance(e.args[0], requests.packages.urllib3.exceptions.MaxRetryError) and \
+                   hasattr(e.args[0], 'reason') and isinstance(e.args[0].reason, requests.packages.urllib3.exceptions.NewConnectionError) and \
+                   e.args[0].reason.args and isinstance(e.args[0].reason.args[0], str) and \
+                   'Connection refused' in e.args[0].reason.args[0]:
+                    error_message = "The URL is HTTP only and does not support HTTPS. Please try with 'http://'."
+            except Exception: # Broad exception to catch any issue with accessing nested attributes
+                logger.debug("ConnectionError structure not as expected when trying to extract specific message, using generic message.")
+
             safe_error_message = str(error_message)
             g_error = GLib.Error(message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED)
             task.return_error(g_error)
