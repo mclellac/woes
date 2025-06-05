@@ -442,7 +442,7 @@ class NmapPage(Adw.PreferencesPage):
                  row.set_subtitle("") # Or some other indicator
             expander.add_row(row)
 
-        if not expander.get_row_at_index(0): # If no rows were added (e.g. empty osmatch_data)
+        if expander.get_n_rows() == 0: # Check if no rows were added
             no_data_row = Adw.ActionRow(title="OS Detection", subtitle="No specific OS matches found.")
             expander.add_row(no_data_row)
 
