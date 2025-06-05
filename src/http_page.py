@@ -386,38 +386,48 @@ class HttpPage(Adw.PreferencesPage):
         headers = None  # Initialize headers
 
         try:
-            returned_obj = local_task_ref.propagate_value()
+            raw_task_result = local_task_ref.propagate_value()
             # --- START DEBUG LOGGING ---
-            logger.error(f"DEBUG: Raw returned_obj: {returned_obj!r}")
-            logger.error(f"DEBUG: Type of returned_obj: {type(returned_obj)}")
-            logger.error(f"DEBUG: Class of returned_obj: {getattr(returned_obj, '__class__', 'N/A')}")
-            if hasattr(returned_obj, '__class__') and hasattr(returned_obj.__class__, '__mro__'):
-                logger.error(f"DEBUG: MRO of returned_obj: {returned_obj.__class__.__mro__}")
+            logger.error(f"DEBUG: Raw raw_task_result: {raw_task_result!r}")
+            logger.error(f"DEBUG: Type of raw_task_result: {type(raw_task_result)}")
+            logger.error(f"DEBUG: Class of raw_task_result: {getattr(raw_task_result, '__class__', 'N/A')}")
+            if hasattr(raw_task_result, '__class__') and hasattr(raw_task_result.__class__, '__mro__'):
+                logger.error(f"DEBUG: MRO of raw_task_result: {raw_task_result.__class__.__mro__}")
             else:
-                logger.error("DEBUG: MRO of returned_obj: N/A")
-            logger.error(f"DEBUG: Is returned_obj a GObject.Object? {isinstance(returned_obj, GObject.Object)}")
+                logger.error("DEBUG: MRO of raw_task_result: N/A")
+            logger.error(f"DEBUG: Is raw_task_result a GObject.Object? {isinstance(raw_task_result, GObject.Object)}")
             try:
-                logger.error(f"DEBUG: vars(returned_obj): {vars(returned_obj)}")
+                logger.error(f"DEBUG: vars(raw_task_result): {vars(raw_task_result)}")
             except TypeError:
-                logger.error("DEBUG: vars(returned_obj): Not applicable for this type.")
+                logger.error("DEBUG: vars(raw_task_result): Not applicable for this type.")
             # --- END DEBUG LOGGING ---
-            all_responses_data = None
 
-            if returned_obj is None:
-                logger.error("propagate_value returned None unexpectedly.")
-                self._display_error("Failed to retrieve task result (returned None).")
+            actual_list_of_responses = None
+            if isinstance(raw_task_result, tuple) and hasattr(raw_task_result, 'value'):
+                logger.info("Accessing .value attribute from raw_task_result.")
+                actual_list_of_responses = raw_task_result.value
+            elif isinstance(raw_task_result, tuple) and len(raw_task_result) == 2:
+                logger.info("Accessing second element (index 1) from raw_task_result tuple.")
+                actual_list_of_responses = raw_task_result[1]
+            else:
+                logger.info("raw_task_result is not a recognized tuple wrapper. Assuming it might be the direct list or an error.")
+                actual_list_of_responses = raw_task_result
+
+            if actual_list_of_responses is None: # Check after potential extraction
+                logger.error("Task result (actual_list_of_responses) is None unexpectedly.")
+                self._display_error("Failed to retrieve task result (processed as None).")
                 self.http_entry_row.add_css_class("error")
                 self._update_column_view_model(None) # Pass None to clear
-            elif isinstance(returned_obj, list): # Expecting a list of response data dicts
-                all_responses_data = returned_obj
-                logger.info("Successfully fetched response data (async, list of dicts).")
+            elif isinstance(actual_list_of_responses, list):
+                logger.info("Successfully processed task result as list.")
 
                 processed_headers_for_store = []
-                if not all_responses_data: # Should not happen if task succeeded with data
-                    logger.warning("Received empty list for all_responses_data.")
-                    self._update_column_view_model(None) # Clear if empty list
+                processed_headers_for_store = []
+                if not actual_list_of_responses:
+                    logger.warning("Received empty list for actual_list_of_responses.")
+                    self._update_column_view_model(None)
                 else:
-                    for i, response_data in enumerate(all_responses_data):
+                    for i, response_data in enumerate(actual_list_of_responses):
                         url_display = f"URL: {response_data.get('url', 'N/A')}"
                         status_display = f"Status: {response_data.get('status_code', 'N/A')}"
 
@@ -432,20 +442,19 @@ class HttpPage(Adw.PreferencesPage):
                         for header_key, header_value in headers_for_this_response.items():
                             processed_headers_for_store.append(HeaderItem(key=str(header_key), value=str(header_value), is_special_row=False))
 
-                        # Add spacer, but not after the very last item
-                        if i < len(all_responses_data) - 1:
+                        if i < len(actual_list_of_responses) - 1:
                             processed_headers_for_store.append(HeaderItem(key="", value="", is_special_row=True))
 
                     self._update_column_view_model(processed_headers_for_store)
                 self.http_entry_row.remove_css_class("error")
-            else:
-                logger.error(f"Returned object of unexpected type {type(returned_obj)}. Expected list.")
-                self._display_error(f"Failed to process task result (unexpected data structure: {type(returned_obj).__name__}).")
+            else: # If actual_list_of_responses is not None and not a list
+                logger.error(f"Task result (actual_list_of_responses) of unexpected type {type(actual_list_of_responses)}. Expected list or None.")
+                self._display_error(f"Failed to process task result (unexpected data structure: {type(actual_list_of_responses).__name__}).")
                 self.http_entry_row.add_css_class("error")
-                self._update_column_view_model(None) # Clear
-        except GObject.GError as e: # Catch errors propagated by propagate_value()
-            error_message = e.message # type: ignore
-            logger.error("Error fetching headers (async GObject.GError): %s", error_message) # type: ignore
+                self._update_column_view_model(None)
+        except GObject.GError as e:
+            error_message = e.message
+            logger.error("Error fetching headers (async GObject.GError): %s", error_message)
             # Sanitize message if it contains markup, AdwBanner might not render it well
             error_message = error_message.replace("<b>", "").replace("</b>", "")
             self._display_error(error_message)
