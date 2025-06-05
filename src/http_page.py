@@ -222,38 +222,15 @@ class HttpPage(Adw.PreferencesPage):
                 logger.info("Successfully fetched headers (async, direct dict).")
                 self._update_column_view_model(headers)
                 self.http_entry_row.remove_css_class("error")
-            else:
-                # This is where _ResultTuple or other unexpected types will land.
-                # Let's introspect it.
-                logger.warning(f"propagate_value returned an unexpected type: {type(returned_obj)}. Introspecting...")
-                logger.info(f"Dir of returned_obj: {dir(returned_obj)}")
-
-                # Try common attributes (use getattr to avoid AttributeError if they don't exist)
-                logger.info(f"Attempting getattr(returned_obj, 'value', 'N/A'): {getattr(returned_obj, 'value', 'N/A')}")
-                logger.info(f"Attempting getattr(returned_obj, 'payload', 'N/A'): {getattr(returned_obj, 'payload', 'N/A')}")
-                logger.info(f"Attempting getattr(returned_obj, 'result', 'N/A'): {getattr(returned_obj, 'result', 'N/A')}")
-                logger.info(f"Attempting getattr(returned_obj, '_obj', 'N/A'): {getattr(returned_obj, '_obj', 'N/A')}")
-
-
-                # Check if it's sequence-like (e.g., a tuple wrapper)
-                is_sequence = False
-                try:
-                    logger.info(f"Attempting sequence access: returned_obj[0] = {returned_obj[0] if len(returned_obj) > 0 else 'empty/not applicable'}")
-                    # If the above worked and returned_obj[0] is our dict:
-                    if len(returned_obj) > 0 and isinstance(returned_obj[0], dict):
-                        logger.info("Accessed returned_obj[0] and it is a dict. Attempting to use it.")
-                        headers = returned_obj[0]
-                        # Re-run success path logic
-                        self._update_column_view_model(headers)
-                        self.http_entry_row.remove_css_class("error")
-                    is_sequence = True
-                except TypeError:
-                    logger.info("returned_obj is not sequence-like (TypeError on len() or index).")
-                except Exception as e_seq:
-                    logger.info(f"Error during sequence access attempt: {e_seq}")
-
-                if headers is None: # If introspection didn't yield a dict
-                    logger.error(f"Still unable to extract dict from {type(returned_obj)} after introspection.")
+            else: # Handle _ResultTuple or other unexpected types
+                logger.info(f"propagate_value returned type {type(returned_obj)}. Attempting to access its '.value' attribute.")
+                if hasattr(returned_obj, 'value') and isinstance(getattr(returned_obj, 'value'), dict):
+                    headers = getattr(returned_obj, 'value')
+                    logger.info("Successfully fetched headers (async, from .value attribute of returned object).")
+                    self._update_column_view_model(headers)
+                    self.http_entry_row.remove_css_class("error")
+                else:
+                    logger.error(f"Returned object of type {type(returned_obj)} does not have a 'value' attribute containing a dict.")
                     self._display_error(f"Failed to process task result (unexpected data structure: {type(returned_obj).__name__}).")
                     self.http_entry_row.add_css_class("error")
                     self._update_column_view_model(None)
