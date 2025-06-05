@@ -37,7 +37,7 @@ class NmapTargetRow(Gtk.ListBoxRow):
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/nmap_page.ui")
-class NmapPage(Adw.PreferencesPage):
+class NmapPage(Gtk.Box):
     __gtype_name__ = "NmapPage"
 
     # Scan Parameters Group
