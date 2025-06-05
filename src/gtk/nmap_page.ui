@@ -25,75 +25,80 @@
           </object>
         </child>
         <child>
-          <object class="AdwSwitchRow" id="nmap_fingerprint_switchrow">
-            <property name="subtitle" translatable="yes">Enable this to attempt OS detection (often requires root/administrator privileges)</property>
-            <property name="title" translatable="yes">OS Fingerprinting</property>
-          </object>
-        </child>
-        <child>
-          <object class="AdwSwitchRow" id="nmap_all_ports_switchrow">
-            <property name="subtitle" translatable="yes">Scan all 65535 TCP ports (default is top ~1000)</property>
-            <property name="title" translatable="yes">Scan All Ports</property>
-          </object>
-        </child>
-        <child>
-          <object class="AdwComboRow" id="nmap_scripts_dropdown">
-            <property name="icon-name">emblem-documents-symbolic</property>
-            <property name="model">
-              <object class="GtkStringList" id="nmap_scripts_list_store">
-                <property name="strings">None</property>
-                <items>
-                  <item>default</item>
-                  <item>vuln</item>
-                  <item>discovery</item>
-                  <item>broadcast</item>
-                  <item>exploit</item>
-                  <item>http-grep</item>
-                  <item>http-enum</item>
-                  <item>http-config-backup</item>
-                  <item>http-wordpress-enum</item>
-                  <item>http-cors</item>
-                  <item>http-csrf</item>
-                  <item>http-cross-domain-policy</item>
-                  <item>mysql-users</item>
-                  <item>vulscan/vulscan</item>
-                  <item>firewalk</item>
-                </items>
+          <object class="AdwExpanderRow" id="nmap_advanced_options_expander">
+            <property name="title" translatable="yes">Advanced Scan Options</property>
+            <child>
+              <object class="AdwSwitchRow" id="nmap_fingerprint_switchrow">
+                <property name="subtitle" translatable="yes">Enable this to attempt OS detection (often requires root/administrator privileges)</property>
+                <property name="title" translatable="yes">OS Fingerprinting</property>
               </object>
-            </property>
-            <property name="selected">0</property>
-            <property name="title" translatable="yes">Nmap Scripting Engine (NSE)</property>
-            <property name="subtitle" translatable="yes">Select a script or script category</property>
-          </object>
-        </child>
-        <child>
-          <object class="AdwSwitchRow" id="nmap_service_version_switchrow">
-            <property name="title" translatable="yes">Service Version Detection (-sV)</property>
-            <property name="subtitle" translatable="yes">Attempt to determine the version of the service running on port</property>
-          </object>
-        </child>
-        <child>
-          <object class="AdwSwitchRow" id="nmap_no_ping_switchrow">
-            <property name="title" translatable="yes">No Ping Scan (-Pn)</property>
-            <property name="subtitle" translatable="yes">Skip host discovery, scan all targets</property>
-          </object>
-        </child>
-        <child>
-          <object class="AdwComboRow" id="nmap_timing_template_comborow">
-            <property name="title" translatable="yes">Timing Template (-T)</property>
-            <property name="model">
-              <object class="GtkStringList">
-                <items>
-                  <item translatable="yes">Polite (T0)</item>
-                  <item translatable="yes">Sneaky (T1)</item>
-                  <item translatable="yes">Paranoid (T2)</item>
-                  <item translatable="yes">Normal (T3)</item>
-                  <item translatable="yes">Aggressive (T4)</item>
-                  <item translatable="yes">Insane (T5)</item>
-                </items>
+            </child>
+            <child>
+              <object class="AdwSwitchRow" id="nmap_all_ports_switchrow">
+                <property name="subtitle" translatable="yes">Scan all 65535 TCP ports (default is top ~1000)</property>
+                <property name="title" translatable="yes">Scan All Ports</property>
               </object>
-            </property>
-            <property name="selected">3</property> <!-- Default to Normal (T3) -->
+            </child>
+            <child>
+              <object class="AdwComboRow" id="nmap_scripts_dropdown">
+                <property name="icon-name">emblem-documents-symbolic</property>
+                <property name="model">
+                  <object class="GtkStringList" id="nmap_scripts_list_store">
+                    <property name="strings">None</property>
+                    <items>
+                      <item>default</item>
+                      <item>vuln</item>
+                      <item>discovery</item>
+                      <item>broadcast</item>
+                      <item>exploit</item>
+                      <item>http-grep</item>
+                      <item>http-enum</item>
+                      <item>http-config-backup</item>
+                      <item>http-wordpress-enum</item>
+                      <item>http-cors</item>
+                      <item>http-csrf</item>
+                      <item>http-cross-domain-policy</item>
+                      <item>mysql-users</item>
+                      <item>vulscan/vulscan</item>
+                      <item>firewalk</item>
+                    </items>
+                  </object>
+                </property>
+                <property name="selected">0</property>
+                <property name="title" translatable="yes">Nmap Scripting Engine (NSE)</property>
+                <property name="subtitle" translatable="yes">Select a script or script category</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwSwitchRow" id="nmap_service_version_switchrow">
+                <property name="title" translatable="yes">Service Version Detection (-sV)</property>
+                <property name="subtitle" translatable="yes">Attempt to determine the version of the service running on port</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwSwitchRow" id="nmap_no_ping_switchrow">
+                <property name="title" translatable="yes">No Ping Scan (-Pn)</property>
+                <property name="subtitle" translatable="yes">Skip host discovery, scan all targets</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwComboRow" id="nmap_timing_template_comborow">
+                <property name="title" translatable="yes">Timing Template (-T)</property>
+                <property name="model">
+                  <object class="GtkStringList">
+                    <items>
+                      <item translatable="yes">Polite (T0)</item>
+                      <item translatable="yes">Sneaky (T1)</item>
+                      <item translatable="yes">Paranoid (T2)</item>
+                      <item translatable="yes">Normal (T3)</item>
+                      <item translatable="yes">Aggressive (T4)</item>
+                      <item translatable="yes">Insane (T5)</item>
+                    </items>
+                  </object>
+                </property>
+                <property name="selected">3</property> <!-- Default to Normal (T3) -->
+              </object>
+            </child>
           </object>
         </child>
         <child>
