@@ -54,9 +54,9 @@ class NmapPage(Adw.PreferencesPage):
     # Error Banner
     error_banner = Gtk.Template.Child("error_banner")  # AdwBanner for errors
 
-    # AdwFlap and its children
-    nmap_results_flap = Gtk.Template.Child("nmap_results_flap")
-    nmap_host_listbox = Gtk.Template.Child("nmap_host_listbox") # Replaces old nmap_target_listbox
+    # AdwOverlaySplitView and its children
+    nmap_split_view = Gtk.Template.Child("nmap_split_view") # Changed from nmap_results_flap
+    nmap_host_listbox = Gtk.Template.Child("nmap_host_listbox")
     nmap_detail_box = Gtk.Template.Child("nmap_detail_box")
     nmap_detail_placeholder = Gtk.Template.Child("nmap_detail_placeholder")
     # warning_banner is static in UI, no Template.Child needed unless interactive
@@ -80,6 +80,7 @@ class NmapPage(Adw.PreferencesPage):
         self._init_page_ui()
         self._connect_signals()
         logging.info("NmapPage initialized.")
+        logging.debug("NmapPage __init__ completed.")
 
     def __del__(self):
         if hasattr(self, 'scanner') and self.scanner:
@@ -105,8 +106,11 @@ class NmapPage(Adw.PreferencesPage):
         self.nmap_host_listbox.bind_model( # Changed to nmap_host_listbox
             self.nmap_target_listbox_store, self._create_target_listbox_row
         )
-        # Initial visibility states for flap and placeholder
-        self.nmap_results_flap.set_revealed(True) # Or a saved state
+        if self.nmap_host_listbox.get_model() == self.nmap_target_listbox_store:
+            logging.debug("nmap_host_listbox successfully bound.")
+
+        # Initial visibility states for split view and placeholder
+        self.nmap_split_view.set_show_sidebar(True) # Changed from nmap_results_flap.set_revealed(True)
         self.nmap_detail_placeholder.set_visible(True)
 
         # Clear any stray children from detail_box from previous dev runs if any
@@ -119,6 +123,7 @@ class NmapPage(Adw.PreferencesPage):
         self.scan_spinner.set_spinning(False)
         self.scan_spinner.set_visible(False)
         self.status_row.set_subtitle("Idle")
+        logging.debug("NmapPage _init_page_ui completed.")
 
     def _clear_dynamic_details(self):
         child = self.nmap_detail_box.get_first_child()
@@ -191,6 +196,12 @@ class NmapPage(Adw.PreferencesPage):
             no_ping_scan,              # new
             timing_template            # new
         )
+        logging.debug(
+            f"Scan task params: target={target}, os_fingerprint={os_fingerprinting}, "
+            f"all_ports={all_ports}, script_name={script_name}, "
+            f"service_version_detection={service_version_detection}, "
+            f"no_ping_scan={no_ping_scan}, timing_template={timing_template}"
+        )
 
     def _run_nmap_scan_task(self, target, os_fingerprinting, all_ports, script_name, service_version_detection, no_ping_scan, timing_template):
         logging.info("Nmap scan task started for %s in executor thread.", target)
@@ -211,8 +222,9 @@ class NmapPage(Adw.PreferencesPage):
             logging.info("Nmap scan task finished for %s.", target)
 
     def _process_scan_results(self, nm: nmap.PortScanner, original_target: str):
-        logging.info("Processing Nmap scan results for %s.", original_target)
         hosts_found = nm.all_hosts()
+        logging.debug(f"Processing results for {original_target}. nm.all_hosts(): {hosts_found}")
+        # logging.info("Processing Nmap scan results for %s.", original_target) # Original info log
         if not hosts_found:
             logging.warning("No hosts found in Nmap results for target %s.", original_target)
             self._set_scan_status(
@@ -230,6 +242,10 @@ class NmapPage(Adw.PreferencesPage):
             return
 
         results_yaml_map = self.scanner.convert_results_to_yaml(nm)
+        if results_yaml_map:
+            logging.debug(f"results_yaml_map keys: {list(results_yaml_map.keys())}")
+        else:
+            logging.debug("results_yaml_map is empty.")
         GLib.idle_add(self._update_results_view, hosts_found, results_yaml_map)
         self._set_scan_status(
             ScanStatus.COMPLETE,
@@ -263,7 +279,7 @@ class NmapPage(Adw.PreferencesPage):
 
         if item_obj and isinstance(item_obj, NmapItem):
             selected_target_key = item_obj.key
-            logging.debug("Target selected: %s, attempting to load details.", selected_target_key)
+            logging.debug(f"Target selected: {selected_target_key}")
 
             try:
                 host_data_dict = yaml.safe_load(item_obj.value) # item_obj.value is YAML string for the host
@@ -271,8 +287,10 @@ class NmapPage(Adw.PreferencesPage):
                     # Handle cases where YAML is valid but not a dictionary (e.g. just a string like "# No YAML data...")
                     logging.warning(f"Parsed YAML for host {selected_target_key} is not a dictionary. Value: {item_obj.value[:100]}")
                     host_data_dict = {} # Treat as empty for detail population
+                logging.debug(f"Successfully parsed YAML for {selected_target_key}. Data keys: {list(host_data_dict.keys()) if host_data_dict else 'None'}")
             except yaml.YAMLError as e:
-                logging.error(f"Error parsing YAML for host {selected_target_key}: {e}")
+                logging.debug(f"YAML parsing failed for {selected_target_key}: {e}") # Changed from error to debug for this specific line
+                logging.error(f"Error parsing YAML for host {selected_target_key}: {e}") # Keep error log for general error
                 error_label = Gtk.Label(label=f"Error: Could not parse scan results for {selected_target_key}.\n{e}")
                 error_label.set_wrap(True)
                 error_label.set_halign(Gtk.Align.START)
@@ -298,6 +316,7 @@ class NmapPage(Adw.PreferencesPage):
     #     pass
 
     def _add_raw_output_expander(self, yaml_string: str, host_key: str):
+        logging.debug(f"Adding raw output expander for {host_key}")
         expander = Adw.ExpanderRow(title=f"Raw Nmap Output (YAML) - {host_key}")
         expander.set_expanded(False)
 
@@ -316,6 +335,7 @@ class NmapPage(Adw.PreferencesPage):
         self.nmap_detail_box.append(expander)
 
     def _add_host_details_expander(self, host_data: dict, host_key: str):
+        logging.debug(f"Adding host details expander for {host_key}")
         expander = Adw.ExpanderRow(title=f"Host Information - {host_key}")
         expander.set_expanded(True)
 
@@ -346,12 +366,14 @@ class NmapPage(Adw.PreferencesPage):
         self.nmap_detail_box.append(expander)
 
     def _add_ports_expander(self, host_data: dict, host_key: str):
+        logging.debug(f"Adding ports expander for {host_key}")
         expander = Adw.ExpanderRow(title=f"Network Ports - {host_key}")
         expander.set_expanded(True)
 
         ports_found = False
         for proto in ['tcp', 'udp', 'sctp', 'ip']: # Common protocols
             if proto_data := host_data.get(proto):
+                logging.debug(f"Processing ports for proto {proto} in host {host_key}, data: {list(proto_data.keys()) if isinstance(proto_data, dict) else 'Not a dict'}")
                 if isinstance(proto_data, dict):
                     for port_id, port_info in proto_data.items():
                         ports_found = True
@@ -384,9 +406,10 @@ class NmapPage(Adw.PreferencesPage):
         if not osmatch_data:
             # Optionally, add a row saying "No OS data" or just don't add the expander
             # For now, if no data, don't add the expander to keep UI cleaner.
-            # logging.debug(f"No OS data for host {host_key}, skipping OS expander.")
+            logging.debug(f"No OS data for host {host_key}, skipping OS expander.")
             return
 
+        logging.debug(f"Adding OS expander for {host_key}. OS match data: {osmatch_data}")
         expander = Adw.ExpanderRow(title=f"Operating System Detection - {host_key}")
         expander.set_expanded(True) # Expand if OS data is present
 
