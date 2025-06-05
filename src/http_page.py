@@ -387,6 +387,20 @@ class HttpPage(Adw.PreferencesPage):
 
         try:
             returned_obj = local_task_ref.propagate_value()
+            # --- START DEBUG LOGGING ---
+            logger.error(f"DEBUG: Raw returned_obj: {returned_obj!r}")
+            logger.error(f"DEBUG: Type of returned_obj: {type(returned_obj)}")
+            logger.error(f"DEBUG: Class of returned_obj: {getattr(returned_obj, '__class__', 'N/A')}")
+            if hasattr(returned_obj, '__class__') and hasattr(returned_obj.__class__, '__mro__'):
+                logger.error(f"DEBUG: MRO of returned_obj: {returned_obj.__class__.__mro__}")
+            else:
+                logger.error("DEBUG: MRO of returned_obj: N/A")
+            logger.error(f"DEBUG: Is returned_obj a GObject.Object? {isinstance(returned_obj, GObject.Object)}")
+            try:
+                logger.error(f"DEBUG: vars(returned_obj): {vars(returned_obj)}")
+            except TypeError:
+                logger.error("DEBUG: vars(returned_obj): Not applicable for this type.")
+            # --- END DEBUG LOGGING ---
             all_responses_data = None
 
             if returned_obj is None:
