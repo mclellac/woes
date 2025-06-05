@@ -248,8 +248,9 @@ class HttpPage(Adw.PreferencesPage):
         except requests.exceptions.Timeout as e:
             logger.warning("Task thread: Timeout for %s: %s", url, e, exc_info=True)
             error_message = "Timeout Error: The request timed out."
-            safe_error_message = str(error_message)
-            g_error = GLib.Error(message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED.value)
+            safe_error_message = str(error_message) # Ensure message is string
+            # Use specific GIO error code for timeouts
+            g_error = GLib.Error(message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.TIMED_OUT.value)
             task.return_error(g_error)
             return
         except requests.exceptions.RequestException as e:
