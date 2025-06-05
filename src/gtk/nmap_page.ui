@@ -120,36 +120,49 @@
       </object>
     </child>
     <child>
-      <object class="AdwPreferencesGroup" id="targets_group">
-        <property name="title" translatable="yes">Scanned Targets</property>
-        <property name="description" translatable="yes">Select a target to view its scan results.</property>
-        <!-- <property name="revealed">False</property> --> <!-- Initially hidden -->
-        <child>
-          <object class="GtkScrolledWindow" id="nmap_target_scrolled_window">
-            <property name="min-content-height">150</property>
-            <property name="vexpand">False</property> <!-- Let it take natural height or min-content-height -->
-            <property name="hexpand">True</property>
+      <object class="AdwFlap" id="nmap_results_flap">
+        <property name="vexpand">true</property>
+        <property name="flap-position">start</property>
+        <property name="revealed">true</property> <!-- Start with flap revealed -->
+        <property name="locked">false</property> <!-- Allow flap to be closed by user -->
+        <property name="separator"></property>
+        <child type="flap">
+          <object class="GtkScrolledWindow">
+            <property name="hscrollbar-policy">never</property>
+            <property name="min-content-width">280</property>
+            <property name="vexpand">true</property>
             <child>
-              <object class="GtkListBox" id="nmap_target_listbox">
+              <object class="GtkListBox" id="nmap_host_listbox">
                 <property name="selection-mode">single</property>
-                <property name="css-classes">boxed-list</property> <!-- Keep boxed-list style -->
+                <!-- Consider adding css-classes like 'boxed-list' if desired -->
               </object>
             </child>
           </object>
         </child>
-      </object>
-    </child>
-    <child>
-      <object class="AdwPreferencesGroup" id="results_group">
-        <property name="title" translatable="yes">Scan Results</property>
-        <property name="description" translatable="yes">Results for the selected target.</property>
-        <!-- <property name="revealed">False</property> --> <!-- Initially hidden -->
-        <child>
-          <object class="GtkScrolledWindow" id="nmap_results_scrolled_window">
-            <property name="min-content-height">300</property>
-            <property name="vexpand">True</property>
-            <property name="hexpand">True</property>
-            <!-- GtkSourceView for results will be added here from code -->
+        <child type="content">
+          <object class="GtkScrolledWindow" id="nmap_detail_scrolled_window">
+            <property name="hexpand">true</property>
+            <property name="vexpand">true</property>
+            <child>
+              <object class="GtkBox" id="nmap_detail_box">
+                <property name="orientation">vertical</property>
+                <property name="margin-top">12</property>
+                <property name="margin-bottom">12</property>
+                <property name="margin-start">12</property>
+                <property name="margin-end">12</property>
+                <property name="spacing">12</property>
+                <child>
+                  <object class="AdwStatusPage" id="nmap_detail_placeholder">
+                    <property name="title" translatable="yes">No Host Selected</property>
+                    <property name="description" translatable="yes">Select a host from the list on the left to view details.</property>
+                    <property name="icon-name">network-workgroup-symbolic</property> <!-- Example icon -->
+                    <property name="vexpand">true</property>
+                    <property name="visible">true</property>
+                  </object>
+                </child>
+                <!-- Detailed host information will be dynamically added here -->
+              </object>
+            </child>
           </object>
         </child>
       </object>

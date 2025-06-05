@@ -1,9 +1,10 @@
 import logging
 import nmap
 import re
+import yaml # Added
 import gi
 
-gi.require_version('Adw', '1')
+gi.require_version('Adw', '1') # Ensure Adw is imported
 gi.require_version('Gtk', '4.0')
 gi.require_version('GtkSource', '5')
 from gi.repository import Adw, Gio, GLib, GObject, Gtk, GtkSource
@@ -53,32 +54,28 @@ class NmapPage(Adw.PreferencesPage):
     # Error Banner
     error_banner = Gtk.Template.Child("error_banner")  # AdwBanner for errors
 
-    # Targets Group
-    targets_group = Gtk.Template.Child("targets_group")  # AdwPreferencesGroup
-    nmap_target_listbox = Gtk.Template.Child("nmap_target_listbox")
-    # nmap_target_scrolled_window is part of targets_group in UI
-
-    # Results Group
-    results_group = Gtk.Template.Child("results_group")  # AdwPreferencesGroup
-    nmap_results_scrolled_window = Gtk.Template.Child("nmap_results_scrolled_window")
+    # AdwFlap and its children
+    nmap_results_flap = Gtk.Template.Child("nmap_results_flap")
+    nmap_host_listbox = Gtk.Template.Child("nmap_host_listbox") # Replaces old nmap_target_listbox
+    nmap_detail_box = Gtk.Template.Child("nmap_detail_box")
+    nmap_detail_placeholder = Gtk.Template.Child("nmap_detail_placeholder")
     # warning_banner is static in UI, no Template.Child needed unless interactive
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         logging.info("Initializing NmapPage...")
         self.results_by_host = {}  # Stores YAML results string per host
-        self.nmap_target_listbox_store = Gio.ListStore(item_type=NmapItem)
+        self.nmap_target_listbox_store = Gio.ListStore(item_type=NmapItem) # Remains
         self.scanner = NmapScanner()
 
-        self.source_view, self.source_buffer = create_source_view(language_name='yaml')
-        self.nmap_results_scrolled_window.set_child(self.source_view)
+        # self.source_view and self.source_buffer removed from here
 
         self.settings = Gio.Settings.new(APP_ID)  # Initialize self.settings
-        self._apply_source_view_style()  # Initial style application
-        self.settings.connect(
-            "changed::source-style-scheme",
-            self._on_source_style_scheme_setting_changed
-        )  # Connect listener
+        # self._apply_source_view_style() # Call removed, will be handled differently
+        # self.settings.connect(
+        #     "changed::source-style-scheme",
+        #     self._on_source_style_scheme_setting_changed
+        # )  # Connection removed for now
 
         self._init_page_ui()
         self._connect_signals()
@@ -93,34 +90,54 @@ class NmapPage(Adw.PreferencesPage):
         logging.debug("NmapPage: '%s' setting changed, applying new source view style.", key)
         self._apply_source_view_style()
 
-    def _apply_source_view_style(self):
+    def _apply_source_view_style_to_buffer(self, buffer): # Renamed and adapted
         source_style_scheme = self.settings.get_string("source-style-scheme")
-        logging.debug("Applying style scheme to Nmap results: %s", source_style_scheme)
+        logging.debug("Applying style scheme to GtkSource.Buffer: %s", source_style_scheme)
         apply_source_style_scheme(
             GtkSource.StyleSchemeManager.get_default(),
-            self.source_buffer,
+            buffer, # Apply to the passed buffer
             source_style_scheme,
         )
-        self.source_view.set_editable(False)
+        # Assuming the view associated with this buffer will handle editable state
 
     def _init_page_ui(self):
         logging.debug("Initializing NmapPage UI components.")
-        self.nmap_target_listbox.bind_model(
+        self.nmap_host_listbox.bind_model( # Changed to nmap_host_listbox
             self.nmap_target_listbox_store, self._create_target_listbox_row
         )
-        # Initial visibility states
-        self.targets_group.set_visible(False)
-        self.results_group.set_visible(False)
+        # Initial visibility states for flap and placeholder
+        self.nmap_results_flap.set_revealed(True) # Or a saved state
+        self.nmap_detail_placeholder.set_visible(True)
+
+        # Clear any stray children from detail_box from previous dev runs if any
+        child = self.nmap_detail_box.get_first_child()
+        while child and child != self.nmap_detail_placeholder: # Keep placeholder
+            self.nmap_detail_box.remove(child)
+            child = self.nmap_detail_box.get_first_child()
+
         self.error_banner.set_revealed(False)
         self.scan_spinner.set_spinning(False)
         self.scan_spinner.set_visible(False)
         self.status_row.set_subtitle("Idle")
 
+    def _clear_dynamic_details(self):
+        child = self.nmap_detail_box.get_first_child()
+        while child:
+            if child == self.nmap_detail_placeholder:
+                child = child.get_next_sibling()
+                continue # Don't remove the placeholder itself, just skip
+            current_child_to_remove = child
+            child = child.get_next_sibling()
+            self.nmap_detail_box.remove(current_child_to_remove)
+
     def _connect_signals(self):
         logging.debug("Connecting NmapPage signals.")
         self.nmap_target_entryrow.connect("apply", self._on_target_activate)
-        self.nmap_target_listbox.connect("row-selected", self._on_target_selected)
+        self.nmap_host_listbox.connect("row-selected", self._on_target_selected) # Changed
         # error_banner dismiss is connected in UI template
+        # Re-connect source style scheme listener if needed later
+        # self.settings.connect("changed::source-style-scheme", self._on_source_style_scheme_setting_changed)
+
 
     def _on_target_activate(self, entry_row: Adw.EntryRow):
         target = entry_row.get_text().strip()
@@ -203,8 +220,13 @@ class NmapPage(Adw.PreferencesPage):
                 "Scan complete for %s. No hosts found or responsive." % original_target
             )
             self._display_error("No hosts found or responsive for target: %s" % original_target)
-            self.targets_group.set_visible(False)
-            self.results_group.set_visible(False)
+            # self.targets_group.set_visible(False) # Removed
+            # self.results_group.set_visible(False) # Removed
+            # Update placeholder for no hosts found
+            self._clear_dynamic_details()
+            self.nmap_detail_placeholder.set_title("No Responsive Hosts")
+            self.nmap_detail_placeholder.set_description(f"The Nmap scan for '{original_target}' did not find any responsive hosts.")
+            self.nmap_detail_placeholder.set_visible(True)
             return
 
         results_yaml_map = self.scanner.convert_results_to_yaml(nm)
@@ -220,55 +242,224 @@ class NmapPage(Adw.PreferencesPage):
         self._set_scan_status(ScanStatus.FAILED, "Scan failed for %s" % target)
 
     def _on_target_selected(self, _listbox: Gtk.ListBox, row: Gtk.ListBoxRow):
+        self._clear_dynamic_details() # Clear previous host's details
+
         if row is None:
-            self.source_buffer.set_text("")
+            self.nmap_detail_placeholder.set_title("No Host Selected")
+            self.nmap_detail_placeholder.set_description("Select a host from the list to view details.")
+            if not self.nmap_detail_placeholder.get_parent(): # Ensure placeholder is in the box
+                self.nmap_detail_box.append(self.nmap_detail_placeholder)
+            self.nmap_detail_placeholder.set_visible(True)
             return
+
+        self.nmap_detail_placeholder.set_visible(False) # Hide placeholder when a row is selected
 
         if isinstance(row, NmapTargetRow):
             item_obj = row.nmap_item
         else:
-            item_obj = None # Or handle error appropriately
+            # This case should ideally not happen if listbox is correctly populated
+            logging.warning("Selected row is not an NmapTargetRow instance.")
+            item_obj = None
 
         if item_obj and isinstance(item_obj, NmapItem):
             selected_target_key = item_obj.key
-            logging.debug("Target selected: %s", selected_target_key)
+            logging.debug("Target selected: %s, attempting to load details.", selected_target_key)
 
-            result_yaml = self.results_by_host.get(selected_target_key, f"# No results found for {selected_target_key}")
-            self.source_buffer.set_text(result_yaml)
-            self._refresh_source_view()
-            self.results_group.set_visible(True)
+            try:
+                host_data_dict = yaml.safe_load(item_obj.value) # item_obj.value is YAML string for the host
+                if not isinstance(host_data_dict, dict):
+                    # Handle cases where YAML is valid but not a dictionary (e.g. just a string like "# No YAML data...")
+                    logging.warning(f"Parsed YAML for host {selected_target_key} is not a dictionary. Value: {item_obj.value[:100]}")
+                    host_data_dict = {} # Treat as empty for detail population
+            except yaml.YAMLError as e:
+                logging.error(f"Error parsing YAML for host {selected_target_key}: {e}")
+                error_label = Gtk.Label(label=f"Error: Could not parse scan results for {selected_target_key}.\n{e}")
+                error_label.set_wrap(True)
+                error_label.set_halign(Gtk.Align.START)
+                self.nmap_detail_box.append(error_label)
+                return
+
+            # Add expanders based on parsed data
+            self._add_host_details_expander(host_data_dict, selected_target_key)
+            self._add_ports_expander(host_data_dict, selected_target_key)
+            self._add_os_expander(host_data_dict, selected_target_key)
+            # self._add_scripts_expander(host_data_dict, selected_target_key) # Future
+            self._add_raw_output_expander(item_obj.value, selected_target_key)
+
         else:
-            logging.warning("Could not retrieve NmapItem from selected row.")
-            self.source_buffer.set_text("")
+            logging.warning("Could not retrieve NmapItem from selected row or item_obj is None.")
+            self.nmap_detail_placeholder.set_title("Error")
+            self.nmap_detail_placeholder.set_description("Could not load details for the selected host.")
+            if not self.nmap_detail_placeholder.get_parent():
+                self.nmap_detail_box.append(self.nmap_detail_placeholder)
+            self.nmap_detail_placeholder.set_visible(True)
 
-    def _refresh_source_view(self):
-        if self.source_view:
-            self.source_view.queue_draw()
+    # def _refresh_source_view(self): # Removed, not using a single source_view anymore
+    #     pass
 
-    def _update_results_view(self, hosts: list, results_map: dict):
-        logging.info("Updating Nmap results view for hosts: %s", hosts)
-        self.nmap_target_listbox_store.remove_all()  # Clear previous targets
-        self.results_by_host.clear()  # Clear previous results mapping
+    def _add_raw_output_expander(self, yaml_string: str, host_key: str):
+        expander = Adw.ExpanderRow(title=f"Raw Nmap Output (YAML) - {host_key}")
+        expander.set_expanded(False)
 
-        if not hosts:
-            self.targets_group.set_visible(False)
-            self.results_group.set_visible(False)
-            self.source_buffer.set_text("# No hosts found in this scan.")
+        source_view, source_buffer = create_source_view(language_name='yaml')
+        source_buffer.set_text(yaml_string, -1)
+        self._apply_source_view_style_to_buffer(source_buffer) # Apply style
+        source_view.set_editable(False)
+
+        scrolled_window = Gtk.ScrolledWindow()
+        scrolled_window.set_child(source_view)
+        scrolled_window.set_min_content_height(200) # Request a minimum height
+        scrolled_window.set_max_content_height(400) # And a maximum to keep it reasonable
+        scrolled_window.set_vexpand(True)
+
+        expander.add_row(scrolled_window)
+        self.nmap_detail_box.append(expander)
+
+    def _add_host_details_expander(self, host_data: dict, host_key: str):
+        expander = Adw.ExpanderRow(title=f"Host Information - {host_key}")
+        expander.set_expanded(True)
+
+        status_info = host_data.get('status', {})
+        status_row = Adw.ActionRow(title="Status", subtitle=f"{status_info.get('state', 'N/A')} (Reason: {status_info.get('reason', 'N/A')})")
+        expander.add_row(status_row)
+
+        addresses_info = host_data.get('addresses', {})
+        if addresses_info.get('ipv4'):
+            ipv4_row = Adw.ActionRow(title="IPv4 Address", subtitle=addresses_info['ipv4'])
+            expander.add_row(ipv4_row)
+        if addresses_info.get('ipv6'): # If IPv6 exists
+            ipv6_row = Adw.ActionRow(title="IPv6 Address", subtitle=addresses_info['ipv6'])
+            expander.add_row(ipv6_row)
+        if addresses_info.get('mac'):
+            mac_row = Adw.ActionRow(title="MAC Address", subtitle=addresses_info['mac'])
+            expander.add_row(mac_row)
+
+        hostnames_list = host_data.get('hostnames', [])
+        if hostnames_list:
+            for hn_entry in hostnames_list:
+                hn_row = Adw.ActionRow(title=f"Hostname ({hn_entry.get('type', 'N/A')})", subtitle=hn_entry.get('name', 'N/A'))
+                expander.add_row(hn_row)
+        else:
+            no_hn_row = Adw.ActionRow(title="Hostnames", subtitle="No hostnames reported")
+            expander.add_row(no_hn_row)
+
+        self.nmap_detail_box.append(expander)
+
+    def _add_ports_expander(self, host_data: dict, host_key: str):
+        expander = Adw.ExpanderRow(title=f"Network Ports - {host_key}")
+        expander.set_expanded(True)
+
+        ports_found = False
+        for proto in ['tcp', 'udp', 'sctp', 'ip']: # Common protocols
+            if proto_data := host_data.get(proto):
+                if isinstance(proto_data, dict):
+                    for port_id, port_info in proto_data.items():
+                        ports_found = True
+                        state = port_info.get('state', 'N/A')
+                        name = port_info.get('name', '')
+                        product = port_info.get('product', '')
+                        version = port_info.get('version', '')
+                        reason = port_info.get('reason', '')
+
+                        title = f"Port {port_id}/{proto.upper()} ({state})"
+                        subtitle_parts = [name, product, version]
+                        subtitle = " ".join(filter(None, subtitle_parts)) # Join non-empty parts
+                        if not subtitle:
+                            subtitle = f"Reason: {reason}"
+                        else:
+                            subtitle += f" (Reason: {reason})"
+
+                        row = Adw.ActionRow(title=title, subtitle=subtitle)
+                        # TODO: Add more details like script output for the port if available via another expander or dialog
+                        expander.add_row(row)
+
+        if not ports_found:
+            no_ports_row = Adw.ActionRow(title="Ports", subtitle="No open ports reported or port data available.")
+            expander.add_row(no_ports_row)
+
+        self.nmap_detail_box.append(expander)
+
+    def _add_os_expander(self, host_data: dict, host_key: str):
+        osmatch_data = host_data.get('osmatch', [])
+        if not osmatch_data:
+            # Optionally, add a row saying "No OS data" or just don't add the expander
+            # For now, if no data, don't add the expander to keep UI cleaner.
+            # logging.debug(f"No OS data for host {host_key}, skipping OS expander.")
             return
 
+        expander = Adw.ExpanderRow(title=f"Operating System Detection - {host_key}")
+        expander.set_expanded(True) # Expand if OS data is present
+
+        for match in osmatch_data:
+            name = match.get('name', 'N/A')
+            accuracy = match.get('accuracy', 'N/A')
+            title = f"{name} (Accuracy: {accuracy}%)"
+
+            # OS Class details
+            osclass_details = []
+            if 'osclass' in match and isinstance(match['osclass'], list): # Ensure it's a list
+                for os_class in match['osclass']:
+                    if isinstance(os_class, dict): # defensive
+                        vendor = os_class.get('vendor', 'N/A')
+                        osfamily = os_class.get('osfamily', 'N/A')
+                        osgen = os_class.get('osgen', 'N/A')
+                        osclass_details.append(f"Type: {os_class.get('type', 'N/A')}, Vendor: {vendor}, Family: {osfamily}, Gen: {osgen}")
+            elif 'osclass' in match and isinstance(match['osclass'], dict): # sometimes it's a single dict
+                os_class = match['osclass']
+                vendor = os_class.get('vendor', 'N/A')
+                osfamily = os_class.get('osfamily', 'N/A')
+                osgen = os_class.get('osgen', 'N/A')
+                osclass_details.append(f"Type: {os_class.get('type', 'N/A')}, Vendor: {vendor}, Family: {osfamily}, Gen: {osgen}")
+
+
+            subtitle = "\n".join(osclass_details) if osclass_details else "No OS class details."
+
+            row = Adw.ActionRow(title=title, subtitle=subtitle)
+            if subtitle == "No OS class details.": # make it less prominent if no subtitle
+                 row.set_subtitle("") # Or some other indicator
+            expander.add_row(row)
+
+        if not expander.get_row_at_index(0): # If no rows were added (e.g. empty osmatch_data)
+            no_data_row = Adw.ActionRow(title="OS Detection", subtitle="No specific OS matches found.")
+            expander.add_row(no_data_row)
+
+        self.nmap_detail_box.append(expander)
+
+
+    def _update_results_view(self, hosts: list, results_map: dict): # results_map is host_key -> yaml_string
+        logging.info("Updating Nmap results view for hosts: %s", hosts)
+        self.nmap_target_listbox_store.remove_all()
+        self.results_by_host.clear() # This stores host_key -> yaml_string
+
+        if not hosts:
+            self._clear_dynamic_details() # Clear any previous details
+            self.nmap_detail_placeholder.set_title("No Hosts Found")
+            self.nmap_detail_placeholder.set_description("The scan did not find any responsive hosts.")
+            if not self.nmap_detail_placeholder.get_parent():
+                self.nmap_detail_box.append(self.nmap_detail_placeholder)
+            self.nmap_detail_placeholder.set_visible(True)
+            # self.nmap_results_flap.set_revealed(False) # Optionally hide flap if no results
+            return
+
+        # self.nmap_results_flap.set_revealed(True) # Ensure flap is visible if there are results
         for host_key in hosts:
             yaml_data = results_map.get(host_key, f"# No YAML data for {host_key}")
             nmap_item = NmapItem(key=host_key, value=yaml_data)
             self.nmap_target_listbox_store.append(nmap_item)
             self.results_by_host[host_key] = yaml_data
 
-        self.targets_group.set_visible(True)
-
         if self.nmap_target_listbox_store.get_n_items() > 0:
-            self.nmap_target_listbox.select_row(self.nmap_target_listbox.get_row_at_index(0))
+            # Auto-select first host, which will trigger _on_target_selected
+            self.nmap_host_listbox.select_row(self.nmap_host_listbox.get_row_at_index(0))
         else:
-            self.results_group.set_visible(False)
-            self.source_buffer.set_text("")
+            # This case should be covered by the 'if not hosts:' above, but as a fallback:
+            self._clear_dynamic_details()
+            self.nmap_detail_placeholder.set_title("No Hosts Available")
+            self.nmap_detail_placeholder.set_description("No host data to display.")
+            if not self.nmap_detail_placeholder.get_parent():
+                self.nmap_detail_box.append(self.nmap_detail_placeholder)
+            self.nmap_detail_placeholder.set_visible(True)
+
 
     def _set_scan_status(self, status_type: ScanStatus, message: str):
         logging.info("Setting Nmap scan status: %s - %s", status_type.name, message)
@@ -291,13 +482,21 @@ class NmapPage(Adw.PreferencesPage):
                 self.status_row.set_title("Scan Status")  # Reset title
 
     def _clear_results(self):
-        logging.info("Clearing Nmap results.")
-        self.nmap_target_listbox_store.remove_all()
-        self.source_buffer.set_text("")
+        logging.info("Clearing Nmap results and detail view.")
+        self.nmap_target_listbox_store.remove_all() # Clear host list in flap
         self.results_by_host.clear()
 
-        self.targets_group.set_visible(False)
-        self.results_group.set_visible(False)
+        self._clear_dynamic_details() # Clear the detail box (remove expanders)
+
+        # Ensure placeholder is visible and set to default "No Host Selected" state
+        self.nmap_detail_placeholder.set_title("No Host Selected")
+        self.nmap_detail_placeholder.set_description("Select a host from the list to view details, or start a new scan.")
+        if not self.nmap_detail_placeholder.get_parent(): # If placeholder was removed, add it back
+            self.nmap_detail_box.append(self.nmap_detail_placeholder)
+        self.nmap_detail_placeholder.set_visible(True)
+
+        # self.targets_group.set_visible(False) # Removed
+        # self.results_group.set_visible(False) # Removed
         self.error_banner.set_revealed(False)
         self.nmap_target_entryrow.remove_css_class("error")
         self.nmap_target_entryrow.set_sensitive(True)
