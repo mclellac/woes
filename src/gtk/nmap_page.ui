@@ -66,6 +66,36 @@
           </object>
         </child>
         <child>
+          <object class="AdwSwitchRow" id="nmap_service_version_switchrow">
+            <property name="title" translatable="yes">Service Version Detection (-sV)</property>
+            <property name="subtitle" translatable="yes">Attempt to determine the version of the service running on port</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwSwitchRow" id="nmap_no_ping_switchrow">
+            <property name="title" translatable="yes">No Ping Scan (-Pn)</property>
+            <property name="subtitle" translatable="yes">Skip host discovery, scan all targets</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwComboRow" id="nmap_timing_template_comborow">
+            <property name="title" translatable="yes">Timing Template (-T)</property>
+            <property name="model">
+              <object class="GtkStringList">
+                <items>
+                  <item translatable="yes">Polite (T0)</item>
+                  <item translatable="yes">Sneaky (T1)</item>
+                  <item translatable="yes">Paranoid (T2)</item>
+                  <item translatable="yes">Normal (T3)</item>
+                  <item translatable="yes">Aggressive (T4)</item>
+                  <item translatable="yes">Insane (T5)</item>
+                </items>
+              </object>
+            </property>
+            <property name="selected">3</property> <!-- Default to Normal (T3) -->
+          </object>
+        </child>
+        <child>
           <object class="AdwActionRow" id="status_row">
             <property name="title" translatable="yes">Scan Status</property>
             <property name="subtitle" translatable="yes">Idle</property> <!-- Initial status message -->

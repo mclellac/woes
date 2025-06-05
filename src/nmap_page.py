@@ -1,5 +1,6 @@
 import logging
 import nmap
+import re
 import gi
 
 gi.require_version('Adw', '1')
@@ -24,6 +25,16 @@ class NmapItem(GObject.Object):
         self.value = value
 
 
+class NmapTargetRow(Gtk.ListBoxRow):
+    nmap_item = GObject.Property(type=NmapItem)
+
+    def __init__(self, nmap_item: NmapItem, **kwargs):
+        super().__init__(**kwargs)
+        self.nmap_item = nmap_item
+        label = Gtk.Label(label=nmap_item.key, halign=Gtk.Align.START, margin_start=6, margin_end=6)
+        self.set_child(label)
+
+
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/nmap_page.ui")
 class NmapPage(Adw.PreferencesPage):
     __gtype_name__ = "NmapPage"
@@ -33,6 +44,9 @@ class NmapPage(Adw.PreferencesPage):
     nmap_fingerprint_switchrow = Gtk.Template.Child("nmap_fingerprint_switchrow")
     nmap_all_ports_switchrow = Gtk.Template.Child("nmap_all_ports_switchrow")
     nmap_scripts_dropdown = Gtk.Template.Child("nmap_scripts_dropdown")
+    nmap_service_version_switchrow = Gtk.Template.Child("nmap_service_version_switchrow")
+    nmap_no_ping_switchrow = Gtk.Template.Child("nmap_no_ping_switchrow")
+    nmap_timing_template_comborow = Gtk.Template.Child("nmap_timing_template_comborow")
     status_row = Gtk.Template.Child("status_row")  # AdwActionRow for status
     scan_spinner = Gtk.Template.Child("scan_spinner")  # GtkSpinner within status_row
 
@@ -136,9 +150,19 @@ class NmapPage(Adw.PreferencesPage):
             else None
         )
 
+        service_version_detection = self.nmap_service_version_switchrow.get_active()
+        no_ping_scan = self.nmap_no_ping_switchrow.get_active()
+        selected_timing_item = self.nmap_timing_template_comborow.get_selected_item()
+        timing_template_str = selected_timing_item.get_string() # e.g., "Normal (T3)"
+        # Extract the T-number (e.g., "T3") or just the number
+        timing_match = re.search(r"\(T([0-5])\)", timing_template_str)
+        timing_template = f"T{timing_match.group(1)}" if timing_match else "T3" # Default to T3 if parsing fails
+
         logging.info(
-            "Submitting Nmap scan for target: %s, OS Fingerprint: %s, All Ports: %s, Script: %s",
-            target, os_fingerprinting, all_ports, script_name
+            "Submitting Nmap scan for target: %s, OS Fingerprint: %s, All Ports: %s, Script: %s, "
+            "Service Version Detection: %s, No Ping: %s, Timing: %s",
+            target, os_fingerprinting, all_ports, script_name,
+            service_version_detection, no_ping_scan, timing_template
         )
         self.scanner.executor.submit(
             self._run_nmap_scan_task,
@@ -146,12 +170,15 @@ class NmapPage(Adw.PreferencesPage):
             os_fingerprinting,
             all_ports,
             script_name,
+            service_version_detection, # new
+            no_ping_scan,              # new
+            timing_template            # new
         )
 
-    def _run_nmap_scan_task(self, target, os_fingerprinting, all_ports, script_name):
+    def _run_nmap_scan_task(self, target, os_fingerprinting, all_ports, script_name, service_version_detection, no_ping_scan, timing_template):
         logging.info("Nmap scan task started for %s in executor thread.", target)
         try:
-            nm = self.scanner.run_nmap_scan(target, os_fingerprinting, all_ports, script_name)
+            nm = self.scanner.run_nmap_scan(target, os_fingerprinting, all_ports, script_name, service_version_detection, no_ping_scan, timing_template)
             GLib.idle_add(self._process_scan_results, nm, target)
         except nmap.PortScannerError as e:
             logging.error("Nmap PortScannerError for %s: %s", target, e, exc_info=True)
@@ -176,8 +203,8 @@ class NmapPage(Adw.PreferencesPage):
                 "Scan complete for %s. No hosts found or responsive." % original_target
             )
             self._display_error("No hosts found or responsive for target: %s" % original_target)
-            self.targets_group.set_revealed(False)
-            self.results_group.set_revealed(False)
+            self.targets_group.set_visible(False)
+            self.results_group.set_visible(False)
             return
 
         results_yaml_map = self.scanner.convert_results_to_yaml(nm)
@@ -197,7 +224,11 @@ class NmapPage(Adw.PreferencesPage):
             self.source_buffer.set_text("")
             return
 
-        item_obj = row.get_child().get_data("NmapItem")
+        if isinstance(row, NmapTargetRow):
+            item_obj = row.nmap_item
+        else:
+            item_obj = None # Or handle error appropriately
+
         if item_obj and isinstance(item_obj, NmapItem):
             selected_target_key = item_obj.key
             logging.debug("Target selected: %s", selected_target_key)
@@ -205,7 +236,7 @@ class NmapPage(Adw.PreferencesPage):
             result_yaml = self.results_by_host.get(selected_target_key, f"# No results found for {selected_target_key}")
             self.source_buffer.set_text(result_yaml)
             self._refresh_source_view()
-            self.results_group.set_revealed(True)
+            self.results_group.set_visible(True)
         else:
             logging.warning("Could not retrieve NmapItem from selected row.")
             self.source_buffer.set_text("")
@@ -220,8 +251,8 @@ class NmapPage(Adw.PreferencesPage):
         self.results_by_host.clear()  # Clear previous results mapping
 
         if not hosts:
-            self.targets_group.set_revealed(False)
-            self.results_group.set_revealed(False)
+            self.targets_group.set_visible(False)
+            self.results_group.set_visible(False)
             self.source_buffer.set_text("# No hosts found in this scan.")
             return
 
@@ -231,12 +262,12 @@ class NmapPage(Adw.PreferencesPage):
             self.nmap_target_listbox_store.append(nmap_item)
             self.results_by_host[host_key] = yaml_data
 
-        self.targets_group.set_revealed(True)
+        self.targets_group.set_visible(True)
 
         if self.nmap_target_listbox_store.get_n_items() > 0:
             self.nmap_target_listbox.select_row(self.nmap_target_listbox.get_row_at_index(0))
         else:
-            self.results_group.set_revealed(False)
+            self.results_group.set_visible(False)
             self.source_buffer.set_text("")
 
     def _set_scan_status(self, status_type: ScanStatus, message: str):
@@ -265,8 +296,8 @@ class NmapPage(Adw.PreferencesPage):
         self.source_buffer.set_text("")
         self.results_by_host.clear()
 
-        self.targets_group.set_revealed(False)
-        self.results_group.set_revealed(False)
+        self.targets_group.set_visible(False)
+        self.results_group.set_visible(False)
         self.error_banner.set_revealed(False)
         self.nmap_target_entryrow.remove_css_class("error")
         self.nmap_target_entryrow.set_sensitive(True)
@@ -284,10 +315,4 @@ class NmapPage(Adw.PreferencesPage):
         self.error_banner.set_title("")
 
     def _create_target_listbox_row(self, item: NmapItem) -> Gtk.ListBoxRow:
-        """Factory function to create a Gtk.ListBoxRow for an NmapItem."""
-        simple_row = Gtk.ListBoxRow()
-        # Create a label for the host key and store the NmapItem on it for easy retrieval.
-        simple_label = Gtk.Label(label=item.key, halign=Gtk.Align.START, margin_start=6, margin_end=6)
-        simple_label.set_data("NmapItem", item)
-        simple_row.set_child(simple_label)
-        return simple_row
+        return NmapTargetRow(nmap_item=item)
