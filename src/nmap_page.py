@@ -413,6 +413,7 @@ class NmapPage(Adw.PreferencesPage):
         expander = Adw.ExpanderRow(title=f"Operating System Detection - {host_key}")
         expander.set_expanded(True) # Expand if OS data is present
 
+        os_details_added = False # Initialize flag
         for match in osmatch_data:
             name = match.get('name', 'N/A')
             accuracy = match.get('accuracy', 'N/A')
@@ -441,8 +442,9 @@ class NmapPage(Adw.PreferencesPage):
             if subtitle == "No OS class details.": # make it less prominent if no subtitle
                  row.set_subtitle("") # Or some other indicator
             expander.add_row(row)
+            os_details_added = True # Set flag to True as a row was added
 
-        if expander.get_n_rows() == 0: # Check if no rows were added
+        if not os_details_added: # Check the flag
             no_data_row = Adw.ActionRow(title="OS Detection", subtitle="No specific OS matches found.")
             expander.add_row(no_data_row)
 
