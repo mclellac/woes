@@ -68,6 +68,21 @@ class DNSPage(Adw.PreferencesPage):
         except Exception as e:
             logging.error("Unexpected error creating text tags (%s): %s", type(e).__name__, e)
 
+    def focus_primary_entry(self):
+        if self.dns_ip_entryrow:
+            self.dns_ip_entryrow.grab_focus()
+            logging.debug("DNSPage: Focused dns_ip_entryrow.")
+        else:
+            logging.warning("DNSPage: dns_ip_entryrow not available to focus.")
+
+    def trigger_primary_action(self):
+        if self.dns_ip_entryrow:
+            # Call the existing handler for when the entry is activated
+            self._on_entry_activated(self.dns_ip_entryrow)
+            logging.debug("DNSPage: Triggered primary action (DNS lookup).")
+        else:
+            logging.warning("DNSPage: dns_ip_entryrow not available to trigger action.")
+
     def _connect_signals(self) -> None:
         """Connect signals for UI elements."""
         self.dns_ip_entryrow.connect("apply", self._on_entry_activated)
