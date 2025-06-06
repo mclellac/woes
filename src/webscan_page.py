@@ -30,6 +30,21 @@ class WebScanPage(Adw.PreferencesPage):
             # This case should ideally not happen if UI is loaded correctly
             logging.warning("WebScanPage: webscan_results_textview or its buffer is not available in __init__.")
 
+    def focus_primary_entry(self):
+        if self.webscan_url_entry:
+            self.webscan_url_entry.grab_focus()
+            logging.debug("WebScanPage: Focused webscan_url_entry.")
+        else:
+            logging.warning("WebScanPage: webscan_url_entry not available to focus.")
+
+    def trigger_primary_action(self):
+        if self.webscan_start_button:
+            # Call the existing handler for the scan button
+            self.webscan_start_button_clicked_cb(self.webscan_start_button)
+            logging.debug("WebScanPage: Triggered primary action (WebScan).")
+        else:
+            logging.warning("WebScanPage: webscan_start_button not available to trigger action.")
+
     @Gtk.Template.Callback()
     def webscan_start_button_clicked_cb(self, _widget):
         target_url = self.webscan_url_entry.get_text()

@@ -90,6 +90,22 @@ class HttpPage(Adw.PreferencesPage):
         self.http_user_agent_row.set_model(Gtk.StringList.new(user_agent_options))
         self.http_user_agent_row.set_selected(0)  # Select "None" by default
 
+    def focus_primary_entry(self):
+        if self.http_entry_row:
+            self.http_entry_row.grab_focus()
+            # AdwEntryRow focuses its internal GtkEntry, which is usually what's desired.
+            logging.debug("HttpPage: Focused http_entry_row.")
+        else:
+            logging.warning("HttpPage: http_entry_row not available to focus.")
+
+    def trigger_primary_action(self):
+        if self.http_entry_row:
+            # Call the existing handler for when the entry is activated
+            self._on_entry_row_activated(self.http_entry_row)
+            logging.debug("HttpPage: Triggered primary action (fetch headers).")
+        else:
+            logging.warning("HttpPage: http_entry_row not available to trigger action.")
+
     def _connect_signals(self) -> None:
         self.http_entry_row.connect(
             "entry-activated", self._on_entry_row_activated
