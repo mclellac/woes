@@ -42,12 +42,12 @@
               <object class="AdwViewStackPage" id="http_page">
                 <property name="child">
                   <object class="AdwClampScrollable" id="http_clamp_scrollable">
+                    <property name="vexpand">True</property>
                     <property name="maximum-size">1400</property>
                     <property name="tightening-threshold">500</property>
                     <property name="unit">px</property>
                     <child>
                       <object class="HttpPage">
-                        <property name="overflow">hidden</property>
                       </object>
                     </child>
                   </object>
@@ -100,6 +100,7 @@
               <object class="AdwViewStackPage" id="webscan_page">
                 <property name="child">
                   <object class="AdwClampScrollable">
+                    <property name="vexpand">True</property>
                     <property name="maximum-size">1400</property>
                     <property name="tightening-threshold">500</property>
                     <property name="unit">px</property>

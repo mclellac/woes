@@ -1,36 +1,26 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
   <requires lib="gtk" version="4.0"/>
-  <requires lib="libadwaita" version="1.0"/>
+  <requires lib="libadwaita" version="1.7"/>
   <template class="WebScanPage" parent="AdwPreferencesPage">
     <property name="title">Web Scan</property>
     <child>
       <object class="AdwPreferencesGroup">
+        <property name="title">Scan Target</property>
         <child>
-          <object class="AdwActionRow">
-            <property name="selectable">False</property>
-            <property name="focusable">False</property>
-            <child>
-              <object class="GtkLabel">
-                <property name="label">This tool allows you to perform web vulnerability scans using Nikto. Enter a target URL to begin.</property>
-                <property name="wrap">True</property>
-                <property name="xalign">0</property>
-                <property name="margin-top">6</property>
-                <property name="margin-bottom">6</property>
-                <property name="margin-start">12</property>
-                <property name="margin-end">12</property>
-                <style>
-                  <class name="dim-label"/>
-                </style>
-              </object>
-            </child>
+          <object class="GtkLabel">
+            <property name="label">This tool allows you to perform web vulnerability scans using Nikto. Enter a target URL to begin.</property>
+            <property name="wrap">True</property>
+            <property name="xalign">0</property>
+            <property name="margin-top">6</property>
+            <property name="margin-bottom">12</property>
+            <property name="margin-start">12</property>
+            <property name="margin-end">12</property>
+            <style>
+              <class name="dim-label"/>
+            </style>
           </object>
         </child>
-      </object>
-    </child>
-    <child>
-      <object class="AdwPreferencesGroup">
-        <property name="title">Scan Target</property>
         <child>
           <object class="AdwEntryRow" id="webscan_url_entry">
             <property name="title">Target URL</property>
