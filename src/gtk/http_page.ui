@@ -7,17 +7,27 @@
     <property name="title" translatable="yes">HTTP Headers</property>
     <property name="icon-name">network-transmit-receive-symbolic</property>
     <child>
-      <object class="GtkLabel" id="http_page_description_label"> <!-- Added id for clarity -->
-        <property name="label">This tool is ideal for developers, as well as systems and network administrators, who need to inspect HTTP headers for debugging, troubleshooting, and security analysis.</property>
-        <property name="wrap">True</property>
-        <property name="xalign">0</property>
-        <property name="margin-top">6</property>
-        <property name="margin-bottom">18</property>
-        <property name="margin-start">12</property>
-        <property name="margin-end">12</property>
-        <style>
-          <class name="dim-label"/>
-        </style>
+      <object class="AdwPreferencesGroup">
+        <child>
+          <object class="AdwActionRow">
+            <property name="selectable">False</property>
+            <property name="focusable">False</property>
+            <child>
+              <object class="GtkLabel">
+                <property name="label">This tool is ideal for developers, as well as systems and network administrators, who need to inspect HTTP headers for debugging, troubleshooting, and security analysis.</property>
+                <property name="wrap">True</property>
+                <property name="xalign">0</property>
+                <property name="margin-top">6</property>
+                <property name="margin-bottom">6</property>
+                <property name="margin-start">12</property>
+                <property name="margin-end">12</property>
+                <style>
+                  <class name="dim-label"/>
+                </style>
+              </object>
+            </child>
+          </object>
+        </child>
       </object>
     </child>
     <child> <!-- This is the original first child, now second -->

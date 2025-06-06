@@ -7,18 +7,28 @@
     <property name="title" translatable="yes">Nmap Scanner</property>
     <property name="icon-name">face-devilish-symbolic</property> <!-- Or an appropriate network scanning icon -->
     <child>
-      <object class="GtkLabel">
-        <property name="label">This tool is designed to facilitate network scanning, reconnaissance, and exploit detection using Nmap, a powerful network scanning tool. This interface provides the capability to perform various types of scans, including &lt;b&gt;service detection&lt;/b&gt;, &lt;b&gt;OS fingerprinting&lt;/b&gt;, &lt;b&gt;port scanning&lt;/b&gt;, and &lt;b&gt;vulnerability assessments&lt;/b&gt; using the &lt;i&gt;Nmap Scripting Engine (NSE)&lt;/i&gt;.</property>
-        <property name="use-markup">True</property>
-        <property name="wrap">True</property>
-        <property name="xalign">0</property>
-        <property name="margin-top">6</property>
-        <property name="margin-bottom">18</property>
-        <property name="margin-start">12</property>
-        <property name="margin-end">12</property>
-        <style>
-          <class name="dim-label"/>
-        </style>
+      <object class="AdwPreferencesGroup">
+        <child>
+          <object class="AdwActionRow">
+            <property name="selectable">False</property>
+            <property name="focusable">False</property>
+            <child>
+              <object class="GtkLabel">
+                <property name="label">This tool is designed to facilitate network scanning, reconnaissance, and exploit detection using Nmap, a powerful network scanning tool. This interface provides the capability to perform various types of scans, including &lt;b&gt;service detection&lt;/b&gt;, &lt;b&gt;OS fingerprinting&lt;/b&gt;, &lt;b&gt;port scanning&lt;/b&gt;, and &lt;b&gt;vulnerability assessments&lt;/b&gt; using the &lt;i&gt;Nmap Scripting Engine (NSE)&lt;/i&gt;.</property>
+                <property name="use-markup">True</property>
+                <property name="wrap">True</property>
+                <property name="xalign">0</property>
+                <property name="margin-top">6</property>
+                <property name="margin-bottom">6</property>
+                <property name="margin-start">12</property>
+                <property name="margin-end">12</property>
+                <style>
+                  <class name="dim-label"/>
+                </style>
+              </object>
+            </child>
+          </object>
+        </child>
       </object>
     </child>
     <child>

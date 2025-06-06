@@ -5,17 +5,27 @@
   <template class="WebScanPage" parent="AdwPreferencesPage">
     <property name="title">Web Scan</property>
     <child>
-      <object class="GtkLabel">
-        <property name="label">This tool allows you to perform web vulnerability scans using Nikto. Enter a target URL to begin.</property>
-        <property name="wrap">True</property>
-        <property name="xalign">0</property>
-        <property name="margin-top">6</property>
-        <property name="margin-bottom">18</property>
-        <property name="margin-start">12</property>
-        <property name="margin-end">12</property>
-        <style>
-          <class name="dim-label"/>
-        </style>
+      <object class="AdwPreferencesGroup">
+        <child>
+          <object class="AdwActionRow">
+            <property name="selectable">False</property>
+            <property name="focusable">False</property>
+            <child>
+              <object class="GtkLabel">
+                <property name="label">This tool allows you to perform web vulnerability scans using Nikto. Enter a target URL to begin.</property>
+                <property name="wrap">True</property>
+                <property name="xalign">0</property>
+                <property name="margin-top">6</property>
+                <property name="margin-bottom">6</property>
+                <property name="margin-start">12</property>
+                <property name="margin-end">12</property>
+                <style>
+                  <class name="dim-label"/>
+                </style>
+              </object>
+            </child>
+          </object>
+        </child>
       </object>
     </child>
     <child>
