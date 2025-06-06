@@ -25,6 +25,7 @@
           <object class="AdwEntryRow" id="webscan_url_entry">
             <property name="title">Target URL</property>
             <property name="input-purpose">url</property>
+            <property name="placeholder-text" translatable="yes">e.g., http://testphp.vulnweb.com</property> <!-- ADDED -->
           </object>
         </child>
       </object>

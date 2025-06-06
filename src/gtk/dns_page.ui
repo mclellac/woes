@@ -30,6 +30,7 @@
             <property name="show-apply-button">True</property>
             <property name="title" translatable="yes">Domain or IP Address</property>
             <property name="tooltip-text" translatable="yes">Enter a domain name or an IP address for reverse lookup</property>
+            <property name="placeholder-text" translatable="yes">e.g., example.com or 8.8.8.8</property> <!-- ADDED -->
           </object>
         </child>
         <child>
