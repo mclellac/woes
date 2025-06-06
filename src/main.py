@@ -147,13 +147,11 @@ class WoesApplication(Adw.Application):
         # Create actions and set accelerators
         self.create_action("quit", lambda *_: self.quit(), ["<primary>q"])
         self.create_action("about", self.on_about_action)
-        self.create_action("preferences", self.on_preferences_action, ["<primary>comma"])  # Uncommented
+        self.create_action("preferences", self.on_preferences_action)  # Uncommented
         self.create_action("switch-to-http", self.switch_to_http, ["<primary>1"])  # Uncommented
         self.create_action("switch-to-nmap", self.switch_to_nmap, ["<primary>2"])  # Uncommented
         self.create_action("switch-to-dns", self.switch_to_dns, ["<primary>3"])  # Added
         self.create_action("switch-to-webscan", self.switch_to_webscan, ["<primary>4"])  # Added
-        self.create_action("focus-current-page-entry", self.on_focus_current_page_entry, ["<primary>l"])
-        self.create_action("trigger-current-page-action", self.on_trigger_current_page_action, ["<primary>r"])
 
 
     def do_handle_local_options(self, options):
@@ -257,26 +255,6 @@ class WoesApplication(Adw.Application):
         preferences_dialog = Preferences(main_window=self.win)
         preferences_dialog.present()
         # preferences_dialog.set_transient_for(self.win)  # Already set in Preferences.__init__
-
-    def on_focus_current_page_entry(self, _action, _param):
-        if self.win and hasattr(self.win, 'stack'):
-            current_page = self.win.stack.get_visible_child()
-            if hasattr(current_page, 'focus_primary_entry'):
-                current_page.focus_primary_entry()
-            else:
-                logging.warning(f"Page {type(current_page).__name__} does not implement focus_primary_entry.")
-        else:
-            logging.warning("Cannot focus primary entry: window or stack not available.")
-
-    def on_trigger_current_page_action(self, _action, _param):
-        if self.win and hasattr(self.win, 'stack'):
-            current_page = self.win.stack.get_visible_child()
-            if hasattr(current_page, 'trigger_primary_action'):
-                current_page.trigger_primary_action()
-            else:
-                logging.warning(f"Page {type(current_page).__name__} does not implement trigger_primary_action.")
-        else:
-            logging.warning("Cannot trigger primary action: window or stack not available.")
 
     def create_action(self, name, callback, shortcuts=None):
         """Add an application action."""

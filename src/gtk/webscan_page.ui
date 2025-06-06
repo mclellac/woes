@@ -5,22 +5,31 @@
   <template class="WebScanPage" parent="AdwPreferencesPage">
     <property name="title">Web Scan</property>
     <child>
+      <object class="AdwBanner" id="error_banner_webscan">
+        <property name="button-label" translatable="yes">Dismiss</property>
+        <property name="revealed">False</property>
+        <signal name="button-clicked" handler="on_error_banner_dismiss_clicked"/>
+      </object>
+    </child>
+    <child>
       <object class="AdwPreferencesGroup">
+        <property name="title">Scan Target</property>
+        <child>
+          <object class="AdwEntryRow" id="url_entry">
+            <property name="title">Target URL</property>
+          </object>
+        </child>
         <child>
           <object class="AdwActionRow">
-            <property name="selectable">False</property>
-            <property name="focusable">False</property>
+            <property name="title">Actions</property>
             <child>
-              <object class="GtkLabel">
-                <property name="label">This tool allows you to perform web vulnerability scans using Nikto. Enter a target URL to begin.</property>
-                <property name="wrap">True</property>
-                <property name="xalign">0</property>
-                <property name="margin-top">6</property>
-                <property name="margin-bottom">6</property>
-                <property name="margin-start">12</property>
-                <property name="margin-end">12</property>
+              <object class="GtkButton" id="scan_button">
+                <property name="label">Start Scan</property>
+                <property name="halign">end</property>
+                <property name="valign">center</property>
+                <signal name="clicked" handler="on_scan_button_clicked"/>
                 <style>
-                  <class name="dim-label"/>
+                  <class name="suggested-action"/>
                 </style>
               </object>
             </child>
@@ -30,54 +39,17 @@
     </child>
     <child>
       <object class="AdwPreferencesGroup">
-        <property name="title">Scan Target</property>
-        <child>
-          <object class="AdwEntryRow" id="webscan_url_entry">
-            <property name="title">Target URL</property>
-            <property name="input-purpose">url</property>
-            <property name="placeholder-text" translatable="yes">e.g., http://testphp.vulnweb.com</property> <!-- ADDED -->
-          </object>
-        </child>
-      </object>
-    </child>
-    <child>
-      <object class="AdwActionRow" id="webscan_action_row">
-        <property name="title">Actions</property>
-        <child type="suffix">
-          <object class="GtkButton" id="webscan_start_button">
-            <property name="label">Start Scan</property>
-            <property name="halign">end</property>
-            <property name="valign">center</property>
-            <property name="has-frame">true</property>
-            <style>
-              <class name="suggested-action"/>
-            </style>
-          </object>
-        </child>
-      </object>
-    </child>
-    <child>
-      <object class="AdwBanner" id="webscan_error_banner">
-        <property name="button-label" translatable="yes">Dismiss</property>
-        <property name="revealed">False</property>
-        <!-- Signal handler for button-clicked will be connected in Python code -->
-      </object>
-    </child>
-    <child>
-      <object class="AdwPreferencesGroup">
         <property name="title">Scan Results</property>
         <property name="description">Output from the web vulnerability scan will appear here.</property>
         <child>
           <object class="GtkScrolledWindow">
-            <property name="min-content-height">300</property>
+            <property name="min-content-height">200</property>
             <property name="vexpand">True</property>
-            <property name="hexpand">True</property>
             <child>
-              <object class="GtkTextView" id="webscan_results_textview">
+              <object class="GtkTextView" id="results_textview">
                 <property name="editable">False</property>
                 <property name="cursor-visible">False</property>
                 <property name="wrap-mode">word-char</property>
-                <property name="monospace">True</property>
               </object>
             </child>
           </object>

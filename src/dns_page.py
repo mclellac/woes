@@ -33,12 +33,6 @@ class DNSPage(Adw.PreferencesPage):
         self.dns_results_scrolled_window.set_child(self.source_view)
         self.settings = Gio.Settings.new(APP_ID)  # Ensure settings is initialized before use
         self._apply_source_view_style()  # Initial style application
-
-        # ---- ADD THESE LINES ----
-        initial_message = "Enter a domain or IP address and select a record type above, then click 'Apply' (or press Enter in the entry field). Results will be shown here."
-        self.source_buffer.set_text(initial_message)
-        # ---- END OF ADDED LINES ----
-
         self.settings.connect(
             "changed::source-style-scheme",
             self._on_source_style_scheme_setting_changed
@@ -67,21 +61,6 @@ class DNSPage(Adw.PreferencesPage):
             logging.error("Error creating Pango text tags: %s", e)
         except Exception as e:
             logging.error("Unexpected error creating text tags (%s): %s", type(e).__name__, e)
-
-    def focus_primary_entry(self):
-        if self.dns_ip_entryrow:
-            self.dns_ip_entryrow.grab_focus()
-            logging.debug("DNSPage: Focused dns_ip_entryrow.")
-        else:
-            logging.warning("DNSPage: dns_ip_entryrow not available to focus.")
-
-    def trigger_primary_action(self):
-        if self.dns_ip_entryrow:
-            # Call the existing handler for when the entry is activated
-            self._on_entry_activated(self.dns_ip_entryrow)
-            logging.debug("DNSPage: Triggered primary action (DNS lookup).")
-        else:
-            logging.warning("DNSPage: dns_ip_entryrow not available to trigger action.")
 
     def _connect_signals(self) -> None:
         """Connect signals for UI elements."""

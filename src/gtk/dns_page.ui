@@ -8,31 +8,6 @@
     <property name="icon-name">org.gnome.Epiphany-symbolic</property>
     <child>
       <object class="AdwPreferencesGroup">
-        <child>
-          <object class="AdwActionRow">
-            <property name="selectable">False</property>
-            <property name="focusable">False</property>
-            <child>
-              <object class="GtkLabel">
-                <property name="label">The DNS tool allows users to perform DNS queries for various record types, including &lt;b&gt;A&lt;/b&gt;, &lt;b&gt;TXT&lt;/b&gt;, &lt;b&gt;CNAME&lt;/b&gt; and others. By entering an IP address, users can perform reverse DNS lookups.</property>
-                <property name="use-markup">True</property>
-                <property name="wrap">True</property>
-                <property name="xalign">0</property>
-                <property name="margin-top">6</property>
-                <property name="margin-bottom">6</property>
-                <property name="margin-start">12</property>
-                <property name="margin-end">12</property>
-                <style>
-                  <class name="dim-label"/>
-                </style>
-              </object>
-            </child>
-          </object>
-        </child>
-      </object>
-    </child>
-    <child>
-      <object class="AdwPreferencesGroup">
         <property name="title" translatable="yes">Lookup Parameters</property>
         <child>
           <object class="AdwEntryRow" id="dns_ip_entryrow">
@@ -40,7 +15,6 @@
             <property name="show-apply-button">True</property>
             <property name="title" translatable="yes">Domain or IP Address</property>
             <property name="tooltip-text" translatable="yes">Enter a domain name or an IP address for reverse lookup</property>
-            <property name="placeholder-text" translatable="yes">e.g., example.com or 8.8.8.8</property> <!-- ADDED -->
           </object>
         </child>
         <child>

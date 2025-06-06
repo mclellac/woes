@@ -7,31 +7,6 @@
     <property name="title" translatable="yes">Nmap Scanner</property>
     <property name="icon-name">face-devilish-symbolic</property> <!-- Or an appropriate network scanning icon -->
     <child>
-      <object class="AdwPreferencesGroup">
-        <child>
-          <object class="AdwActionRow">
-            <property name="selectable">False</property>
-            <property name="focusable">False</property>
-            <child>
-              <object class="GtkLabel">
-                <property name="label">This tool is designed to facilitate network scanning, reconnaissance, and exploit detection using Nmap, a powerful network scanning tool. This interface provides the capability to perform various types of scans, including &lt;b&gt;service detection&lt;/b&gt;, &lt;b&gt;OS fingerprinting&lt;/b&gt;, &lt;b&gt;port scanning&lt;/b&gt;, and &lt;b&gt;vulnerability assessments&lt;/b&gt; using the &lt;i&gt;Nmap Scripting Engine (NSE)&lt;/i&gt;.</property>
-                <property name="use-markup">True</property>
-                <property name="wrap">True</property>
-                <property name="xalign">0</property>
-                <property name="margin-top">6</property>
-                <property name="margin-bottom">6</property>
-                <property name="margin-start">12</property>
-                <property name="margin-end">12</property>
-                <style>
-                  <class name="dim-label"/>
-                </style>
-              </object>
-            </child>
-          </object>
-        </child>
-      </object>
-    </child>
-    <child>
       <object class="AdwBanner" id="warning_banner">
         <property name="title" translatable="yes">WARNING: Do not use this tool on any hosts or networks you do not have explicit permission to scan.</property>
         <property name="revealed">True</property>
@@ -47,7 +22,6 @@
             <property name="input-purpose">url</property> <!-- Changed from generic to url-like -->
             <property name="show-apply-button">True</property>
             <property name="title" translatable="yes">Target (IP/CIDR/Hostname)</property>
-            <property name="placeholder-text" translatable="yes">e.g., 192.168.1.1 or example.com</property> <!-- ADDED -->
           </object>
         </child>
         <child>
@@ -186,7 +160,7 @@
                 <child>
                   <object class="AdwStatusPage" id="nmap_detail_placeholder">
                     <property name="title" translatable="yes">No Host Selected</property>
-                    <property name="description" translatable="yes">Perform an Nmap scan using the panel above. Once the scan is complete, select a host from the list on the left to view detailed results here.</property>
+                    <property name="description" translatable="yes">Select a host from the list on the left to view details.</property>
                     <property name="icon-name">network-workgroup-symbolic</property> <!-- Example icon -->
                     <property name="vexpand">true</property>
                     <property name="visible">true</property>

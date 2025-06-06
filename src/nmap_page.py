@@ -86,21 +86,6 @@ class NmapPage(Adw.PreferencesPage):
         if hasattr(self, 'scanner') and self.scanner:
             del self.scanner  # Ensure executor shutdown if NmapScanner has __del__
 
-    def focus_primary_entry(self):
-        if self.nmap_target_entryrow:
-            self.nmap_target_entryrow.grab_focus()
-            logging.debug("NmapPage: Focused nmap_target_entryrow.")
-        else:
-            logging.warning("NmapPage: nmap_target_entryrow not available to focus.")
-
-    def trigger_primary_action(self):
-        if self.nmap_target_entryrow:
-            # Call the existing handler for when the entry is activated
-            self._on_target_activate(self.nmap_target_entryrow)
-            logging.debug("NmapPage: Triggered primary action (Nmap scan).")
-        else:
-            logging.warning("NmapPage: nmap_target_entryrow not available to trigger action.")
-
     def _on_source_style_scheme_setting_changed(self, _settings, key):
         """Handle changes to the source-style-scheme setting."""
         logging.debug("NmapPage: '%s' setting changed, applying new source view style.", key)

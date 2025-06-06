@@ -86,7 +86,7 @@
                 <property name="activates-default">True</property>
                 <property name="show-apply-button">True</property>
                 <property name="title">Custom DNS Server (Optional)</property>
-                <property name="subtitle" translatable="yes">Leave empty to use system default DNS</property> <!-- UNCOMMENTED/ADDED -->
+                <!-- <property name="subtitle">Leave empty to use system default DNS</property> -->
               </object>
             </child>
             <!-- Removed empty AdwActionRow -->

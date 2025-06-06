@@ -5,75 +5,20 @@
     <child>
       <object class="GtkShortcutsSection">
         <property name="section-name">shortcuts</property>
-        <!-- Removed max-height property -->
+        <property name="max-height">10</property>
         <child>
           <object class="GtkShortcutsGroup">
             <property name="title" translatable="yes" context="shortcut window">General</property>
             <child>
               <object class="GtkShortcutsShortcut">
-                <property name="action-name">app.preferences</property>
-                <property name="title" translatable="yes" context="shortcut window">Preferences</property>
-                <!-- Accelerator <primary>comma is set in code -->
-              </object>
-            </child>
-            <child>
-              <object class="GtkShortcutsShortcut">
-                <property name="action-name">win.show-help-overlay</property>
                 <property name="title" translatable="yes" context="shortcut window">Show Shortcuts</property>
-                <!-- No explicit global accelerator, usually F1 or via menu -->
+                <property name="action-name">win.show-help-overlay</property>
               </object>
             </child>
             <child>
               <object class="GtkShortcutsShortcut">
+                <property name="title" translatable="yes" context="shortcut window">Quit</property>
                 <property name="action-name">app.quit</property>
-                <property name="title" translatable="yes" context="shortcut window">Quit Application</property>
-                <!-- Accelerator <primary>q is set in code -->
-              </object>
-            </child>
-          </object>
-        </child>
-        <child>
-          <object class="GtkShortcutsGroup">
-            <property name="title" translatable="yes" context="shortcut window">Navigation</property>
-            <child>
-              <object class="GtkShortcutsShortcut">
-                <property name="action-name">app.switch-to-http</property>
-                <property name="title" translatable="yes" context="shortcut window">Switch to HTTP Page</property>
-              </object>
-            </child>
-            <child>
-              <object class="GtkShortcutsShortcut">
-                <property name="action-name">app.switch-to-nmap</property>
-                <property name="title" translatable="yes" context="shortcut window">Switch to Nmap Page</property>
-              </object>
-            </child>
-            <child>
-              <object class="GtkShortcutsShortcut">
-                <property name="action-name">app.switch-to-dns</property>
-                <property name="title" translatable="yes" context="shortcut window">Switch to DNS Page</property>
-              </object>
-            </child>
-            <child>
-              <object class="GtkShortcutsShortcut">
-                <property name="action-name">app.switch-to-webscan</property>
-                <property name="title" translatable="yes" context="shortcut window">Switch to WebScan Page</property>
-              </object>
-            </child>
-          </object>
-        </child>
-        <child>
-          <object class="GtkShortcutsGroup">
-            <property name="title" translatable="yes" context="shortcut window">Page Actions (Common)</property>
-            <child>
-              <object class="GtkShortcutsShortcut">
-                <property name="action-name">app.focus-current-page-entry</property>
-                <property name="title" translatable="yes" context="shortcut window">Focus Primary Input Field</property>
-              </object>
-            </child>
-            <child>
-              <object class="GtkShortcutsShortcut">
-                <property name="action-name">app.trigger-current-page-action</property>
-                <property name="title" translatable="yes" context="shortcut window">Run/Scan/Fetch/Lookup</property>
               </object>
             </child>
           </object>
