@@ -7,20 +7,20 @@
     <property name="title" translatable="yes">HTTP Headers</property>
     <property name="icon-name">network-transmit-receive-symbolic</property>
     <child>
-      <object class="GtkLabel">
+      <object class="GtkLabel" id="http_page_description_label"> <!-- Added id for clarity -->
         <property name="label">This tool is ideal for developers, as well as systems and network administrators, who need to inspect HTTP headers for debugging, troubleshooting, and security analysis.</property>
         <property name="wrap">True</property>
         <property name="xalign">0</property>
-        <property name="margin-top">6</property> <!-- Add some top margin too -->
+        <property name="margin-top">6</property>
         <property name="margin-bottom">18</property>
-        <property name="margin-start">12</property> <!-- Standard preference page margins -->
+        <property name="margin-start">12</property>
         <property name="margin-end">12</property>
         <style>
-          <class name="dim-label"/> <!-- To make it less prominent than group titles -->
+          <class name="dim-label"/>
         </style>
       </object>
     </child>
-    <child>
+    <child> <!-- This is the original first child, now second -->
       <object class="AdwPreferencesGroup" id="http_request_group">
         <property name="title" translatable="yes">Request Parameters</property>
         <child>
@@ -30,14 +30,13 @@
             <property name="input-purpose">url</property>
             <property name="show-apply-button">True</property>
             <property name="title" translatable="yes">URL to fetch HTTP headers from</property>
-            <property name="placeholder-text" translatable="yes">e.g., https://www.example.com</property> <!-- ADDED -->
+            <property name="placeholder-text" translatable="yes">e.g., https://www.example.com</property>
           </object>
         </child>
         <child>
           <object class="AdwEntryRow" id="http_host_header_row">
             <property name="title" translatable="yes">Custom Host Header</property>
-            <property name="placeholder-text" translatable="yes">e.g., www.customhost.com</property> <!-- ADDED -->
-            <!-- Add other properties as needed, e.g., placeholder-text -->
+            <property name="placeholder-text" translatable="yes">e.g., www.customhost.com</property>
           </object>
         </child>
         <child>
