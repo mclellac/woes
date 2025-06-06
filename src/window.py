@@ -38,9 +38,12 @@ class WoesWindow(Adw.ApplicationWindow):
         self.style_manager = Adw.StyleManager.get_default()
         logging.debug("WoesWindow.__init__: StyleManager obtained.")
 
-        logging.debug("WoesWindow.__init__: Connecting dark-theme setting change listener...")
-        self.settings.connect("changed::dark-theme", self._on_dark_theme_setting_changed)
-        logging.debug("WoesWindow.__init__: dark-theme listener connected.")
+        logging.debug("WoesWindow.__init__: Connecting theme-preference setting change listener...")
+        self.settings.connect("changed::theme-preference", self._on_theme_preference_setting_changed)
+        logging.debug("WoesWindow.__init__: theme-preference listener connected.")
+        logging.debug("WoesWindow.__init__: Connecting font-scaling-percentage setting change listener...")
+        self.settings.connect("changed::font-scaling-percentage", self._on_font_scaling_setting_changed)
+        logging.debug("WoesWindow.__init__: font-scaling-percentage listener connected.")
 
         logging.debug("WoesWindow.__init__: Calling setup_ui...")
         try:
@@ -77,20 +80,25 @@ class WoesWindow(Adw.ApplicationWindow):
             logging.warning("switcher_title or stack not found during setup_ui.")
         logging.debug("WoesWindow.setup_ui: Finished")
 
-    def _on_dark_theme_setting_changed(self, settings, key): # Added method
-        logging.debug(f"WoesWindow._on_dark_theme_setting_changed: '{key}' setting changed.")
-        dark_theme_enabled = settings.get_boolean(key)
-        apply_theme(self.style_manager, dark_theme_enabled)
-        self.load_css()
+    def _on_theme_preference_setting_changed(self, settings, key):
+        logging.debug(f"WoesWindow._on_theme_preference_setting_changed: '{key}' setting changed.")
+        theme_pref = settings.get_string(key)
+        apply_theme(self.style_manager, theme_pref)
+        self.load_css() # Reload CSS to apply potential theme-specific styles (e.g., style-dark.css)
+
+    def _on_font_scaling_setting_changed(self, settings, key):
+        logging.debug(f"WoesWindow._on_font_scaling_setting_changed: '{key}' setting changed.")
+        font_scale_pref_str = settings.get_string(key)
+        # The _settings parameter in apply_font_size is currently unused but part of its signature
+        apply_font_size(self.settings, font_scale_pref_str)
 
     def load_css(self):
         logging.debug("WoesWindow.load_css: Starting")
         # Determine which CSS file to use based on the current theme
-        css_file = (
-            "style-dark.css"
-            if self.style_manager.get_color_scheme() == Adw.ColorScheme.PREFER_DARK
-            else "style.css"
-        )
+        if self.style_manager.get_dark():
+            css_file = "style-dark.css"
+        else:
+            css_file = "style.css"
         logging.debug(f"WoesWindow.load_css: Determined css_file: {css_file}")
         css_path = f"{RESOURCE_PREFIX}/{css_file}"
         logging.debug(f"WoesWindow.load_css: css_path: {css_path}")
@@ -119,13 +127,13 @@ class WoesWindow(Adw.ApplicationWindow):
     def apply_preferences(self):
         logging.debug("WoesWindow.apply_preferences: Starting")
         try:
-            font_size = self.settings.get_int("font-size")
-            logging.debug(f"WoesWindow.apply_preferences: Font size from settings: {font_size}")
-            dark_theme_enabled = self.settings.get_boolean("dark-theme")
-            logging.debug(f"WoesWindow.apply_preferences: Dark theme from settings: {dark_theme_enabled}")
+            font_scale_pref_str = self.settings.get_string("font-scaling-percentage")
+            logging.debug(f"WoesWindow.apply_preferences: Font scale preference from settings: {font_scale_pref_str}")
+            theme_pref = self.settings.get_string("theme-preference")
+            logging.debug(f"WoesWindow.apply_preferences: Theme preference from settings: {theme_pref}")
 
-            apply_font_size(self.settings, font_size)
-            apply_theme(self.style_manager, dark_theme_enabled)
+            apply_font_size(self.settings, font_scale_pref_str)
+            apply_theme(self.style_manager, theme_pref)
         except GLib.Error as e:
             logging.error(f"Error applying preferences (GSettings): {e}")
         except Exception as e:

@@ -1,4 +1,5 @@
 import logging
+import re
 import gi
 
 gi.require_version('Adw', '1')
@@ -6,10 +7,26 @@ gi.require_version('Gtk', '4.0')
 gi.require_version('GtkSource', '5')
 from gi.repository import Adw, Gdk, Gio, Gtk, GtkSource
 
+BASE_FONT_SIZE_PT = 10.0  # Define a base font size
 
-def apply_font_size(_settings: Gio.Settings, font_size: int):  # Prefixed unused 'settings'
+def apply_font_size(_settings: Gio.Settings, font_scale_percentage_str: str):  # Prefixed unused 'settings'
+    logging.debug(f"apply_font_size called with: '{font_scale_percentage_str}'")
+    parsed_percentage = 100.0  # Default
+    match = re.match(r"(\d+)\%?", font_scale_percentage_str)
+    if match:
+        try:
+            parsed_percentage = float(match.group(1))
+        except ValueError:
+            logging.warning(f"Could not parse percentage from '{font_scale_percentage_str}', defaulting to 100%.")
+            parsed_percentage = 100.0
+    else:
+        logging.warning(f"Could not parse percentage from '{font_scale_percentage_str}', defaulting to 100%.")
+
+    actual_font_size_pt = BASE_FONT_SIZE_PT * (parsed_percentage / 100.0)
+    logging.debug(f"Applying font: base={BASE_FONT_SIZE_PT}pt, scale_pref='{font_scale_percentage_str}', calculated_size={actual_font_size_pt}pt")
+
     css_provider = Gtk.CssProvider()
-    css = f"* {{ font-size: {font_size}pt; }}"
+    css = f"* {{ font-size: {actual_font_size_pt}pt; }}"
     css_provider.load_from_data(css.encode())
 
     Gtk.StyleContext.add_provider_for_display(
@@ -19,11 +36,14 @@ def apply_font_size(_settings: Gio.Settings, font_size: int):  # Prefixed unused
     )
 
 
-def apply_theme(style_manager: Adw.StyleManager, dark_theme_enabled: bool):
-    if dark_theme_enabled:
-        style_manager.set_color_scheme(Adw.ColorScheme.PREFER_DARK)
-    else:
-        style_manager.set_color_scheme(Adw.ColorScheme.PREFER_LIGHT)
+def apply_theme(style_manager: Adw.StyleManager, theme_preference: str):
+    logging.debug("Applying theme preference: %s", theme_preference)
+    if theme_preference == "Light":
+        style_manager.set_color_scheme(Adw.ColorScheme.FORCE_LIGHT)
+    elif theme_preference == "Dark":
+        style_manager.set_color_scheme(Adw.ColorScheme.FORCE_DARK)
+    else:  # Default to "System" or any other unexpected value
+        style_manager.set_color_scheme(Adw.ColorScheme.DEFAULT)
 
 
 def apply_source_style_scheme(

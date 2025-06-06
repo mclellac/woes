@@ -23,10 +23,19 @@
             <!-- Removed margin-top to let banner be flush if at top -->
             <property name="title">Appearance</property>
             <child>
-              <object class="AdwSwitchRow" id="theme_switch_row">
-                <property name="title">Dark Theme</property>
-                <property name="subtitle">Toggle application-wide dark theme</property>
-                <!-- Binding will be done in code or via GSettings -->
+              <object class="AdwComboRow" id="theme_combo_row">
+                <property name="title" translatable="yes">Theme</property>
+                <property name="subtitle" translatable="yes">Choose the application theme</property>
+                <property name="model">
+                  <object class="GtkStringList">
+                    <items>
+                      <item translatable="yes">System</item>
+                      <item translatable="yes">Light</item>
+                      <item translatable="yes">Dark</item>
+                    </items>
+                  </object>
+                </property>
+                <property name="selected">0</property>
               </object>
             </child>
             <child>
@@ -56,24 +65,22 @@
               </object>
             </child>
             <child>
-              <object class="AdwActionRow" id="font_size_row">
-                <property name="title">Font Size</property>
-                <child type="suffix">
-                  <object class="GtkScale" id="font_size_scale">
-                    <property name="adjustment">
-                      <object class="GtkAdjustment">
-                        <property name="lower">8</property>
-                        <property name="step-increment">1</property>
-                        <property name="upper">32</property>
-                        <property name="value">12</property>
-                      </object>
-                    </property>
-                    <property name="digits">0</property>
-                    <property name="hexpand">true</property>
-                    <property name="orientation">horizontal</property>
-                    <property name="width-request">200</property> <!-- Give it some minimum width -->
+              <object class="AdwComboRow" id="font_scale_combo_row">
+                <property name="title" translatable="yes">Font Size</property>
+                <property name="subtitle" translatable="yes">Select text scaling percentage</property>
+                <property name="model">
+                  <object class="GtkStringList">
+                    <items>
+                      <item translatable="yes">100% (Normal)</item>
+                      <item translatable="yes">110%</item>
+                      <item translatable="yes">120%</item>
+                      <item translatable="yes">130%</item>
+                      <item translatable="yes">140%</item>
+                      <item translatable="yes">150%</item>
+                    </items>
                   </object>
-                </child>
+                </property>
+                <property name="selected">0</property>
               </object>
             </child>
           </object>

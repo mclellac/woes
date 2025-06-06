@@ -2,16 +2,28 @@
 <schemalist gettext-domain="woes">
   <schema id="com.github.mclellac.woes"
     path="/com/github/mclellac/woes/">
-    <key name="font-size" type="i">
-      <default>12</default>
-      <range min="8" max="24" />
-      <summary>Font size</summary>
-      <description>Font size in points</description>
+    <key name="font-scaling-percentage" type="s">
+      <default>'100% (Normal)'</default>
+      <choices>
+        <choice value='100% (Normal)'/>
+        <choice value='110%'/>
+        <choice value='120%'/>
+        <choice value='130%'/>
+        <choice value='140%'/>
+        <choice value='150%'/>
+      </choices>
+      <summary>Font scaling percentage</summary>
+      <description>Allows users to select a scaling factor for the application font size.</description>
     </key>
-    <key name="dark-theme" type="b">
-      <default>false</default>
-      <summary>Dark theme</summary>
-      <description>Enable dark theme</description>
+    <key name="theme-preference" type="s">
+      <default>'System'</default>
+      <choices>
+        <choice value='System'/>
+        <choice value='Light'/>
+        <choice value='Dark'/>
+      </choices>
+      <summary>Application theme preference</summary>
+      <description>Allows users to choose between System, Light, or Dark themes.</description>
     </key>
     <key name="source-style-scheme" type="s">
       <default>'Adwaita'</default>
