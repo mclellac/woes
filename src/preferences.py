@@ -13,8 +13,8 @@ from .constants import APP_ID, RESOURCE_PREFIX
 class Preferences(Adw.PreferencesWindow):
     __gtype_name__ = "Preferences"
 
-    font_size_scale = Gtk.Template.Child("font_size_scale")
-    theme_switch_row = Gtk.Template.Child("theme_switch_row")
+    font_scale_combo_row = Gtk.Template.Child("font_scale_combo_row")
+    theme_combo_row = Gtk.Template.Child("theme_combo_row")
     source_style_scheme_combo_row = Gtk.Template.Child("source_style_scheme_combo_row")
     dns_server_entryrow = Gtk.Template.Child("dns_server_entryrow")
     preferences_error_banner = Gtk.Template.Child("preferences_error_banner")
@@ -28,9 +28,9 @@ class Preferences(Adw.PreferencesWindow):
         self.load_preferences()
 
     def load_ui(self):
-        self.font_size_scale.connect("value-changed", self.on_font_size_changed)
-        # Connect to notify::active for AdwSwitchRow
-        self.theme_switch_row.connect("notify::active", self.on_theme_switch_changed)
+        self.font_scale_combo_row.connect("notify::selected", self.on_font_scale_changed)
+        # Connect to notify::selected for AdwComboRow
+        self.theme_combo_row.connect("notify::selected", self.on_theme_preference_changed)
         self.source_style_scheme_combo_row.connect(
             "notify::selected", self.on_source_style_scheme_changed
         )
@@ -90,14 +90,21 @@ class Preferences(Adw.PreferencesWindow):
                 return False
         return True
 
-    def on_font_size_changed(self, scale):
-        font_size = int(scale.get_value())
-        self.settings.set_int("font-size", font_size)
+    def on_font_scale_changed(self, combo_row: Adw.ComboRow, _gparam):
+        selected_item_obj = combo_row.get_selected_item()
+        if isinstance(selected_item_obj, Gtk.StringObject):
+            selected_scale_str = selected_item_obj.get_string()
+            self.settings.set_string("font-scaling-percentage", selected_scale_str)
+            # The actual application of font size will be handled by WoesWindow
+            # based on this setting change, similar to how theme changes are handled.
+            logging.debug("Font scaling preference set to %s.", selected_scale_str)
 
-    def on_theme_switch_changed(self, switch_row: Adw.SwitchRow, _gparam):
-        theme_enabled = switch_row.get_active()
-        self.settings.set_boolean("dark-theme", theme_enabled)
-        logging.debug("Dark theme preference set to %s. WoesWindow will handle the change.", theme_enabled)
+    def on_theme_preference_changed(self, combo_row: Adw.ComboRow, _gparam):
+        selected_item_obj = combo_row.get_selected_item()
+        if isinstance(selected_item_obj, Gtk.StringObject):
+            selected_theme_str = selected_item_obj.get_string()
+            self.settings.set_string("theme-preference", selected_theme_str)
+            logging.debug("Theme preference set to %s. WoesWindow will handle the change.", selected_theme_str)
 
     def on_source_style_scheme_changed(self, combo_row: Adw.ComboRow, _gparam):
         selected_item = combo_row.get_selected_item()
@@ -106,11 +113,27 @@ class Preferences(Adw.PreferencesWindow):
             self.settings.set_string("source-style-scheme", source_style_scheme)
 
     def load_preferences(self):
-        font_size = self.settings.get_int("font-size")
-        self.font_size_scale.set_value(float(font_size))
+        font_scale_pref = self.settings.get_string("font-scaling-percentage")
+        model = self.font_scale_combo_row.get_model()
+        if isinstance(model, Gtk.StringList):
+            for i in range(model.get_n_items()):
+                item_string = model.get_string(i)
+                if item_string == font_scale_pref:
+                    self.font_scale_combo_row.set_selected(i)
+                    break
+        else: # Fallback or if model is not as expected
+            self.font_scale_combo_row.set_selected(0) # Default to "100% (Normal)"
 
-        dark_theme_enabled = self.settings.get_boolean("dark-theme")
-        self.theme_switch_row.set_active(dark_theme_enabled)
+        theme_pref_value = self.settings.get_string("theme-preference")
+        model = self.theme_combo_row.get_model()
+        if isinstance(model, Gtk.StringList):
+            for i in range(model.get_n_items()):
+                item_string = model.get_string(i)
+                if item_string == theme_pref_value:
+                    self.theme_combo_row.set_selected(i)
+                    break
+        else: # Fallback or if model is not as expected
+            self.theme_combo_row.set_selected(0) # Default to "System"
 
         source_style_scheme = self.settings.get_string("source-style-scheme")
         model = self.source_style_scheme_combo_row.get_model()
