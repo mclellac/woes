@@ -160,7 +160,7 @@
                 <child>
                   <object class="AdwStatusPage" id="nmap_detail_placeholder">
                     <property name="title" translatable="yes">No Host Selected</property>
-                    <property name="description" translatable="yes">Select a host from the list on the left to view details.</property>
+                    <property name="description" translatable="yes">Perform an Nmap scan using the panel above. Once the scan is complete, select a host from the list on the left to view detailed results here.</property>
                     <property name="icon-name">network-workgroup-symbolic</property> <!-- Example icon -->
                     <property name="vexpand">true</property>
                     <property name="visible">true</property>

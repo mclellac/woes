@@ -33,6 +33,12 @@ class DNSPage(Adw.PreferencesPage):
         self.dns_results_scrolled_window.set_child(self.source_view)
         self.settings = Gio.Settings.new(APP_ID)  # Ensure settings is initialized before use
         self._apply_source_view_style()  # Initial style application
+
+        # ---- ADD THESE LINES ----
+        initial_message = "Enter a domain or IP address and select a record type above, then click 'Apply' (or press Enter in the entry field). Results will be shown here."
+        self.source_buffer.set_text(initial_message)
+        # ---- END OF ADDED LINES ----
+
         self.settings.connect(
             "changed::source-style-scheme",
             self._on_source_style_scheme_setting_changed
