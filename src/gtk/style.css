@@ -1,27 +1,3 @@
-.label-target {
-    color: #373b39;
-    font-weight: bold;
-}
-
-.label-output {
-    color: #333333;
-    font-style: italic;
-}
-
-/* In your application's CSS file */
-.custom-listbox-row {
-    padding: 10px;
-    border-bottom: 1px solid #ddd;
-}
-
-.custom-listbox-row:selected {
-    background-color: #e0e0e0;
-}
-
-.custom-listbox-row:hover {
-    background-color: #f0f0f0;
-}
-
 /* Margin for GtkSourceView widgets */
 .source-view {
     margin-top: 10px;

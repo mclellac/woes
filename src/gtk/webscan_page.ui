@@ -29,7 +29,8 @@
                 <property name="valign">center</property>
                 <signal name="clicked" handler="on_scan_button_clicked"/>
                 <style>
-                  <class name="suggested-action"/>
+  <class name="pill"/>
+  <class name="accent"/>
                 </style>
               </object>
             </child>
