@@ -27,9 +27,6 @@
                 <property name="menu-model">primary_menu</property>
                 <property name="primary">True</property>
                 <property name="tooltip-text" translatable="yes">Menu</property>
-                <style>
-                  <class name="GtkMenuButton"/>
-                </style>
               </object>
             </child>
           </object>
