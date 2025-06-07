@@ -178,11 +178,12 @@ class HttpPage(Adw.PreferencesPage):
 
         try:
             if cancellable and cancellable.is_cancelled():
-                err = GLib.Error()
-                err.domain = GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN)
-                err.code = HttpErrorType.CANCELLED.value
-                err.message = "Task was cancelled."
-                task.return_error(err)
+                task.return_new_error(
+                    GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
+                    HttpErrorType.CANCELLED.value,
+                    "%s",
+                    "Task was cancelled."
+                )
                 return
 
             response = requests.get(url, headers=request_headers, allow_redirects=True, timeout=10)
@@ -209,11 +210,12 @@ class HttpPage(Adw.PreferencesPage):
                 # This block is entered if response.status_code is an HTTP error (4xx or 5xx)
                 logger.warning("Task thread: HTTPError for %s: %s", url, http_err)
                 error_message = self._format_http_error(http_err)
-                err = GLib.Error()
-                err.domain = GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN)
-                err.code = HttpErrorType.HTTP_ERROR.value
-                err.message = error_message
-                task.return_error(err)
+                task.return_new_error(
+                    GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
+                    HttpErrorType.HTTP_ERROR.value,
+                    "%s",
+                    error_message
+                )
                 return # Exit the function after reporting the error
 
             # This part is reached ONLY if response.raise_for_status() did NOT raise an exception
@@ -231,11 +233,12 @@ class HttpPage(Adw.PreferencesPage):
         except requests.exceptions.Timeout as e:
             logger.warning("Task thread: Timeout for %s: %s", url, e)
             error_message = "Request timed out. This could be due to a slow network, server issues, or a Web Application Firewall (WAF) interfering. Please check the URL or try again later."
-            err = GLib.Error()
-            err.domain = GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN)
-            err.code = HttpErrorType.TIMEOUT.value
-            err.message = error_message
-            task.return_error(err)
+            task.return_new_error(
+                GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
+                HttpErrorType.TIMEOUT.value,
+                "%s",
+                error_message
+            )
         # HTTPError is handled above for the final response. If requests.get itself raises one for a redirect, it's caught by RequestException.
         except requests.exceptions.ConnectionError as e:
             logger.warning("Task thread: ConnectionError for %s: %s", url, e)
@@ -243,27 +246,30 @@ class HttpPage(Adw.PreferencesPage):
             error_message = custom_msg if custom_msg else f"Connection Error: {str(e)}"
             if not str(e) and not custom_msg: # Ensure some message is shown
                  error_message = "Connection Error: Failed to establish a connection."
-            err = GLib.Error()
-            err.domain = GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN)
-            err.code = HttpErrorType.CONNECTION_ERROR.value
-            err.message = error_message
-            task.return_error(err)
+            task.return_new_error(
+                GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
+                HttpErrorType.CONNECTION_ERROR.value,
+                "%s",
+                error_message
+            )
         except requests.exceptions.RequestException as e: # Catches other requests errors like TooManyRedirects, etc.
             logger.warning("Task thread: RequestException for %s: %s", url, e)
             error_message = f"Request Error: {str(e)}"
-            err = GLib.Error()
-            err.domain = GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN)
-            err.code = HttpErrorType.REQUEST_EXCEPTION.value
-            err.message = error_message
-            task.return_error(err)
+            task.return_new_error(
+                GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
+                HttpErrorType.REQUEST_EXCEPTION.value,
+                "%s",
+                error_message
+            )
         except Exception as e:
             logger.error("Task thread: Truly unexpected error for %s: %s", url, e, exc_info=True)
             error_message = f"An unexpected error occurred: {str(e)}"
-            err = GLib.Error()
-            err.domain = GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN)
-            err.code = HttpErrorType.GENERIC_UNEXPECTED.value
-            err.message = error_message
-            task.return_error(err)
+            task.return_new_error(
+                GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
+                HttpErrorType.GENERIC_UNEXPECTED.value,
+                "%s",
+                error_message
+            )
 
 
     def _get_detailed_connection_error_message(self, exc: Exception, url: str) -> Optional[str]:
