@@ -175,7 +175,7 @@ class TestHttpPage(unittest.TestCase):
         self.page = None
         self.mock_task_instance = MagicMock(spec=MockGio.Task)
         self.mock_task_instance.get_cancellable.return_value = mock_cancellable
-        self.mock_task_instance.return_error = MagicMock() # Added for new test
+        self.mock_task_instance.return_new_error_literal = MagicMock() # Changed mock name
 
         self.done_cb_to_call = None
         self.done_cb_args = None
@@ -201,11 +201,11 @@ class TestHttpPage(unittest.TestCase):
         def mock_task_propagate_val_method():
             # This method is called by _fetch_headers_task_done_cb on self.mock_task_instance
             # It returns the captured dictionary, or raises if it's an error meant to be raised by propagate_value itself.
-            if self.mock_task_instance.return_error.called:
-                # If task.return_error() was called in the thread, simulate GLib.Error being raised by propagate_value()
-                # The first call to return_error has args: (domain_quark, code_int, format_str, message_str)
-                call_args = self.mock_task_instance.return_error.call_args[0]
-                domain_quark, code_int, _, message_str = call_args
+            if self.mock_task_instance.return_new_error_literal.called:
+                # If task.return_new_error_literal() was called, simulate GLib.Error being raised by propagate_value()
+                # Arguments are: (domain_quark, code_int, message_str)
+                call_args = self.mock_task_instance.return_new_error_literal.call_args[0]
+                domain_quark, code_int, message_str = call_args[0], call_args[1], call_args[2]
                 # print(f"mock_task_propagate_val_method raising MockGLibErrorForTest: domain={domain_quark}, code={code_int}, msg='{message_str}'")
                 raise MockGLibErrorForTest(message=message_str, domain=domain_quark, code=code_int)
 
@@ -320,8 +320,10 @@ class TestHttpPage(unittest.TestCase):
         page.http_entry_row.set_sensitive.assert_called_with(True)
         page.http_entry_row.add_css_class.assert_called_with("error")
 
-        # self.mock_task_instance.return_error should NOT have been called for this.
-        self.mock_task_instance.return_error.assert_not_called()
+        # self.mock_task_instance.return_new_error_literal should NOT have been called for this specific old test.
+        # This test might need re-evaluation based on whether it should now expect return_new_error_literal
+        # For now, assuming it tests a path that *doesn't* call it.
+        self.mock_task_instance.return_new_error_literal.assert_not_called()
 
 
     @patch('src.http_page.requests.get')
@@ -371,8 +373,8 @@ class TestHttpPage(unittest.TestCase):
         page.http_entry_row.set_sensitive.assert_called_with(True)
         page.http_entry_row.add_css_class.assert_called_with("error")
 
-        # 3. Gio.Task.return_error should NOT be called.
-        self.mock_task_instance.return_error.assert_not_called()
+        # 3. Gio.Task.return_new_error_literal should NOT be called for this specific old test.
+        self.mock_task_instance.return_new_error_literal.assert_not_called()
 
         # 4. self.mock_task_instance.return_value (the method on the task) should have been called once
         # by _fetch_headers_task_thread_func
@@ -477,7 +479,7 @@ class TestHttpPage(unittest.TestCase):
         page.http_entry_row.set_sensitive.assert_called_with(True)
         page.http_entry_row.add_css_class.assert_called_with("error")
 
-        self.mock_task_instance.return_error.assert_not_called()
+        self.mock_task_instance.return_new_error_literal.assert_not_called()
         self.mock_task_instance.return_value.assert_called_once() # The method on the task instance
         args_call = self.mock_task_instance.return_value.call_args[0][0]
         self.assertIsInstance(args_call, dict)
@@ -533,7 +535,7 @@ class TestHttpPage(unittest.TestCase):
         page.http_entry_row.set_sensitive.assert_called_with(True)
         page.http_entry_row.add_css_class.assert_called_with("error")
 
-        self.mock_task_instance.return_error.assert_not_called()
+        self.mock_task_instance.return_new_error_literal.assert_not_called()
         self.mock_task_instance.return_value.assert_called_once()
         args_call = self.mock_task_instance.return_value.call_args[0][0]
         self.assertIsInstance(args_call, dict)
@@ -1115,19 +1117,19 @@ def _create_mock_response(url, status_code, headers, history_list=None):
         page._on_entry_row_activated(page.http_entry_row)
 
         # --- Assertions ---
-        # 1. task.return_error was called correctly in the thread
-        self.mock_task_instance.return_error.assert_called_once()
-        args, _ = self.mock_task_instance.return_error.call_args
+        # 1. task.return_new_error_literal was called correctly in the thread
+        self.mock_task_instance.return_new_error_literal.assert_called_once()
 
-        # Check domain (quark_from_string returns the string itself due to our mock)
-        self.assertEqual(args[0], WOES_HTTP_ERROR_DOMAIN)
-        # Check error code
-        self.assertEqual(args[1], HttpErrorType.TIMEOUT.value)
-        # Check format string
-        self.assertEqual(args[2], "%s")
-        # Check specific timeout message
         expected_timeout_message = "Request timed out. This could be due to a slow network, server issues, or a Web Application Firewall (WAF) interfering. Please check the URL or try again later."
-        self.assertEqual(args[3], expected_timeout_message)
+        # Ensure module-level constants are used for assertion if available, otherwise direct values
+        expected_domain = WOES_HTTP_ERROR_DOMAIN if WOES_HTTP_ERROR_DOMAIN else "woes-http-error-domain"
+        expected_code = HttpErrorType.TIMEOUT.value if HttpErrorType else 0
+
+        self.mock_task_instance.return_new_error_literal.assert_called_once_with(
+            expected_domain,
+            expected_code,
+            expected_timeout_message
+        )
 
         # 2. UI reflects the error state (via _fetch_headers_task_done_cb)
         page.error_banner.set_revealed.assert_called_with(True)
