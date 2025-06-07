@@ -108,7 +108,6 @@ class HttpPage(Adw.PreferencesPage):
             "notify::active", self._on_pragma_toggled
         )
         self.clear_results_button.connect("clicked", self._on_clear_results_clicked)
-        self.error_banner.connect("clicked", self._on_error_banner_dismiss)
 
     def _on_entry_row_activated(self, _widget: Gtk.Widget) -> None: # Parameter renamed
         original_url = self.http_entry_row.get_text().strip() # Changed to self.http_entry_row
