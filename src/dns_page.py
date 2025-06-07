@@ -21,6 +21,7 @@ class DNSPage(Adw.PreferencesPage):
     __gtype_name__ = "DNSPage"
 
     dns_ip_entryrow = Gtk.Template.Child("dns_ip_entryrow")
+    dns_apply_button = Gtk.Template.Child("dns_apply_button")
     dns_record_type_dropdown = Gtk.Template.Child("dns_record_type_dropdown")
     dns_results_scrolled_window = Gtk.Template.Child("dns_results_scrolled_window")
     error_banner = Gtk.Template.Child("error_banner")
@@ -64,7 +65,8 @@ class DNSPage(Adw.PreferencesPage):
 
     def _connect_signals(self) -> None:
         """Connect signals for UI elements."""
-        self.dns_ip_entryrow.connect("apply", self._on_entry_activated)
+        self.dns_ip_entryrow.connect("entry-activated", self._on_entry_activated)
+        self.dns_apply_button.connect("clicked", self._on_entry_activated)
         self.dns_record_type_dropdown.connect(
             "notify::selected", self._on_record_type_changed
         )

@@ -13,8 +13,17 @@
           <object class="AdwEntryRow" id="nmap_target_entryrow">
             <property name="activates-default">True</property>
             <property name="input-purpose">url</property> <!-- Changed from generic to url-like -->
-            <property name="show-apply-button">True</property>
             <property name="title" translatable="yes">Target (IP/CIDR/Hostname)</property>
+            <child type="suffix">
+              <object class="GtkButton" id="nmap_apply_button">
+                <property name="icon-name">media-playback-start-symbolic</property>
+                <property name="tooltip-text" translatable="yes">Start Scan</property>
+                <property name="valign">center</property>
+                <style>
+                  <class name="flat"/>
+                </style>
+              </object>
+            </child>
           </object>
         </child>
         <child>

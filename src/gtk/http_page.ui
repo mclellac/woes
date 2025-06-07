@@ -14,8 +14,17 @@
             <property name="activates-default">True</property>
             <property name="focusable">True</property>
             <property name="input-purpose">url</property>
-            <property name="show-apply-button">True</property>
             <property name="title" translatable="yes">URL to fetch HTTP headers from</property>
+            <child type="suffix">
+              <object class="GtkButton" id="http_apply_button">
+                <property name="icon-name">go-next-symbolic</property>
+                <property name="tooltip-text" translatable="yes">Fetch Headers</property>
+                <property name="valign">center</property>
+                <style>
+                  <class name="flat"/>
+                </style>
+              </object>
+            </child>
           </object>
         </child>
         <child>

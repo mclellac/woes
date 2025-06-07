@@ -12,9 +12,19 @@
         <child>
           <object class="AdwEntryRow" id="dns_ip_entryrow">
             <property name="input-purpose">url</property>
-            <property name="show-apply-button">True</property>
             <property name="title" translatable="yes">Domain or IP Address</property>
             <property name="tooltip-text" translatable="yes">Enter a domain name or an IP address for reverse lookup</property>
+            <property name="activates-default">True</property>
+            <child type="suffix">
+              <object class="GtkButton" id="dns_apply_button">
+                <property name="icon-name">system-search-symbolic</property>
+                <property name="tooltip-text" translatable="yes">Lookup</property>
+                <property name="valign">center</property>
+                <style>
+                  <class name="flat"/>
+                </style>
+              </object>
+            </child>
           </object>
         </child>
         <child>
