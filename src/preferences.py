@@ -17,6 +17,7 @@ class Preferences(Adw.PreferencesWindow):
     theme_combo_row = Gtk.Template.Child("theme_combo_row")
     source_style_scheme_combo_row = Gtk.Template.Child("source_style_scheme_combo_row")
     dns_server_entryrow = Gtk.Template.Child("dns_server_entryrow")
+    prefs_dns_apply_button = Gtk.Template.Child("prefs_dns_apply_button")
     preferences_error_banner = Gtk.Template.Child("preferences_error_banner")
 
     def __init__(self, main_window=None):
@@ -33,7 +34,8 @@ class Preferences(Adw.PreferencesWindow):
         self.source_style_scheme_combo_row.connect(
             "notify::selected", self.on_source_style_scheme_changed
         )
-        self.dns_server_entryrow.connect("apply", self.on_dns_server_changed)
+        self.dns_server_entryrow.connect("entry-activated", self.on_dns_server_changed)
+        self.prefs_dns_apply_button.connect("clicked", self.on_dns_server_changed)
 
     def on_error_banner_dismiss_clicked(self, _banner, *_args):
         self.hide_banner_and_clear_error_state()

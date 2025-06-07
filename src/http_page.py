@@ -49,7 +49,9 @@ class HeaderItem(GObject.Object):
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/http_page.ui")
 class HttpPage(Adw.PreferencesPage):
+    __gtype_name__ = "HttpPage"
     http_entry_row = Gtk.Template.Child("http_entry_row")
+    http_apply_button = Gtk.Template.Child("http_apply_button")
     http_host_header_row = Gtk.Template.Child("http_host_header_row")
     http_user_agent_row = Gtk.Template.Child("http_user_agent_row")
     http_pragma_switch_row = Gtk.Template.Child("http_pragma_switch_row")
@@ -89,7 +91,7 @@ class HttpPage(Adw.PreferencesPage):
         self.http_entry_row.connect(
             "entry-activated", self._on_entry_row_activated
         )
-        self.http_entry_row.connect("apply", self._on_entry_row_activated)
+        self.http_apply_button.connect("clicked", self._on_entry_row_activated)
         self.http_pragma_switch_row.connect(
             "notify::active", self._on_pragma_toggled
         )

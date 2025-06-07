@@ -42,6 +42,7 @@ class NmapPage(Adw.PreferencesPage):
 
     # Scan Parameters Group
     nmap_target_entryrow = Gtk.Template.Child("nmap_target_entryrow")
+    nmap_apply_button = Gtk.Template.Child("nmap_apply_button")
     nmap_fingerprint_switchrow = Gtk.Template.Child("nmap_fingerprint_switchrow")
     nmap_all_ports_switchrow = Gtk.Template.Child("nmap_all_ports_switchrow")
     nmap_scripts_dropdown = Gtk.Template.Child("nmap_scripts_dropdown")
@@ -124,7 +125,8 @@ class NmapPage(Adw.PreferencesPage):
 
     def _connect_signals(self):
         logging.debug("Connecting NmapPage signals.")
-        self.nmap_target_entryrow.connect("apply", self._on_target_activate)
+        self.nmap_target_entryrow.connect("entry-activated", self._on_target_activate)
+        self.nmap_apply_button.connect("clicked", self._on_target_activate)
         self.nmap_host_listbox.connect("row-selected", self._on_target_selected)
 
 
