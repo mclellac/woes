@@ -4,6 +4,7 @@ from typing import Optional
 
 import requests
 import requests.utils # For urlparse
+from enum import Enum # Added for HttpErrorType
 import gi
 
 gi.require_version('Adw', '1')
@@ -33,6 +34,16 @@ from .constants import RESOURCE_PREFIX, USER_AGENTS
 
 # Configure logger for the module
 logger = logging.getLogger(__name__)
+
+# Define error domain and codes for HTTP operations
+WOES_HTTP_ERROR_DOMAIN = "woes-http-error-domain"
+class HttpErrorType(int, Enum):
+    TIMEOUT = 0
+    HTTP_ERROR = 1
+    CONNECTION_ERROR = 2
+    REQUEST_EXCEPTION = 3
+    GENERIC_UNEXPECTED = 4
+    CANCELLED = 5
 
 
 class HeaderItem(GObject.Object):
@@ -167,20 +178,21 @@ class HttpPage(Adw.PreferencesPage):
 
         try:
             if cancellable and cancellable.is_cancelled():
-                # If cancelled, we can return a specific GIO error or let it be handled by propagate_value
-                # For now, let's ensure it doesn't fall into generic exception if Gio handles it.
-                # A typical way is task.return_error_if_cancelled() or similar.
-                # However, this function is called by run_in_thread, so direct cancellation check is good.
-                # If we want to signal cancellation explicitly:
-                task.return_error(GLib.Error.new_literal(Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED, "Task was cancelled."))
+                task.return_error(GLib.Error.new_literal(WOES_HTTP_ERROR_DOMAIN, HttpErrorType.CANCELLED, "Task was cancelled."))
                 return
 
             response = requests.get(url, headers=request_headers, allow_redirects=True, timeout=10)
-            response.raise_for_status()
+            # Note: response.raise_for_status() will be called *after* initial response is received.
+            # If an HTTPError occurs (4xx, 5xx), it will be caught by the HTTPError block.
 
             all_responses_data = []
 
+            # Process history (redirects)
             for hist_resp in response.history:
+                # Check for HTTP errors on redirect responses explicitly if needed,
+                # otherwise, rely on the final response.raise_for_status() or handle them if requests library doesn't see them as errors.
+                # For simplicity, we assume requests.get handles redirects and the final response status is key.
+                # If a redirect itself fails (e.g. 500 on redirect), requests.get might raise an error caught below.
                 hist_data = {
                     'type': 'redirect',
                     'url': str(hist_resp.url),
@@ -194,23 +206,57 @@ class HttpPage(Adw.PreferencesPage):
                 'url': str(response.url),
                 'status_code': response.status_code,
                 'headers': {str(k): str(v) for k, v in dict(response.headers).items()}
+                hist_data = {
+                    'type': 'redirect',
+                    'url': str(hist_resp.url),
+                    'status_code': hist_resp.status_code,
+                    'headers': {str(k): str(v) for k, v in dict(hist_resp.headers).items()}
+                }
+                all_responses_data.append(hist_data)
+
+            # Process final response
+            # We should check status before adding it, or let raise_for_status handle it.
+            # To provide data even for non-2xx, we can avoid raise_for_status here and check in callback,
+            # but for now, let's stick to raise_for_status for clear error paths.
+            try:
+                response.raise_for_status() # Raises HTTPError for 4xx/5xx
+                final_data_type = 'final'
+            except requests.exceptions.HTTPError as http_err:
+                # If we want to return data *and* signal error, GIO doesn't directly support it.
+                # For now, HTTPError means the whole operation failed from GIO task perspective.
+                logger.warning("Task thread: HTTPError for %s: %s", url, http_err)
+                # Use the existing _format_http_error to get a nice message
+                error_message = self._format_http_error(http_err)
+                task.return_error(GLib.Error.new_literal(WOES_HTTP_ERROR_DOMAIN, HttpErrorType.HTTP_ERROR, error_message))
+                return
+
+
+            final_data = {
+                'type': final_data_type, # 'final' or could be 'error_response' if not raising
+                'url': str(response.url),
+                'status_code': response.status_code,
+                'headers': {str(k): str(v) for k, v in dict(response.headers).items()}
             }
             all_responses_data.append(final_data)
+            task.return_value(all_responses_data)
 
-            task.return_value(all_responses_data) # Return the list of dicts directly on success
-
-        except (requests.exceptions.Timeout,
-                requests.exceptions.HTTPError,
-                requests.exceptions.ConnectionError,
-                requests.exceptions.RequestException) as e:
-            logger.warning("Task thread: Caught specific requests exception for %s: %s", url, e.__class__.__name__)
-            raise  # Re-raise the original requests exception to be caught by _fetch_headers_task_done_cb
-
-        except Exception as e: # Catch any other truly unexpected Python error
+        except requests.exceptions.Timeout as e:
+            logger.warning("Task thread: Timeout for %s: %s", url, e)
+            task.return_error(GLib.Error.new_literal(WOES_HTTP_ERROR_DOMAIN, HttpErrorType.TIMEOUT, "Request timed out."))
+        # HTTPError is handled above for the final response. If requests.get itself raises one for a redirect, it's caught by RequestException.
+        except requests.exceptions.ConnectionError as e:
+            logger.warning("Task thread: ConnectionError for %s: %s", url, e)
+            custom_msg = self._get_detailed_connection_error_message(e, url)
+            error_message = custom_msg if custom_msg else f"Connection Error: {str(e)}"
+            if not str(e) and not custom_msg: # Ensure some message is shown
+                 error_message = "Connection Error: Failed to establish a connection."
+            task.return_error(GLib.Error.new_literal(WOES_HTTP_ERROR_DOMAIN, HttpErrorType.CONNECTION_ERROR, error_message))
+        except requests.exceptions.RequestException as e: # Catches other requests errors like TooManyRedirects, etc.
+            logger.warning("Task thread: RequestException for %s: %s", url, e)
+            task.return_error(GLib.Error.new_literal(WOES_HTTP_ERROR_DOMAIN, HttpErrorType.REQUEST_EXCEPTION, f"Request Error: {str(e)}"))
+        except Exception as e:
             logger.error("Task thread: Truly unexpected error for %s: %s", url, e, exc_info=True)
-            # Set a GIO error for this unexpected case
-            task.return_error(GLib.Error(f"An unexpected error occurred in http task: {str(e)}", "WOES_HTTP_TASK_UNEXPECTED_ERROR", 0))
-            # Do not raise here, return_error is sufficient for GIO to signal it.
+            task.return_error(GLib.Error.new_literal(WOES_HTTP_ERROR_DOMAIN, HttpErrorType.GENERIC_UNEXPECTED, f"An unexpected error occurred: {str(e)}"))
 
 
     def _get_detailed_connection_error_message(self, exc: Exception, url: str) -> Optional[str]:
@@ -343,7 +389,18 @@ class HttpPage(Adw.PreferencesPage):
 
 
         try:
-            actual_list_of_responses = local_task_ref.propagate_value() # This is now the list directly
+            actual_list_of_responses = local_task_ref.propagate_value()
+
+            # Attempt to handle _ResultTuple if it appears for successful calls
+            # This is speculative and might need adjustment based on actual _ResultTuple structure
+            if not isinstance(actual_list_of_responses, list) and isinstance(actual_list_of_responses, tuple):
+                logger.warning(f"Received a tuple {type(actual_list_of_responses)} instead of a list for success value. Trying to extract from it.")
+                if len(actual_list_of_responses) > 0 and isinstance(actual_list_of_responses[0], list):
+                    actual_list_of_responses = actual_list_of_responses[0]
+                # Add more checks if _ResultTuple has a known structure, e.g. by name if it's a namedtuple
+                elif hasattr(actual_list_of_responses, 'value') and isinstance(actual_list_of_responses.value, list): # Example if it's an object
+                     actual_list_of_responses = actual_list_of_responses.value
+
 
             if isinstance(actual_list_of_responses, list):
                 logger.info("Successfully processed task result as list.")
@@ -386,37 +443,14 @@ class HttpPage(Adw.PreferencesPage):
                 self.http_entry_row.add_css_class("error")
                 self._update_column_view_model(None)
 
-        except requests.exceptions.Timeout as e:
-            logger.warning("Timeout fetching headers: %s", e)
-            self._display_error("Timeout Error: The request timed out.")
-            self.http_entry_row.add_css_class("error")
-            self._update_column_view_model(None)
-        except requests.exceptions.HTTPError as e:
-            logger.error("HTTPError fetching headers: %s", e)
-            error_message_str = self._format_http_error(e)
-            self._display_error(error_message_str)
-            self.http_entry_row.add_css_class("error")
-            self._update_column_view_model(None)
-        except requests.exceptions.ConnectionError as e:
-            logger.warning("ConnectionError fetching headers: %s", e)
-            custom_msg = self._get_detailed_connection_error_message(e, url_for_error_reporting)
-            error_message_str = custom_msg if custom_msg else f"Connection Error: {str(e)}"
-            if not str(e) and not custom_msg: # Ensure some message is shown
-                 error_message_str = "Connection Error: Failed to establish a connection."
-            self._display_error(error_message_str)
-            self.http_entry_row.add_css_class("error")
-            self._update_column_view_model(None)
-        except requests.exceptions.RequestException as e: # Catch other requests errors
-            logger.error("RequestException fetching headers: %s", e)
-            self._display_error(f"Request Error: {str(e)}")
-            self.http_entry_row.add_css_class("error")
-            self._update_column_view_model(None)
-        except GLib.Error as e: # Catch GLib.Error from task.return_error() or other GIO issues
-            logger.error("Error fetching headers (GLib.Error from propagate_value): %s", e.message)
+        except GLib.Error as e:
+            logger.error("Task failed with GLib.Error: Domain=%s, Code=%s, Message=%s", e.domain, e.code, e.message)
+            # You can use e.code and e.domain to show more specific user messages if desired
+            # For now, e.message should contain the message from the thread.
             self._display_error(e.message.replace("<b>", "").replace("</b>", "")) # Sanitize markup
             self.http_entry_row.add_css_class("error")
             self._update_column_view_model(None)
-        except Exception as e: # General fallback for other Python exceptions
+        except Exception as e: # Fallback for any other unexpected error in the callback itself
             logger.error("Unexpected Python error in _fetch_headers_task_done_cb: %s", e, exc_info=True)
             self._display_error(f"An unexpected application error occurred: {str(e)}")
             self.http_entry_row.add_css_class("error")
