@@ -189,37 +189,13 @@ class HttpPage(Adw.PreferencesPage):
             }
             all_responses_data.append(final_data)
 
-            task.return_value({'data': all_responses_data, 'error_type': None, 'message': None})
-        except requests.exceptions.HTTPError as e:
-            if e.response is not None:
-                logger.error("Task thread: HTTPError for %s: %s. Response was: %s", url, e, e.response.url)
-            else:
-                logger.error("Task thread: HTTPError for %s: %s. No response object in exception.", url, e)
-
-            error_message_str = self._format_http_error(e)
-            task.return_value({'data': None, 'error_type': 'HTTPError', 'message': str(error_message_str)})
-            return
-        except requests.exceptions.ConnectionError as e:
-            logger.warning("Task thread: ConnectionError for %s: %s", url, e, exc_info=True)
-            custom_msg = self._get_detailed_connection_error_message(e, url)
-            error_message_str = custom_msg if custom_msg else f"Connection Error: {str(e)}"
-            if not str(e) and not custom_msg:
-                error_message_str = "Connection Error: Failed to establish a connection."
-
-            task.return_value({'data': None, 'error_type': 'ConnectionError', 'message': str(error_message_str)})
-            return
-        except requests.exceptions.Timeout as e:
-            logger.warning("Task thread: Timeout for %s: %s", url, e, exc_info=True)
-            task.return_value({'data': None, 'error_type': 'Timeout', 'message': "Timeout Error: The request timed out."})
-            return
-        except requests.exceptions.RequestException as e:
-            logger.error("Task thread: RequestException for %s: %s", url, e, exc_info=True)
-            task.return_value({'data': None, 'error_type': 'RequestException', 'message': f"Request Error: {str(e)}"})
-            return
-        except Exception as e:
+            task.return_value(all_responses_data) # Return data directly on success
+        # Removed specific requests exception handlers here, they will propagate
+        except Exception as e: # Catch-all for any other exception
             logger.error("Task thread: Unexpected error for %s: %s", url, e, exc_info=True)
-            task.return_value({'data': None, 'error_type': 'GenericException', 'message': f"An unexpected error occurred: {str(e)}"})
-            return
+            # Use GLib.Error for task errors
+            task.return_error(GLib.Error(f"An unexpected error occurred in task: {str(e)}", "WOES_HTTP_TASK_ERROR", 0))
+            # No explicit return here, error is set on the task
 
 
     def _get_detailed_connection_error_message(self, exc: Exception, url: str) -> Optional[str]:
@@ -343,85 +319,96 @@ class HttpPage(Adw.PreferencesPage):
 
     def _fetch_headers_task_done_cb(self, source_object, result: Gio.AsyncResult, user_data):
         local_task_ref = self.current_http_task
+        # Ensure _http_task_data_for_thread is accessed from source_object if needed for URL in ConnectionError
+        # However, it's better if the URL is part of the exception or GLib.Error data.
+        # For now, we'll try to get it from the instance if an error occurs that needs it.
+        url_for_error_reporting = ""
+        if hasattr(self, '_http_task_data_for_thread') and self._http_task_data_for_thread:
+            url_for_error_reporting = self._http_task_data_for_thread.get('url', '')
+
 
         try:
-            result_dict = local_task_ref.propagate_value()
+            actual_list_of_responses = local_task_ref.propagate_value() # This is now the list directly
 
-            if not isinstance(result_dict, dict):
-                logger.error(f"Task returned unexpected result type: {type(result_dict)}. Expected dict.")
-                self._display_error("An unexpected error occurred while processing the task result.")
-                self.http_entry_row.add_css_class("error")
-                self._update_column_view_model(None)
-                return
+            if isinstance(actual_list_of_responses, list):
+                logger.info("Successfully processed task result as list.")
+                processed_headers_for_store = []
+                if not actual_list_of_responses:
+                    logger.warning("Received empty list for actual_list_of_responses.")
+                    self._update_column_view_model(None) # Clear view if empty results
+                else:
+                    for i, response_data in enumerate(actual_list_of_responses):
+                        url_display = f"URL: {response_data.get('url', 'N/A')}"
+                        status_display = f"Status: {response_data.get('status_code', 'N/A')}"
 
-            error_type = result_dict.get('error_type')
-            error_message = result_dict.get('message')
-            actual_list_of_responses = result_dict.get('data')
+                        if response_data.get('type') == 'redirect':
+                            status_display += " (Redirect)"
+                        elif response_data.get('type') == 'final':
+                            status_display += " (Final)"
 
-            if error_type is not None:
-                logger.error(f"Task completed with error: {error_type} - {error_message}")
-                safe_error_message = str(error_message).replace("<b>", "").replace("</b>", "")
-                self._display_error(safe_error_message)
-                self.http_entry_row.add_css_class("error")
-                self._update_column_view_model(None)
-            else:
-                if actual_list_of_responses is None:
-                    logger.error("Task result data (actual_list_of_responses) is None unexpectedly on success.")
-                    self._display_error("Failed to retrieve task result data.")
-                    self.http_entry_row.add_css_class("error")
-                    self._update_column_view_model(None)
-                elif isinstance(actual_list_of_responses, list):
-                    logger.info("Successfully processed task result as list.")
-                    processed_headers_for_store = []
-                    if not actual_list_of_responses:
-                        logger.warning("Received empty list for actual_list_of_responses.")
-                        self._update_column_view_model(None)
-                    else:
-                        for i, response_data in enumerate(actual_list_of_responses):
-                            url_display = f"URL: {response_data.get('url', 'N/A')}"
-                            status_display = f"Status: {response_data.get('status_code', 'N/A')}"
+                        processed_headers_for_store.append(
+                            HeaderItem(key=url_display, value=status_display, is_special_row=True)
+                        )
 
-                            if response_data.get('type') == 'redirect':
-                                status_display += " (Redirect)"
-                            elif response_data.get('type') == 'final':
-                                status_display += " (Final)"
-
+                        headers_for_this_response = response_data.get('headers', {})
+                        for header_key, header_value in headers_for_this_response.items():
                             processed_headers_for_store.append(
-                                HeaderItem(key=url_display, value=status_display, is_special_row=True)
+                                HeaderItem(key=str(header_key), value=str(header_value), is_special_row=False)
                             )
 
-                            headers_for_this_response = response_data.get('headers', {})
-                            for header_key, header_value in headers_for_this_response.items():
-                                processed_headers_for_store.append(
-                                    HeaderItem(key=str(header_key), value=str(header_value), is_special_row=False)
-                                )
+                        if i < len(actual_list_of_responses) - 1: # Add spacer between responses
+                            processed_headers_for_store.append(HeaderItem(key="", value="", is_special_row=True))
+                    self._update_column_view_model(processed_headers_for_store)
+                self.http_entry_row.remove_css_class("error")
+            else:
+                # This case should ideally not be hit if success means a list and errors are exceptions.
+                logger.error(
+                    f"Task result data of unexpected type {type(actual_list_of_responses)}. Expected list."
+                )
+                self._display_error(
+                    f"Failed to process task result data (unexpected data structure: {type(actual_list_of_responses).__name__})."
+                )
+                self.http_entry_row.add_css_class("error")
+                self._update_column_view_model(None)
 
-                            if i < len(actual_list_of_responses) - 1:
-                                processed_headers_for_store.append(HeaderItem(key="", value="", is_special_row=True))
-                        self._update_column_view_model(processed_headers_for_store)
-                    self.http_entry_row.remove_css_class("error")
-                else:
-                    logger.error(
-                        f"Task result data (actual_list_of_responses) of unexpected type {type(actual_list_of_responses)}. "
-                        "Expected list or None."
-                    )
-                    self._display_error(
-                        f"Failed to process task result data (unexpected data structure: {type(actual_list_of_responses).__name__})."
-                    )
-                    self.http_entry_row.add_css_class("error")
-                    self._update_column_view_model(None)
-
-        except GObject.GError as e:
-            error_message = e.message
-            logger.error("Error fetching headers (async GObject.GError from propagate_value): %s", error_message)
-            error_message = error_message.replace("<b>", "").replace("</b>", "")
-            self._display_error(error_message)
+        except requests.exceptions.Timeout as e:
+            logger.warning("Timeout fetching headers: %s", e)
+            self._display_error("Timeout Error: The request timed out.")
+            self.http_entry_row.add_css_class("error")
+            self._update_column_view_model(None)
+        except requests.exceptions.HTTPError as e:
+            logger.error("HTTPError fetching headers: %s", e)
+            error_message_str = self._format_http_error(e)
+            self._display_error(error_message_str)
+            self.http_entry_row.add_css_class("error")
+            self._update_column_view_model(None)
+        except requests.exceptions.ConnectionError as e:
+            logger.warning("ConnectionError fetching headers: %s", e)
+            custom_msg = self._get_detailed_connection_error_message(e, url_for_error_reporting)
+            error_message_str = custom_msg if custom_msg else f"Connection Error: {str(e)}"
+            if not str(e) and not custom_msg: # Ensure some message is shown
+                 error_message_str = "Connection Error: Failed to establish a connection."
+            self._display_error(error_message_str)
+            self.http_entry_row.add_css_class("error")
+            self._update_column_view_model(None)
+        except requests.exceptions.RequestException as e: # Catch other requests errors
+            logger.error("RequestException fetching headers: %s", e)
+            self._display_error(f"Request Error: {str(e)}")
+            self.http_entry_row.add_css_class("error")
+            self._update_column_view_model(None)
+        except GLib.Error as e: # Catch GLib.Error from task.return_error() or other GIO issues
+            logger.error("Error fetching headers (GLib.Error from propagate_value): %s", e.message)
+            self._display_error(e.message.replace("<b>", "").replace("</b>", "")) # Sanitize markup
+            self.http_entry_row.add_css_class("error")
+            self._update_column_view_model(None)
+        except Exception as e: # General fallback for other Python exceptions
+            logger.error("Unexpected Python error in _fetch_headers_task_done_cb: %s", e, exc_info=True)
+            self._display_error(f"An unexpected application error occurred: {str(e)}")
             self.http_entry_row.add_css_class("error")
             self._update_column_view_model(None)
         finally:
             self.http_entry_row.set_sensitive(True)
-
-            if self.current_http_task is local_task_ref:
+            if self.current_http_task is local_task_ref: # Check if this task is still the current one
                 self.current_http_task = None
 
 
