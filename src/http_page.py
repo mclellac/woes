@@ -69,6 +69,7 @@ class HttpPage(Adw.PreferencesPage):
     http_column_view = Gtk.Template.Child("http_column_view")
     error_banner = Gtk.Template.Child("error_banner")
     http_results_group = Gtk.Template.Child("http_results_group")
+    clear_results_button = Gtk.Template.Child("clear_results_button")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -106,6 +107,7 @@ class HttpPage(Adw.PreferencesPage):
         self.http_pragma_switch_row.connect(
             "notify::active", self._on_pragma_toggled
         )
+        self.clear_results_button.connect("clicked", self._on_clear_results_clicked)
 
     def _on_entry_row_activated(self, _widget: Gtk.Widget) -> None: # Parameter renamed
         original_url = self.http_entry_row.get_text().strip() # Changed to self.http_entry_row
