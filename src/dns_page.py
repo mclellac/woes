@@ -31,12 +31,12 @@ class DNSPage(Adw.PreferencesPage):
         self._connect_signals()
         self.source_view, self.source_buffer = create_source_view(language_name=None)
         self.dns_results_scrolled_window.set_child(self.source_view)
-        self.settings = Gio.Settings.new(APP_ID)  # Ensure settings is initialized before use
-        self._apply_source_view_style()  # Initial style application
+        self.settings = Gio.Settings.new(APP_ID)
+        self._apply_source_view_style()
         self.settings.connect(
             "changed::source-style-scheme",
             self._on_source_style_scheme_setting_changed
-        )  # Connect listener
+        )
 
         try:
             self.bold_tag = self.source_buffer.create_tag(
@@ -82,7 +82,6 @@ class DNSPage(Adw.PreferencesPage):
             self.source_buffer,
             source_style_scheme,
         )
-        # Since the view is created by a utility, ensure it's not editable.
         self.source_view.set_editable(False)
 
     def _is_ip_address(self, input_str: str) -> bool:
@@ -111,7 +110,6 @@ class DNSPage(Adw.PreferencesPage):
         """Handle the record type dropdown change event."""
         self._perform_lookup()
 
-    # Removed @Gtk.Template.Callback() as it's a direct signal handler in UI
     def _on_error_banner_dismiss(self, _banner: Adw.Banner, *_args):
         """Handle the error banner dismiss button click."""
         self._clear_error()
@@ -133,26 +131,28 @@ class DNSPage(Adw.PreferencesPage):
 
         try:
             resolver = dns.resolver.Resolver()
-            # Fetch the custom DNS server each time before performing the lookup
             custom_dns_server = self.settings.get_string("custom-dns-server")
             if custom_dns_server:
-                resolver.nameservers = [custom_dns_server]  # Use custom DNS server
+                resolver.nameservers = [custom_dns_server]
 
-            # Determine the correct record type for reverse lookups
             if self._is_ip_address(user_input):
-                # If it's an IP, always use PTR.
-                # Find PTR in the model and set it.
                 model = self.dns_record_type_dropdown.get_model()
                 for i in range(model.get_n_items()):
                     if model.get_string(i) == "PTR":
                         self.dns_record_type_dropdown.set_selected(i)
                         break
-                record_type = "PTR"  # Ensure this is used for the lookup
+                record_type = "PTR"
                 result = self._lookup_record(user_input, "PTR", resolver)
             else:
                 result = self._lookup_record(user_input, record_type, resolver)
 
             self._display_result(result, user_input, record_type, resolver.nameservers)
+        except dns.resolver.NXDOMAIN:
+            self._show_error(f"Domain not found: {user_input} (NXDOMAIN)")
+        except dns.resolver.NoAnswer:
+            self._show_error(f"No {record_type} records found for {user_input} (NoAnswer)")
+        except dns.resolver.Timeout:
+            self._show_error(f"DNS query timed out for {user_input}")
         except dns.exception.DNSException as e:
             logging.error("DNS lookup failed: %s", e)
             self._show_error("DNS Error: %s" % str(e))
@@ -180,24 +180,21 @@ class DNSPage(Adw.PreferencesPage):
 
     @staticmethod
     def _lookup_record(domain_or_ip: str, record_type: str, resolver: dns.resolver.Resolver) -> str:
-        try:
-            if record_type == "PTR":
-                rev_name = dns.reversename.from_address(domain_or_ip)
-                result = resolver.resolve(rev_name, record_type)
-            else:
-                result = resolver.resolve(domain_or_ip, record_type)
+        # Let DNSExceptions propagate
+        if record_type == "PTR":
+            rev_name = dns.reversename.from_address(domain_or_ip)
+            result = resolver.resolve(rev_name, record_type)
+        else:
+            result = resolver.resolve(domain_or_ip, record_type)
 
-            return "\n".join(
-                [f"{domain_or_ip}. IN {record_type} {r.to_text()}" for r in result]
-            )
-        except dns.exception.DNSException as e:
-            return f"{record_type} record lookup failed for {domain_or_ip}: {e}"
+        return "\n".join(
+            [f"{domain_or_ip}. IN {record_type} {r.to_text()}" for r in result]
+        )
 
     def _display_result(self, result: str, domain_or_ip: str, record_type: str, dns_servers: list):
         """Display the DNS lookup results in the source buffer with enhanced formatting."""
-        self.source_buffer.set_text("")  # Clear previous results
+        self.source_buffer.set_text("")
 
-        # Check if the header tag already exists in the tag table
         self.header_tag = self.source_buffer.get_tag_table().lookup("header")
         if not self.header_tag:
             try:

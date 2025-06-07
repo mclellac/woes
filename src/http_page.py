@@ -49,8 +49,6 @@ class HeaderItem(GObject.Object):
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/http_page.ui")
 class HttpPage(Adw.PreferencesPage):
-    # __gtype_name__ = "HttpPage" # Temporarily commented out for testing
-
     http_entry_row = Gtk.Template.Child("http_entry_row")
     http_host_header_row = Gtk.Template.Child("http_host_header_row")
     http_user_agent_row = Gtk.Template.Child("http_user_agent_row")
@@ -58,19 +56,17 @@ class HttpPage(Adw.PreferencesPage):
     http_column_view = Gtk.Template.Child("http_column_view")
     error_banner = Gtk.Template.Child("error_banner")
     http_results_group = Gtk.Template.Child("http_results_group")
-    # clear_results_button is connected via UI handler
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         logger.debug("HttpPage initialized.")
         self.current_http_task = None
 
-        # Initialize ColumnView model and columns here
         self.header_list_store = Gio.ListStore.new(HeaderItem)
         selection_model = Gtk.MultiSelection.new(self.header_list_store)
         self.http_column_view.set_model(selection_model)
 
-        if not self.http_column_view.get_columns():  # Ensure columns are added only once
+        if not self.http_column_view.get_columns():
             header_name_factory = self._create_factory("key")
             header_value_factory = self._create_factory("value", wrap_text=True)
 
@@ -85,10 +81,9 @@ class HttpPage(Adw.PreferencesPage):
         self._clear_error()
         self._hide_results()
 
-        # Populate User-Agent dropdown
         user_agent_options = ["None"] + USER_AGENTS
         self.http_user_agent_row.set_model(Gtk.StringList.new(user_agent_options))
-        self.http_user_agent_row.set_selected(0)  # Select "None" by default
+        self.http_user_agent_row.set_selected(0)
 
     def _connect_signals(self) -> None:
         self.http_entry_row.connect(
@@ -98,8 +93,6 @@ class HttpPage(Adw.PreferencesPage):
         self.http_pragma_switch_row.connect(
             "notify::active", self._on_pragma_toggled
         )
-        # error_banner dismiss is connected in UI
-        # clear_results_button click is connected in UI
 
     def _on_entry_row_activated(self, entry_row: Gtk.Entry) -> None:
         original_url = entry_row.get_text().strip()
@@ -115,14 +108,12 @@ class HttpPage(Adw.PreferencesPage):
             return
 
         self._clear_error()
-        # Disable UI elements and show loading state
         self.http_entry_row.set_sensitive(False)
-        # You might want to add a spinner here, e.g., self.spinner.start()
 
         host_header = self.http_host_header_row.get_text().strip()
         selected_ua_index = self.http_user_agent_row.get_selected()
         user_agent = None
-        if selected_ua_index > 0:  # 0 is "None"
+        if selected_ua_index > 0:
             user_agent_model = self.http_user_agent_row.get_model()
             user_agent = user_agent_model.get_string(selected_ua_index)
 
@@ -170,31 +161,27 @@ class HttpPage(Adw.PreferencesPage):
             request_headers["Pragma"] = ", ".join(akamai_pragma_directives)
 
         try:
-            # Check for cancellation before making the request
             if cancellable and cancellable.is_cancelled():
                 task.return_value({'data': None, 'error_type': 'Cancelled', 'message': "Task was cancelled."})
                 return
 
             response = requests.get(url, headers=request_headers, allow_redirects=True, timeout=10)
-            response.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
+            response.raise_for_status()
 
             all_responses_data = []
 
-            # Process history (redirect responses)
-            # response.history is a list of Response objects, from oldest to most recent.
             for hist_resp in response.history:
                 hist_data = {
                     'type': 'redirect',
-                    'url': str(hist_resp.url),  # Ensure URL is string
+                    'url': str(hist_resp.url),
                     'status_code': hist_resp.status_code,
                     'headers': {str(k): str(v) for k, v in dict(hist_resp.headers).items()}
                 }
                 all_responses_data.append(hist_data)
 
-            # Process final response (the one not in history)
             final_data = {
                 'type': 'final',
-                'url': str(response.url),  # Ensure URL is string
+                'url': str(response.url),
                 'status_code': response.status_code,
                 'headers': {str(k): str(v) for k, v in dict(response.headers).items()}
             }
@@ -214,21 +201,20 @@ class HttpPage(Adw.PreferencesPage):
             logger.warning("Task thread: ConnectionError for %s: %s", url, e, exc_info=True)
             custom_msg = self._get_detailed_connection_error_message(e, url)
             error_message_str = custom_msg if custom_msg else f"Connection Error: {str(e)}"
-            if not str(e) and not custom_msg: # Handle cases where str(e) might be empty
+            if not str(e) and not custom_msg:
                 error_message_str = "Connection Error: Failed to establish a connection."
 
             task.return_value({'data': None, 'error_type': 'ConnectionError', 'message': str(error_message_str)})
             return
         except requests.exceptions.Timeout as e:
             logger.warning("Task thread: Timeout for %s: %s", url, e, exc_info=True)
-            # The specific message and code hardcoding from the previous step is now managed here.
             task.return_value({'data': None, 'error_type': 'Timeout', 'message': "Timeout Error: The request timed out."})
             return
         except requests.exceptions.RequestException as e:
             logger.error("Task thread: RequestException for %s: %s", url, e, exc_info=True)
             task.return_value({'data': None, 'error_type': 'RequestException', 'message': f"Request Error: {str(e)}"})
             return
-        except Exception as e:  # Catch any other unexpected errors
+        except Exception as e:
             logger.error("Task thread: Unexpected error for %s: %s", url, e, exc_info=True)
             task.return_value({'data': None, 'error_type': 'GenericException', 'message': f"An unexpected error occurred: {str(e)}"})
             return
@@ -242,7 +228,7 @@ class HttpPage(Adw.PreferencesPage):
         """
         current_exc = exc
         found_connection_refused = False
-        max_depth = 5  # Limit traversal depth
+        max_depth = 5
 
         logger.debug("Starting connection error analysis for URL: %s", url)
 
@@ -267,12 +253,9 @@ class HttpPage(Adw.PreferencesPage):
             # Check for urllib3.exceptions common in requests
             if isinstance(current_exc, urllib3_exceptions.NewConnectionError):
                 logger.debug("urllib3.exceptions.NewConnectionError found: %s", current_exc)
-                # This exception's string representation often includes
-                # the OS error like "[Errno 111] Connection refused"
                 if "connection refused" in exc_str.lower() or "errno 111" in exc_str.lower():
                     found_connection_refused = True
                     break
-                # Also check original_error if present (newer urllib3)
                 if hasattr(current_exc, 'original_error') and \
                    isinstance(current_exc.original_error, ConnectionRefusedError):
                     logger.debug("Nested ConnectionRefusedError found in NewConnectionError.original_error")
@@ -287,10 +270,7 @@ class HttpPage(Adw.PreferencesPage):
 
             if isinstance(current_exc, urllib3_exceptions.MaxRetryError):
                 logger.debug("urllib3.exceptions.MaxRetryError found. Will inspect its reason.")
-                # MaxRetryError's reason is often NewConnectionError
                 if hasattr(current_exc, 'reason') and current_exc.reason is not None:
-                    # Temporarily recurse on the reason without advancing general cause/context chain
-                    # This is a bit of a special case for MaxRetryError
                     reason_exc = current_exc.reason
                     reason_exc_type_name = type(reason_exc).__name__
                     reason_exc_str = str(reason_exc)
@@ -312,21 +292,16 @@ class HttpPage(Adw.PreferencesPage):
                             found_connection_refused = True
                             break
 
-            # General check for string messages in args or str(exc)
-            # This is a broader, less precise check
             if any("connection refused" in str(arg).lower() for arg in current_exc.args if isinstance(arg, str)) or \
                "connection refused" in exc_str.lower():
                 logger.debug("Found 'connection refused' in string representation of current exception or its args.")
                 found_connection_refused = True
-                # Don't break here if we want to find more specific types like ConnectionRefusedError itself
 
             if any("errno 111" in str(arg).lower() for arg in current_exc.args if isinstance(arg, str)) or \
                "errno 111" in exc_str.lower():
                 logger.debug("Found 'errno 111' in string representation of current exception or its args.")
                 found_connection_refused = True
-                # Don't break here
 
-            # Move to the next exception in the chain
             next_exc = None
             if hasattr(current_exc, '__cause__') and current_exc.__cause__ is not None:
                 logger.debug("Moving to __cause__: %s", type(current_exc.__cause__).__name__)
@@ -337,7 +312,7 @@ class HttpPage(Adw.PreferencesPage):
                 logger.debug("Moving to __context__: %s", type(current_exc.__context__).__name__)
                 next_exc = current_exc.__context__
 
-            if current_exc is next_exc:  # Avoid infinite loop on self-referential cause/context
+            if current_exc is next_exc:
                 logger.debug("Next exception is same as current, stopping traversal.")
                 break
             current_exc = next_exc
@@ -350,13 +325,13 @@ class HttpPage(Adw.PreferencesPage):
                     "The URL targetted via HTTPS is refusing the connection. "
                     "It might be an HTTP-only service. Please try with 'http://'."
                 )
-            elif requests.utils.urlparse(url).scheme == 'http':  # Specifically check for http
+            elif requests.utils.urlparse(url).scheme == 'http':
                 logger.info("URL is HTTP and connection was refused. Suggesting HTTPS.")
                 return (
                     "The HTTP request failed. The server might only support HTTPS for this resource. "
                     "Please try with 'https://'."
                 )
-            else:  # Other schemes, or if somehow scheme is not http/https but connection refused
+            else:
                 logger.info("URL is non-HTTP/HTTPS (or scheme missing) and connection was refused.")
                 return "Connection Error: The server at the specified URL actively refused the connection."
 
@@ -375,7 +350,7 @@ class HttpPage(Adw.PreferencesPage):
                 self._display_error("An unexpected error occurred while processing the task result.")
                 self.http_entry_row.add_css_class("error")
                 self._update_column_view_model(None)
-                return # Early exit from try block
+                return
 
             error_type = result_dict.get('error_type')
             error_message = result_dict.get('message')
@@ -383,13 +358,11 @@ class HttpPage(Adw.PreferencesPage):
 
             if error_type is not None:
                 logger.error(f"Task completed with error: {error_type} - {error_message}")
-                # Sanitize message if it contains markup, AdwBanner might not render it well
                 safe_error_message = str(error_message).replace("<b>", "").replace("</b>", "")
                 self._display_error(safe_error_message)
                 self.http_entry_row.add_css_class("error")
-                self._update_column_view_model(None)  # Clear previous results
+                self._update_column_view_model(None)
             else:
-                # Success case
                 if actual_list_of_responses is None:
                     logger.error("Task result data (actual_list_of_responses) is None unexpectedly on success.")
                     self._display_error("Failed to retrieve task result data.")
@@ -425,7 +398,7 @@ class HttpPage(Adw.PreferencesPage):
                                 processed_headers_for_store.append(HeaderItem(key="", value="", is_special_row=True))
                         self._update_column_view_model(processed_headers_for_store)
                     self.http_entry_row.remove_css_class("error")
-                else: # Data is not None and not a list
+                else:
                     logger.error(
                         f"Task result data (actual_list_of_responses) of unexpected type {type(actual_list_of_responses)}. "
                         "Expected list or None."
@@ -436,20 +409,16 @@ class HttpPage(Adw.PreferencesPage):
                     self.http_entry_row.add_css_class("error")
                     self._update_column_view_model(None)
 
-        except GObject.GError as e: # This catches errors from propagate_value if the task itself failed fundamentally
+        except GObject.GError as e:
             error_message = e.message
             logger.error("Error fetching headers (async GObject.GError from propagate_value): %s", error_message)
-            # Sanitize message
             error_message = error_message.replace("<b>", "").replace("</b>", "")
             self._display_error(error_message)
             self.http_entry_row.add_css_class("error")
             self._update_column_view_model(None)
         finally:
-            # Re-enable UI elements that might have been disabled
             self.http_entry_row.set_sensitive(True)
-            # e.g., self.spinner.stop() (if a spinner was used)
 
-            # Clear the task reference if it matches the one this callback was for.
             if self.current_http_task is local_task_ref:
                 self.current_http_task = None
 
@@ -475,10 +444,6 @@ class HttpPage(Adw.PreferencesPage):
         )
 
         return re.match(url_regex, url) is not None and bool(requests.utils.urlparse(url).netloc)
-
-    # The _fetch_headers method is now part of _fetch_headers_task_thread_func
-    # and is no longer called directly by _on_entry_row_activated.
-    # It's kept here for the _format_http_error utility or if needed elsewhere.
 
     def _format_http_error(self, e: requests.exceptions.HTTPError) -> str:
         status_code = e.response.status_code
@@ -526,16 +491,14 @@ class HttpPage(Adw.PreferencesPage):
         self.error_banner.set_title("")
         self.http_entry_row.remove_css_class("error")
 
-    # Removed @Gtk.Template.Callback() as it's a direct signal handler in UI
     def _on_error_banner_dismiss(self, _banner: Adw.Banner, *_args):
         self._clear_error()
 
-    # Removed @Gtk.Template.Callback() as it's a direct signal handler in UI
     def _on_clear_results_clicked(self, _button: Gtk.Button, *_args):
         logger.info("Results cleared by user.")
-        self._update_column_view_model(None)  # Clears the view
-        self._clear_error()  # Clear any errors
-        self.http_entry_row.set_text("")  # Clear entry row
+        self._update_column_view_model(None)
+        self._clear_error()
+        self.http_entry_row.set_text("")
 
 
     @staticmethod
@@ -549,17 +512,15 @@ class HttpPage(Adw.PreferencesPage):
             label.set_hexpand(True)
             if wrap_text:
                 label.set_wrap(True)
-                label.set_max_width_chars(80)  # Or adjust as needed
+                label.set_max_width_chars(80)
             list_item.set_child(label)
 
         def bind_func(_, list_item: Gtk.ListItem) -> None:
             label = list_item.get_child()
-            item = list_item.get_item()  # This is a HeaderItem instance
+            item = list_item.get_item()
             text_to_display = getattr(item, attr_name, "")
-            if label:  # Check if label exists
+            if label:
                 if item and item.is_special_row:
-                    # For special rows, make the text bold.
-                    # Escape markup in the text to prevent Pango errors if text contains '&', '<', etc.
                     escaped_text = GLib.markup_escape_text(text_to_display)
                     label.set_markup(f"<b>{escaped_text}</b>")
                 else:

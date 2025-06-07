@@ -4,13 +4,13 @@ import platform
 import subprocess
 import shlex
 import shutil
-import tempfile # Added as per subtask description
+import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 from typing import Any, Dict, Union, List
 
 import nmap
-from nmap import PortScannerError # Added as per subtask description
+from nmap import PortScannerError
 import yaml
 
 
@@ -25,18 +25,13 @@ class ScanStatus(Enum):
     IN_PROGRESS = (0.0, "Scanning {target}...")
     COMPLETE = (1.0, "Scan complete")
     FAILED = (1.0, "Scan failed unexpectedly")
-    IDLE = (0.0, "Idle")  # Added IDLE state
+    IDLE = (0.0, "Idle")
 
 
 # Helper function (module-level)
 def _is_scan_root_required(nmap_args_list: list[str]) -> bool:
     logging.debug(f"Checking if root is required for args: {nmap_args_list}")
-    # Check for options that typically require root privileges.
-    # -sS is the default TCP SYN scan.
-    # -O is OS detection.
-    # -A (Aggressive) implies -sS and -O.
-    # Other options like --traceroute (often part of -A) can also require root.
-    root_options = ["-sS", "-O", "-A"] # Add others if known
+    root_options = ["-sS", "-O", "-A"]
     is_required = any(opt in nmap_args_list for opt in root_options)
     logging.debug(f"Root required: {is_required}")
     return is_required
@@ -53,25 +48,25 @@ def get_escalated_command(command_parts: List[str]) -> List[str]:
     logging.debug(f"Nmap path resolved to: {nmap_path}")
 
     if not nmap_path:
-        # If nmap is not found, escalation won't help.
-        # This error should ideally be caught even before attempting escalation.
         raise FileNotFoundError(f"Nmap executable '{nmap_executable}' not found in PATH.")
 
-    # Use the full path for the command
     resolved_command_parts = [nmap_path] + command_parts[1:]
 
     escalated_cmd = []
     if system == "Linux":
-        # pkexec by default does not inherit the user's PATH for security reasons.
-        # It's crucial to use the full path to the executable.
+        if not shutil.which("pkexec"):
+            logging.error("pkexec not found, but it is required for privilege escalation on Linux.")
+            raise FileNotFoundError("pkexec not found. Needed for privilege escalation.")
         escalated_cmd = ["pkexec"] + resolved_command_parts
-    elif system == "Darwin": # macOS
+    elif system == "Darwin":
+        if not shutil.which("osascript"):
+            logging.error("osascript not found, but it is required for privilege escalation on macOS.")
+            raise FileNotFoundError("osascript not found. Needed for privilege escalation.")
         quoted_command = " ".join(shlex.quote(part) for part in resolved_command_parts)
         osascript_command = f'do shell script "{quoted_command}" with administrator privileges'
         escalated_cmd = ["osascript", "-e", osascript_command]
     else:
         logging.warning(f"Privilege escalation not configured for system: {system}. Returning original command.")
-        # It's better to raise an error if escalation is expected but not possible.
         raise NotImplementedError(f"Privilege escalation not supported on this platform: {system}")
 
     logging.debug(f"Escalated command: {escalated_cmd}")
@@ -177,11 +172,10 @@ class NmapScanner:
             FileNotFoundError: If Nmap executable is not found (via PortScannerError).
             NotImplementedError: If OS is not supported for escalation (via PortScannerError).
         """
-        self.nm = nmap.PortScanner() # Still useful for parsing
+        self.nm = nmap.PortScanner()
 
-        nmap_args_list = ["nmap"] # Start with 'nmap' as executable name
+        nmap_args_list = ["nmap"]
 
-        # Base scan type: Default to TCP SYN scan (-sS).
         nmap_args_list.append("-sS")
 
         if os_fingerprinting:
@@ -198,17 +192,16 @@ class NmapScanner:
         if timing_template and re.match(r"^T[0-5]$", timing_template):
             nmap_args_list.append(f"-{timing_template}")
         else:
-            nmap_args_list.append("-T3") # Default timing
+            nmap_args_list.append("-T3")
 
-        nmap_args_list.append("-oX") # Output XML
-        nmap_args_list.append("-")   # to stdout
+        nmap_args_list.append("-oX")
+        nmap_args_list.append("-")
 
-        # Log before adding target to keep it clean for general structure logging
-        logging.debug(f"Initial Nmap arguments before processing (pre-target, pre-oX): {nmap_args_list[:-3]}") # Exclude nmap, -oX, -
+        logging.debug(f"Initial Nmap arguments before processing (pre-target, pre-oX): {nmap_args_list[:-3]}")
 
-        nmap_args_list.append(target) # Add target at the end
+        nmap_args_list.append(target)
 
-        logging.info(f"Nmap base command parts (full): {nmap_args_list}") # Changed from base to full
+        logging.info(f"Nmap base command parts (full): {nmap_args_list}")
 
         final_command_parts = []
         needs_escalation = _is_scan_root_required(nmap_args_list)
@@ -238,40 +231,34 @@ class NmapScanner:
                 logging.debug(f"Nmap process stdout (on error): {process.stdout}")
                 logging.debug(f"Nmap process stderr (on error): {process.stderr}")
                 error_message = f"Nmap scan failed with exit code {process.returncode}."
-                # Try to get a more specific error from Nmap's output
                 if "QUITTING" in nmap_xml_output or "requires root privileges" in nmap_xml_output:
                     output_lines = nmap_xml_output.strip().split('\n')
                     for line in output_lines:
                         if "QUITTING" in line or "privileges" in line:
-                            error_message = line.strip() # Use Nmap's direct message
+                            error_message = line.strip()
                             break
-                elif nmap_stderr: # If not an obvious Nmap stdout error, use stderr
+                elif nmap_stderr:
                     error_message += f" Stderr: {nmap_stderr.strip()}"
 
-                # Check for cancellation of privilege escalation prompts
                 if needs_escalation:
-                    if platform.system() == "Darwin" and process.returncode == 1 and not nmap_xml_output and not nmap_stderr.strip(): # osascript cancel
+                    if platform.system() == "Darwin" and process.returncode == 1 and not nmap_xml_output and not nmap_stderr.strip():
                          error_message = "User cancelled the request for administrator privileges."
-                    elif platform.system() == "Linux" and process.returncode in [1, 126, 127] and not nmap_xml_output and not nmap_stderr.strip(): # pkexec common cancel/fail codes
+                    elif platform.system() == "Linux" and process.returncode in [1, 126, 127] and not nmap_xml_output and not nmap_stderr.strip():
                          error_message = "User cancelled the request for administrator privileges or authentication failed."
 
                 logging.error(error_message)
                 raise PortScannerError(error_message)
 
-            if not nmap_xml_output.strip(): # Check if output is empty or just whitespace
-                no_output_msg = "Nmap scan completed but produced no XML output."
-                if nmap_stderr.strip(): # Add stderr if it has content
-                    no_output_msg += f" Stderr: {nmap_stderr.strip()}"
-                logging.warning(no_output_msg)
-                # Allow parsing of empty string, analyse_nmap_xml_scan should handle it
-                pass
+            if process.returncode == 0 and not nmap_xml_output.strip():
+                logging.warning("Nmap scan completed successfully but produced no XML output.")
+                raise PortScannerError("Nmap scan succeeded but produced no XML output.")
 
             try:
                 logging.debug(f"Attempting to parse Nmap XML output (first 500 chars): {nmap_xml_output[:500]}")
                 self.nm.analyse_nmap_xml_scan(nmap_xml_output=nmap_xml_output)
             except PortScannerError as e:
                 logging.error(f"Failed to parse Nmap XML output: {e}")
-                logging.debug(f"Problematic XML Output (full, on parse error):\n{nmap_xml_output}") # Log more on error
+                logging.debug(f"Problematic XML Output (full, on parse error):\n{nmap_xml_output}")
                 raise PortScannerError(f"Failed to parse Nmap XML output: {e}. Stderr: {nmap_stderr.strip()}")
 
             return self.nm
@@ -282,7 +269,7 @@ class NmapScanner:
         except NotImplementedError as e:
             logging.error(f"Nmap execution error: {e}")
             raise PortScannerError(str(e))
-        except PortScannerError: # Re-raise if it's already the correct type
+        except PortScannerError:
             raise
         except Exception as e:
             logging.error(f"Unexpected error during Nmap scan process: {e}", exc_info=True)

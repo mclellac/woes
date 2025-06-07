@@ -29,16 +29,13 @@ class Preferences(Adw.PreferencesWindow):
 
     def load_ui(self):
         self.font_scale_combo_row.connect("notify::selected", self.on_font_scale_changed)
-        # Connect to notify::selected for AdwComboRow
         self.theme_combo_row.connect("notify::selected", self.on_theme_preference_changed)
         self.source_style_scheme_combo_row.connect(
             "notify::selected", self.on_source_style_scheme_changed
         )
         self.dns_server_entryrow.connect("apply", self.on_dns_server_changed)
-        # Banner dismiss signal is connected in UI template if handler _on_error_banner_dismiss_clicked is defined
 
-    # Removed @Gtk.Template.Callback() as it's a direct signal handler in UI
-    def on_error_banner_dismiss_clicked(self, _banner, *_args):  # Renamed to match typical handler name
+    def on_error_banner_dismiss_clicked(self, _banner, *_args):
         self.hide_banner_and_clear_error_state()
 
     def on_dns_server_changed(self, entryrow: Adw.EntryRow):
@@ -63,7 +60,6 @@ class Preferences(Adw.PreferencesWindow):
 
             entryrow.set_text("")
 
-            # Hide the banner after 4 seconds
             GLib.timeout_add_seconds(4, self.hide_banner_and_clear_error_state, entryrow)
 
     def hide_banner_and_clear_error_state(self, entry_row_widget=None):
@@ -95,8 +91,6 @@ class Preferences(Adw.PreferencesWindow):
         if isinstance(selected_item_obj, Gtk.StringObject):
             selected_scale_str = selected_item_obj.get_string()
             self.settings.set_string("font-scaling-percentage", selected_scale_str)
-            # The actual application of font size will be handled by WoesWindow
-            # based on this setting change, similar to how theme changes are handled.
             logging.debug("Font scaling preference set to %s.", selected_scale_str)
 
     def on_theme_preference_changed(self, combo_row: Adw.ComboRow, _gparam):
@@ -121,8 +115,8 @@ class Preferences(Adw.PreferencesWindow):
                 if item_string == font_scale_pref:
                     self.font_scale_combo_row.set_selected(i)
                     break
-        else: # Fallback or if model is not as expected
-            self.font_scale_combo_row.set_selected(0) # Default to "100% (Normal)"
+        else:
+            self.font_scale_combo_row.set_selected(0)
 
         theme_pref_value = self.settings.get_string("theme-preference")
         model = self.theme_combo_row.get_model()
@@ -132,8 +126,8 @@ class Preferences(Adw.PreferencesWindow):
                 if item_string == theme_pref_value:
                     self.theme_combo_row.set_selected(i)
                     break
-        else: # Fallback or if model is not as expected
-            self.theme_combo_row.set_selected(0) # Default to "System"
+        else:
+            self.theme_combo_row.set_selected(0)
 
         source_style_scheme = self.settings.get_string("source-style-scheme")
         model = self.source_style_scheme_combo_row.get_model()
@@ -150,6 +144,5 @@ class Preferences(Adw.PreferencesWindow):
                 "Style scheme '%s' not found or model is not Gtk.StringList.", source_style_scheme
             )
 
-        # Custom DNS Server
         dns_server = self.settings.get_string("custom-dns-server")
         self.dns_server_entryrow.set_text(dns_server)
