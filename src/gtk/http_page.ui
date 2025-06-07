@@ -52,7 +52,6 @@
         <property name="button-label" translatable="yes">Dismiss</property>
         <property name="revealed">False</property> <!-- Initially hidden -->
         <property name="title"></property> <!-- Title will be set from code -->
-        <signal name="clicked" handler="_on_error_banner_dismiss"/>
       </object>
     </child>
     <child>
