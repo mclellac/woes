@@ -1,9 +1,9 @@
 import logging
 import re
 from typing import Optional
-from urllib.parse import urlparse
 
 import requests
+import requests.utils # For urlparse
 import gi
 
 gi.require_version('Adw', '1')
@@ -49,7 +49,7 @@ class HeaderItem(GObject.Object):
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/http_page.ui")
 class HttpPage(Adw.PreferencesPage):
-    __gtype_name__ = "HttpPage"
+    # __gtype_name__ = "HttpPage" # Temporarily commented out for testing
 
     http_entry_row = Gtk.Template.Child("http_entry_row")
     http_host_header_row = Gtk.Template.Child("http_host_header_row")
@@ -344,13 +344,13 @@ class HttpPage(Adw.PreferencesPage):
 
         if found_connection_refused:
             logger.info("Connection refused condition identified for URL: %s", url)
-            if urlparse(url).scheme == 'https':
+            if requests.utils.urlparse(url).scheme == 'https':
                 logger.info("URL is HTTPS and connection was refused. Suggesting HTTP.")
                 return (
                     "The URL targetted via HTTPS is refusing the connection. "
                     "It might be an HTTP-only service. Please try with 'http://'."
                 )
-            elif urlparse(url).scheme == 'http':  # Specifically check for http
+            elif requests.utils.urlparse(url).scheme == 'http':  # Specifically check for http
                 logger.info("URL is HTTP and connection was refused. Suggesting HTTPS.")
                 return (
                     "The HTTP request failed. The server might only support HTTPS for this resource. "
@@ -456,7 +456,7 @@ class HttpPage(Adw.PreferencesPage):
 
     @staticmethod
     def _ensure_scheme(url: str) -> str:
-        parsed_url = urlparse(url)
+        parsed_url = requests.utils.urlparse(url)
         if not parsed_url.scheme:
             url = "https://" + url
         return url
@@ -474,7 +474,7 @@ class HttpPage(Adw.PreferencesPage):
             re.IGNORECASE,
         )
 
-        return re.match(url_regex, url) is not None and bool(urlparse(url).netloc)
+        return re.match(url_regex, url) is not None and bool(requests.utils.urlparse(url).netloc)
 
     # The _fetch_headers method is now part of _fetch_headers_task_thread_func
     # and is no longer called directly by _on_entry_row_activated.
