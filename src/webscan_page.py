@@ -4,6 +4,7 @@ gi.require_version('Adw', '1')
 from gi.repository import Gtk, Adw, Gio, GLib
 
 import logging
+import re # Added for URL validation
 import subprocess
 
 from .constants import RESOURCE_PREFIX
@@ -20,7 +21,20 @@ class WebScanPage(Adw.PreferencesPage):
 
     def on_scan_button_clicked(self, _widget):
         target_url = self.url_entry.get_text()
-        if not target_url:
+
+        # URL validation
+        url_pattern = re.compile(
+            r"^(?:(?:https?|ftp)://)?(?:\S+(?::\S*)?@)?"
+            r"(?:(?:[1-9]\d?|1\d\d|2[01]\d|22[0-3])(?:\.(?:1?\d{1,2}|2[0-4]\d|25[0-5])){2}(?:\.(?:[1-9]\d?|1\d\d|2[0-4]\d|25[0-4]))|"
+            r"(?:(?:[a-z¡-￿0-9]-*)*[a-z¡-￿0-9]+)(?:\.(?:[a-z¡-￿0-9]-*)*[a-z¡-￿0-9]+)*"
+            r"(?:\.(?:[a-z¡-￿]{2,}))\.?)(?::\d{2,5})?(?:[/?#]\S*)?$",
+            re.IGNORECASE
+        )
+        if not url_pattern.match(target_url):
+            self.show_error_toast("Invalid URL format. Please enter a valid URL.")
+            return
+
+        if not target_url: # This check can remain for the empty case, though regex might catch some empty-like strings too.
             self.show_error_toast("Target URL cannot be empty.")
             return
 
@@ -49,7 +63,6 @@ class WebScanPage(Adw.PreferencesPage):
                 text=True
             ) as process:
                 stdout, stderr = process.communicate(timeout=300)
-            # Success: (stdout, stderr, None for error_type)
             gio_task.return_value((stdout, stderr, None))
 
         except FileNotFoundError:
@@ -92,18 +105,14 @@ class WebScanPage(Adw.PreferencesPage):
         if stderr:
             buffer.insert(buffer.get_end_iter(), "\n--- Errors ---\n" + stderr)
 
-        # Scroll to the end
         scroll_adj = self.results_textview.get_parent().get_vadjustment()
         if scroll_adj:
             scroll_adj.set_value(scroll_adj.get_upper() - scroll_adj.get_page_size())
 
     def show_error_toast(self, message):
-        # A helper function to show toasts, assuming this page is within a context that can display them
-        # (e.g., Adw.ApplicationWindow or a view that has access to Adw.ToastOverlay)
         logging.error("Displaying error: %s", message)
         self.error_banner_webscan.set_title(message)
         self.error_banner_webscan.set_revealed(True)
 
-    # Removed @Gtk.Template.Callback() as it's a direct signal handler in UI
     def on_error_banner_dismiss_clicked(self, _widget, *_args):
         self.error_banner_webscan.set_revealed(False)

@@ -21,15 +21,15 @@ def create_source_view(language_name='txt'):
     """
     language_manager = GtkSource.LanguageManager.get_default()
     if language_name is None:
-        language_name = 'txt'  # Default to plain text if None is explicitly passed
+        language_name = 'txt'
     language = language_manager.get_language(language_name)
 
     if language is None:
         logging.warning("GtkSourceView language '%s' not found. Falling back to a plain buffer.", language_name)
-        source_buffer = GtkSource.Buffer()  # Create a plain GtkSource.Buffer
+        source_buffer = GtkSource.Buffer()
     else:
         source_buffer = GtkSource.Buffer.new_with_language(language)
-        source_buffer.set_highlight_syntax(True)  # Only set this if language is found
+        source_buffer.set_highlight_syntax(True)
 
     source_view = GtkSource.View.new_with_buffer(source_buffer)
     source_view.set_show_line_numbers(True)

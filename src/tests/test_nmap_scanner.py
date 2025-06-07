@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import patch, MagicMock
-from src.nmap_scanner import NmapScanner # Assuming src is in PYTHONPATH or structure allows this
+from src.nmap_scanner import NmapScanner
 
 class TestNmapScanner(unittest.TestCase):
 
@@ -15,16 +15,14 @@ class TestNmapScanner(unittest.TestCase):
             os_fingerprinting=False,
             scan_all_ports=False,
             selected_script=None,
-            service_version=True, # Test this
+            service_version=True,
             no_ping=False,
             timing_template="T3"
         )
 
-        # nm.scan(hosts=target, arguments=arguments_str)
-        # call_args will be call_args.kwargs['arguments'] or call_args[1]['arguments']
         called_arguments = mock_nm_instance.scan.call_args[1]['arguments']
         self.assertIn("-sV", called_arguments)
-        self.assertNotIn("-O", called_arguments) # Ensure -O is not there if os_fingerprint is False
+        self.assertNotIn("-O", called_arguments)
 
     @patch('nmap.PortScanner')
     def test_run_nmap_scan_no_ping(self, mock_port_scanner_class):
@@ -38,7 +36,7 @@ class TestNmapScanner(unittest.TestCase):
             scan_all_ports=False,
             selected_script=None,
             service_version=False,
-            no_ping=True, # Test this
+            no_ping=True,
             timing_template="T3"
         )
 
@@ -58,7 +56,7 @@ class TestNmapScanner(unittest.TestCase):
             selected_script=None,
             service_version=False,
             no_ping=False,
-            timing_template="T4" # Test this
+            timing_template="T4"
         )
 
         called_arguments = mock_nm_instance.scan.call_args[1]['arguments']
@@ -72,10 +70,10 @@ class TestNmapScanner(unittest.TestCase):
         scanner = NmapScanner()
         scanner.run_nmap_scan(
             target="127.0.0.1",
-            os_fingerprint=True, # Test this
+            os_fingerprint=True,
             scan_all_ports=False,
             selected_script=None,
-            service_version=True, # Test this
+            service_version=True,
             no_ping=False,
             timing_template="T3"
         )
@@ -97,11 +95,11 @@ class TestNmapScanner(unittest.TestCase):
             selected_script=None,
             service_version=False,
             no_ping=False,
-            timing_template="T3" # Explicitly T3 but also default
+            timing_template="T3"
         )
         called_arguments = mock_nm_instance.scan.call_args[1]['arguments']
-        self.assertIn("-sS", called_arguments) # Default scan type
-        self.assertIn("-T3", called_arguments) # Default timing
+        self.assertIn("-sS", called_arguments)
+        self.assertIn("-T3", called_arguments)
         self.assertNotIn("-O", called_arguments)
         self.assertNotIn("-sV", called_arguments)
         self.assertNotIn("-p-", called_arguments)
