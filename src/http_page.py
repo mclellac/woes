@@ -239,6 +239,7 @@ class HttpPage(Adw.PreferencesPage):
                 "%s",
                 error_message
             )
+            return
         # HTTPError is handled above for the final response. If requests.get itself raises one for a redirect, it's caught by RequestException.
         except requests.exceptions.ConnectionError as e:
             logger.warning("Task thread: ConnectionError for %s: %s", url, e)
@@ -252,6 +253,7 @@ class HttpPage(Adw.PreferencesPage):
                 "%s",
                 error_message
             )
+            return
         except requests.exceptions.RequestException as e: # Catches other requests errors like TooManyRedirects, etc.
             logger.warning("Task thread: RequestException for %s: %s", url, e)
             error_message = f"Request Error: {str(e)}"
@@ -261,6 +263,7 @@ class HttpPage(Adw.PreferencesPage):
                 "%s",
                 error_message
             )
+            return
         except Exception as e:
             logger.error("Task thread: Truly unexpected error for %s: %s", url, e, exc_info=True)
             error_message = f"An unexpected error occurred: {str(e)}"
@@ -270,6 +273,7 @@ class HttpPage(Adw.PreferencesPage):
                 "%s",
                 error_message
             )
+            return
 
 
     def _get_detailed_connection_error_message(self, exc: Exception, url: str) -> Optional[str]:
