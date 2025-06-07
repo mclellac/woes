@@ -251,7 +251,7 @@ class HttpPage(Adw.PreferencesPage):
             safe_error_message = str(error_message)  # Ensure message is string
             # Use specific GIO error code for timeouts
             g_error = GLib.Error(
-                message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.TIMED_OUT.value
+                message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.TIMED_OUT
             )
             task.return_error(g_error)
             return
