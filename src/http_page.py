@@ -96,8 +96,8 @@ class HttpPage(Adw.PreferencesPage):
             "notify::active", self._on_pragma_toggled
         )
 
-    def _on_entry_row_activated(self, entry_row: Gtk.Entry) -> None:
-        original_url = entry_row.get_text().strip()
+    def _on_entry_row_activated(self, _widget: Gtk.Widget) -> None: # Parameter renamed
+        original_url = self.http_entry_row.get_text().strip() # Changed to self.http_entry_row
         url = self._ensure_scheme(original_url)
         logger.info("Fetching headers for URL: %s (original: %s)", url, original_url)
 
@@ -111,6 +111,9 @@ class HttpPage(Adw.PreferencesPage):
 
         self._clear_error()
         self.http_entry_row.set_sensitive(False)
+        # Disable the button too
+        if hasattr(self, 'http_apply_button'):
+            self.http_apply_button.set_sensitive(False)
 
         host_header = self.http_host_header_row.get_text().strip()
         selected_ua_index = self.http_user_agent_row.get_selected()
@@ -164,7 +167,12 @@ class HttpPage(Adw.PreferencesPage):
 
         try:
             if cancellable and cancellable.is_cancelled():
-                task.return_value({'data': None, 'error_type': 'Cancelled', 'message': "Task was cancelled."})
+                # If cancelled, we can return a specific GIO error or let it be handled by propagate_value
+                # For now, let's ensure it doesn't fall into generic exception if Gio handles it.
+                # A typical way is task.return_error_if_cancelled() or similar.
+                # However, this function is called by run_in_thread, so direct cancellation check is good.
+                # If we want to signal cancellation explicitly:
+                task.return_error(GLib.Error.new_literal(Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED, "Task was cancelled."))
                 return
 
             response = requests.get(url, headers=request_headers, allow_redirects=True, timeout=10)
@@ -189,13 +197,20 @@ class HttpPage(Adw.PreferencesPage):
             }
             all_responses_data.append(final_data)
 
-            task.return_value(all_responses_data) # Return data directly on success
-        # Removed specific requests exception handlers here, they will propagate
-        except Exception as e: # Catch-all for any other exception
-            logger.error("Task thread: Unexpected error for %s: %s", url, e, exc_info=True)
-            # Use GLib.Error for task errors
-            task.return_error(GLib.Error(f"An unexpected error occurred in task: {str(e)}", "WOES_HTTP_TASK_ERROR", 0))
-            # No explicit return here, error is set on the task
+            task.return_value(all_responses_data) # Return the list of dicts directly on success
+
+        except (requests.exceptions.Timeout,
+                requests.exceptions.HTTPError,
+                requests.exceptions.ConnectionError,
+                requests.exceptions.RequestException) as e:
+            logger.warning("Task thread: Caught specific requests exception for %s: %s", url, e.__class__.__name__)
+            raise  # Re-raise the original requests exception to be caught by _fetch_headers_task_done_cb
+
+        except Exception as e: # Catch any other truly unexpected Python error
+            logger.error("Task thread: Truly unexpected error for %s: %s", url, e, exc_info=True)
+            # Set a GIO error for this unexpected case
+            task.return_error(GLib.Error(f"An unexpected error occurred in http task: {str(e)}", "WOES_HTTP_TASK_UNEXPECTED_ERROR", 0))
+            # Do not raise here, return_error is sufficient for GIO to signal it.
 
 
     def _get_detailed_connection_error_message(self, exc: Exception, url: str) -> Optional[str]:
@@ -408,6 +423,8 @@ class HttpPage(Adw.PreferencesPage):
             self._update_column_view_model(None)
         finally:
             self.http_entry_row.set_sensitive(True)
+            if hasattr(self, 'http_apply_button'): # Check if button exists
+                self.http_apply_button.set_sensitive(True)
             if self.current_http_task is local_task_ref: # Check if this task is still the current one
                 self.current_http_task = None
 
