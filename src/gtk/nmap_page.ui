@@ -7,13 +7,6 @@
     <property name="title" translatable="yes">Nmap Scanner</property>
     <property name="icon-name">face-devilish-symbolic</property> <!-- Or an appropriate network scanning icon -->
     <child>
-      <object class="AdwBanner" id="warning_banner">
-        <property name="title" translatable="yes">WARNING: Do not use this tool on any hosts or networks you do not have explicit permission to scan.</property>
-        <property name="revealed">True</property>
-        <property name="hexpand">true</property>
-      </object>
-    </child>
-    <child>
       <object class="AdwPreferencesGroup" id="nmap_scan_parameters_group">
         <property name="title" translatable="yes">Scan Parameters</property>
         <child>
