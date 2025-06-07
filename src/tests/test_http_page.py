@@ -5,9 +5,10 @@ import sys
 import importlib
 import inspect
 import time
-import logging # <--- Add this import
-from typing import Optional # <--- Add this import
-import re # <--- Add this import
+import logging
+from typing import Optional
+import re
+import enum # Required for FallbackHttpErrorType
 
 # --- Global GI Mocking Setup ---
 # Stop any active unittest.mock patches from other potential sources/previous runs
@@ -97,6 +98,8 @@ MockGio.IOErrorEnum.TIMED_OUT = 14 # Example, if needed for error codes
 # --- Module-level HttpPage class loading attempt ---
 http_page_module = None
 HttpPage_class = None
+WOES_HTTP_ERROR_DOMAIN = None
+HttpErrorType = None
 try:
     if 'src.http_page' in sys.modules: # Should have been deleted if it was there before mocks
         del sys.modules['src.http_page']
@@ -104,6 +107,26 @@ try:
     print(f"DEBUG: http_page_module is: {http_page_module}, type: {type(http_page_module)}")
     if hasattr(http_page_module, 'HttpPage') and inspect.isclass(http_page_module.HttpPage):
         HttpPage_class = http_page_module.HttpPage
+        # --- Import constants after http_page_module is loaded ---
+        if hasattr(http_page_module, 'WOES_HTTP_ERROR_DOMAIN'):
+            WOES_HTTP_ERROR_DOMAIN = http_page_module.WOES_HTTP_ERROR_DOMAIN
+        else:
+            print("WARNING: WOES_HTTP_ERROR_DOMAIN not found in http_page_module")
+            WOES_HTTP_ERROR_DOMAIN = "woes-http-error-domain" # Fallback if needed
+
+        if hasattr(http_page_module, 'HttpErrorType'):
+            HttpErrorType = http_page_module.HttpErrorType
+        else:
+            print("WARNING: HttpErrorType not found in http_page_module")
+            # Define a fallback Enum if HttpErrorType is not found
+            class FallbackHttpErrorType(enum.Enum): # Requires import enum at top
+                TIMEOUT = 0
+                HTTP_ERROR = 1
+                CONNECTION_ERROR = 2
+                REQUEST_EXCEPTION = 3
+                GENERIC_UNEXPECTED = 4
+                CANCELLED = 5
+            HttpErrorType = FallbackHttpErrorType
     else:
         # This path will be taken if HttpPage is a mock after import
         # Try the fallback from the problem description
@@ -152,6 +175,7 @@ class TestHttpPage(unittest.TestCase):
         self.page = None
         self.mock_task_instance = MagicMock(spec=MockGio.Task)
         self.mock_task_instance.get_cancellable.return_value = mock_cancellable
+        self.mock_task_instance.return_error = MagicMock() # Added for new test
 
         self.done_cb_to_call = None
         self.done_cb_args = None
@@ -177,10 +201,18 @@ class TestHttpPage(unittest.TestCase):
         def mock_task_propagate_val_method():
             # This method is called by _fetch_headers_task_done_cb on self.mock_task_instance
             # It returns the captured dictionary, or raises if it's an error meant to be raised by propagate_value itself.
+            if self.mock_task_instance.return_error.called:
+                # If task.return_error() was called in the thread, simulate GLib.Error being raised by propagate_value()
+                # The first call to return_error has args: (domain_quark, code_int, format_str, message_str)
+                call_args = self.mock_task_instance.return_error.call_args[0]
+                domain_quark, code_int, _, message_str = call_args
+                # print(f"mock_task_propagate_val_method raising MockGLibErrorForTest: domain={domain_quark}, code={code_int}, msg='{message_str}'")
+                raise MockGLibErrorForTest(message=message_str, domain=domain_quark, code=code_int)
+
             # print(f"mock_task_propagate_val_method returning/raising: {self.captured_task_result_for_propagate}")
             if isinstance(self.captured_task_result_for_propagate, Exception) and \
                not isinstance(self.captured_task_result_for_propagate, dict): # Ensure it's not our result dict
-                # This path is for testing GObject.GError from propagate_value
+                # This path is for testing GObject.GError from propagate_value (other GErrors not from return_error)
                 raise self.captured_task_result_for_propagate
             return self.captured_task_result_for_propagate
 
@@ -213,6 +245,7 @@ class TestHttpPage(unittest.TestCase):
 
         self.mock_task_instance.run_in_thread = MagicMock(side_effect=actual_run_in_thread)
         MockGio.Task.new.return_value = self.mock_task_instance
+        MockGLib.quark_from_string = lambda s: s # Simplify domain assertion
 
         # Instantiate HttpPage
         # This needs to happen after mock_Gio.Task.new is configured for its __init__
@@ -1034,6 +1067,87 @@ def _create_mock_response(url, status_code, headers, history_list=None):
         page.http_entry_row.add_css_class.assert_called_with("error")
         self.assertIsNone(page.current_http_task) # Task should be cleared
         page.http_entry_row.set_sensitive.assert_called_with(True) # UI re-enabled
+
+    @patch('src.http_page.requests.get')
+    def test_actual_timeout_error_flow(self, mock_requests_get):
+        """
+        Tests the full flow when requests.get raises a Timeout exception,
+        ensuring task.return_error is called correctly and UI reflects the error.
+        """
+        # Ensure HttpErrorType and WOES_HTTP_ERROR_DOMAIN are loaded
+        self.assertIsNotNone(HttpErrorType, "HttpErrorType not loaded for test")
+        self.assertIsNotNone(WOES_HTTP_ERROR_DOMAIN, "WOES_HTTP_ERROR_DOMAIN not loaded for test")
+
+        mock_requests_get.side_effect = requests.exceptions.Timeout("Simulated timeout")
+
+        page = self.page
+
+        # Setup minimal UI mocks
+        page.http_entry_row = MagicMock(spec=MockAdw.EntryRow)
+        page.http_entry_row.get_text.return_value = "http://timeout-example.com"
+        page.http_entry_row.get_sensitive.return_value = True # Initial state
+        page.http_entry_row.set_sensitive = MagicMock()
+        page.http_entry_row.add_css_class = MagicMock()
+        page.http_entry_row.remove_css_class = MagicMock() # For _clear_error if called
+
+        page.http_user_agent_row = MagicMock(spec=MockAdw.ComboRow)
+        page.http_user_agent_row.get_selected.return_value = 0 # "None"
+        page.http_host_header_row = MagicMock(spec=MockAdw.EntryRow)
+        page.http_host_header_row.get_text.return_value = "" # No specific host header
+        page.http_pragma_switch_row = MagicMock(spec=MockAdw.SwitchRow)
+        page.http_pragma_switch_row.get_active.return_value = False # Pragma off
+
+        page.error_banner = MagicMock(spec=MockAdw.Banner)
+        page.error_banner.set_revealed = MagicMock()
+        page.error_banner.set_title = MagicMock()
+
+        page.http_results_group = MagicMock(spec=MockGtk.Box)
+        page.http_results_group.set_visible = MagicMock() # For _hide_results
+        # page.header_list_store is already mocked globally in setUp
+        # Ensure remove_all is available (it should be from Gio.ListStore.new mock)
+        if not hasattr(page.header_list_store, 'remove_all'):
+            page.header_list_store.remove_all = MagicMock()
+
+
+        # --- Action ---
+        # This will trigger _fetch_headers_task_thread_func, which should call task.return_error,
+        # and then _fetch_headers_task_done_cb will process the error raised by propagate_value.
+        page._on_entry_row_activated(page.http_entry_row)
+
+        # --- Assertions ---
+        # 1. task.return_error was called correctly in the thread
+        self.mock_task_instance.return_error.assert_called_once()
+        args, _ = self.mock_task_instance.return_error.call_args
+
+        # Check domain (quark_from_string returns the string itself due to our mock)
+        self.assertEqual(args[0], WOES_HTTP_ERROR_DOMAIN)
+        # Check error code
+        self.assertEqual(args[1], HttpErrorType.TIMEOUT.value)
+        # Check format string
+        self.assertEqual(args[2], "%s")
+        # Check specific timeout message
+        expected_timeout_message = "Request timed out. This could be due to a slow network, server issues, or a Web Application Firewall (WAF) interfering. Please check the URL or try again later."
+        self.assertEqual(args[3], expected_timeout_message)
+
+        # 2. UI reflects the error state (via _fetch_headers_task_done_cb)
+        page.error_banner.set_revealed.assert_called_with(True)
+        # The message displayed in the banner should be the one from return_error
+        page.error_banner.set_title.assert_called_once_with(expected_timeout_message)
+        page.http_entry_row.add_css_class.assert_called_with("error")
+
+        # 3. Task and UI state after completion
+        self.assertIsNone(page.current_http_task, "Task should be cleared after error handling.")
+        # Check that set_sensitive was called to re-enable the entry row
+        # It's called first with False, then with True in the finally block.
+        page.http_entry_row.set_sensitive.assert_has_calls([call(False), call(True)])
+
+
+        # 4. task.return_value should NOT have been called
+        self.mock_task_instance.return_value.assert_not_called()
+
+        # 5. Ensure results are hidden (called by _display_error)
+        page.http_results_group.set_visible.assert_called_with(False)
+        page.header_list_store.remove_all.assert_called_once() # Called by _update_column_view_model(None) in _display_error
 
 
 # --- Tests for static utility functions (isolated) ---
