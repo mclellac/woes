@@ -257,6 +257,100 @@ class TestHttpPage(unittest.TestCase):
         error_arg = self.mock_task_instance.return_error.call_args[0][0]
         self.assertIsInstance(error_arg, MockGLibErrorForTest)
         self.assertIn("timed out", error_arg.message.lower())
+        # Ensure the code used matches the mocked Gio.IOErrorEnum.TIMED_OUT
+        self.assertEqual(error_arg.code, MockGio.IOErrorEnum.TIMED_OUT)
+
+    @patch('src.http_page.requests.get')
+    def test_timeout_error_post_fix_verification(self, mock_requests_get):
+        """
+        Specifically verifies timeout handling after the AttributeError fix,
+        ensuring the correct Gio.IOErrorEnum is used and error is propagated.
+        This test is similar to test_timeout_error_handling but focuses on the
+        integrity of the GError creation and propagation for timeouts.
+        """
+        mock_requests_get.side_effect = requests.exceptions.Timeout("Test timeout specifically for post-fix verification")
+
+        page = self.page
+
+        # Minimal UI mock setup, similar to other tests
+        page.http_entry_row = MagicMock(spec=MockAdw.EntryRow)
+        page.http_entry_row.get_text.return_value = "http://example-for-timeout-verification.com"
+        page.http_entry_row.get_sensitive.return_value = True # Initial state
+        page.http_entry_row.set_sensitive = MagicMock()
+        page.http_entry_row.add_css_class = MagicMock()
+        page.http_entry_row.remove_css_class = MagicMock()
+
+
+        page.http_user_agent_row = MagicMock(spec=MockAdw.ComboRow)
+        page.http_user_agent_row.get_selected.return_value = 0 # "None"
+        page.http_host_header_row = MagicMock(spec=MockAdw.EntryRow)
+        page.http_host_header_row.get_text.return_value = "" # No specific host header
+        page.http_pragma_switch_row = MagicMock(spec=MockAdw.SwitchRow)
+        page.http_pragma_switch_row.get_active.return_value = False # Pragma off
+
+        page.error_banner = MagicMock(spec=MockAdw.Banner)
+        page.error_banner.set_revealed = MagicMock()
+        page.error_banner.set_title = MagicMock()
+
+        page.http_results_group = MagicMock(spec=MockGtk.Box)
+        page.http_results_group.set_visible = MagicMock() # Used by _hide_results
+        if not hasattr(page.header_list_store, 'remove_all'): # From setUp's Gio.ListStore.new mock
+            page.header_list_store.remove_all = MagicMock()
+
+
+        # Setup task behavior: propagate_value should raise the GError that was set by return_error
+        def mock_propagate_value_based_on_return_error(*args, **kwargs):
+            # Check if return_error was called and retrieve the GError instance
+            if self.mock_task_instance.return_error.call_count > 0:
+                # Get the first argument of the first call to return_error, which is the GError
+                g_error_instance = self.mock_task_instance.return_error.call_args[0][0]
+                # Ensure it's an instance of our test GLib.Error
+                if isinstance(g_error_instance, MockGLibErrorForTest):
+                    raise g_error_instance # Raise it to simulate GIO behavior
+                else:
+                    # This case should ideally not happen if http_page correctly uses GLib.Error
+                    raise TypeError(f"Error passed to return_error was not a MockGLibErrorForTest: {type(g_error_instance)}")
+            # Fallback if return_error was not called, or if it was called with something unexpected
+            # This would indicate a problem in the task's error handling logic itself.
+            # For a timeout, return_error should always be called.
+            return MagicMock() # Or raise an assertion error if this path is unexpected
+
+        self.mock_task_instance.propagate_value = MagicMock(side_effect=mock_propagate_value_based_on_return_error)
+        self.mock_task_instance.return_error = MagicMock() # Reset/ensure it's a fresh mock for this test
+
+        # --- Action ---
+        page._on_entry_row_activated(page.http_entry_row)
+
+        # --- Assertions ---
+        # 1. Error banner shows the correct timeout message and is revealed
+        page.error_banner.set_revealed.assert_called_with(True)
+        page.error_banner.set_title.assert_called_once()
+        args_title, _ = page.error_banner.set_title.call_args
+        # The message in http_page.py is "Timeout Error: The request timed out."
+        self.assertEqual(args_title[0], "Timeout Error: The request timed out.")
+
+        # 2. UI elements are in the correct state post-error
+        self.assertIsNone(page.current_http_task, "Task should be cleared after error handling.")
+        page.http_entry_row.set_sensitive.assert_called_with(True) # Re-enabled in finally
+        page.http_entry_row.add_css_class.assert_called_with("error") # Set by _display_error
+
+        # 3. Gio.Task.return_error was called correctly
+        self.mock_task_instance.return_error.assert_called_once()
+        error_arg = self.mock_task_instance.return_error.call_args[0][0]
+
+        # 3a. The error is of the correct type (our mocked GLib.Error)
+        self.assertIsInstance(error_arg, MockGLibErrorForTest)
+
+        # 3b. The error message is correct
+        self.assertEqual(error_arg.message, "Timeout Error: The request timed out.")
+
+        # 3c. The error domain is correct
+        self.assertEqual(error_arg.domain, MockGio.io_error_quark.return_value)
+
+        # 3d. Crucially, the error code matches Gio.IOErrorEnum.TIMED_OUT (mocked value)
+        # This verifies that `code=Gio.IOErrorEnum.TIMED_OUT` (and not `.value`) was used correctly.
+        self.assertEqual(error_arg.code, MockGio.IOErrorEnum.TIMED_OUT)
+        self.assertIsInstance(error_arg.code, int) # Ensure it's an int, as expected by GLib.Error
 
     @patch('src.http_page.requests.get')
     def test_https_connection_refused_error_handling(self, mock_requests_get):
