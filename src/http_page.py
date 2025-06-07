@@ -222,7 +222,7 @@ class HttpPage(Adw.PreferencesPage):
 
         except requests.exceptions.Timeout as e:
             logger.warning("Task thread: Timeout for %s: %s", url, e)
-            task.return_error(GLib.Error.new_literal(WOES_HTTP_ERROR_DOMAIN, HttpErrorType.TIMEOUT, "Request timed out."))
+            task.return_error(GLib.Error.new_literal(WOES_HTTP_ERROR_DOMAIN, HttpErrorType.TIMEOUT, "Request timed out. This could be due to a slow network, server issues, or a Web Application Firewall (WAF) interfering. Please check the URL or try again later."))
         # HTTPError is handled above for the final response. If requests.get itself raises one for a redirect, it's caught by RequestException.
         except requests.exceptions.ConnectionError as e:
             logger.warning("Task thread: ConnectionError for %s: %s", url, e)
