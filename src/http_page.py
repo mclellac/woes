@@ -189,11 +189,7 @@ class HttpPage(Adw.PreferencesPage):
 
             # Process history (redirects)
             for hist_resp in response.history:
-                # Check for HTTP errors on redirect responses explicitly if needed,
-                # otherwise, rely on the final response.raise_for_status() or handle them if requests library doesn't see them as errors.
-                # For simplicity, we assume requests.get handles redirects and the final response status is key.
-                # If a redirect itself fails (e.g. 500 on redirect), requests.get might raise an error caught below.
-                hist_data = {
+                hist_data = { # Ensure this block is correctly defined
                     'type': 'redirect',
                     'url': str(hist_resp.url),
                     'status_code': hist_resp.status_code,
@@ -201,44 +197,28 @@ class HttpPage(Adw.PreferencesPage):
                 }
                 all_responses_data.append(hist_data)
 
-            final_data = {
-                'type': 'final',
-                'url': str(response.url),
-                'status_code': response.status_code,
-                'headers': {str(k): str(v) for k, v in dict(response.headers).items()}
-                hist_data = {
-                    'type': 'redirect',
-                    'url': str(hist_resp.url),
-                    'status_code': hist_resp.status_code,
-                    'headers': {str(k): str(v) for k, v in dict(hist_resp.headers).items()}
-                }
-                all_responses_data.append(hist_data)
-
-            # Process final response
-            # We should check status before adding it, or let raise_for_status handle it.
-            # To provide data even for non-2xx, we can avoid raise_for_status here and check in callback,
-            # but for now, let's stick to raise_for_status for clear error paths.
+            # Try to process the final response and its status
             try:
-                response.raise_for_status() # Raises HTTPError for 4xx/5xx
-                final_data_type = 'final'
+                response.raise_for_status()  # Check for 4xx/5xx errors
+                final_data_type = 'final'    # Set if no HTTPError
             except requests.exceptions.HTTPError as http_err:
-                # If we want to return data *and* signal error, GIO doesn't directly support it.
-                # For now, HTTPError means the whole operation failed from GIO task perspective.
+                # This block is entered if response.status_code is an HTTP error (4xx or 5xx)
                 logger.warning("Task thread: HTTPError for %s: %s", url, http_err)
-                # Use the existing _format_http_error to get a nice message
                 error_message = self._format_http_error(http_err)
                 task.return_error(GLib.Error.new_literal(WOES_HTTP_ERROR_DOMAIN, HttpErrorType.HTTP_ERROR, error_message))
-                return
+                return # Exit the function after reporting the error
 
-
+            # This part is reached ONLY if response.raise_for_status() did NOT raise an exception
             final_data = {
-                'type': final_data_type, # 'final' or could be 'error_response' if not raising
+                'type': final_data_type,
                 'url': str(response.url),
                 'status_code': response.status_code,
                 'headers': {str(k): str(v) for k, v in dict(response.headers).items()}
             }
             all_responses_data.append(final_data)
-            task.return_value(all_responses_data)
+
+            task.return_value(all_responses_data) # Success: return all collected data
+            # No explicit return needed here if this is the end of the main try's success path
 
         except requests.exceptions.Timeout as e:
             logger.warning("Task thread: Timeout for %s: %s", url, e)
