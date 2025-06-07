@@ -140,30 +140,54 @@ class TestHttpPage(unittest.TestCase):
         self.done_cb_kwargs = None # Store kwargs too
 
         def mock_idle_add(func, *args, **kwargs):
-            # Store the priority and other args if necessary, but for now just func and main args
-            # print(f"mock_idle_add called with func: {func}")
             self.done_cb_to_call = func
             self.done_cb_args = args
-            self.done_cb_kwargs = kwargs # Capture keyword arguments from idle_add
+            self.done_cb_kwargs = kwargs
             return 0
         MockGLib.idle_add = mock_idle_add
         MockGLib.source_remove = MagicMock(return_value=True)
 
+        # --- New Task Mocking Setup ---
+        self.captured_task_result_for_propagate = None
+
+        def mock_task_return_val_method(value):
+            # This method is called by _fetch_headers_task_thread_func on self.mock_task_instance (the task object)
+            # It captures the dictionary that _fetch_headers_task_thread_func wants to return.
+            # print(f"mock_task_return_val_method received: {value}")
+            self.captured_task_result_for_propagate = value
+
+        def mock_task_propagate_val_method():
+            # This method is called by _fetch_headers_task_done_cb on self.mock_task_instance
+            # It returns the captured dictionary, or raises if it's an error meant to be raised by propagate_value itself.
+            # print(f"mock_task_propagate_val_method returning/raising: {self.captured_task_result_for_propagate}")
+            if isinstance(self.captured_task_result_for_propagate, Exception) and \
+               not isinstance(self.captured_task_result_for_propagate, dict): # Ensure it's not our result dict
+                # This path is for testing GObject.GError from propagate_value
+                raise self.captured_task_result_for_propagate
+            return self.captured_task_result_for_propagate
+
+        # self.mock_task_instance is the instance of the mocked Gio.Task
+        # When _fetch_headers_task_thread_func calls task.return_value(value),
+        # it will call self.mock_task_instance.return_value(value) due to how task is passed.
+        self.mock_task_instance.return_value = MagicMock(side_effect=mock_task_return_val_method)
+        self.mock_task_instance.propagate_value = MagicMock(side_effect=mock_task_propagate_val_method)
+        # --- End New Task Mocking Setup ---
+
         def actual_run_in_thread(task_func_on_http_page):
-            # print(f"actual_run_in_thread: Calling {task_func_on_http_page}")
+            # task_func_on_http_page is _fetch_headers_task_thread_func from HttpPage instance
             task_func_on_http_page(
-                self.mock_task_instance,
+                self.mock_task_instance, # This is the 'task' argument in _fetch_headers_task_thread_func
                 self.page,
-                self.page._http_task_data_for_thread, # Ensure this is set before calling _on_entry_row_activated
+                self.page._http_task_data_for_thread,
                 self.mock_task_instance.get_cancellable()
             )
-            if self.done_cb_to_call:
-                # print(f"Calling done_cb: {self.done_cb_to_call}")
-                # Callback signature: (source_object, async_result, user_data)
-                # The user_data is what was passed to Gio.Task.new as its last argument (usually None)
-                # The source_object for the callback is the one passed to Gio.Task.new (self.page)
-                # The async_result is the task instance itself (self.mock_task_instance)
-                self.done_cb_to_call(self.page, self.mock_task_instance, None) # user_data is None
+            # After task_func_on_http_page executes, it will have called self.mock_task_instance.return_value(),
+            # which in turn calls mock_task_return_val_method, storing the result in self.captured_task_result_for_propagate.
+
+            if self.done_cb_to_call: # This is _fetch_headers_task_done_cb
+                # The callback will then call self.mock_task_instance.propagate_value(),
+                # which will execute mock_task_propagate_val_method and return the captured dictionary.
+                self.done_cb_to_call(self.page, self.mock_task_instance, None)
                 self.done_cb_to_call = None
                 self.done_cb_args = None
                 self.done_cb_kwargs = None
@@ -231,48 +255,34 @@ class TestHttpPage(unittest.TestCase):
             page.header_list_store.remove_all = MagicMock()
 
         # page._http_task_data_for_thread will be created by _on_entry_row_activated
-
-        def mock_propagate_value_func(*args, **kwargs):
-            raise MockGLibErrorForTest(
-                message="Timeout Error: The request timed out.",
-                domain="test-error-domain",
-                code=123
-            )
-        self.mock_task_instance.propagate_value = mock_propagate_value_func
-        self.mock_task_instance.return_error = MagicMock()
+        # No need to mock propagate_value or return_error directly here anymore for this type of test.
+        # The new setUp's mock_task_instance.propagate_value will return what
+        # _fetch_headers_task_thread_func passes to task.return_value().
 
         page._on_entry_row_activated(page.http_entry_row)
 
         # Assertions
         page.error_banner.set_revealed.assert_called_with(True)
-        self.assertTrue(page.error_banner.set_title.called, "error_banner.set_title was not called")
-        args_title, _ = page.error_banner.set_title.call_args
-        self.assertIn("timeout", args_title[0].lower(), f"Error message '{args_title[0]}' does not contain 'timeout'.")
+        page.error_banner.set_title.assert_called_once_with("Timeout Error: The request timed out.")
 
         self.assertIsNone(page.current_http_task, "Task should be cleared after error handling.")
         page.http_entry_row.set_sensitive.assert_called_with(True)
         page.http_entry_row.add_css_class.assert_called_with("error")
 
-        self.mock_task_instance.return_error.assert_called_once()
-        error_arg = self.mock_task_instance.return_error.call_args[0][0]
-        self.assertIsInstance(error_arg, MockGLibErrorForTest)
-        self.assertIn("timed out", error_arg.message.lower())
-        # Ensure the code used matches the mocked Gio.IOErrorEnum.TIMED_OUT
-        self.assertEqual(error_arg.code, int(MockGio.IOErrorEnum.TIMED_OUT))
+        # self.mock_task_instance.return_error should NOT have been called for this.
+        self.mock_task_instance.return_error.assert_not_called()
+
 
     @patch('src.http_page.requests.get')
     def test_timeout_error_post_fix_verification(self, mock_requests_get):
         """
-        Specifically verifies timeout handling after the AttributeError fix,
-        ensuring the correct Gio.IOErrorEnum is used and error is propagated.
-        This test is similar to test_timeout_error_handling but focuses on the
-        integrity of the GError creation and propagation for timeouts.
+        Verifies timeout handling. The main code now returns a dict via task.return_value.
         """
         mock_requests_get.side_effect = requests.exceptions.Timeout("Test timeout specifically for post-fix verification")
 
         page = self.page
 
-        # Minimal UI mock setup, similar to other tests
+        # Minimal UI mock setup
         page.http_entry_row = MagicMock(spec=MockAdw.EntryRow)
         page.http_entry_row.get_text.return_value = "http://example-for-timeout-verification.com"
         page.http_entry_row.get_sensitive.return_value = True # Initial state
@@ -293,30 +303,9 @@ class TestHttpPage(unittest.TestCase):
         page.error_banner.set_title = MagicMock()
 
         page.http_results_group = MagicMock(spec=MockGtk.Box)
-        page.http_results_group.set_visible = MagicMock() # Used by _hide_results
-        if not hasattr(page.header_list_store, 'remove_all'): # From setUp's Gio.ListStore.new mock
+        page.http_results_group.set_visible = MagicMock()
+        if not hasattr(page.header_list_store, 'remove_all'):
             page.header_list_store.remove_all = MagicMock()
-
-
-        # Setup task behavior: propagate_value should raise the GError that was set by return_error
-        def mock_propagate_value_based_on_return_error(*args, **kwargs):
-            # Check if return_error was called and retrieve the GError instance
-            if self.mock_task_instance.return_error.call_count > 0:
-                # Get the first argument of the first call to return_error, which is the GError
-                g_error_instance = self.mock_task_instance.return_error.call_args[0][0]
-                # Ensure it's an instance of our test GLib.Error
-                if isinstance(g_error_instance, MockGLibErrorForTest):
-                    raise g_error_instance # Raise it to simulate GIO behavior
-                else:
-                    # This case should ideally not happen if http_page correctly uses GLib.Error
-                    raise TypeError(f"Error passed to return_error was not a MockGLibErrorForTest: {type(g_error_instance)}")
-            # Fallback if return_error was not called, or if it was called with something unexpected
-            # This would indicate a problem in the task's error handling logic itself.
-            # For a timeout, return_error should always be called.
-            return MagicMock() # Or raise an assertion error if this path is unexpected
-
-        self.mock_task_instance.propagate_value = MagicMock(side_effect=mock_propagate_value_based_on_return_error)
-        self.mock_task_instance.return_error = MagicMock() # Reset/ensure it's a fresh mock for this test
 
         # --- Action ---
         page._on_entry_row_activated(page.http_entry_row)
@@ -324,33 +313,24 @@ class TestHttpPage(unittest.TestCase):
         # --- Assertions ---
         # 1. Error banner shows the correct timeout message and is revealed
         page.error_banner.set_revealed.assert_called_with(True)
-        page.error_banner.set_title.assert_called_once()
-        args_title, _ = page.error_banner.set_title.call_args
-        # The message in http_page.py is "Timeout Error: The request timed out."
-        self.assertEqual(args_title[0], "Timeout Error: The request timed out.")
+        page.error_banner.set_title.assert_called_once_with("Timeout Error: The request timed out.")
 
         # 2. UI elements are in the correct state post-error
         self.assertIsNone(page.current_http_task, "Task should be cleared after error handling.")
-        page.http_entry_row.set_sensitive.assert_called_with(True) # Re-enabled in finally
-        page.http_entry_row.add_css_class.assert_called_with("error") # Set by _display_error
+        page.http_entry_row.set_sensitive.assert_called_with(True)
+        page.http_entry_row.add_css_class.assert_called_with("error")
 
-        # 3. Gio.Task.return_error was called correctly
-        self.mock_task_instance.return_error.assert_called_once()
-        error_arg = self.mock_task_instance.return_error.call_args[0][0]
+        # 3. Gio.Task.return_error should NOT be called.
+        self.mock_task_instance.return_error.assert_not_called()
 
-        # 3a. The error is of the correct type (our mocked GLib.Error)
-        self.assertIsInstance(error_arg, MockGLibErrorForTest)
-
-        # 3b. The error message is correct
-        self.assertEqual(error_arg.message, "Timeout Error: The request timed out.")
-
-        # 3c. The error domain is correct
-        self.assertEqual(error_arg.domain, MockGio.io_error_quark.return_value)
-
-        # 3d. Crucially, the error code matches Gio.IOErrorEnum.TIMED_OUT (mocked value)
-        # This verifies that `code=int(Gio.IOErrorEnum.TIMED_OUT)` was used correctly.
-        self.assertEqual(error_arg.code, int(MockGio.IOErrorEnum.TIMED_OUT))
-        self.assertIsInstance(error_arg.code, int) # Ensure it's an int, as expected by GLib.Error
+        # 4. self.mock_task_instance.return_value (the method on the task) should have been called once
+        # by _fetch_headers_task_thread_func
+        self.mock_task_instance.return_value.assert_called_once()
+        args_call = self.mock_task_instance.return_value.call_args[0][0]
+        self.assertIsInstance(args_call, dict)
+        self.assertEqual(args_call.get('error_type'), 'Timeout')
+        self.assertEqual(args_call.get('message'), "Timeout Error: The request timed out.")
+        self.assertIsNone(args_call.get('data'))
 
     @patch('src.http_page.requests.get')
     def test_https_connection_refused_error_handling(self, mock_requests_get):
@@ -425,49 +405,33 @@ class TestHttpPage(unittest.TestCase):
         page.http_results_group = MagicMock(spec=MockGtk.Box) # Used by _hide_results -> _update_column_view_model
         page.http_results_group.set_visible = MagicMock()
 
-        # Ensure header_list_store mock (from Gio.ListStore.new mock in setUp) has remove_all
+        # Ensure header_list_store mock
         if not hasattr(page.header_list_store, 'remove_all'):
              page.header_list_store.remove_all = MagicMock()
 
-
-        # Setup task behavior: propagate_value should raise the error set by return_error
-        def mock_propagate_value_based_on_return_error(*args, **kwargs):
-            if self.mock_task_instance.return_error.call_args:
-                g_error_instance = self.mock_task_instance.return_error.call_args[0][0]
-                raise g_error_instance
-            return MagicMock() # Default return if no error was set (shouldn't happen here)
-
-        self.mock_task_instance.propagate_value = MagicMock(side_effect=mock_propagate_value_based_on_return_error)
-        self.mock_task_instance.return_error = MagicMock() # To capture the GError
+        # No direct mocking of propagate_value or return_error here for this type of error.
+        # The new setUp handles the flow:
+        # requests.get -> _fetch_headers_task_thread_func -> task.return_value(dict) -> captured
+        # -> propagate_value() returns dict -> _fetch_headers_task_done_cb processes dict.
 
         # 2. Simulate activating the entry row
         page._on_entry_row_activated(page.http_entry_row)
 
         # 3. Assertions
-        #    - Error banner is revealed
-        #    - Title is the specific message
-        page.error_banner.set_revealed.assert_called_with(True)
-        page.error_banner.set_title.assert_called_once()
-        args_title, _ = page.error_banner.set_title.call_args
         expected_message = "The URL targetted via HTTPS is refusing the connection. It might be an HTTP-only service. Please try with 'http://'."
-        self.assertEqual(args_title[0], expected_message)
+        page.error_banner.set_revealed.assert_called_with(True)
+        page.error_banner.set_title.assert_called_once_with(expected_message)
 
-        # Other assertions from test_timeout_error_handling that should also apply
-        self.assertIsNone(page.current_http_task, "Task should be cleared after error handling.")
-        page.http_entry_row.set_sensitive.assert_called_with(True) # Re-enabled in finally block
-        page.http_entry_row.add_css_class.assert_called_with("error") # Set in _display_error
+        self.assertIsNone(page.current_http_task)
+        page.http_entry_row.set_sensitive.assert_called_with(True)
+        page.http_entry_row.add_css_class.assert_called_with("error")
 
-        # Check that task.return_error was called with a GLib.Error containing the specific message
-        self.mock_task_instance.return_error.assert_called_once()
-        error_arg = self.mock_task_instance.return_error.call_args[0][0]
-        self.assertIsInstance(error_arg, MockGLibErrorForTest) # MockGLib.Error is MockGLibErrorForTest
-        self.assertEqual(error_arg.message, expected_message)
-        # Verify domain and code of the GLib.Error
-        self.assertEqual(error_arg.domain, MockGio.io_error_quark.return_value)
-        self.assertEqual(error_arg.code, MockGio.IOErrorEnum.FAILED) # Mocked to 1
-        self.assertIsInstance(error_arg.code, int) # Explicitly check type of code
-
-    # Test methods for redirect handling will be added after this one.
+        self.mock_task_instance.return_error.assert_not_called()
+        self.mock_task_instance.return_value.assert_called_once() # The method on the task instance
+        args_call = self.mock_task_instance.return_value.call_args[0][0]
+        self.assertIsInstance(args_call, dict)
+        self.assertEqual(args_call.get('error_type'), 'ConnectionError')
+        self.assertEqual(args_call.get('message'), expected_message)
 
     @patch('src.http_page.requests.get')
     def test_http_request_to_https_only_service(self, mock_requests_get):
@@ -506,23 +470,11 @@ class TestHttpPage(unittest.TestCase):
         if not hasattr(page.header_list_store, 'remove_all'):
              page.header_list_store.remove_all = MagicMock()
 
-        # Setup task behavior for error propagation
-        def mock_propagate_value_based_on_return_error(*args, **kwargs):
-            if self.mock_task_instance.return_error.call_args:
-                g_error_instance = self.mock_task_instance.return_error.call_args[0][0]
-                raise g_error_instance
-            return MagicMock()
-
-        self.mock_task_instance.propagate_value = MagicMock(side_effect=mock_propagate_value_based_on_return_error)
-        self.mock_task_instance.return_error = MagicMock()
-
         # 2. Simulate activating the entry row
-        # Note: _ensure_scheme will NOT change http:// to https:// if http is already present
         page._on_entry_row_activated(page.http_entry_row)
 
         # 3. Assertions
         expected_message = "The HTTP request failed. The server might only support HTTPS for this resource. Please try with 'https://'."
-
         page.error_banner.set_revealed.assert_called_with(True)
         page.error_banner.set_title.assert_called_once_with(expected_message)
 
@@ -530,12 +482,13 @@ class TestHttpPage(unittest.TestCase):
         page.http_entry_row.set_sensitive.assert_called_with(True)
         page.http_entry_row.add_css_class.assert_called_with("error")
 
-        self.mock_task_instance.return_error.assert_called_once()
-        error_arg = self.mock_task_instance.return_error.call_args[0][0]
-        self.assertIsInstance(error_arg, MockGLibErrorForTest)
-        self.assertEqual(error_arg.message, expected_message)
-        self.assertEqual(error_arg.domain, MockGio.io_error_quark.return_value)
-        self.assertEqual(error_arg.code, MockGio.IOErrorEnum.FAILED)
+        self.mock_task_instance.return_error.assert_not_called()
+        self.mock_task_instance.return_value.assert_called_once()
+        args_call = self.mock_task_instance.return_value.call_args[0][0]
+        self.assertIsInstance(args_call, dict)
+        self.assertEqual(args_call.get('error_type'), 'ConnectionError')
+        self.assertEqual(args_call.get('message'), expected_message)
+
 
     def test_clear_results_button_functionality(self):
         page = self.page # Instantiated in setUp
@@ -624,11 +577,13 @@ def _create_mock_response(url, status_code, headers, history_list=None):
 
         page._update_column_view_model = MagicMock()
 
-        # This simulates what _fetch_headers_task_thread_func returns via task.return_value()
-        # which is then retrieved by task.propagate_value() in the callback.
-        self.mock_task_instance.propagate_value = MagicMock(return_value=[
-            {'type': 'final', 'url': final_url, 'status_code': 200, 'headers': final_headers}
-        ])
+        # This simulates what _fetch_headers_task_thread_func returns via task.return_value(the_dict)
+        # The setUp's mock_task_instance.propagate_value will then return this the_dict.
+        # So, we don't mock propagate_value directly in the test anymore for success cases.
+        # Instead, requests.get is mocked, and _fetch_headers_task_thread_func constructs the success dict.
+
+        # mock_requests_get is already set up by the @patch decorator.
+        # mock_requests_get.return_value = mock_final_response (done at the start of the test)
 
         page.http_entry_row = MagicMock(spec=MockAdw.EntryRow); page.http_entry_row.get_text.return_value = final_url
         page.http_user_agent_row = MagicMock(spec=MockAdw.ComboRow); page.http_user_agent_row.get_selected.return_value = 0
@@ -659,13 +614,10 @@ def _create_mock_response(url, status_code, headers, history_list=None):
 
         mock_r1 = _create_mock_response(r1_url, r1_stat, r1_hdrs)
         mock_final = _create_mock_response(final_url, final_stat, final_hdrs, history_list=[mock_r1])
-        mock_requests_get.return_value = mock_final
+        mock_requests_get.return_value = mock_final # This is for requests.get() inside the thread func
 
         page._update_column_view_model = MagicMock()
-        self.mock_task_instance.propagate_value = MagicMock(return_value=[
-            {'type': 'redirect', 'url': r1_url, 'status_code': r1_stat, 'headers': r1_hdrs},
-            {'type': 'final', 'url': final_url, 'status_code': final_stat, 'headers': final_hdrs}
-        ])
+        # propagate_value is handled by setUp's mock to return the dict from _fetch_headers_task_thread_func
 
         page.http_entry_row = MagicMock(spec=MockAdw.EntryRow); page.http_entry_row.get_text.return_value = r1_url
         page.http_user_agent_row = MagicMock(spec=MockAdw.ComboRow); page.http_user_agent_row.get_selected.return_value = 0
@@ -716,14 +668,10 @@ def _create_mock_response(url, status_code, headers, history_list=None):
         mock_r1 = _create_mock_response(r1_url, r1_s, r1_h)
         mock_r2 = _create_mock_response(r2_url, r2_s, r2_h)
         mock_final = _create_mock_response(f_url, f_s, f_h, history_list=[mock_r1, mock_r2])
-        mock_requests_get.return_value = mock_final
+        mock_requests_get.return_value = mock_final # For requests.get() in thread func
 
         page._update_column_view_model = MagicMock()
-        self.mock_task_instance.propagate_value = MagicMock(return_value=[
-            {'type': 'redirect', 'url': r1_url, 'status_code': r1_s, 'headers': r1_h},
-            {'type': 'redirect', 'url': r2_url, 'status_code': r2_s, 'headers': r2_h},
-            {'type': 'final', 'url': f_url, 'status_code': f_s, 'headers': f_h}
-        ])
+        # propagate_value is handled by setUp
 
         page.http_entry_row = MagicMock(spec=MockAdw.EntryRow); page.http_entry_row.get_text.return_value = r1_url
         page.http_user_agent_row = MagicMock(spec=MockAdw.ComboRow); page.http_user_agent_row.get_selected.return_value = 0
@@ -939,7 +887,6 @@ def _create_mock_response(url, status_code, headers, history_list=None):
 
     def test_styling_of_special_rows(self):
         page = self.page
-        # HeaderItem is part of http_page_module, which should be loaded globally in this test file
         self.assertIsNotNone(http_page_module.HeaderItem, "HeaderItem class not loaded for test via http_page_module")
 
         mock_list_item = MagicMock(spec=MockGtk.ListItem)
@@ -995,6 +942,53 @@ def _create_mock_response(url, status_code, headers, history_list=None):
         mock_label.set_markup.assert_not_called()
 
         MockGLib.markup_escape_text = original_markup_escape
+
+    def test_callback_handles_gerror_from_propagate_value(self):
+        """
+        Tests the scenario where task.propagate_value() itself raises a GObject.GError.
+        This simulates a fundamental task failure recognized by Gio.
+        """
+        page = self.page
+
+        # Configure UI mocks
+        page.http_entry_row = MagicMock(spec=MockAdw.EntryRow)
+        page.http_entry_row.get_text.return_value = "http://example-for-gerror.com"
+        page.http_entry_row.set_sensitive = MagicMock()
+        page.http_entry_row.add_css_class = MagicMock()
+
+        page.error_banner = MagicMock(spec=MockAdw.Banner)
+        page.error_banner.set_revealed = MagicMock()
+        page.error_banner.set_title = MagicMock()
+
+        page.http_user_agent_row = MagicMock(spec=MockAdw.ComboRow); page.http_user_agent_row.get_selected.return_value = 0
+        page.http_host_header_row = MagicMock(spec=MockAdw.EntryRow); page.http_host_header_row.get_text.return_value = ""
+        page.http_pragma_switch_row = MagicMock(spec=MockAdw.SwitchRow); page.http_pragma_switch_row.get_active.return_value = False
+
+
+        # IMPORTANT: Set up the captured result to be a GError instance
+        # This will be raised by mock_task_propagate_val_method in setUp
+        simulated_gerror_message = "Simulated GError from propagate_value"
+        self.captured_task_result_for_propagate = MockGLibErrorForTest(
+            message=simulated_gerror_message,
+            domain=MockGio.io_error_quark.return_value, # Use the mocked quark
+            code=MockGio.IOErrorEnum.FAILED # Example error code
+        )
+
+        # Also, ensure that _fetch_headers_task_thread_func does not call task.return_value()
+        # by making requests.get raise an exception. This ensures that
+        # self.captured_task_result_for_propagate is not overwritten by a normal dict result.
+        with patch('src.http_page.requests.get', side_effect=requests.exceptions.RequestException("Force error in thread")):
+            page._on_entry_row_activated(page.http_entry_row)
+
+        # Assertions: Check if _display_error was called with the GError's message
+        page.error_banner.set_revealed.assert_called_with(True)
+        page.error_banner.set_title.assert_called_once()
+        args_title, _ = page.error_banner.set_title.call_args
+        self.assertEqual(args_title[0], simulated_gerror_message) # Message from the GError
+
+        page.http_entry_row.add_css_class.assert_called_with("error")
+        self.assertIsNone(page.current_http_task) # Task should be cleared
+        page.http_entry_row.set_sensitive.assert_called_with(True) # UI re-enabled
 
 
 if __name__ == '__main__':
