@@ -172,12 +172,7 @@ class HttpPage(Adw.PreferencesPage):
         try:
             # Check for cancellation before making the request
             if cancellable and cancellable.is_cancelled():
-                g_error = GLib.Error(
-                    message="Task was cancelled",
-                    domain=Gio.io_error_quark(),
-                    code=Gio.IOErrorEnum.CANCELLED.value
-                )
-                task.return_error(g_error)
+                task.return_value({'data': None, 'error_type': 'Cancelled', 'message': "Task was cancelled."})
                 return
 
             response = requests.get(url, headers=request_headers, allow_redirects=True, timeout=10)
@@ -205,73 +200,37 @@ class HttpPage(Adw.PreferencesPage):
             }
             all_responses_data.append(final_data)
 
-            task.return_value(all_responses_data)
+            task.return_value({'data': all_responses_data, 'error_type': None, 'message': None})
         except requests.exceptions.HTTPError as e:
-            # If raise_for_status() was called on the final response and it was an error,
-            # we might still want to capture its details if response object 'e.response' exists.
             if e.response is not None:
                 logger.error("Task thread: HTTPError for %s: %s. Response was: %s", url, e, e.response.url)
-                # Capture the error response like other responses if needed by UI
-                # For now, just format the error message as before.
-                # Consider if response.history should be processed even on HTTPError for the final response.
-                # The current logic will not include it if an HTTPError occurs.
             else:
                 logger.error("Task thread: HTTPError for %s: %s. No response object in exception.", url, e)
 
-            # Create a GError for HTTP errors
-            # For simplicity, using a generic error domain and code
-            # A more robust solution might define a custom error domain
-            error_message = self._format_http_error(e)
-            safe_error_message = str(error_message)
-            g_error = GLib.Error(
-                message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED.value
-            )
-            task.return_error(g_error)
+            error_message_str = self._format_http_error(e)
+            task.return_value({'data': None, 'error_type': 'HTTPError', 'message': str(error_message_str)})
             return
         except requests.exceptions.ConnectionError as e:
             logger.warning("Task thread: ConnectionError for %s: %s", url, e, exc_info=True)
             custom_msg = self._get_detailed_connection_error_message(e, url)
-            if custom_msg:
-                error_message = custom_msg
-            else:
-                # Generic fallback, but try to get a bit more from the top-level error if possible
-                error_message = f"Connection Error: {str(e)}"
-                if not str(e):  # Handle cases where str(e) might be empty
-                    error_message = "Connection Error: Failed to establish a connection."
+            error_message_str = custom_msg if custom_msg else f"Connection Error: {str(e)}"
+            if not str(e) and not custom_msg: # Handle cases where str(e) might be empty
+                error_message_str = "Connection Error: Failed to establish a connection."
 
-            safe_error_message = str(error_message)  # Ensure it's a string
-            g_error = GLib.Error(
-                message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED.value
-            )
-            task.return_error(g_error)
+            task.return_value({'data': None, 'error_type': 'ConnectionError', 'message': str(error_message_str)})
             return
         except requests.exceptions.Timeout as e:
             logger.warning("Task thread: Timeout for %s: %s", url, e, exc_info=True)
-            error_message = "Timeout Error: The request timed out."
-            safe_error_message = str(error_message)  # Ensure message is string
-            # Use specific GIO error code for timeouts
-            g_error = GLib.Error(
-                message=safe_error_message, domain=Gio.io_error_quark(), code=int(Gio.IOErrorEnum.TIMED_OUT)
-            )
-            task.return_error(g_error)
+            # The specific message and code hardcoding from the previous step is now managed here.
+            task.return_value({'data': None, 'error_type': 'Timeout', 'message': "Timeout Error: The request timed out."})
             return
         except requests.exceptions.RequestException as e:
             logger.error("Task thread: RequestException for %s: %s", url, e, exc_info=True)
-            error_message = f"Request Error: {str(e)}"
-            safe_error_message = str(error_message)
-            g_error = GLib.Error(
-                message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED.value
-            )
-            task.return_error(g_error)  # Corrected: single call
+            task.return_value({'data': None, 'error_type': 'RequestException', 'message': f"Request Error: {str(e)}"})
             return
         except Exception as e:  # Catch any other unexpected errors
             logger.error("Task thread: Unexpected error for %s: %s", url, e, exc_info=True)
-            error_message = f"An unexpected error occurred: {str(e)}"
-            safe_error_message = str(error_message)
-            g_error = GLib.Error(
-                message=safe_error_message, domain=Gio.io_error_quark(), code=Gio.IOErrorEnum.FAILED.value
-            )
-            task.return_error(g_error)  # Corrected: use return_gerror
+            task.return_value({'data': None, 'error_type': 'GenericException', 'message': f"An unexpected error occurred: {str(e)}"})
             return
 
 
@@ -409,75 +368,82 @@ class HttpPage(Adw.PreferencesPage):
         local_task_ref = self.current_http_task
 
         try:
-            raw_task_result = local_task_ref.propagate_value()
+            result_dict = local_task_ref.propagate_value()
 
-            actual_list_of_responses = None
-            if isinstance(raw_task_result, tuple) and hasattr(raw_task_result, 'value'):
-                logger.info("Accessing .value attribute from raw_task_result.")
-                actual_list_of_responses = raw_task_result.value
-            elif isinstance(raw_task_result, tuple) and len(raw_task_result) == 2:
-                logger.info("Accessing second element (index 1) from raw_task_result tuple.")
-                actual_list_of_responses = raw_task_result[1]
-            else:
-                logger.info("raw_task_result is not a recognized tuple wrapper. Assuming it might be the direct list or an error.")
-                actual_list_of_responses = raw_task_result
-
-            if actual_list_of_responses is None:  # Check after potential extraction
-                logger.error("Task result (actual_list_of_responses) is None unexpectedly.")
-                self._display_error("Failed to retrieve task result (processed as None).")
-                self.http_entry_row.add_css_class("error")
-                self._update_column_view_model(None)  # Pass None to clear
-            elif isinstance(actual_list_of_responses, list):
-                logger.info("Successfully processed task result as list.")
-
-                processed_headers_for_store = []
-                processed_headers_for_store = []
-                if not actual_list_of_responses:
-                    logger.warning("Received empty list for actual_list_of_responses.")
-                    self._update_column_view_model(None)
-                else:
-                    for i, response_data in enumerate(actual_list_of_responses):
-                        url_display = f"URL: {response_data.get('url', 'N/A')}"
-                        status_display = f"Status: {response_data.get('status_code', 'N/A')}"
-
-                        if response_data.get('type') == 'redirect':
-                            status_display += " (Redirect)"
-                        elif response_data.get('type') == 'final':
-                            status_display += " (Final)"
-
-                        processed_headers_for_store.append(
-                            HeaderItem(key=url_display, value=status_display, is_special_row=True)
-                        )
-
-                        headers_for_this_response = response_data.get('headers', {})
-                        for header_key, header_value in headers_for_this_response.items():
-                            processed_headers_for_store.append(
-                                HeaderItem(key=str(header_key), value=str(header_value), is_special_row=False)
-                            )
-
-                        if i < len(actual_list_of_responses) - 1:
-                            processed_headers_for_store.append(HeaderItem(key="", value="", is_special_row=True))
-
-                    self._update_column_view_model(processed_headers_for_store)
-                self.http_entry_row.remove_css_class("error")
-            else:  # If actual_list_of_responses is not None and not a list
-                logger.error(
-                    f"Task result (actual_list_of_responses) of unexpected type {type(actual_list_of_responses)}. "
-                    "Expected list or None."
-                )
-                self._display_error(
-                    f"Failed to process task result (unexpected data structure: {type(actual_list_of_responses).__name__})."
-                )
+            if not isinstance(result_dict, dict):
+                logger.error(f"Task returned unexpected result type: {type(result_dict)}. Expected dict.")
+                self._display_error("An unexpected error occurred while processing the task result.")
                 self.http_entry_row.add_css_class("error")
                 self._update_column_view_model(None)
-        except GObject.GError as e:
+                return # Early exit from try block
+
+            error_type = result_dict.get('error_type')
+            error_message = result_dict.get('message')
+            actual_list_of_responses = result_dict.get('data')
+
+            if error_type is not None:
+                logger.error(f"Task completed with error: {error_type} - {error_message}")
+                # Sanitize message if it contains markup, AdwBanner might not render it well
+                safe_error_message = str(error_message).replace("<b>", "").replace("</b>", "")
+                self._display_error(safe_error_message)
+                self.http_entry_row.add_css_class("error")
+                self._update_column_view_model(None)  # Clear previous results
+            else:
+                # Success case
+                if actual_list_of_responses is None:
+                    logger.error("Task result data (actual_list_of_responses) is None unexpectedly on success.")
+                    self._display_error("Failed to retrieve task result data.")
+                    self.http_entry_row.add_css_class("error")
+                    self._update_column_view_model(None)
+                elif isinstance(actual_list_of_responses, list):
+                    logger.info("Successfully processed task result as list.")
+                    processed_headers_for_store = []
+                    if not actual_list_of_responses:
+                        logger.warning("Received empty list for actual_list_of_responses.")
+                        self._update_column_view_model(None)
+                    else:
+                        for i, response_data in enumerate(actual_list_of_responses):
+                            url_display = f"URL: {response_data.get('url', 'N/A')}"
+                            status_display = f"Status: {response_data.get('status_code', 'N/A')}"
+
+                            if response_data.get('type') == 'redirect':
+                                status_display += " (Redirect)"
+                            elif response_data.get('type') == 'final':
+                                status_display += " (Final)"
+
+                            processed_headers_for_store.append(
+                                HeaderItem(key=url_display, value=status_display, is_special_row=True)
+                            )
+
+                            headers_for_this_response = response_data.get('headers', {})
+                            for header_key, header_value in headers_for_this_response.items():
+                                processed_headers_for_store.append(
+                                    HeaderItem(key=str(header_key), value=str(header_value), is_special_row=False)
+                                )
+
+                            if i < len(actual_list_of_responses) - 1:
+                                processed_headers_for_store.append(HeaderItem(key="", value="", is_special_row=True))
+                        self._update_column_view_model(processed_headers_for_store)
+                    self.http_entry_row.remove_css_class("error")
+                else: # Data is not None and not a list
+                    logger.error(
+                        f"Task result data (actual_list_of_responses) of unexpected type {type(actual_list_of_responses)}. "
+                        "Expected list or None."
+                    )
+                    self._display_error(
+                        f"Failed to process task result data (unexpected data structure: {type(actual_list_of_responses).__name__})."
+                    )
+                    self.http_entry_row.add_css_class("error")
+                    self._update_column_view_model(None)
+
+        except GObject.GError as e: # This catches errors from propagate_value if the task itself failed fundamentally
             error_message = e.message
-            logger.error("Error fetching headers (async GObject.GError): %s", error_message)
-            # Sanitize message if it contains markup, AdwBanner might not render it well
+            logger.error("Error fetching headers (async GObject.GError from propagate_value): %s", error_message)
+            # Sanitize message
             error_message = error_message.replace("<b>", "").replace("</b>", "")
             self._display_error(error_message)
             self.http_entry_row.add_css_class("error")
-            self._update_column_view_model(None)  # Clear previous results if error
+            self._update_column_view_model(None)
         finally:
             # Re-enable UI elements that might have been disabled
             self.http_entry_row.set_sensitive(True)
