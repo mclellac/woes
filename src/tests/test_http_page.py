@@ -258,7 +258,7 @@ class TestHttpPage(unittest.TestCase):
         self.assertIsInstance(error_arg, MockGLibErrorForTest)
         self.assertIn("timed out", error_arg.message.lower())
         # Ensure the code used matches the mocked Gio.IOErrorEnum.TIMED_OUT
-        self.assertEqual(error_arg.code, MockGio.IOErrorEnum.TIMED_OUT)
+        self.assertEqual(error_arg.code, int(MockGio.IOErrorEnum.TIMED_OUT))
 
     @patch('src.http_page.requests.get')
     def test_timeout_error_post_fix_verification(self, mock_requests_get):
@@ -348,8 +348,8 @@ class TestHttpPage(unittest.TestCase):
         self.assertEqual(error_arg.domain, MockGio.io_error_quark.return_value)
 
         # 3d. Crucially, the error code matches Gio.IOErrorEnum.TIMED_OUT (mocked value)
-        # This verifies that `code=Gio.IOErrorEnum.TIMED_OUT` (and not `.value`) was used correctly.
-        self.assertEqual(error_arg.code, MockGio.IOErrorEnum.TIMED_OUT)
+        # This verifies that `code=int(Gio.IOErrorEnum.TIMED_OUT)` was used correctly.
+        self.assertEqual(error_arg.code, int(MockGio.IOErrorEnum.TIMED_OUT))
         self.assertIsInstance(error_arg.code, int) # Ensure it's an int, as expected by GLib.Error
 
     @patch('src.http_page.requests.get')
