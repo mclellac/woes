@@ -243,8 +243,16 @@ class HttpPage(Adw.PreferencesPage):
         except requests.exceptions.ConnectionError as e:
             logger.warning("Task thread: ConnectionError for %s: %s", url, e)
             custom_msg = self._get_detailed_connection_error_message(e, url)
-            error_message = custom_msg if custom_msg else f"Connection Error: {str(e)}"
-            if not str(e) and not custom_msg: # Ensure some message is shown
+            if custom_msg:
+                error_message = custom_msg
+            else:
+                # The original str(e) could be too technical.
+                # Provide a more generic user-friendly message.
+                error_message = "A network connection error occurred. Please check your internet connection and the entered URL, then try again."
+            # The fallback 'if not str(e) and not custom_msg:' might no longer be strictly necessary
+            # if custom_msg covers specific cases and the new else provides a good generic default.
+            # However, to be safe and ensure a message is always present if custom_msg is empty but not None:
+            if not error_message: # Simplified check
                  error_message = "Connection Error: Failed to establish a connection."
             task.return_new_error_literal(
                 GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
@@ -254,7 +262,7 @@ class HttpPage(Adw.PreferencesPage):
             return
         except requests.exceptions.RequestException as e: # Catches other requests errors like TooManyRedirects, etc.
             logger.warning("Task thread: RequestException for %s: %s", url, e)
-            error_message = f"Request Error: {str(e)}"
+            error_message = "The request could not be completed. Please verify the URL and your network connection."
             task.return_new_error_literal(
                 GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
                 HttpErrorType.REQUEST_EXCEPTION.value,
@@ -263,7 +271,7 @@ class HttpPage(Adw.PreferencesPage):
             return
         except Exception as e:
             logger.error("Task thread: Truly unexpected error for %s: %s", url, e, exc_info=True)
-            error_message = f"An unexpected error occurred: {str(e)}"
+            error_message = "An unexpected internal error occurred while processing your request. Please try again later."
             task.return_new_error_literal(
                 GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
                 HttpErrorType.GENERIC_UNEXPECTED.value,
@@ -465,7 +473,7 @@ class HttpPage(Adw.PreferencesPage):
             self._update_column_view_model(None)
         except Exception as e: # Fallback for any other unexpected error in the callback itself
             logger.error("Unexpected Python error in _fetch_headers_task_done_cb: %s", e, exc_info=True)
-            self._display_error(f"An unexpected application error occurred: {str(e)}")
+            self._display_error("An unexpected application error occurred while trying to display the results. Please try the operation again.")
             self.http_entry_row.add_css_class("error")
             self._update_column_view_model(None)
         finally:
