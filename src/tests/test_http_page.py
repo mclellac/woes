@@ -10,6 +10,7 @@ import logging
 from typing import Optional
 import re
 import enum  # Required for FallbackHttpErrorType
+import socket # For AF_INET, AF_INET6 constants if needed in test mocks
 
 # --- Global GI Mocking Setup ---
 # Stop any active unittest.mock patches from other potential sources/previous runs
@@ -1203,22 +1204,40 @@ class TestHttpPageStaticMethods(unittest.TestCase):
 
         self.assertTrue(found_expected_log, f"Expected log message '{expected_log_message}' not found.")
 
+    @patch('src.http_page.socket.getaddrinfo')
     @patch('src.http_page.dns.resolver')
     @patch('src.http_page.requests.Session')
-    @patch('src.http_page.Gio.Settings') # Mock Gio.Settings for HttpPage
-    def test_custom_dns_sni_https_request_no_type_error(self, MockGioSettings, MockRequestsSession, MockDnsResolver):
+    @patch('src.http_page.Gio.Settings')
+    def test_custom_dns_with_hostname_uses_socket_patching(self, MockGioSettings, MockRequestsSession, MockDnsResolver, mock_socket_getaddrinfo_in_module):
         if not self.HttpPage_class_to_test:
             self.skipTest("HttpPage class could not be loaded.")
-        if not hasattr(http_page_module, 'CustomSNIAdapter'):
-            self.skipTest("CustomSNIAdapter not found in http_page_module.")
-        CustomSNIAdapter = http_page_module.CustomSNIAdapter
 
         # 1. Configure Mocks
+        test_hostname = "host.example.com"
+        resolved_ip = "1.2.3.4"
+        custom_dns_ip = "10.0.0.1"
+
+        # Mock Gio.Settings for custom DNS
+        mock_settings_instance = MockGioSettings.return_value
+        mock_settings_instance.get_string.side_effect = lambda key: custom_dns_ip if key == "custom-dns-server" else None
+        self.page.settings = mock_settings_instance
+
         # Mock dns.resolver.Resolver
         mock_resolver_instance = MockDnsResolver.Resolver.return_value
-        mock_dns_answer = MagicMock()
-        mock_dns_answer.address = "192.0.2.1" # Resolved IP
-        mock_resolver_instance.resolve.return_value = [mock_dns_answer]
+        mock_dns_answer_a = MagicMock()
+        mock_dns_answer_a.address = resolved_ip
+        # Simulate AAAA fails with NoAnswer, A succeeds
+        mock_resolver_instance.resolve.side_effect = lambda hostname, rdtype: [mock_dns_answer_a] if rdtype == 'A' else (_ for _ in ()).throw(http_page_module.dns.resolver.NoAnswer)
+
+
+        # Mock socket.getaddrinfo (the one imported in src.http_page)
+        # This mock will be the *original* getaddrinfo that our custom_getaddrinfo calls.
+        # It needs to return a valid structure.
+        # (family, type, proto, canonname, sockaddr)
+        mock_socket_getaddrinfo_in_module.return_value = [(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, '', (resolved_ip, 443))]
+
+        # Store the original getaddrinfo that the module *would* have before patching, for assertion
+        original_getaddrinfo_in_real_socket = socket.getaddrinfo
 
         # Mock requests.Session
         mock_session_instance = MockRequestsSession.return_value
@@ -1226,101 +1245,200 @@ class TestHttpPageStaticMethods(unittest.TestCase):
         mock_response.status_code = 200
         mock_response.headers = {"Content-Type": "text/plain"}
         mock_response.history = []
-        mock_response.url = "https://192.0.2.1" # URL after resolution
+        mock_response.url = f"https://{test_hostname}" # Response URL should be original hostname
         mock_response.raise_for_status = MagicMock()
         mock_session_instance.get.return_value = mock_response
 
-        # Mock Gio.Settings for custom DNS
-        mock_settings_instance = MockGioSettings.return_value
-        mock_settings_instance.get_string.side_effect = lambda key: "10.0.0.1" if key == "custom-dns-server" else None
-
-        # Mock Adw.PreferencesPage.__init__ is not strictly needed if HttpPage.__init__ doesn't call super
-        # or if super call is fine with MagicMock. Assuming HttpPage_class is correctly patched/mocked at class level.
-        # The setUp method already instantiates self.page. We will re-configure its settings.
-        self.page.settings = mock_settings_instance
-
-        # Mock UI elements that _fetch_headers_task_thread_func might interact with indirectly or directly
+        # Mock UI elements
         self.page.http_entry_row = MagicMock(spec=MockAdw.EntryRow)
-        self.page.http_entry_row.get_text.return_value = "https://example.com" # Input URL
-
+        self.page.http_entry_row.get_text.return_value = f"https://{test_hostname}"
         self.page.http_host_header_row = MagicMock(spec=MockAdw.EntryRow)
-        self.page.http_host_header_row.get_text.return_value = "" # No manual host header override
-
+        self.page.http_host_header_row.get_text.return_value = ""
         self.page.http_user_agent_row = MagicMock(spec=MockAdw.ComboRow)
-        self.page.http_user_agent_row.get_selected.return_value = 0 # "None" UA
-
+        self.page.http_user_agent_row.get_selected.return_value = 0
         self.page.http_pragma_switch_row = MagicMock(spec=MockAdw.SwitchRow)
-        self.page.http_pragma_switch_row.get_active.return_value = False # Pragma off
+        self.page.http_pragma_switch_row.get_active.return_value = False
+        self.page.error_banner = MagicMock(spec=MockAdw.Banner); self.page.error_banner.set_revealed = MagicMock(); self.page.error_banner.set_title = MagicMock()
+        self.page._update_column_view_model = MagicMock()
 
-        self.page.error_banner = MagicMock(spec=MockAdw.Banner) # To catch any errors displayed
-        self.page.error_banner.set_revealed = MagicMock()
-        self.page.error_banner.set_title = MagicMock()
-
-        # Ensure header_list_store has remove_all if it wasn't set up by Gio.ListStore.new mock
-        if not hasattr(self.page.header_list_store, 'remove_all'):
-            self.page.header_list_store.remove_all = MagicMock()
-        if not hasattr(self.page.header_list_store, 'append'):
-            self.page.header_list_store.append = MagicMock()
-
-        self.page._update_column_view_model = MagicMock() # Mock this to prevent UI errors
-
-        # 2. Prepare task data (mimicking _on_entry_row_activated)
-        original_url = self.page.http_entry_row.get_text().strip()
-        url_to_fetch_initially = self.page._ensure_scheme(original_url)
-
+        # 2. Prepare task data
         self.page._http_task_data_for_thread = {
-            "url": url_to_fetch_initially,
-            "use_akamai_pragma": self.page.http_pragma_switch_row.get_active(),
-            "host_header": self.page.http_host_header_row.get_text().strip(),
-            "user_agent": None, # Simplified
-            "custom_dns_server": self.page.settings.get_string("custom-dns-server"),
+            "url": f"https://{test_hostname}",
+            "use_akamai_pragma": False, "host_header": "", "user_agent": None,
+            "custom_dns_server": custom_dns_ip,
         }
 
-        # 3. Trigger the header fetching mechanism
-        # The setUp's mock_task_instance.run_in_thread will call _fetch_headers_task_thread_func
-        # and then the callback.
+        # 3. Trigger execution
+        # Keep track of how socket.getaddrinfo in the http_page module changes
+        getaddrinfo_call_history = []
+        def side_effect_for_socket_patch(*args, **kwargs):
+            # This is the function that will be called when 'socket.getaddrinfo = custom_getaddrinfo' happens
+            # The 'new_func' is 'custom_getaddrinfo'
+            # We want to assert that this change happens, and then allow it to be called.
+            # The actual custom_getaddrinfo defined in http_page will call the *original* (mocked above)
+            # getaddrinfo if the host doesn't match.
+            new_func = args[0] # The custom_getaddrinfo function from http_page
+            getaddrinfo_call_history.append(new_func) # Record that socket.getaddrinfo was changed
+
+            # Replace the module's getaddrinfo with a spy that calls the new_func
+            # but allows us to also check that the custom function was called.
+            # This is tricky because we are patching the module's reference.
+            # The http_page.socket.getaddrinfo will be this new_func.
+            # We need to ensure that when requests calls it, our assertions pass.
+            # For simplicity, we assume the patch works if http_page.socket.getaddrinfo is no longer the original one.
+            # The actual custom_getaddrinfo will be tested by its effect on the request.
+
+            # The critical part is that http_page.socket.getaddrinfo IS the custom_getaddrinfo
+            # when requests makes its call.
+            # We can mock the original_getaddrinfo that the custom_getaddrinfo calls.
+
+            # Our mock_socket_getaddrinfo_in_module is what the *custom_getaddrinfo* will call for non-matching hostnames.
+            # And it's also what it will call if it needs to fall back.
+            # We need to ensure that the *custom* function is indeed placed into http_page.socket.
+
+            # Let the actual assignment happen in the SUT. We assert on its state later.
+            # This mock is on the *attribute* socket.getaddrinfo *within* the http_page module.
+            # The SUT will do: http_page.socket.getaddrinfo = custom_defined_function
+            # So, this mock_socket_getaddrinfo_in_module will be replaced by custom_defined_function.
+            # We need to verify that custom_defined_function is called.
+            # To do this, we can make this mock *return* a new MagicMock that custom_defined_function will call.
+            # This gets complicated. Simpler: check http_page.socket.getaddrinfo before/after.
+            return new_func # The assignment will use this.
+
+        # Store the initial state of socket.getaddrinfo in the module
+        initial_module_getaddrinfo = http_page_module.socket.getaddrinfo
+
         self.mock_task_instance.run_in_thread(self.page._fetch_headers_task_thread_func)
 
         # 4. Assertions
-        # Assert dns.resolver call
-        mock_resolver_instance.resolve.assert_called_once_with("example.com", 'A')
+        mock_resolver_instance.resolve.assert_any_call(test_hostname, 'A')
+        mock_resolver_instance.resolve.assert_any_call(test_hostname, 'AAAA')
 
-        # Assert requests.Session.mount for CustomSNIAdapter
-        # We need to check if mount was called with an instance of CustomSNIAdapter
-        # and that this instance has the correct sni_hostname.
-        mounted_adapter_instance = None
-        for call_args in mock_session_instance.mount.call_args_list:
-            prefix, adapter = call_args[0]
-            if prefix == 'https://' and isinstance(adapter, CustomSNIAdapter):
-                mounted_adapter_instance = adapter
+        # Assert that socket.getaddrinfo in the http_page module was patched
+        self.assertNotEqual(http_page_module.socket.getaddrinfo, initial_module_getaddrinfo, "socket.getaddrinfo was not patched in the module.")
+        # And that it was later restored
+        # The run_in_thread simulation executes the finally block too.
+        self.assertEqual(http_page_module.socket.getaddrinfo, initial_module_getaddrinfo, "socket.getaddrinfo was not restored in the module.")
+
+        # To assert the custom getaddrinfo was called:
+        # The mock_socket_getaddrinfo_in_module is the one that the *custom* getaddrinfo in http_page.py
+        # will call if the hostname does *not* match, or for fallback.
+        # If the hostname *does* match, the custom getaddrinfo should *not* call the original_getaddrinfo for that host.
+        # Instead, it constructs results from resolved_addresses_for_host.
+        # So, if our test_hostname was correctly intercepted by custom_getaddrinfo,
+        # then the *original* (mocked) getaddrinfo (mock_socket_getaddrinfo_in_module)
+        # should NOT have been called with test_hostname.
+
+        # Check calls to the *original* getaddrinfo (which is mock_socket_getaddrinfo_in_module)
+        called_with_test_hostname = False
+        for call_args_item in mock_socket_getaddrinfo_in_module.call_args_list:
+            if call_args_item[0][0] == test_hostname:
+                called_with_test_hostname = True
                 break
-        self.assertIsNotNone(mounted_adapter_instance, "CustomSNIAdapter was not mounted for https://")
-        self.assertEqual(mounted_adapter_instance.sni_hostname, "example.com")
+        self.assertFalse(called_with_test_hostname, f"The original getaddrinfo was called with {test_hostname}, meaning custom logic didn't fully intercept.")
 
-        # Assert requests.Session.get call
+        # Session.get call
         mock_session_instance.get.assert_called_once_with(
-            "https://192.0.2.1", # URL with resolved IP
-            headers={'Host': 'example.com'}, # Host header set to original domain
+            f"https://{test_hostname}", # Original URL
+            headers=unittest.mock.ANY, # Host header is set by requests from URL
             allow_redirects=True,
             timeout=5
         )
 
-        # Assert task success (return_value called, return_new_error_literal not called)
+        # CustomSNIAdapter should NOT be used
+        mock_session_instance.mount.assert_not_called()
+
         self.mock_task_instance.return_value.assert_called_once()
         self.mock_task_instance.return_new_error_literal.assert_not_called()
-
-        # Assert no error banner was shown
         self.page.error_banner.set_revealed.assert_not_called()
-        self.page.error_banner.set_title.assert_not_called()
-
-        # Check that the results were processed (simplified check)
         self.page._update_column_view_model.assert_called_once()
-        # Further check on the content of _update_column_view_model if necessary
-        args_processed = self.page._update_column_view_model.call_args[0][0]
-        self.assertIsInstance(args_processed, list)
-        self.assertTrue(len(args_processed) > 0) # We expect at least the URL/Status special row + headers
-        self.assertEqual(args_processed[0].key, "URL: https://192.0.2.1") # URL from response
-        self.assertEqual(args_processed[0].value, "Status: 200 (Final)")
+
+    @patch(f'{http_page_module.__name__}.CustomSNIAdapter') # Patch CustomSNIAdapter in http_page module
+    @patch('src.http_page.requests.Session')
+    @patch('src.http_page.Gio.Settings')
+    # No need to patch dns.resolver or socket.getaddrinfo if custom DNS is off
+    def test_ip_url_with_host_header_uses_custom_sni_adapter(self, MockGioSettings, MockRequestsSession, MockCustomSNIAdapter):
+        if not self.HttpPage_class_to_test:
+            self.skipTest("HttpPage class could not be loaded.")
+
+        # 1. Configure Mocks
+        ip_url = "https://1.2.3.4"
+        test_host_header = "host.example.com"
+
+        # Mock Gio.Settings - custom DNS server is off
+        mock_settings_instance = MockGioSettings.return_value
+        mock_settings_instance.get_string.return_value = "" # No custom DNS server
+        self.page.settings = mock_settings_instance
+
+        # Mock requests.Session
+        mock_session_instance = MockRequestsSession.return_value
+        mock_response = MagicMock(spec=requests.Response)
+        mock_response.status_code = 200
+        mock_response.headers = {"Content-Type": "text/plain"}
+        mock_response.history = []
+        mock_response.url = ip_url
+        mock_response.raise_for_status = MagicMock()
+        mock_session_instance.get.return_value = mock_response
+
+        # Mock CustomSNIAdapter class itself to check instantiation args
+        mock_sni_adapter_instance = MockCustomSNIAdapter.return_value
+
+        # Mock UI elements
+        self.page.http_entry_row = MagicMock(spec=MockAdw.EntryRow)
+        self.page.http_entry_row.get_text.return_value = ip_url
+
+        self.page.http_host_header_row = MagicMock(spec=MockAdw.EntryRow)
+        self.page.http_host_header_row.get_text.return_value = test_host_header # User sets Host header
+
+        self.page.http_user_agent_row = MagicMock(spec=MockAdw.ComboRow)
+        self.page.http_user_agent_row.get_selected.return_value = 0
+        self.page.http_pragma_switch_row = MagicMock(spec=MockAdw.SwitchRow)
+        self.page.http_pragma_switch_row.get_active.return_value = False
+        self.page.error_banner = MagicMock(spec=MockAdw.Banner); self.page.error_banner.set_revealed = MagicMock(); self.page.error_banner.set_title = MagicMock()
+        self.page._update_column_view_model = MagicMock()
+
+        # 2. Prepare task data
+        self.page._http_task_data_for_thread = {
+            "url": ip_url,
+            "use_akamai_pragma": False,
+            "host_header": test_host_header, # Host header is provided
+            "user_agent": None,
+            "custom_dns_server": "", # Custom DNS is off
+        }
+
+        # 3. Trigger execution
+        self.mock_task_instance.run_in_thread(self.page._fetch_headers_task_thread_func)
+
+        # 4. Assertions
+        # CustomSNIAdapter usage
+        MockCustomSNIAdapter.assert_called_once_with(sni_hostname=test_host_header)
+        mock_session_instance.mount.assert_called_once_with('https://', mock_sni_adapter_instance)
+
+        # Session.get call
+        mock_session_instance.get.assert_called_once_with(
+            ip_url,
+            headers={'Host': test_host_header}, # Host header is passed
+            allow_redirects=True,
+            timeout=5
+        )
+
+        # dns.resolver should not be called if custom_dns_server is empty
+        if hasattr(http_page_module, 'dns') and http_page_module.dns : # Check if dns was imported
+             # If you had a mock for dns.resolver specific to the module, assert not called.
+             # e.g. with @patch('src.http_page.dns.resolver') as MockDnsResolverGlobal:
+             #    MockDnsResolverGlobal.Resolver.return_value.resolve.assert_not_called()
+             pass
+
+
+        # socket.getaddrinfo should not be patched if custom DNS is off
+        # (This is harder to assert directly without more complex mock setup on socket itself,
+        # but the logic implies it. If dns part is not run, patch part is not run)
+
+        self.mock_task_instance.return_value.assert_called_once()
+        self.mock_task_instance.return_new_error_literal.assert_not_called()
+        self.page.error_banner.set_revealed.assert_not_called()
+        self.page._update_column_view_model.assert_called_once()
+
 
 
 # This ensures that if the script is run directly, only these new tests are executed

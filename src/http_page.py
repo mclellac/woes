@@ -8,6 +8,7 @@ import requests
 import requests.utils  # For urlparse
 from enum import Enum  # Added for HttpErrorType
 import ssl
+import socket # Added for getaddrinfo patching
 from requests.adapters import HTTPAdapter
 # We might need urllib3.util.ssl_ later if ssl.CERT_REQUIRED needs resolving, but requests usually handles this.
 # from urllib3.util.ssl_ import resolve_cert_reqs
@@ -277,86 +278,138 @@ class HttpPage(Adw.PreferencesPage):
         session_headers = {} # For User-Agent, Pragma
         original_hostname = None # Will be populated if custom DNS is used
 
+        original_getaddrinfo = None
+        resolved_addresses_for_host = None
+
         if custom_dns_server and dns: # Check if dnspython was imported
-            try:
-                parsed_url_obj = requests.utils.urlparse(original_url_with_scheme)
-                original_hostname = parsed_url_obj.hostname
-                if not original_hostname:
-                    logger.warning(f"Could not parse hostname from URL: {original_url_with_scheme}")
-                else:
-                    logger.info(f"Attempting to resolve {original_hostname} using custom DNS server {custom_dns_server}")
-                    resolver = dns.resolver.Resolver()
-                    resolver.nameservers = [custom_dns_server]
-                    resolver.timeout = 2.0
-                    resolver.lifetime = 2.0
+            parsed_url_obj = requests.utils.urlparse(original_url_with_scheme)
+            original_hostname = parsed_url_obj.hostname # This is the hostname we want to resolve
 
-                    answers = resolver.resolve(original_hostname, 'A')
-                    if answers:
-                        resolved_ip = answers[0].address
-                        url_to_fetch = parsed_url_obj._replace(netloc=resolved_ip).geturl()
-                        initial_request_specific_headers["Host"] = original_hostname
-                        logger.info(
-                            f"Resolved {original_hostname} to {resolved_ip} via {custom_dns_server}. "
-                            f"New URL for request: {url_to_fetch}. Host header set to: {original_hostname}"
-                        )
+            if not original_hostname:
+                logger.warning(f"Could not parse hostname from URL for custom DNS: {original_url_with_scheme}")
+            else:
+                logger.info(f"Attempting to resolve '{original_hostname}' using custom DNS server {custom_dns_server}")
+                resolver = dns.resolver.Resolver()
+                resolver.nameservers = [custom_dns_server]
+                resolver.timeout = 2.0
+                resolver.lifetime = 2.0
+
+                all_ips = []
+                try:
+                    for rdtype in ('A', 'AAAA'):
+                        try:
+                            answers = resolver.resolve(original_hostname, rdtype)
+                            for rdata in answers:
+                                all_ips.append(rdata.address)
+                        except dns.resolver.NoAnswer:
+                            logger.debug(f"No {rdtype} records found for {original_hostname} using {custom_dns_server}.")
+                            pass # Continue to next record type
+                        except dns.exception.DNSException as e: # More specific exceptions
+                            logger.warning(f"DNS resolution for {rdtype} records of {original_hostname} failed: {e}")
+                            pass # Continue to next record type if one fails
+
+                    if all_ips:
+                        resolved_addresses_for_host = all_ips
+                        logger.info(f"Resolved '{original_hostname}' to {resolved_addresses_for_host} via {custom_dns_server}.")
                     else:
-                        # original_hostname remains set, but url_to_fetch is unchanged. SNI logic will check this.
                         logger.warning(
-                            f"Custom DNS {custom_dns_server} provided no A records for {original_hostname}. "
-                            "Falling back to system DNS / original URL."
+                            f"Custom DNS {custom_dns_server} provided no A or AAAA records for {original_hostname}. "
+                            "Falling back to system DNS for this request."
                         )
-            except dns.exception.DNSException as e:
-                logger.warning(
-                    f"Custom DNS resolution for {original_hostname if original_hostname else original_url_with_scheme} via {custom_dns_server} failed: {e}. "
-                    "Falling back to system DNS / original URL."
-                )
-                original_hostname = None # Ensure original_hostname is None if DNS fails before using it for SNI
-            except Exception as e:
-                logger.error(
-                    f"Unexpected error during custom DNS processing for {original_hostname if original_hostname else original_url_with_scheme}: {e}", exc_info=True
-                )
-                original_hostname = None # Ensure original_hostname is None on other errors
+                except Exception as e: # Catch any other unexpected errors during resolution
+                    logger.error(
+                        f"Unexpected error during custom DNS processing for {original_hostname}: {e}", exc_info=True
+                    )
+                    # original_hostname remains set, but resolved_addresses_for_host is None, so no patching.
 
-        # Determine if SNI override is needed
+        if resolved_addresses_for_host and original_hostname: # Ensure original_hostname is also valid
+            original_getaddrinfo = socket.getaddrinfo
+
+            # Need to capture original_hostname_for_patch and resolved_ips_for_patch
+            # to avoid issues with these variables changing in the outer scope if this function
+            # were ever to be reused in a loop or more complex scenario.
+            # For current single-use, direct capture is fine but good practice.
+            captured_original_hostname = original_hostname
+            captured_resolved_ips = resolved_addresses_for_host
+
+            def custom_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+                if host == captured_original_hostname:
+                    logger.debug(f"Custom getaddrinfo: Intercepting '{host}', returning {captured_resolved_ips}")
+                    results = []
+                    for ip_addr in captured_resolved_ips:
+                        addr_family = socket.AF_INET6 if ':' in ip_addr else socket.AF_INET
+                        if family == 0 or family == addr_family: # Respect family hint if provided
+                            # Using common values for type and proto (TCP stream)
+                            # canonname can be an empty string if not available/requested.
+                            results.append((addr_family, socket.SOCK_STREAM, socket.IPPROTO_TCP, '', (ip_addr, port)))
+
+                    if not results and family != 0: # If a specific family was requested but we didn't match any
+                        logger.warning(f"Custom getaddrinfo: No addresses for '{host}' matched requested family {family}. Falling back.")
+                        return original_getaddrinfo(host, port, family, type, proto, flags)
+                    elif not results: # No IPs resolved or none matched default family behavior
+                         logger.warning(f"Custom getaddrinfo: No addresses for '{host}' after filtering. Falling back.")
+                         return original_getaddrinfo(host, port, family, type, proto, flags)
+                    return results
+                else:
+                    # Fallback for any other hostname
+                    return original_getaddrinfo(host, port, family, type, proto, flags)
+
+            socket.getaddrinfo = custom_getaddrinfo
+            logger.info(f"socket.getaddrinfo patched to use custom DNS results for '{original_hostname}'.")
+        else:
+            # This will be logged if custom_dns_server is not set, dns module not available,
+            # original_hostname could not be parsed, or resolution failed to yield any IPs.
+            # It's a normal path if custom DNS is not configured or fails.
+            logger.debug("Not patching socket.getaddrinfo, custom DNS not used or resolution failed/yielded no IPs.")
+
+        # Determine if SNI override is needed.
+        # This adapter is for when the URL itself is an IP address, and SNI (via Host header) is needed.
+        # If custom DNS resolved a hostname, url_to_fetch is still the hostname, and requests handles SNI.
         use_custom_sni_adapter = False
-        if custom_dns_server and original_hostname and url_to_fetch.startswith("https://"):
-            resolved_netloc = requests.utils.urlparse(url_to_fetch).netloc
-            if ':' in resolved_netloc: # Strip port if present
-                resolved_netloc = resolved_netloc.split(':', 1)[0]
+        parsed_url_for_sni_check = requests.utils.urlparse(url_to_fetch)
+        # Check if the netloc of the URL we are about to fetch is an IP address.
+        # A simple check: consists of digits, dots, and possibly colons/brackets for IPv6.
+        # This isn't a perfect IP regex but covers common cases.
+        is_url_ip_address = all(c.isdigit() or c == '.' or c == ':' or c == '[' or c == ']' for c in parsed_url_for_sni_check.netloc.split(':', 1)[0])
 
-            # Check if original_hostname looks like a domain and resolved_netloc is different (likely an IP)
-            # This simple check helps distinguish. A more robust IP check could be used.
-            is_resolved_ip_likely = all(c.isdigit() or c == '.' for c in resolved_netloc)
+        if url_to_fetch.startswith("https://") and is_url_ip_address and host_header_from_input:
+            # If URL is an IP and user provides a Host header, that Host header implies the SNI name.
+            use_custom_sni_adapter = True
+            # The sni_hostname for the adapter should be the user-provided Host header.
+            # 'original_hostname' might be from custom DNS, but host_header_from_input is what user specified for THIS IP request.
+            logger.info(
+                f"URL '{url_to_fetch}' is IP-based. User-provided Host header '{host_header_from_input}' will be used for SNI via CustomSNIAdapter."
+            )
+        elif custom_dns_server and original_hostname and not is_url_ip_address:
+             logger.info(
+                f"Custom DNS resolved {original_hostname}, but URL '{url_to_fetch}' is a hostname. "
+                "Requests will handle SNI; CustomSNIAdapter not mounted for this reason."
+            )
 
-            if original_hostname != resolved_netloc and is_resolved_ip_likely:
-                use_custom_sni_adapter = True
-                logger.info(f"Custom DNS resolved {original_hostname} to IP {resolved_netloc}. Will use CustomSNIAdapter for HTTPS SNI.")
 
         session = requests.Session()
         # session.verify = True by default (SSL Verification ON)
 
-        if use_custom_sni_adapter:
-            # original_hostname should be valid here due to the checks above
-            adapter = CustomSNIAdapter(sni_hostname=original_hostname)
+        if use_custom_sni_adapter and host_header_from_input: # SNI hostname must be from user's Host input for IP URL
+            adapter = CustomSNIAdapter(sni_hostname=host_header_from_input)
             session.mount('https://', adapter)
-            logger.debug(f"Mounted CustomSNIAdapter for https:// with SNI: {original_hostname}")
+            logger.debug(f"Mounted CustomSNIAdapter for https:// with SNI: {host_header_from_input}")
+        elif use_custom_sni_adapter and not host_header_from_input:
+            logger.warning("CustomSNIAdapter was considered but no host_header_from_input was available for SNI name.")
 
-        # Host header from user input (takes precedence if no custom DNS override, or if custom DNS failed to set Host)
+
+        # Host header from user input.
+        # If custom DNS was used to resolve an IP but we are still fetching by hostname, this logic is fine.
+        # If url_to_fetch IS an IP, this host_header_from_input is critical (and used for SNI above).
         if host_header_from_input:
-            if "Host" in initial_request_specific_headers:
-                 logger.info(
-                     f"Custom DNS set Host to {initial_request_specific_headers['Host']}. "
-                     f"User input Host '{host_header_from_input}' will be overridden for this IP-based request."
-                 )
-            else: # No custom DNS resolution that set Host, so use user's input
-                initial_request_specific_headers["Host"] = host_header_from_input
-        elif not "Host" in initial_request_specific_headers and original_hostname and not use_custom_sni_adapter:
-             # This case means custom DNS might have resolved original_hostname but we are NOT using SNI adapter
-             # (e.g. HTTP). If url_to_fetch is still original_url_with_scheme, requests sets Host.
-             # If url_to_fetch became an IP but it's HTTP, Host might need to be original_hostname.
-             # However, initial_request_specific_headers["Host"] would have been set if DNS was successful.
-             # This path is less critical if initial_request_specific_headers["Host"] is correctly set by DNS logic.
-             pass
+            initial_request_specific_headers["Host"] = host_header_from_input
+            logger.info(f"User-provided Host header '{host_header_from_input}' will be used for the request.")
+        # No 'elif' needed here to set Host from original_hostname because if custom DNS was used
+        # for a hostname, url_to_fetch is still that hostname, and requests will set the Host header.
+        # If custom DNS resolved an IP and url_to_fetch became that IP (which is now NOT the case),
+        # then host_header_from_input (or original_hostname if user didn't specify) would be needed.
+        # Since url_to_fetch is not rewritten to IP, the Host header is derived from it by requests,
+        # unless overridden by host_header_from_input.
 
         # Prepare and set session-level headers (User-Agent, Pragma)
         if user_agent and user_agent != "None":
@@ -372,15 +425,18 @@ class HttpPage(Adw.PreferencesPage):
             session.headers.update(session_headers)
 
         logger.debug(
-            "Task thread: Making GET request via session to %s. SNI Adapter in use: %s. Akamai Pragma (on session): %s, User-Agent (on session): %s, Initial Specific Headers (Host): %s",
+            "Task thread: Making GET request via session to %s. SNI Adapter in use: %s. Akamai Pragma (on session): %s, User-Agent (on session): %s, Initial Specific Headers (Host): %s. Socket patched: %s",
             url_to_fetch,
             use_custom_sni_adapter,
             "Yes" if use_akamai_pragma else "No",
             session.headers.get("User-Agent", "Default"),
-            initial_request_specific_headers.get("Host", "Default")
+            initial_request_specific_headers.get("Host", "Default"),
+            "Yes" if original_getaddrinfo else "No" # Log if socket.getaddrinfo was patched
         )
 
         try:
+            # This is the main block where the HTTP request happens.
+            # socket.getaddrinfo will be our custom version if patching occurred.
             if cancellable and cancellable.is_cancelled():
                 task.return_new_error_literal(
                     GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
@@ -484,6 +540,10 @@ class HttpPage(Adw.PreferencesPage):
                 error_message
                 )
             return
+        finally:
+            if original_getaddrinfo:
+                socket.getaddrinfo = original_getaddrinfo
+                logger.info(f"socket.getaddrinfo restored for '{captured_original_hostname if resolved_addresses_for_host and original_hostname else ''}'.")
 
     def _get_detailed_connection_error_message(self, exc: Exception, url: str) -> Optional[str]:
         """
