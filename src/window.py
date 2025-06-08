@@ -163,6 +163,7 @@ class WoesWindow(Adw.ApplicationWindow):
         surface = self.get_surface()
         is_minimized_flag = bool(surface.get_state() & Gdk.SurfaceState.MINIMIZED) if surface else False
         if is_minimized_flag:
+
             logging.debug("Window is minimized, skipping state save.")
             return GLib.SOURCE_REMOVE  # Or False
 
