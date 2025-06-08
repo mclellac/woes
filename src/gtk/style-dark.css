@@ -1,0 +1,8 @@
+/* HTTP Page Specific Styles - Dark Theme */
+.header-key {
+    color: #78aeed; /* Lighter Adwaita Blue for dark theme */
+    /* font-weight: bold; */
+}
+.header-value {
+    color: @theme_fg_color;
+}
