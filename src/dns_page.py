@@ -70,6 +70,8 @@ class DNSPage(Adw.PreferencesPage):
         self.dns_ip_entryrow.connect("entry-activated", self._on_entry_activated)
         self.dns_apply_button.connect("clicked", self._on_entry_activated)
         self.dns_record_type_dropdown.connect("notify::selected", self._on_record_type_changed)
+        if self.error_banner:
+            self.error_banner.connect("button-clicked", self._on_error_banner_dismiss)
 
     def _on_source_style_scheme_setting_changed(self, _settings: Gio.Settings, key: str):
         """Handle changes to the 'source-style-scheme' GSettings key.
