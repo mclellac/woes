@@ -41,39 +41,38 @@ class Preferences(Adw.PreferencesWindow):
         self.dns_server_entryrow.connect("entry-activated", self.on_dns_server_changed)
         self.prefs_dns_apply_button.connect("clicked", self.on_dns_server_changed)
 
-        # New bindings:
-        # if self.http_header_key_color_row:
-        #     self.settings.bind_property(
-        #         "http-output-header-key-color",
-        #         self.http_header_key_color_row,
-        #         "text",
-        #         Gio.SettingsBindFlags.DEFAULT
-        #     )
-        #     logging.debug("Bound http_header_key_color_row text to GSettings.")
-        # else:
-        #     logging.warning("http_header_key_color_row is None, cannot bind GSettings.")
+        if self.http_header_key_color_row:
+            self.settings.bind(
+                "http-output-header-key-color",
+                self.http_header_key_color_row,
+                "text",
+                Gio.SettingsBindFlags.DEFAULT
+            )
+            logging.debug("Bound http_header_key_color_row text to GSettings.")
+        else:
+            logging.warning("http_header_key_color_row is None, cannot bind GSettings.")
 
-        # if self.http_header_value_color_row:
-        #     self.settings.bind_property(
-        #         "http-output-header-value-color",
-        #         self.http_header_value_color_row,
-        #         "text",
-        #         Gio.SettingsBindFlags.DEFAULT
-        #     )
-        #     logging.debug("Bound http_header_value_color_row text to GSettings.")
-        # else:
-        #     logging.warning("http_header_value_color_row is None, cannot bind GSettings.")
+        if self.http_header_value_color_row:
+            self.settings.bind(
+                "http-output-header-value-color",
+                self.http_header_value_color_row,
+                "text",
+                Gio.SettingsBindFlags.DEFAULT
+            )
+            logging.debug("Bound http_header_value_color_row text to GSettings.")
+        else:
+            logging.warning("http_header_value_color_row is None, cannot bind GSettings.")
 
-        # if self.http_special_row_color_row:
-        #     self.settings.bind_property(
-        #         "http-output-special-row-color",
-        #         self.http_special_row_color_row,
-        #         "text",
-        #         Gio.SettingsBindFlags.DEFAULT
-        #     )
-        #     logging.debug("Bound http_special_row_color_row text to GSettings.")
-        # else:
-        #     logging.warning("http_special_row_color_row is None, cannot bind GSettings.")
+        if self.http_special_row_color_row:
+            self.settings.bind(
+                "http-output-special-row-color",
+                self.http_special_row_color_row,
+                "text",
+                Gio.SettingsBindFlags.DEFAULT
+            )
+            logging.debug("Bound http_special_row_color_row text to GSettings.")
+        else:
+            logging.warning("http_special_row_color_row is None, cannot bind GSettings.")
 
     def on_error_banner_dismiss_clicked(self, _banner, *_args):
         self.hide_banner_and_clear_error_state()
