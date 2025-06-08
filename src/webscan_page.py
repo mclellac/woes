@@ -1,16 +1,21 @@
-from .constants import RESOURCE_PREFIX
 import subprocess
-import re  # Added for URL validation
+import re
 import logging
-from gi.repository import Gtk, Adw, Gio, GLib
+
 import gi
-gi.require_version('Gtk', '4.0')
-gi.require_version('Adw', '1')
+from gi.repository import Gtk, Adw, Gio, GLib
+
+from .constants import RESOURCE_PREFIX
+
+gi.require_version("Gtk", "4.0")
+gi.require_version("Adw", "1")
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/webscan_page.ui")
 class WebScanPage(Adw.PreferencesPage):
-    __gtype_name__ = 'WebScanPage'
+    """Page for conducting web scans using Nikto."""
+
+    __gtype_name__ = "WebScanPage"
 
     url_entry = Gtk.Template.Child()
     scan_button = Gtk.Template.Child()
@@ -31,7 +36,8 @@ class WebScanPage(Adw.PreferencesPage):
             r"(?:\.(?:[a-z¡-￿]{2,}))\.?)"  # TLD
             r"(?::\d{2,5})?"  # Optional port
             r"(?:[/?#]\S*)?$",  # Optional path, query, fragment
-            re.IGNORECASE)
+            re.IGNORECASE,
+            )
         if not url_pattern.match(target_url):
             self.show_error_toast("Invalid URL format. Please enter a valid URL.")
             return
@@ -51,19 +57,21 @@ class WebScanPage(Adw.PreferencesPage):
         task.set_task_data(target_url)
         task.run_in_thread(self._run_scan_task_thread_func)
 
-    def _run_scan_task_thread_func(self, gio_task, _source_object, task_data, _cancellable):
+    def _run_scan_task_thread_func(
+            self, gio_task, _source_object, task_data, _cancellable
+            ):
         """Worker function for Gio.Task that runs Nikto scan in a separate thread."""
         target_url = task_data
 
         try:
-            if not target_url.startswith(('http://', 'https://')):
-                target_url = 'http://' + target_url
+            if not target_url.startswith(("http://", "https://")):
+                target_url = "http://" + target_url
 
             with subprocess.Popen(
-                    ['nikto', '-h', target_url, '-Tuning', 'xCGIVulnerable'],
+                    ["nikto", "-h", target_url, "-Tuning", "xCGIVulnerable"],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
-                    text=True
+                    text=True,
                     ) as process:
                 stdout, stderr = process.communicate(timeout=300)
             gio_task.return_value((stdout, stderr, None))
@@ -72,7 +80,7 @@ class WebScanPage(Adw.PreferencesPage):
             gio_task.return_value((None, None, "FileNotFoundError"))
         except subprocess.TimeoutExpired:
             gio_task.return_value((None, None, "TimeoutExpired"))
-        except Exception as e:
+        except Exception as e: # pylint: disable=broad-exception-caught
             gio_task.return_value((None, str(e), "Exception"))
 
     def _on_scan_task_done(self, task, result, _user_data):
@@ -83,11 +91,15 @@ class WebScanPage(Adw.PreferencesPage):
             stdout, stderr_or_error_msg, error_type = task.run_in_thread_finish(result)
 
             if error_type == "FileNotFoundError":
-                self.show_error_toast("Nikto command not found. Please ensure it is installed and in your PATH.")
+                self.show_error_toast(
+                    "Nikto command not found. Please ensure it is installed and in your PATH."
+                    )
                 self._update_textview("", "Error: Nikto not found.")
             elif error_type == "TimeoutExpired":
                 self.show_error_toast(f"Scan for {target_url} timed out.")
-                self._update_textview("", f"Error: Scan for {target_url} timed out after 5 minutes.")
+                self._update_textview(
+                    "", f"Error: Scan for {target_url} timed out after 5 minutes."
+                    )
             elif error_type == "Exception":
                 self.show_error_toast(f"An error occurred: {stderr_or_error_msg}")
                 self._update_textview("", f"An error occurred: {stderr_or_error_msg}")

@@ -1,7 +1,3 @@
-from .utils import create_source_view
-from .style_utils import apply_source_style_scheme
-from .constants import APP_ID, RESOURCE_PREFIX
-from gi.repository import Adw, Gio, Gtk, GtkSource, Pango, GLib
 import logging
 import re
 from datetime import datetime
@@ -9,14 +5,19 @@ from datetime import datetime
 import dns.resolver
 import dns.reversename
 import gi
+from gi.repository import Adw, Gio, Gtk, GtkSource, Pango, GLib
 
-gi.require_version('Adw', '1')
-gi.require_version('Gtk', '4.0')
-gi.require_version('GtkSource', '5')
+from .constants import APP_ID, RESOURCE_PREFIX
+from .style_utils import apply_source_style_scheme
+from .utils import create_source_view
+
+gi.require_version("Adw", "1")
+gi.require_version("Gtk", "4.0")
+gi.require_version("GtkSource", "5")
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/dns_page.ui")
-class DNSPage(Adw.PreferencesPage):
+class DNSPage(Adw.PreferencesPage):  # pylint: disable=too-few-public-methods
     __gtype_name__ = "DNSPage"
 
     dns_ip_entryrow = Gtk.Template.Child("dns_ip_entryrow")
@@ -34,8 +35,7 @@ class DNSPage(Adw.PreferencesPage):
         self.settings = Gio.Settings.new(APP_ID)
         self._apply_source_view_style()
         self.settings.connect(
-            "changed::source-style-scheme",
-            self._on_source_style_scheme_setting_changed
+            "changed::source-style-scheme", self._on_source_style_scheme_setting_changed
             )
         if self.dns_apply_button:
             self.dns_apply_button.set_use_underline(True)
@@ -61,8 +61,10 @@ class DNSPage(Adw.PreferencesPage):
                 )
         except GLib.Error as e:
             logging.error("Error creating Pango text tags: %s", e)
-        except Exception as e:
-            logging.error("Unexpected error creating text tags (%s): %s", type(e).__name__, e)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logging.error(
+                "Unexpected error creating text tags (%s): %s", type(e).__name__, e
+                )
 
     def _connect_signals(self) -> None:
         """Connect signals for UI elements."""
@@ -74,7 +76,9 @@ class DNSPage(Adw.PreferencesPage):
 
     def _on_source_style_scheme_setting_changed(self, _settings, key):
         """Handle changes to the source-style-scheme setting."""
-        logging.debug("DNSPage: '%s' setting changed, applying new source view style.", key)
+        logging.debug(
+            "DNSPage: '%s' setting changed, applying new source view style.", key
+            )
         self._apply_source_view_style()
 
     def _apply_source_view_style(self):
@@ -117,51 +121,89 @@ class DNSPage(Adw.PreferencesPage):
         """Handle the error banner dismiss button click."""
         self._clear_error()
 
-    def _perform_lookup(self):
+    def _prepare_resolver(self) -> dns.resolver.Resolver:
+        """Prepares a DNS resolver, incorporating custom server settings if configured."""
+        resolver = dns.resolver.Resolver()
+        custom_dns_server = self.settings.get_string("custom-dns-server")
+        if custom_dns_server:
+            resolver.nameservers = [custom_dns_server]
+        return resolver
+
+    def _fetch_dns_records(
+            self,
+            user_input: str,
+            requested_record_type: str,
+            resolver: dns.resolver.Resolver,
+            ) -> tuple[str, str]:
+        """
+        Fetches DNS records.
+        Returns a tuple of (result_string, actual_record_type_used).
+        Can raise dns.resolver.NXDOMAIN, dns.resolver.NoAnswer, dns.resolver.Timeout.
+        """
+        actual_record_type = requested_record_type
+        if self._is_ip_address(user_input):
+            actual_record_type = "PTR"  # Override to PTR for IP addresses
+
+        # _lookup_record will call resolver.resolve() which can raise the exceptions
+        result_str = self._lookup_record(user_input, actual_record_type, resolver)
+        return result_str, actual_record_type
+
+    def _perform_lookup(self):  # noqa: C901
         """Perform the DNS lookup based on the user input and selected record type."""
         user_input = self.dns_ip_entryrow.get_text().strip()
         if not user_input:
             self._show_error("Input cannot be empty.")
             return
 
-        self._clear_error()  # Clear previous errors first
+        self._clear_error()
 
         if not self._is_valid_ip_or_domain(user_input):
             self._show_error("Invalid IP address or domain name.")
             return
 
-        record_type = self._get_selected_record_type()
+        requested_record_type = self._get_selected_record_type()
 
         try:
-            resolver = dns.resolver.Resolver()
-            custom_dns_server = self.settings.get_string("custom-dns-server")
-            if custom_dns_server:
-                resolver.nameservers = [custom_dns_server]
+            resolver = self._prepare_resolver()
+            result_data, actual_type_used = self._fetch_dns_records(
+                user_input, requested_record_type, resolver
+                )
 
-            if self._is_ip_address(user_input):
+            # If an IP was given, _fetch_dns_records used PTR. Update dropdown to reflect this.
+            if self._is_ip_address(user_input) and actual_type_used == "PTR":
                 model = self.dns_record_type_dropdown.get_model()
                 for i in range(model.get_n_items()):
                     if model.get_string(i) == "PTR":
                         self.dns_record_type_dropdown.set_selected(i)
                         break
-                record_type = "PTR"
-                result = self._lookup_record(user_input, "PTR", resolver)
-            else:
-                result = self._lookup_record(user_input, record_type, resolver)
 
-            self._display_result(result, user_input, record_type, resolver.nameservers)
+            self._display_result(
+                result_data, user_input, actual_type_used, resolver.nameservers
+                )
+
         except dns.resolver.NXDOMAIN:
             self._show_error(f"Domain not found: {user_input} (NXDOMAIN)")
         except dns.resolver.NoAnswer:
-            self._show_error(f"No {record_type} records found for {user_input} (NoAnswer)")
+            # Determine which record type was actually attempted for the error message
+            record_type_for_error = (
+                "PTR" if self._is_ip_address(user_input) else requested_record_type
+                )
+            self._show_error(
+                f"No {record_type_for_error} records found for {user_input} (NoAnswer)"
+                )
         except dns.resolver.Timeout:
             self._show_error(f"DNS query timed out for {user_input}")
-        except dns.exception.DNSException as e:
+        except dns.exception.DNSException as e:  # Catch other DNS-specific exceptions
             logging.error("DNS lookup failed: %s", e)
-            self._show_error("DNS Error: %s" % str(e))
-        except Exception as e:
-            logging.error("Unexpected error during DNS lookup (%s): %s", type(e).__name__, e)
-            self._show_error("Error: %s" % str(e))
+            self._show_error(f"DNS Error: {str(e)}")
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logging.error(
+                "Unexpected error during DNS lookup (%s): %s",
+                type(e).__name__,
+                e,
+                exc_info=True,
+                )
+            self._show_error(f"An unexpected error occurred: {str(e)}")
 
     def _get_selected_record_type(self) -> str:
         """Get the currently selected DNS record type from the dropdown."""
@@ -182,7 +224,9 @@ class DNSPage(Adw.PreferencesPage):
         self.error_banner.set_title("")
 
     @staticmethod
-    def _lookup_record(domain_or_ip: str, record_type: str, resolver: dns.resolver.Resolver) -> str:
+    def _lookup_record(
+            domain_or_ip: str, record_type: str, resolver: dns.resolver.Resolver
+            ) -> str:
         # Let DNSExceptions propagate
         if record_type == "PTR":
             rev_name = dns.reversename.from_address(domain_or_ip)
@@ -194,7 +238,9 @@ class DNSPage(Adw.PreferencesPage):
             [f"{domain_or_ip}. IN {record_type} {r.to_text()}" for r in result]
             )
 
-    def _display_result(self, result: str, domain_or_ip: str, record_type: str, dns_servers: list):
+    def _display_result(
+            self, result: str, domain_or_ip: str, record_type: str, dns_servers: list
+            ):
         """Display the DNS lookup results in the source buffer with enhanced formatting."""
         self.source_buffer.set_text("")
 
@@ -206,8 +252,10 @@ class DNSPage(Adw.PreferencesPage):
                     )
             except GLib.Error as e:
                 logging.error("Error creating Pango header tag: %s", e)
-            except Exception as e:
-                logging.error("Unexpected error creating header tag (%s): %s", type(e).__name__, e)
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                logging.error(
+                    "Unexpected error creating header tag (%s): %s", type(e).__name__, e
+                    )
 
         dns_server_info = f"DNS server used: {', '.join(dns_servers)}\n"
 

@@ -1,28 +1,19 @@
 import gi
-print(f"Initial gi module: {gi}")
+
 try:
     # Attempt to load GLib first as it's fundamental
     gi.require_version("GLib", "2.0")
-    from gi.repository import GLib
-    print(f"GLib module: {GLib}")
+    # from gi.repository import GLib # No longer used
 
     gi.require_version("Gio", "2.0")
-    from gi.repository import Gio
-    print(f"Gio module: {Gio}")
-    print(f"Gio.Resource type: {type(Gio.Resource)}")
-    print(f"Gio.Resource attributes: {dir(Gio.Resource)}")
-    if hasattr(Gio.Resource, 'register'):
-        print("Gio.Resource has 'register' attribute.")
-    else:
-        print("Gio.Resource DOES NOT have 'register' attribute.")
+    # from gi.repository import Gio # No longer used
 
     gi.require_version("Gtk", "4.0")
-    from gi.repository import Gtk
-    print(f"Gtk module: {Gtk}")
+    # from gi.repository import Gtk # No longer used
 
     gi.require_version("Adw", "1")
-    from gi.repository import Adw
-    print(f"Adw module: {Adw}")
+    # from gi.repository import Adw # No longer used
 
-except Exception as e:
-    print(f"Error during gi import or usage: {e}")
+except Exception:  # pylint: disable=broad-exception-caught
+    # If this script were for actual use, error handling (e.g., logging) would go here.
+    pass

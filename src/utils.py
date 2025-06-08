@@ -1,11 +1,12 @@
-from gi.repository import Gtk, GtkSource
 import logging
 import gi
-gi.require_version('Gtk', '4.0')
-gi.require_version('GtkSource', '5')
+from gi.repository import Gtk, GtkSource
+
+gi.require_version("Gtk", "4.0")
+gi.require_version("GtkSource", "5")
 
 
-def create_source_view(language_name='txt'):
+def create_source_view(language_name="txt"):
     """
     Creates and configures a GtkSource.View and GtkSource.Buffer.
 
@@ -19,11 +20,14 @@ def create_source_view(language_name='txt'):
     """
     language_manager = GtkSource.LanguageManager.get_default()
     if language_name is None:
-        language_name = 'txt'
+        language_name = "txt"
     language = language_manager.get_language(language_name)
 
     if language is None:
-        logging.warning("GtkSourceView language '%s' not found. Falling back to a plain buffer.", language_name)
+        logging.warning(
+            "GtkSourceView language '%s' not found. Falling back to a plain buffer.",
+            language_name,
+            )
         source_buffer = GtkSource.Buffer()
     else:
         source_buffer = GtkSource.Buffer.new_with_language(language)
