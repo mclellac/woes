@@ -206,17 +206,17 @@ class NmapPage(Adw.PreferencesPage):
         self.nmap_host_listbox.connect("row-selected", self._on_target_selected)
 
     def _on_target_activate(self, entry_row: Adw.EntryRow):
-        target = entry_row.get_text().strip()
+        target = self.nmap_target_entryrow.get_text().strip()
         self._clear_error()
 
         if not self.scanner.validate_target_input(target):
-            entry_row.add_css_class("error")
+            self.nmap_target_entryrow.add_css_class("error")
             self._display_error(
                 "Invalid target format. Please enter a valid IP, CIDR, or hostname."
             )
             return
         # R1705: Unnecessary "else" after "return", remove the "else" and de-indent the code inside it
-        entry_row.remove_css_class("error")
+        self.nmap_target_entryrow.remove_css_class("error")
 
         if not target:
             self._clear_results()
