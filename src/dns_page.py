@@ -1,3 +1,7 @@
+from .utils import create_source_view
+from .style_utils import apply_source_style_scheme
+from .constants import APP_ID, RESOURCE_PREFIX
+from gi.repository import Adw, Gio, Gtk, GtkSource, Pango, GLib
 import logging
 import re
 from datetime import datetime
@@ -9,11 +13,6 @@ import gi
 gi.require_version('Adw', '1')
 gi.require_version('Gtk', '4.0')
 gi.require_version('GtkSource', '5')
-from gi.repository import Adw, Gio, Gtk, GtkSource, Pango, GLib
-
-from .constants import APP_ID, RESOURCE_PREFIX
-from .style_utils import apply_source_style_scheme
-from .utils import create_source_view
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/dns_page.ui")
@@ -37,27 +36,27 @@ class DNSPage(Adw.PreferencesPage):
         self.settings.connect(
             "changed::source-style-scheme",
             self._on_source_style_scheme_setting_changed
-        )
+            )
 
         try:
             self.bold_tag = self.source_buffer.create_tag(
                 "bold", weight=Pango.Weight.BOLD
-            )
+                )
             self.domain_color_tag = self.source_buffer.create_tag(
                 "domain_color", foreground="#3465a4"
-            )
+                )
             self.record_type_color_tag = self.source_buffer.create_tag(
                 "record_type_color", foreground="#cc0000"
-            )
+                )
             self.value_color_tag = self.source_buffer.create_tag(
                 "value_color", foreground="#73d216"
-            )
+                )
             self.ttl_color_tag = self.source_buffer.create_tag(
                 "ttl_color", foreground="#fce94f"
-            )
+                )
             self.class_color_tag = self.source_buffer.create_tag(
                 "class_color", foreground="#75507b"
-            )
+                )
         except GLib.Error as e:
             logging.error("Error creating Pango text tags: %s", e)
         except Exception as e:
@@ -69,7 +68,7 @@ class DNSPage(Adw.PreferencesPage):
         self.dns_apply_button.connect("clicked", self._on_entry_activated)
         self.dns_record_type_dropdown.connect(
             "notify::selected", self._on_record_type_changed
-        )
+            )
 
     def _on_source_style_scheme_setting_changed(self, _settings, key):
         """Handle changes to the source-style-scheme setting."""
@@ -83,7 +82,7 @@ class DNSPage(Adw.PreferencesPage):
             GtkSource.StyleSchemeManager.get_default(),
             self.source_buffer,
             source_style_scheme,
-        )
+            )
         self.source_view.set_editable(False)
 
     def _is_ip_address(self, input_str: str) -> bool:
@@ -99,7 +98,7 @@ class DNSPage(Adw.PreferencesPage):
         ip_pattern = re.compile(r"^\d{1,3}(\.\d{1,3}){3}$")
         domain_pattern = re.compile(
             r"^(?=.{1,253}$)(?!-)([A-Za-z0-9-]{1,63}(?<!-)\.)+[A-Za-z]{2,63}$"
-        )
+            )
         is_ip = bool(ip_pattern.match(input_str))
         is_domain = bool(domain_pattern.match(input_str))
         return is_ip or is_domain
@@ -191,7 +190,7 @@ class DNSPage(Adw.PreferencesPage):
 
         return "\n".join(
             [f"{domain_or_ip}. IN {record_type} {r.to_text()}" for r in result]
-        )
+            )
 
     def _display_result(self, result: str, domain_or_ip: str, record_type: str, dns_servers: list):
         """Display the DNS lookup results in the source buffer with enhanced formatting."""
@@ -202,7 +201,7 @@ class DNSPage(Adw.PreferencesPage):
             try:
                 self.header_tag = self.source_buffer.create_tag(
                     "header", weight=Pango.Weight.BOLD, size_points=12
-                )
+                    )
             except GLib.Error as e:
                 logging.error("Error creating Pango header tag: %s", e)
             except Exception as e:
@@ -213,18 +212,18 @@ class DNSPage(Adw.PreferencesPage):
         header = (
             f"DNS Lookup Results - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
             f"{dns_server_info}\n"
-        )
+            )
         self.source_buffer.insert_with_tags(
             self.source_buffer.get_end_iter(), header, self.header_tag
-        )
+            )
 
         self.source_buffer.insert_with_tags(
             self.source_buffer.get_end_iter(), domain_or_ip, self.bold_tag
-        )
+            )
         self.source_buffer.insert(self.source_buffer.get_end_iter(), "\t")
         self.source_buffer.insert_with_tags(
             self.source_buffer.get_end_iter(), record_type, self.bold_tag
-        )
+            )
         self.source_buffer.insert(self.source_buffer.get_end_iter(), "\n\n")
 
         self._format_result_in_buffer(result)
@@ -245,23 +244,23 @@ class DNSPage(Adw.PreferencesPage):
                     self.source_buffer.get_end_iter(),
                     domain + "\t",
                     self.domain_color_tag,
-                )
+                    )
                 self.source_buffer.insert_with_tags(
                     self.source_buffer.get_end_iter(),
                     record_class + "\t",
                     self.class_color_tag,
-                )
+                    )
                 self.source_buffer.insert_with_tags(
                     self.source_buffer.get_end_iter(),
                     record_type + "\t",
                     self.record_type_color_tag,
-                )
+                    )
                 self.source_buffer.insert_with_tags(
                     self.source_buffer.get_end_iter(),
                     value + "\n",
                     self.value_color_tag,
-                )
+                    )
             else:
                 self.source_buffer.insert(
                     self.source_buffer.get_end_iter(), line + "\n"
-                )
+                    )

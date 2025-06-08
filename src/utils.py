@@ -1,10 +1,8 @@
+from gi.repository import Gtk, GtkSource
+import logging
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('GtkSource', '5')
-
-import logging
-
-from gi.repository import Gtk, GtkSource
 
 
 def create_source_view(language_name='txt'):

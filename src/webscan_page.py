@@ -1,13 +1,11 @@
+from .constants import RESOURCE_PREFIX
+import subprocess
+import re  # Added for URL validation
+import logging
+from gi.repository import Gtk, Adw, Gio, GLib
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
-from gi.repository import Gtk, Adw, Gio, GLib
-
-import logging
-import re # Added for URL validation
-import subprocess
-
-from .constants import RESOURCE_PREFIX
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/webscan_page.ui")
@@ -24,17 +22,22 @@ class WebScanPage(Adw.PreferencesPage):
 
         # URL validation
         url_pattern = re.compile(
-            r"^(?:(?:https?|ftp)://)?(?:\S+(?::\S*)?@)?"
-            r"(?:(?:[1-9]\d?|1\d\d|2[01]\d|22[0-3])(?:\.(?:1?\d{1,2}|2[0-4]\d|25[0-5])){2}(?:\.(?:[1-9]\d?|1\d\d|2[0-4]\d|25[0-4]))|"
-            r"(?:(?:[a-z¡-￿0-9]-*)*[a-z¡-￿0-9]+)(?:\.(?:[a-z¡-￿0-9]-*)*[a-z¡-￿0-9]+)*"
-            r"(?:\.(?:[a-z¡-￿]{2,}))\.?)(?::\d{2,5})?(?:[/?#]\S*)?$",
-            re.IGNORECASE
-        )
+            r"^(?:(?:https?|ftp)://)?(?:\S+(?::\S*)?@)?"  # Scheme and optional user:pass
+            r"(?:(?:[1-9]\d?|1\d\d|2[01]\d|22[0-3])"  # IPv4 part 1
+            r"(?:\.(?:1?\d{1,2}|2[0-4]\d|25[0-5])){2}"  # IPv4 part 2 & 3
+            r"(?:\.(?:[1-9]\d?|1\d\d|2[0-4]\d|25[0-4]))|"  # IPv4 part 4
+            r"(?:(?:[a-z¡-￿0-9]-*)*[a-z¡-￿0-9]+)"  # Domain name parts
+            r"(?:\.(?:[a-z¡-￿0-9]-*)*[a-z¡-￿0-9]+)*"  # Domain name parts
+            r"(?:\.(?:[a-z¡-￿]{2,}))\.?)"  # TLD
+            r"(?::\d{2,5})?"  # Optional port
+            r"(?:[/?#]\S*)?$",  # Optional path, query, fragment
+            re.IGNORECASE)
         if not url_pattern.match(target_url):
             self.show_error_toast("Invalid URL format. Please enter a valid URL.")
             return
 
-        if not target_url: # This check can remain for the empty case, though regex might catch some empty-like strings too.
+        # This check can remain for the empty case, though regex might catch some empty-like strings too.
+        if not target_url:
             self.show_error_toast("Target URL cannot be empty.")
             return
 
@@ -57,11 +60,11 @@ class WebScanPage(Adw.PreferencesPage):
                 target_url = 'http://' + target_url
 
             with subprocess.Popen(
-                ['nikto', '-h', target_url, '-Tuning', 'xCGIVulnerable'],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            ) as process:
+                    ['nikto', '-h', target_url, '-Tuning', 'xCGIVulnerable'],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                    ) as process:
                 stdout, stderr = process.communicate(timeout=300)
             gio_task.return_value((stdout, stderr, None))
 

@@ -1,20 +1,19 @@
+from gi.repository import Adw, Gdk, Gio, Gtk, GtkSource, GLib
 import logging
 import re
 import gi
-import platform # Added
+import platform
 
 gi.require_version('Adw', '1')
 gi.require_version('Gtk', '4.0')
 gi.require_version('GtkSource', '5')
-from gi.repository import Adw, Gdk, Gio, Gtk, GtkSource
 
 BASE_FONT_SIZE_PT = 10.0
 
-# GNOME GSettings schemas and keys
 GNOME_INTERFACE_SCHEMA = "org.gnome.desktop.interface"
 FONT_NAME_KEY = "font-name"
 TEXT_SCALING_FACTOR_KEY = "text-scaling-factor"
-GTK_THEME_KEY = "gtk-theme" # For future high contrast check fallback
+GTK_THEME_KEY = "gtk-theme"
 GNOME_A11Y_SCHEMA = "org.gnome.desktop.a11y.interface"
 HIGH_CONTRAST_KEY = "high-contrast"
 
@@ -25,54 +24,44 @@ def apply_system_font_preferences(app_settings: Gio.Settings):
     and then applying the application's own font scaling percentage.
     """
     font_family_to_apply = None
-    font_size_to_apply_pt = BASE_FONT_SIZE_PT  # Start with the application's base
+    font_size_to_apply_pt = BASE_FONT_SIZE_PT
 
     if platform.system() == "Linux":
         try:
             gnome_settings = Gio.Settings.new(GNOME_INTERFACE_SCHEMA)
             font_name_str = gnome_settings.get_string(FONT_NAME_KEY)
             text_scaling_factor = gnome_settings.get_double(TEXT_SCALING_FACTOR_KEY)
-            logging.debug(
-                f"GNOME settings: font-name='{font_name_str}', text-scaling-factor={text_scaling_factor}"
-            )
+            # logging.debug for font-name and text-scaling-factor removed previously
 
-            # Parse font_name_str
             match = re.match(r"^(.*)\s+(\d+(\.\d+)?)$", font_name_str)
             if match:
                 gnome_font_family = match.group(1).strip()
                 gnome_base_size_pt = float(match.group(2))
 
                 font_family_to_apply = gnome_font_family
-                # Use GNOME font size and scaling factor as the new base
                 font_size_to_apply_pt = gnome_base_size_pt * text_scaling_factor
                 logging.info(
                     f"Applied GNOME font: Family='{font_family_to_apply}', "
                     f"Base Size (after GNOME scaling)={font_size_to_apply_pt:.2f}pt"
-                )
+                    )
             else:
                 logging.warning(
                     f"Could not parse GNOME font-name string: '{font_name_str}'. "
                     f"Using application base font size {font_size_to_apply_pt}pt."
-                )
-        except GLib.Error as e: # GSettings schema not found / other GSettings error
-            logging.debug(
-                f"Could not retrieve GNOME desktop font settings (schema '{GNOME_INTERFACE_SCHEMA}'): {e}. "
-                f"Using application base font size {font_size_to_apply_pt}pt."
-            )
+                    )
+        except GLib.Error:  # e removed as it's unused after debug log removal
+            # logging.debug for GNOME desktop font settings retrieval removed previously
+            pass
 
-        # High Contrast check (placeholder logging for now)
         try:
             gnome_a11y_settings = Gio.Settings.new(GNOME_A11Y_SCHEMA)
-            is_high_contrast = gnome_a11y_settings.get_boolean(HIGH_CONTRAST_KEY)
-            logging.debug(f"GNOME accessibility: high-contrast={is_high_contrast}")
-            # Actual theme application for high contrast is complex and usually handled
-            # by GTK itself based on theme capabilities or Adw.StyleManager.
-            # This log is for future reference if specific high-contrast CSS is needed.
-        except GLib.Error as e:
-            logging.debug(f"Could not retrieve GNOME accessibility settings (schema '{GNOME_A11Y_SCHEMA}'): {e}")
+            # is_high_contrast = gnome_a11y_settings.get_boolean(HIGH_CONTRAST_KEY) # F841
+            gnome_a11y_settings.get_boolean(HIGH_CONTRAST_KEY) # Keep call if getter has side-effects
+            # logging.debug for GNOME accessibility high-contrast removed previously
+        except GLib.Error:  # e removed as it's unused after debug log removal
+            # logging.debug for GNOME accessibility settings retrieval removed previously
+            pass
 
-
-    # Apply application's own scaling percentage on top of the determined base font size
     font_scale_percentage_str = app_settings.get_string("font-scaling-percentage")
     parsed_app_percentage = 100.0
     match_app_scale = re.match(r"(\d+)\%?", font_scale_percentage_str)
@@ -82,18 +71,16 @@ def apply_system_font_preferences(app_settings: Gio.Settings):
         except ValueError:
             logging.warning(
                 f"Could not parse app font-scaling-percentage: '{font_scale_percentage_str}', defaulting to 100%."
-            )
+                )
             parsed_app_percentage = 100.0
     else:
         logging.warning(
             f"Could not parse app font-scaling-percentage: '{font_scale_percentage_str}', defaulting to 100%."
-        )
+            )
 
     final_font_size_pt = font_size_to_apply_pt * (parsed_app_percentage / 100.0)
 
-    # Construct CSS
     if font_family_to_apply:
-        # Ensure font family name is quoted if it contains spaces
         css_font_family = f"'{font_family_to_apply}'" if ' ' in font_family_to_apply else font_family_to_apply
         css = f"* {{ font-family: {css_font_family}; font-size: {final_font_size_pt:.2f}pt; }}"
     else:
@@ -101,7 +88,7 @@ def apply_system_font_preferences(app_settings: Gio.Settings):
 
     logging.info(
         f"Applying final CSS: {css} (Base size: {font_size_to_apply_pt:.2f}pt, App scale: {parsed_app_percentage}%)"
-    )
+        )
 
     css_provider = Gtk.CssProvider()
     css_provider.load_from_data(css.encode())
@@ -110,39 +97,35 @@ def apply_system_font_preferences(app_settings: Gio.Settings):
         Gdk.Display.get_default(),
         css_provider,
         Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
-    )
+        )
 
-def apply_font_size(settings: Gio.Settings, font_scale_percentage_str: str): # pylint: disable=unused-argument
+
+def apply_font_size(settings: Gio.Settings, font_scale_percentage_str: str):  # pylint: disable=unused-argument
     """
     Applies font preferences based on system and application settings.
     The font_scale_percentage_str argument is currently ignored as the function
     now fetches this value directly from app_settings.
     """
-    logging.debug(
-        f"apply_font_size called (font_scale_percentage_str='{font_scale_percentage_str}' is ignored, "
-        "will use value from Gio.Settings directly)."
-        )
+    # logging.debug for apply_font_size call removed previously
     apply_system_font_preferences(settings)
 
 
 def apply_theme(style_manager: Adw.StyleManager, theme_preference: str):
-    logging.debug("Applying theme preference: %s", theme_preference)
+    # logging.debug for apply_theme removed previously
     if theme_preference == "Light":
         style_manager.set_color_scheme(Adw.ColorScheme.FORCE_LIGHT)
     elif theme_preference == "Dark":
         style_manager.set_color_scheme(Adw.ColorScheme.FORCE_DARK)
-    else:  # Default to "System" or any other unexpected value
+    else:
         style_manager.set_color_scheme(Adw.ColorScheme.DEFAULT)
 
 
 def apply_source_style_scheme(
-    scheme_manager: GtkSource.StyleSchemeManager,
-    buffer: GtkSource.Buffer,
-    source_style_scheme: str,
-):
-    logging.debug(
-        "apply_source_style_scheme: Called with source_style_scheme=%s", source_style_scheme
-    )
+        scheme_manager: GtkSource.StyleSchemeManager,
+        buffer: GtkSource.Buffer,
+        source_style_scheme: str,
+        ):
+    # logging.debug for apply_source_style_scheme call removed previously
 
     if source_style_scheme not in ["Adwaita", "Adwaita-dark"]:
         source_style_scheme = source_style_scheme.lower()
@@ -151,26 +134,22 @@ def apply_source_style_scheme(
     if scheme:
         buffer.set_style_scheme(scheme)
         applied_scheme = buffer.get_style_scheme()
-        if applied_scheme:
-            logging.debug(
-                "apply_source_style_scheme: Successfully applied scheme=%s", applied_scheme.get_id()
-            )
-        else:
+        if not applied_scheme: # logging.debug for successful application removed
             logging.error(
                 "apply_source_style_scheme: Failed to apply the style scheme."
-            )
+                )
     else:
         logging.error(
             "apply_source_style_scheme: Style scheme '%s' not found.", source_style_scheme
-        )
+            )
         default_scheme = scheme_manager.get_scheme("Adwaita")
         if default_scheme:
             buffer.set_style_scheme(default_scheme)
-            logging.debug("apply_source_style_scheme: Applied fallback scheme=Adwaita")
+            # logging.debug for fallback scheme removed previously
         else:
             logging.error(
                 "apply_source_style_scheme: Default scheme 'Adwaita' not found."
-            )
+                )
 
 
 def set_widget_visibility(visible: bool, *widgets):

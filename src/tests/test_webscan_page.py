@@ -1,3 +1,5 @@
+from webscan_page import WebScanPage
+from gi.repository import Gtk, Adw
 import unittest
 from unittest.mock import patch, MagicMock, ANY
 import os
@@ -7,13 +9,10 @@ import subprocess
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
-from gi.repository import Gtk, Adw
 
 src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if src_path not in sys.path:
     sys.path.insert(0, src_path)
-
-from webscan_page import WebScanPage
 
 
 def process_gtk_events():
@@ -104,7 +103,7 @@ class TestWebScanPage(unittest.TestCase):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True
-        )
+            )
         mock_process.communicate.assert_called_once_with(timeout=300)
 
         results_buffer = self.page.results_textview.get_buffer()
@@ -195,7 +194,7 @@ class TestWebScanPage(unittest.TestCase):
             mock_popen_class.assert_called_once_with(
                 ['nikto', '-h', 'http://example.com', '-Tuning', 'xCGIVulnerable'],
                 stdout=ANY, stderr=ANY, text=True
-            )
+                )
 
             self.page.url_entry.set_text("https://secure.example.com")
             self.page.scan_button.clicked()
@@ -206,7 +205,7 @@ class TestWebScanPage(unittest.TestCase):
             mock_popen_class.assert_called_with(
                 ['nikto', '-h', 'https://secure.example.com', '-Tuning', 'xCGIVulnerable'],
                 stdout=ANY, stderr=ANY, text=True
-            )
+                )
             self.assertEqual(mock_popen_class.call_count, 2)
 
 
