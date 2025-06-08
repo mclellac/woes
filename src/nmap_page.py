@@ -190,6 +190,8 @@ class NmapPage(Gtk.Box):
         self.nmap_target_entryrow.connect("entry-activated", self._on_target_activate)
         self.nmap_apply_button.connect("clicked", self._on_target_activate)
         self.nmap_host_listbox.connect("row-selected", self._on_target_selected)
+        if self.error_banner:
+            self.error_banner.connect("button-clicked", self._on_error_banner_dismiss)
 
     def _on_target_activate(self, entry_row: Adw.EntryRow):
         target = self.nmap_target_entryrow.get_text().strip()
