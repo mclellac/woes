@@ -31,29 +31,121 @@ USER_AGENTS = [
         "title": "Edge (Windows)",
         "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0"
     },
-    {
+    { # Updated
         "title": "OpenAI GPTBot",
-        "value": "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; GPTBot/1.0; +https://openai.com/gptbot"
+        "value": "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; GPTBot/1.1; +https://openai.com/gptbot"
     },
-    {
-        "title": "Googlebot (Generic)",
-        "value": "Googlebot/2.1 (+http://www.google.com/bot.html)"
+    { # New
+        "title": "OpenAI SearchBot",
+        "value": "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; OAI-SearchBot/1.0; +https://openai.com/searchbot"
     },
-    {
+    { # New
+        "title": "OpenAI ChatGPT-User (Legacy)",
+        "value": "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; ChatGPT-User/1.0; +https://openai.com/bot"
+    },
+    { # New
+        "title": "OpenAI ChatGPT-User",
+        "value": "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; ChatGPT-User/2.0; +https://openai.com/bot"
+    },
+    { # Updated and Renamed
+        "title": "Google-Extended",
+        "value": "Mozilla/5.0 (compatible; Google-Extended/1.0; +http://www.google.com/bot.html)"
+    },
+    { # Retained
         "title": "Googlebot (Smartphone)",
         "value": "Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
     },
-    {
+    { # Updated and Renamed
+        "title": "Anthropic ClaudeBot (Chat)",
+        "value": "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; ClaudeBot/1.0; +claudebot@anthropic.com"
+    },
+    { # New
+        "title": "Anthropic AI (Generic)",
+        "value": "Mozilla/5.0 (compatible; anthropic-ai/1.0; +http://www.anthropic.com/bot.html)"
+    },
+    { # New
+        "title": "Anthropic Claude-Web",
+        "value": "Mozilla/5.0 (compatible; claude-web/1.0; +http://www.anthropic.com/bot.html)"
+    },
+    { # Retained
         "title": "Microsoft Bingbot",
         "value": "Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)"
     },
-    {
-        "title": "AppleBot",
+    { # Retained (specific one)
+        "title": "AppleBot (Specific)", # Clarified title for the specific one
         "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15 (AppleBot/0.1)"
     },
-    {
-        "title": "ClaudeBot (General)",
-        "value": "ClaudeBot/1.0 (+https://anthropic.com/claude-bot)"
+    { # New
+        "title": "AppleBot (Generic)",
+        "value": "Mozilla/5.0 (compatible; Applebot/1.0; +http://www.apple.com/bot.html)"
+    },
+    { # New
+        "title": "Applebot-Extended",
+        "value": "Mozilla/5.0 (compatible; Applebot-Extended/1.0; +http://www.apple.com/bot.html)"
+    },
+    { # New
+        "title": "PerplexityAI Bot",
+        "value": "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; PerplexityBot/1.0; +https://perplexity.ai/perplexitybot"
+    },
+    { # New
+        "title": "PerplexityAI User",
+        "value": "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; Perplexity-User/1.0; +https://www.perplexity.ai/useragent"
+    },
+    { # New
+        "title": "Amazonbot",
+        "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/600.2.5 (KHTML, like Gecko) Version/8.0.2 Safari/600.2.5 (Amazonbot/0.1; +https://developer.amazon.com/support/amazonbot)"
+    },
+    { # New
+        "title": "Meta FacebookBot",
+        "value": "Mozilla/5.0 (compatible; FacebookBot/1.0; +http://www.facebook.com/bot.html)"
+    },
+    { # New
+        "title": "Meta External Agent",
+        "value": "Mozilla/5.0 (compatible; meta-externalagent/1.1 (+https://developers.facebook.com/docs/sharing/webmasters/crawler))"
+    },
+    { # New
+        "title": "LinkedInBot",
+        "value": "LinkedInBot/1.0 (compatible; Mozilla/5.0; Jakarta Commons-HttpClient/3.1 +http://www.linkedin.com)"
+    },
+    { # New
+        "title": "ByteDance Bytespider",
+        "value": "Mozilla/5.0 (compatible; Bytespider/1.0; +http://www.bytedance.com/bot.html)"
+    },
+    { # New
+        "title": "DuckDuckGo DuckAssistBot",
+        "value": "Mozilla/5.0 (compatible; DuckAssistBot/1.0; +http://www.duckduckgo.com/bot.html)"
+    },
+    { # New
+        "title": "Cohere AI Bot",
+        "value": "Mozilla/5.0 (compatible; cohere-ai/1.0; +http://www.cohere.ai/bot.html)"
+    },
+    { # New
+        "title": "Allen Institute AI2Bot",
+        "value": "Mozilla/5.0 (compatible; AI2Bot/1.0; +http://www.allenai.org/crawler)"
+    },
+    { # New
+        "title": "Common Crawl CCBot",
+        "value": "Mozilla/5.0 (compatible; CCBot/1.0; +http://www.commoncrawl.org/bot.html)"
+    },
+    { # New
+        "title": "Diffbot",
+        "value": "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.1.2) Gecko/20090729 Firefox/3.5.2 (.NET CLR 3.5.30729; Diffbot/0.1; +http://www.diffbot.com)"
+    },
+    { # New
+        "title": "Omgili Bot",
+        "value": "Mozilla/5.0 (compatible; omgili/1.0; +http://www.omgili.com/bot.html)"
+    },
+    { # New
+        "title": "TimpiBot",
+        "value": "Timpibot/0.8 (+http://www.timpi.io)"
+    },
+    { # New
+        "title": "You.com YouBot",
+        "value": "Mozilla/5.0 (compatible; YouBot (+http://www.you.com))"
+    },
+    { # New
+        "title": "MistralAI User",
+        "value": "Mozilla/5.0 (compatible; MistralAI-User/1.0; +https://mistral.ai/bot)"
     }
 ]
 
