@@ -148,16 +148,30 @@
             <property name="title" translatable="yes">Custom User Agents</property>
             <property name="description" translatable="yes">Manage your list of custom User-Agent strings for the HTTP Page.</property>
             <child>
-              <object class="AdwEntryRow" id="new_custom_ua_entry">
-                <property name="title" translatable="yes">New User Agent</property>
-                <child type="suffix">
+              <object class="AdwEntryRow" id="new_custom_ua_title_entry">
+                <property name="title" translatable="yes">Display Title</property>
+                <property name="tooltip-text" translatable="yes">A short, user-friendly title for the User-Agent (e.g., 'My Custom Bot')</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwEntryRow" id="new_custom_ua_value_entry">
+                <property name="title" translatable="yes">User-Agent String</property>
+                <property name="tooltip-text" translatable="yes">The full User-Agent string (e.g., 'Mozilla/5.0 ...')</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkBox">
+                <property name="orientation">horizontal</property>
+                <property name="halign">end</property>
+                <property name="spacing">6</property>
+                <property name="margin-top">6</property>
+                <property name="margin-bottom">6</property>
+                <child>
                   <object class="GtkButton" id="add_custom_ua_button">
+                    <property name="label" translatable="yes">Add User Agent</property>
                     <property name="icon-name">list-add-symbolic</property>
-                    <property name="tooltip-text" translatable="yes">Add User Agent</property>
-                    <property name="valign">center</property>
-                    <style>
-                      <class name="flat"/>
-                    </style>
+                    <property name="tooltip-text" translatable="yes">Add the new User-Agent (Title and String) to the list</property>
+                    <style><class name="pill"/></style>
                   </object>
                 </child>
               </object>
