@@ -245,12 +245,24 @@ class Preferences(Adw.PreferencesWindow):
             source_style_scheme = selected_item.get_string()
             self.settings.set_string("source-style-scheme", source_style_scheme)
 
+    @staticmethod
+    def _rgba_to_hex(rgba: Gdk.RGBA) -> str:
+        """Converts a Gdk.RGBA object to a hex color string (e.g., #RRGGBB)."""
+        # Ensure values are scaled to 0-255 and are integers
+        red = int(rgba.red * 255)
+        green = int(rgba.green * 255)
+        blue = int(rgba.blue * 255)
+        # Alpha is ignored for Pango foreground color in this context, typically.
+        # If alpha is needed and supported, format would be #RRGGBBAA
+        # and alpha = int(rgba.alpha * 255)
+        return f"#{red:02x}{green:02x}{blue:02x}"
+
     def on_http_color_changed(self, button: Gtk.ColorDialogButton, _gparam: GObject.ParamSpec, gsettings_key: str):
         rgba = button.get_rgba()
         if rgba:
-            color_string = rgba.to_string()
-            self.settings.set_string(gsettings_key, color_string)
-            logging.debug(f"HTTP color for {gsettings_key} set to: {color_string}")
+            color_hex_string = self._rgba_to_hex(rgba)
+            self.settings.set_string(gsettings_key, color_hex_string)
+            logging.debug(f"HTTP color for {gsettings_key} set to hex: {color_hex_string}")
 
     def _load_color_button_preference(self, button: Gtk.ColorDialogButton, gsettings_key: str):
         color_string = self.settings.get_string(gsettings_key)
