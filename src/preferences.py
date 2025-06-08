@@ -68,11 +68,10 @@ class Preferences(Adw.PreferencesWindow):
         self.load_preferences()
 
     def load_ui(self):
-        """Connect signals for UI elements and bind GSettings for color preferences.
+        """Connect signals for UI elements.
 
-        This method sets up connections for various combo rows and buttons
-        to their respective handler functions. It also directly binds the 'text'
-        property of color entry rows to GSettings keys.
+        This method sets up connections for various UI elements to their
+        respective handler functions, and initializes GSettings listeners.
         """
         self.font_scale_combo_row.connect("notify::selected", self.on_font_scale_changed)
         self.theme_combo_row.connect("notify::selected", self.on_theme_preference_changed)
@@ -150,7 +149,7 @@ class Preferences(Adw.PreferencesWindow):
             if self.dns_server_entryrow:
                 self.dns_server_entryrow.add_css_class("error")
             error_message = "Invalid IPv4 address for DNS server."
-            logging.error(f"Invalid custom DNS server IP address provided: {dns_server}") # Use f-string
+            logging.error(f"Invalid custom DNS server IP address provided: {dns_server}")
 
             self.preferences_error_banner.set_title(error_message)
             self.preferences_error_banner.set_revealed(True)
@@ -179,7 +178,7 @@ class Preferences(Adw.PreferencesWindow):
         """
         self.preferences_error_banner.set_revealed(False)
         target_entry_row = entry_row_widget if entry_row_widget else self.dns_server_entryrow
-        if target_entry_row: # Check if it exists
+        if target_entry_row:
             target_entry_row.remove_css_class("error")
         return GLib.SOURCE_REMOVE # Suitable for GLib.timeout_add
 
@@ -208,7 +207,7 @@ class Preferences(Adw.PreferencesWindow):
                 return False
         return True
 
-    def on_font_scale_changed(self, combo_row: Adw.ComboRow, _gparam: GObject.ParamSpec): # Changed GLib.ParamSpec to GObject.ParamSpec
+    def on_font_scale_changed(self, combo_row: Adw.ComboRow, _gparam: GObject.ParamSpec):
         """Handle changes in the font scale preference ComboRow.
 
         Saves the selected font scaling percentage string to GSettings.
@@ -225,7 +224,7 @@ class Preferences(Adw.PreferencesWindow):
             self.settings.set_string("font-scaling-percentage", selected_scale_str)
             logging.debug("Font scaling preference set to %s.", selected_scale_str)
 
-    def on_theme_preference_changed(self, combo_row: Adw.ComboRow, _gparam: GObject.ParamSpec): # Corrected to GObject.ParamSpec
+    def on_theme_preference_changed(self, combo_row: Adw.ComboRow, _gparam: GObject.ParamSpec):
         """Handle changes in the theme preference ComboRow.
 
         Saves the selected theme name string (e.g., "Light", "Dark") to GSettings.
@@ -245,7 +244,7 @@ class Preferences(Adw.PreferencesWindow):
                 selected_theme_str,
             )
 
-    def on_source_style_scheme_changed(self, combo_row: Adw.ComboRow, _gparam: GObject.ParamSpec): # Ensure this is GObject.ParamSpec and distinct
+    def on_source_style_scheme_changed(self, combo_row: Adw.ComboRow, _gparam: GObject.ParamSpec):
         """Handle changes in the source style scheme preference ComboRow.
 
         Saves the selected style scheme name string to GSettings.
@@ -274,13 +273,15 @@ class Preferences(Adw.PreferencesWindow):
         return f"#{red:02x}{green:02x}{blue:02x}"
 
     def on_http_color_changed(self, button: Gtk.ColorDialogButton, _gparam: GObject.ParamSpec, gsettings_key: str):
+        """Handle RGBA color change from a Gtk.ColorDialogButton and save as hex."""
         rgba = button.get_rgba()
         if rgba:
-            color_hex_string = self._rgba_to_hex(rgba) # Use the new helper
-            self.settings.set_string(gsettings_key, color_hex_string) # Save hex string
-            logging.debug(f"HTTP color for {gsettings_key} set to hex: {color_hex_string}") # Update log
+            color_hex_string = self._rgba_to_hex(rgba)
+            self.settings.set_string(gsettings_key, color_hex_string)
+            logging.debug(f"HTTP color for {gsettings_key} set to hex: {color_hex_string}")
 
     def _load_color_button_preference(self, button: Gtk.ColorDialogButton, gsettings_key: str):
+        """Load a color from GSettings (stored as hex) and apply to Gtk.ColorDialogButton."""
         color_string = self.settings.get_string(gsettings_key)
         if color_string:
             color = Gdk.RGBA()
@@ -293,6 +294,12 @@ class Preferences(Adw.PreferencesWindow):
                 logging.warning(f"Failed to parse color string '{color_string}' for GSettings key '{gsettings_key}': {e}.")
 
     def _render_custom_ua_list(self):
+        """Clear and repopulate the list of custom User-Agents in the UI.
+
+        Retrieves User-Agent pairs (title, value) from GSettings,
+        creates an Adw.ActionRow for each, and adds them to the
+        custom_ua_list_container. Each row includes a remove button.
+        """
         if not self.custom_ua_list_container:
             return
 
@@ -318,6 +325,13 @@ class Preferences(Adw.PreferencesWindow):
             self.custom_ua_list_container.append(row)
 
     def _on_add_custom_ua_clicked(self, _widget):
+        """Handle the 'Add User Agent' button click or entry activation.
+
+        Retrieves text from the title and value entry fields.
+        If both are non-empty and the title is unique, adds the new
+        User-Agent pair to GSettings and updates the UI list.
+        Provides visual feedback for empty fields or duplicate titles.
+        """
         if not self.new_custom_ua_title_entry or not self.new_custom_ua_value_entry:
             return
 
@@ -328,11 +342,11 @@ class Preferences(Adw.PreferencesWindow):
             logging.info("Attempted to add custom User-Agent with empty title or value.")
             if not title_text and self.new_custom_ua_title_entry:
                 self.new_custom_ua_title_entry.add_css_class("error")
-            elif self.new_custom_ua_title_entry: # Check existence before removing class
+            elif self.new_custom_ua_title_entry:
                  self.new_custom_ua_title_entry.remove_css_class("error")
             if not value_text and self.new_custom_ua_value_entry:
                 self.new_custom_ua_value_entry.add_css_class("error")
-            elif self.new_custom_ua_value_entry: # Check existence before removing class
+            elif self.new_custom_ua_value_entry:
                 self.new_custom_ua_value_entry.remove_css_class("error")
             return
 
@@ -348,7 +362,7 @@ class Preferences(Adw.PreferencesWindow):
             if self.new_custom_ua_title_entry:
                  self.new_custom_ua_title_entry.add_css_class("error")
             return
-        elif self.new_custom_ua_title_entry: # Check existence before removing class
+        elif self.new_custom_ua_title_entry:
             self.new_custom_ua_title_entry.remove_css_class("error")
 
         current_ua_pairs.append((title_text, value_text))
@@ -363,6 +377,11 @@ class Preferences(Adw.PreferencesWindow):
             logging.error(f"Failed to save custom User-Agent list to GSettings with new UA: {title_text}")
 
     def _on_remove_custom_ua_clicked(self, title_to_remove: str):
+        """Handle the click of a 'remove' button for a custom User-Agent.
+
+        Removes the User-Agent pair identified by title_to_remove from
+        GSettings and updates the UI list.
+        """
         variant = self.settings.get_value("custom-user-agents")
         current_ua_pairs = list(variant.unpack() if variant and variant.get_type_string() == 'a(ss)' else [])
 

@@ -8,9 +8,9 @@ It also supports using a custom DNS server for domain resolution.
 import logging
 import re
 import ssl
-import socket  # Added for getaddrinfo patching
-from enum import Enum  # Added for HttpErrorType
-from typing import Optional, Any # Removed Tuple, Added Any
+import socket
+from enum import Enum
+from typing import Optional, Any
 
 import requests
 import requests.utils  # For urlparse
@@ -28,14 +28,10 @@ from gi.repository import Adw, Gio, GObject, Gtk, GLib, Gdk
 
 from .constants import RESOURCE_PREFIX, USER_AGENTS, APP_ID
 
-# We might need urllib3.util.ssl_ later if ssl.CERT_REQUIRED needs resolving, but requests usually handles this.
-# from urllib3.util.ssl_ import resolve_cert_reqs
-
 
 gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
 
-# Use direct import for urllib3.exceptions
 try:
     import urllib3.exceptions as urllib3_exceptions
 except ImportError:
@@ -104,7 +100,6 @@ class CustomSNIAdapter(HTTPAdapter):
 
         super().init_poolmanager(connections, maxsize, block=block, **pool_kwargs)
 
-    # Note: If proxies are a concern, proxy_manager_for might also need overriding.
     # This implementation focuses on direct connections.
 
 
@@ -190,7 +185,7 @@ class HttpPage(Adw.PreferencesPage):
         self.current_http_task = None
         self._current_header_items = []
         self._http_task_data_for_thread = {}
-        self._ua_title_to_value_map = {} # Initialize the map
+        self._ua_title_to_value_map = {}
 
         self.settings = Gio.Settings(schema_id=APP_ID)
         self._header_key_color = self.settings.get_string("http-output-header-key-color")
@@ -226,7 +221,7 @@ class HttpPage(Adw.PreferencesPage):
         self._clear_error()
         self._hide_results()
 
-        self._update_user_agent_model() # Initial population
+        self._update_user_agent_model()
         self.settings.connect("changed::custom-user-agents", lambda _s, _k: self._update_user_agent_model())
 
         if self.http_apply_button:
@@ -275,7 +270,6 @@ class HttpPage(Adw.PreferencesPage):
                 if clipboard:
                     clipboard.set_text(text_to_copy)
                     logger.info("Headers copied to clipboard successfully.")
-                    # Example: self.show_toast(Adw.Toast(title="Headers copied to clipboard")) # type: ignore
                 else:
                     logger.warning("Failed to get default clipboard.")
             except Exception as e:  # pylint: disable=broad-except
@@ -325,7 +319,7 @@ class HttpPage(Adw.PreferencesPage):
             "url": url,
             "use_akamai_pragma": self.http_pragma_switch_row.get_active(),
             "host_header": host_header,
-            "user_agent": user_agent,
+            "user_agent": user_agent_to_send,
             "custom_dns_server": custom_dns_server,
         }
         task = Gio.Task.new(self, None, self._fetch_headers_task_done_cb, None)
@@ -1029,7 +1023,7 @@ class HttpPage(Adw.PreferencesPage):
         if self.http_entry_row.get_text().strip():
             self._on_entry_row_activated(self.http_entry_row)
 
-    def _update_column_view_model(self, header_items: Optional[Any]) -> None: # Temporarily simplified to Optional[Any]
+    def _update_column_view_model(self, header_items: Optional[list[HeaderItem]]) -> None:
         """Update the Gtk.ColumnView's model with new header items.
 
         Clears existing items and populates the ListStore with the provided list.
@@ -1124,11 +1118,15 @@ class HttpPage(Adw.PreferencesPage):
             self._update_column_view_model(self._current_header_items)
 
     def _update_user_agent_model(self):
+        """Update the User-Agent dropdown model.
+
+        Clears and repopulates the User-Agent title-to-value map and
+        the dropdown model (Gtk.StringList) with default and custom User-Agents.
+        Preserves selection if possible.
+        """
         if not self.http_user_agent_row:
             return
 
-        # Ensure the map is initialized (e.g., in __init__)
-        # self._ua_title_to_value_map is already initialized in __init__
         self._ua_title_to_value_map.clear()
 
         current_selection_text = None
@@ -1145,38 +1143,37 @@ class HttpPage(Adw.PreferencesPage):
         self._ua_title_to_value_map[none_title] = None # Represents no UA header override
 
         # Default UAs from constants.py
-        for ua_dict in USER_AGENTS: # USER_AGENTS is now list of {"title": ..., "value": ...}
+        for ua_dict in USER_AGENTS:
             title = ua_dict.get("title")
             value = ua_dict.get("value")
-            if title and value:
-                if title not in self._ua_title_to_value_map:
+            if title and value: # Basic check for valid entry
+                if title not in self._ua_title_to_value_map: # Add to display list only if new title
                     display_titles.append(title)
-                self._ua_title_to_value_map[title] = value
+                self._ua_title_to_value_map[title] = value # Always update map
 
         # Custom UAs from GSettings
         variant = self.settings.get_value("custom-user-agents")
-        # Ensure variant is not None and is of the correct type 'a(ss)' before unpacking
         custom_ua_pairs = list(variant.unpack() if variant and variant.get_type_string() == 'a(ss)' else [])
 
         for title, value in custom_ua_pairs:
-            if title not in self._ua_title_to_value_map:
+            if title not in self._ua_title_to_value_map: # Add to display list only if new title
                 display_titles.append(title)
-            self._ua_title_to_value_map[title] = value
+            self._ua_title_to_value_map[title] = value # Custom can override default in map
 
         self.http_user_agent_row.set_model(Gtk.StringList.new(display_titles))
 
-        if current_selection_text and current_selection_text in self._ua_title_to_value_map: # Check map instead of display_titles for selection
+        # Restore selection
+        if current_selection_text and current_selection_text in self._ua_title_to_value_map:
             try:
-                idx = display_titles.index(current_selection_text) # Find in current display titles
+                idx = display_titles.index(current_selection_text)
                 self.http_user_agent_row.set_selected(idx)
-            except ValueError:
+            except ValueError: # Should not happen if current_selection_text in map and display_titles is consistent
                 if display_titles: self.http_user_agent_row.set_selected(0)
         elif display_titles:
-            self.http_user_agent_row.set_selected(0) # Default to "None" (index 0)
+            self.http_user_agent_row.set_selected(0)
 
         logging.info(f"User-Agent dropdown model updated with {len(display_titles)} titles.")
 
-    # Note: Removed @staticmethod decorator
     def _create_factory(self, attr_name: str, wrap_text: bool = False) -> Gtk.SignalListItemFactory:
         """Create a Gtk.SignalListItemFactory for a column in the Gtk.ColumnView.
 
