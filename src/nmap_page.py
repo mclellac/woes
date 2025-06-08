@@ -456,7 +456,7 @@ class NmapPage(Adw.PreferencesPage):
             self._add_host_details_expander(host_data_dict, selected_target_key)
             self._add_ports_expander(host_data_dict, selected_target_key)
             self._add_os_expander(host_data_dict, selected_target_key)
-            self._add_raw_output_expander(item_obj.value, selected_target_key)
+            self._add_raw_output_expander(host_data_dict, selected_target_key)
 
         else:
             logging.warning("Could not retrieve NmapItem from selected row or item_obj is None.")
@@ -839,10 +839,28 @@ class NmapPage(Adw.PreferencesPage):
             # We'll display MAC as is.
             summary_lines.append(f"MAC Address: {mac}")
 
+        # Pre-scan script results
+        prescan_results = host_data_dict.get("prescript_results")
+        if prescan_results and isinstance(prescan_results, list):
+            summary_lines.append("\nPre-scan script results:")
+            for script_item in prescan_results:
+                if isinstance(script_item, dict):
+                    script_id = script_item.get("id", "N/A")
+                    script_output = script_item.get("output", "N/A")
+                    if script_output and isinstance(script_output, str):
+                        formatted_output = "\n".join(
+                            [f"|_ {script_id}: {line.strip()}" if i == 0 else f"|  {line.strip()}"
+                             for i, line in enumerate(script_output.strip().split('\n'))]
+                        )
+                        summary_lines.append(formatted_output)
+                    else:
+                        summary_lines.append(f"|_ {script_id}: (no output)")
+
+
         # Hostnames
         hostnames_list = host_data_dict.get("hostnames", [])
         if hostnames_list:
-            summary_lines.append("Hostnames:")
+            summary_lines.append("\nHostnames:") # Added newline for spacing if prescan exists
             for hn_entry in hostnames_list:
                 hn_type = hn_entry.get("type", "N/A")
                 hn_name = hn_entry.get("name", "N/A")

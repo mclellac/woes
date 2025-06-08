@@ -479,10 +479,15 @@ class NmapScanner:
 
         """
         all_results = {}
+        prescan_scripts_data = nm.scaninfo().get('prescript', [])
+        logging.debug("Pre-scan script data: %s", prescan_scripts_data)
+
         for host in nm.all_hosts():
             logging.debug("Processing results for host: %s", host)
             host_data = nm[host]
             plain_dict = self.to_plain_dict(host_data)
+            if prescan_scripts_data: # Only add if there's actual pre-scan data
+                plain_dict["prescript_results"] = prescan_scripts_data
             yaml_output = yaml.safe_dump(plain_dict, default_flow_style=False)
             all_results[host] = yaml_output
         return all_results
