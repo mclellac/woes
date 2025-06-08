@@ -10,7 +10,7 @@ import re
 import ssl
 import socket  # Added for getaddrinfo patching
 from enum import Enum  # Added for HttpErrorType
-from typing import Optional, List # Removed Tuple as it's not explicitly used
+from typing import Optional, List, Any # Removed Tuple, Added Any
 
 import requests
 import requests.utils  # For urlparse
@@ -1009,7 +1009,7 @@ class HttpPage(Adw.PreferencesPage):
         if self.http_entry_row.get_text().strip():
             self._on_entry_row_activated(self.http_entry_row)
 
-    def _update_column_view_model(self, header_items: Optional[List[HeaderItem]]) -> None: # Changed to typing.List
+    def _update_column_view_model(self, header_items: Optional[Any]) -> None: # Temporarily simplified to Optional[Any]
         """Update the Gtk.ColumnView's model with new header items.
 
         Clears existing items and populates the ListStore with the provided list.
