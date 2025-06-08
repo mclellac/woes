@@ -1,0 +1,17 @@
+Collecting wheel
+  Downloading wheel-0.45.1-py3-none-any.whl.metadata (2.3 kB)
+Collecting setuptools
+  Downloading setuptools-80.9.0-py3-none-any.whl.metadata (6.6 kB)
+Collecting meson
+  Downloading meson-1.8.1-py3-none-any.whl.metadata (1.8 kB)
+Collecting ninja
+  Downloading ninja-1.11.1.4-py3-none-manylinux_2_12_x86_64.manylinux2010_x86_64.whl.metadata (5.0 kB)
+Downloading wheel-0.45.1-py3-none-any.whl (72 kB)
+Downloading setuptools-80.9.0-py3-none-any.whl (1.2 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.2/1.2 MB 42.5 MB/s eta 0:00:00
+Downloading meson-1.8.1-py3-none-any.whl (1.0 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.0/1.0 MB 546.0 MB/s eta 0:00:00
+Downloading ninja-1.11.1.4-py3-none-manylinux_2_12_x86_64.manylinux2010_x86_64.whl (422 kB)
+Installing collected packages: wheel, setuptools, ninja, meson
+
+Successfully installed meson-1.8.1 ninja-1.11.1.4 setuptools-80.9.0 wheel-0.45.1
