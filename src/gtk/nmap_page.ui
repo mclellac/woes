@@ -21,12 +21,12 @@
             <property name="hexpand">true</property>
             <property name="wide-handle">true</property>
             <child> <!-- Pane 1 (Left) -->
+              <property name="shrink">false</property>
+              <property name="resize">true</property>
               <object class="GtkScrolledWindow" id="left_scrolled_pane">
                 <property name="hscrollbar-policy">never</property>
                 <property name="min-content-width">380</property>
                 <property name="vexpand">true</property>
-                <property name="shrink">false</property>
-                <property name="resize">true</property>
                 <child>
                   <object class="GtkBox" id="left_vbox_content">
                     <property name="orientation">vertical</property>
@@ -158,11 +158,11 @@
               </object>
             </child>
             <child> <!-- Pane 2 (Right) -->
+              <property name="shrink">false</property>
+              <property name="resize">true</property>
               <object class="GtkScrolledWindow" id="nmap_detail_scrolled_window">
                 <property name="hexpand">true</property>
                 <property name="vexpand">true</property>
-                <property name="shrink">false</property>
-                <property name="resize">true</property>
                 <child>
                   <object class="GtkBox" id="nmap_detail_box">
                     <property name="orientation">vertical</property>
