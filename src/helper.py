@@ -1,6 +1,6 @@
+from gi.repository import Gdk, Gtk
 import gi
 gi.require_version('Gtk', '4.0')
-from gi.repository import Gdk, Gtk
 
 
 class Helper:
@@ -113,7 +113,7 @@ class Helper:
                         selected_item = selection_model.get_item(index)
                         selected_texts.append(
                             f"{selected_item.key}: {selected_item.value}"
-                        )
+                            )
 
             elif isinstance(selection_model, Gtk.SingleSelection):
                 selected_item = selection_model.get_selected_item()

@@ -4,7 +4,6 @@ import platform
 import subprocess
 import shlex
 import shutil
-import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 from typing import Any, Dict, Union, List
@@ -81,6 +80,7 @@ class NmapScanner:
     run scans asynchronously using a ThreadPoolExecutor, and process the results
     into a YAML format.
     """
+
     def __init__(self):
         """Initializes the NmapScanner with a ThreadPoolExecutor for concurrent scans."""
         self.executor = ThreadPoolExecutor(max_workers=4)
@@ -120,8 +120,8 @@ class NmapScanner:
         return all(re.match(addr_regex, t) for t in targets)
 
     def build_nmap_options(
-        self, os_fingerprinting: bool, scan_all_ports: bool, selected_script: str
-    ) -> str:
+            self, os_fingerprinting: bool, scan_all_ports: bool, selected_script: str
+            ) -> str:
         """
         Constructs the Nmap command-line options string based on boolean flags and a script name.
 
@@ -145,15 +145,15 @@ class NmapScanner:
         return options
 
     def run_nmap_scan(
-        self,
-        target: str,
-        os_fingerprinting: bool,
-        scan_all_ports: bool,
-        selected_script: str = None,
-        service_version: bool = False,
-        no_ping: bool = False,
-        timing_template: str = "T3"
-    ) -> nmap.PortScanner:
+            self,
+            target: str,
+            os_fingerprinting: bool,
+            scan_all_ports: bool,
+            selected_script: str = None,
+            service_version: bool = False,
+            no_ping: bool = False,
+            timing_template: str = "T3"
+            ) -> nmap.PortScanner:
         """
         Executes an Nmap scan against the specified target with the given options,
         handling privilege escalation and using subprocess.
@@ -220,7 +220,7 @@ class NmapScanner:
                     raise FileNotFoundError(f"Nmap executable '{nmap_executable}' not found.")
                 final_command_parts = [nmap_path] + nmap_args_list[1:]
 
-            logging.info(f"Executing Nmap command: {' '.join(shlex.quote(part) for part in final_command_parts)}")
+            logging.info(f"Executing Nmap command: {' '.join(shlex.quote(part) for part in final_command_parts[:4])}...")
 
             process = subprocess.run(final_command_parts, capture_output=True, text=True, check=False, encoding='utf-8')
 
@@ -241,10 +241,13 @@ class NmapScanner:
                     error_message += f" Stderr: {nmap_stderr.strip()}"
 
                 if needs_escalation:
-                    if platform.system() == "Darwin" and process.returncode == 1 and not nmap_xml_output and not nmap_stderr.strip():
-                         error_message = "User cancelled the request for administrator privileges."
-                    elif platform.system() == "Linux" and process.returncode in [1, 126, 127] and not nmap_xml_output and not nmap_stderr.strip():
-                         error_message = "User cancelled the request for administrator privileges or authentication failed."
+                    if platform.system() == "Darwin" and process.returncode == 1 \
+                            and not nmap_xml_output and not nmap_stderr.strip():
+                        error_message = "User cancelled the request for administrator privileges."
+                    elif platform.system() == "Linux" and process.returncode in [1, 126, 127] \
+                            and not nmap_xml_output and not nmap_stderr.strip():
+                        error_message = ("User cancelled the request for administrator privileges "
+                                         "or authentication failed.")
 
                 logging.error(error_message)
                 raise PortScannerError(error_message)

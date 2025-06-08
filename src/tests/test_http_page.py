@@ -1,6 +1,7 @@
+from gi.repository import Adw as MockAdw, Gtk as MockGtk, Gio as MockGio, GLib as MockGLib, GObject as MockGObject
 import unittest
-from unittest.mock import patch, MagicMock, ANY, call
-import requests # Keep standard imports
+from unittest.mock import patch, MagicMock, call
+import requests  # Keep standard imports
 import sys
 import importlib
 import inspect
@@ -8,7 +9,7 @@ import time
 import logging
 from typing import Optional
 import re
-import enum # Required for FallbackHttpErrorType
+import enum  # Required for FallbackHttpErrorType
 
 # --- Global GI Mocking Setup ---
 # Stop any active unittest.mock patches from other potential sources/previous runs
@@ -31,24 +32,25 @@ MOCK_GI_MODULES = {
     'gi.repository.Gio': MagicMock(),
     'gi.repository.GLib': MagicMock(),
     'gi.repository.GObject': MagicMock(),
-}
+    }
 # Ensure the mocked 'gi' module can handle require_version calls
 MOCK_GI_MODULES['gi'].require_version = MagicMock()
 sys.modules.update(MOCK_GI_MODULES)
 
 # Import the real HeaderItem for type checking and instance creation in tests
 HeaderItem_class_for_test = None
-if 'src.http_page' in sys.modules: # http_page_module might be defined below
+if 'src.http_page' in sys.modules:  # http_page_module might be defined below
     temp_http_page_module = sys.modules['src.http_page']
     if hasattr(temp_http_page_module, 'HeaderItem') and inspect.isclass(temp_http_page_module.HeaderItem):
         HeaderItem_class_for_test = temp_http_page_module.HeaderItem
 
 # Now, when any module (like src.http_page) does 'from gi.repository import Gtk',
 # it will get our MagicMock versions.
-from gi.repository import Adw as MockAdw, Gtk as MockGtk, Gio as MockGio, GLib as MockGLib, GObject as MockGObject
 
 # Configure MockGtk.Template to be a pass-through decorator
 # Gtk.Template(resource_path="...") should return a function that takes a class and returns it.
+
+
 def _mock_gtk_template_decorator(resource_path):
     def _actual_decorator(cls):
         print(f"DEBUG: MockGtk.Template's actual_decorator called with class: {cls}, type: {type(cls)}")
@@ -60,6 +62,7 @@ def _mock_gtk_template_decorator(resource_path):
     # Its side_effect should be to return the actual decorator function.
     return _actual_decorator
 
+
 # MockGtk.Template is called like: @Gtk.Template("path") -> this call should return _actual_decorator
 # Then _actual_decorator(HttpPageClass) is called.
 MockGtk.Template = MagicMock(side_effect=_mock_gtk_template_decorator)
@@ -69,10 +72,11 @@ MockGtk.Template.Child = MagicMock(side_effect=lambda name: MagicMock(name=f"moc
 
 
 # Setup specific attributes on the Mocks that HttpPage or tests might need
-MockGLib.get_monotonic_time = MagicMock(side_effect=lambda: int(time.time() * 1e6)) # microseconds
+MockGLib.get_monotonic_time = MagicMock(side_effect=lambda: int(time.time() * 1e6))  # microseconds
 MockGLib.MainContext.default.return_value.iteration = MagicMock(return_value=False)
 MockGLib.MainContext.default.return_value.pending = MagicMock(return_value=False)
 MockGLib.usleep = MagicMock(side_effect=lambda us: time.sleep(us / 1e6))
+
 
 class MockGLibErrorForTest(Exception):
     def __init__(self, message, domain, code):
@@ -80,20 +84,22 @@ class MockGLibErrorForTest(Exception):
         self.message = message
         self.domain = domain
         self.code = code
+
+
 MockGLib.Error = MockGLibErrorForTest
 MockGObject.GError = MockGLibErrorForTest
 
 MockGio.Task.new = MagicMock()
-mock_cancellable = MagicMock() # Removed spec, it was causing issues
+mock_cancellable = MagicMock()  # Removed spec, it was causing issues
 mock_cancellable.is_cancelled.return_value = False
 mock_cancellable.cancel = MagicMock()
 MockGio.Cancellable = MagicMock(return_value=mock_cancellable)
 # Ensure io_error_quark and IOErrorEnum are available on the mocked Gio
 MockGio.io_error_quark = MagicMock(return_value="mock-gio-io-error-quark")
 MockGio.IOErrorEnum = MagicMock()
-MockGio.IOErrorEnum.FAILED = 1 # Example value
-MockGio.IOErrorEnum.CANCELLED = 36 # Example value (was 34, check common values)
-MockGio.IOErrorEnum.TIMED_OUT = 14 # Example, if needed for error codes
+MockGio.IOErrorEnum.FAILED = 1  # Example value
+MockGio.IOErrorEnum.CANCELLED = 36  # Example value (was 34, check common values)
+MockGio.IOErrorEnum.TIMED_OUT = 14  # Example, if needed for error codes
 
 # --- Module-level HttpPage class loading attempt ---
 http_page_module = None
@@ -101,7 +107,7 @@ HttpPage_class = None
 WOES_HTTP_ERROR_DOMAIN = None
 HttpErrorType = None
 try:
-    if 'src.http_page' in sys.modules: # Should have been deleted if it was there before mocks
+    if 'src.http_page' in sys.modules:  # Should have been deleted if it was there before mocks
         del sys.modules['src.http_page']
     http_page_module = importlib.import_module('src.http_page')
     print(f"DEBUG: http_page_module is: {http_page_module}, type: {type(http_page_module)}")
@@ -112,14 +118,15 @@ try:
             WOES_HTTP_ERROR_DOMAIN = http_page_module.WOES_HTTP_ERROR_DOMAIN
         else:
             print("WARNING: WOES_HTTP_ERROR_DOMAIN not found in http_page_module")
-            WOES_HTTP_ERROR_DOMAIN = "woes-http-error-domain" # Fallback if needed
+            WOES_HTTP_ERROR_DOMAIN = "woes-http-error-domain"  # Fallback if needed
 
         if hasattr(http_page_module, 'HttpErrorType'):
             HttpErrorType = http_page_module.HttpErrorType
         else:
             print("WARNING: HttpErrorType not found in http_page_module")
             # Define a fallback Enum if HttpErrorType is not found
-            class FallbackHttpErrorType(enum.Enum): # Requires import enum at top
+
+            class FallbackHttpErrorType(enum.Enum):  # Requires import enum at top
                 TIMEOUT = 0
                 HTTP_ERROR = 1
                 CONNECTION_ERROR = 2
@@ -135,13 +142,13 @@ try:
             if hasattr(temp_HttpPage, 'get_original'):
                 original_obj = temp_HttpPage.get_original()
                 if isinstance(original_obj, tuple) and len(original_obj) > 0 and inspect.isclass(original_obj[0]):
-                     HttpPage_class = original_obj[0] # Assuming (original_class, ...)
-                elif inspect.isclass(original_obj): # If get_original returns the class directly
-                     HttpPage_class = original_obj
+                    HttpPage_class = original_obj[0]  # Assuming (original_class, ...)
+                elif inspect.isclass(original_obj):  # If get_original returns the class directly
+                    HttpPage_class = original_obj
             elif hasattr(temp_HttpPage, '_mock_wraps') and temp_HttpPage._mock_wraps and inspect.isclass(temp_HttpPage._mock_wraps):
-                 HttpPage_class = temp_HttpPage._mock_wraps
+                HttpPage_class = temp_HttpPage._mock_wraps
         if HttpPage_class:
-             print("HttpPage_class loaded via fallback.")
+            print("HttpPage_class loaded via fallback.")
         else:
             print(f"Failed to load HttpPage as a class. http_page_module.HttpPage is: {temp_HttpPage}")
 
@@ -149,13 +156,16 @@ except Exception as e:
     print(f"Failed to import/load HttpPage from module: {e}")
 
 # Helper function to create mock response objects for testing redirect history
+
+
 def _create_mock_response(url, status_code, headers, history_list=None):
     mock_resp = MagicMock(spec=requests.Response)
-    mock_resp.url = str(url) # Ensure URL is string
+    mock_resp.url = str(url)  # Ensure URL is string
     mock_resp.status_code = status_code
-    mock_resp.headers = headers # Should be a dict-like object
+    mock_resp.headers = headers  # Should be a dict-like object
     mock_resp.history = history_list if history_list is not None else []
     return mock_resp
+
 
 class TestHttpPage(unittest.TestCase):
 
@@ -167,7 +177,6 @@ class TestHttpPage(unittest.TestCase):
         else:
             print("WARNING: HttpPage_class not loaded, tests will be skipped.")
 
-
     def setUp(self):
         if not self.HttpPage_class_to_test:
             self.skipTest("HttpPage class could not be loaded at module level.")
@@ -175,11 +184,11 @@ class TestHttpPage(unittest.TestCase):
         self.page = None
         self.mock_task_instance = MagicMock(spec=MockGio.Task)
         self.mock_task_instance.get_cancellable.return_value = mock_cancellable
-        self.mock_task_instance.return_new_error_literal = MagicMock() # Changed mock name
+        self.mock_task_instance.return_new_error_literal = MagicMock()  # Changed mock name
 
         self.done_cb_to_call = None
         self.done_cb_args = None
-        self.done_cb_kwargs = None # Store kwargs too
+        self.done_cb_kwargs = None  # Store kwargs too
 
         def mock_idle_add(func, *args, **kwargs):
             self.done_cb_to_call = func
@@ -200,7 +209,8 @@ class TestHttpPage(unittest.TestCase):
 
         def mock_task_propagate_val_method():
             # This method is called by _fetch_headers_task_done_cb on self.mock_task_instance
-            # It returns the captured dictionary, or raises if it's an error meant to be raised by propagate_value itself.
+            # It returns the captured dictionary, or raises if it's an error meant to
+            # be raised by propagate_value itself.
             if self.mock_task_instance.return_new_error_literal.called:
                 # If task.return_new_error_literal() was called, simulate GLib.Error being raised by propagate_value()
                 # Arguments are: (domain_quark, code_int, message_str)
@@ -211,7 +221,7 @@ class TestHttpPage(unittest.TestCase):
 
             # print(f"mock_task_propagate_val_method returning/raising: {self.captured_task_result_for_propagate}")
             if isinstance(self.captured_task_result_for_propagate, Exception) and \
-               not isinstance(self.captured_task_result_for_propagate, dict): # Ensure it's not our result dict
+               not isinstance(self.captured_task_result_for_propagate, dict):  # Ensure it's not our result dict
                 # This path is for testing GObject.GError from propagate_value (other GErrors not from return_error)
                 raise self.captured_task_result_for_propagate
             return self.captured_task_result_for_propagate
@@ -226,15 +236,16 @@ class TestHttpPage(unittest.TestCase):
         def actual_run_in_thread(task_func_on_http_page):
             # task_func_on_http_page is _fetch_headers_task_thread_func from HttpPage instance
             task_func_on_http_page(
-                self.mock_task_instance, # This is the 'task' argument in _fetch_headers_task_thread_func
+                self.mock_task_instance,  # This is the 'task' argument in _fetch_headers_task_thread_func
                 self.page,
                 self.page._http_task_data_for_thread,
                 self.mock_task_instance.get_cancellable()
-            )
+                )
             # After task_func_on_http_page executes, it will have called self.mock_task_instance.return_value(),
-            # which in turn calls mock_task_return_val_method, storing the result in self.captured_task_result_for_propagate.
+            # which in turn calls mock_task_return_val_method, storing the result in
+            # self.captured_task_result_for_propagate.
 
-            if self.done_cb_to_call: # This is _fetch_headers_task_done_cb
+            if self.done_cb_to_call:  # This is _fetch_headers_task_done_cb
                 # The callback will then call self.mock_task_instance.propagate_value(),
                 # which will execute mock_task_propagate_val_method and return the captured dictionary.
                 self.done_cb_to_call(self.page, self.mock_task_instance, None)
@@ -245,15 +256,15 @@ class TestHttpPage(unittest.TestCase):
 
         self.mock_task_instance.run_in_thread = MagicMock(side_effect=actual_run_in_thread)
         MockGio.Task.new.return_value = self.mock_task_instance
-        MockGLib.quark_from_string = lambda s: s # Simplify domain assertion
+        MockGLib.quark_from_string = lambda s: s  # Simplify domain assertion
 
         # Instantiate HttpPage
         # This needs to happen after mock_Gio.Task.new is configured for its __init__
         # if HttpPage creates tasks in __init__ (it doesn't seem to).
         # Patches for Gtk.Template.Child should be active here.
         template_child_mock = MagicMock(side_effect=lambda name: MagicMock(name=f"mock_template_child_{name}"))
-        list_store_mock = MagicMock(spec=MockGio.ListStore) # Mock for Gio.ListStore
-        list_store_mock.remove_all = MagicMock() # Mock method used in _update_column_view_model
+        list_store_mock = MagicMock(spec=MockGio.ListStore)  # Mock for Gio.ListStore
+        list_store_mock.remove_all = MagicMock()  # Mock method used in _update_column_view_model
 
         try:
             # The Gtk, Gio, etc. used by HttpPage at definition time are already the global mocks
@@ -270,7 +281,6 @@ class TestHttpPage(unittest.TestCase):
             self.page = self.HttpPage_class_to_test()
         except Exception as e:
             self.fail(f"Failed to instantiate HttpPage: {e}")
-
 
     @patch('src.http_page.requests.get')
     def test_timeout_error_handling(self, mock_requests_get):
@@ -325,31 +335,30 @@ class TestHttpPage(unittest.TestCase):
         # For now, assuming it tests a path that *doesn't* call it.
         self.mock_task_instance.return_new_error_literal.assert_not_called()
 
-
     @patch('src.http_page.requests.get')
     def test_timeout_error_post_fix_verification(self, mock_requests_get):
         """
         Verifies timeout handling. The main code now returns a dict via task.return_value.
         """
-        mock_requests_get.side_effect = requests.exceptions.Timeout("Test timeout specifically for post-fix verification")
+        mock_requests_get.side_effect = requests.exceptions.Timeout(
+            "Test timeout specifically for post-fix verification")
 
         page = self.page
 
         # Minimal UI mock setup
         page.http_entry_row = MagicMock(spec=MockAdw.EntryRow)
         page.http_entry_row.get_text.return_value = "http://example-for-timeout-verification.com"
-        page.http_entry_row.get_sensitive.return_value = True # Initial state
+        page.http_entry_row.get_sensitive.return_value = True  # Initial state
         page.http_entry_row.set_sensitive = MagicMock()
         page.http_entry_row.add_css_class = MagicMock()
         page.http_entry_row.remove_css_class = MagicMock()
 
-
         page.http_user_agent_row = MagicMock(spec=MockAdw.ComboRow)
-        page.http_user_agent_row.get_selected.return_value = 0 # "None"
+        page.http_user_agent_row.get_selected.return_value = 0  # "None"
         page.http_host_header_row = MagicMock(spec=MockAdw.EntryRow)
-        page.http_host_header_row.get_text.return_value = "" # No specific host header
+        page.http_host_header_row.get_text.return_value = ""  # No specific host header
         page.http_pragma_switch_row = MagicMock(spec=MockAdw.SwitchRow)
-        page.http_pragma_switch_row.get_active.return_value = False # Pragma off
+        page.http_pragma_switch_row.get_active.return_value = False  # Pragma off
 
         page.error_banner = MagicMock(spec=MockAdw.Banner)
         page.error_banner.set_revealed = MagicMock()
@@ -404,26 +413,25 @@ class TestHttpPage(unittest.TestCase):
         new_conn_error_message = (
             f"<requests.packages.urllib3.connection.HTTPSConnection object at 0xmockaddress>: "
             f"Failed to establish a new connection: {inner_refused_msg_fragment}"
-        )
+            )
         # The NewConnectionError usually takes the pool and the message string as positional args.
         # For testing, the pool can be None.
         new_conn_error = NewConnectionError(None, new_conn_error_message)
         # Optionally, to simulate newer urllib3 that might carry the original ConnectionRefusedError:
         # new_conn_error.original_error = ConnectionRefusedError(inner_refused_msg_fragment)
 
-
         # Construct MaxRetryError:
         # This error wraps the NewConnectionError as its 'reason'.
         # Its message includes the pool details (host, port) and the requested URL/path.
-        max_retry_error_message = (
-            f"HTTPSConnectionPool(host='{mock_url_host}', port=443): "
-            f"Max retries exceeded with url: {mock_url_path} (Caused by {new_conn_error!r})"
-        )
+        # max_retry_error_message = ( # F841
+        # f"HTTPSConnectionPool(host='{mock_url_host}', port=443): "
+        # f"Max retries exceeded with url: {mock_url_path} (Caused by {new_conn_error!r})"
+        # )
         max_retry_error = MaxRetryError(
-            pool=None, # Mock pool or None
-            url=mock_url_path, # The path part of the URL
-            reason=new_conn_error # The NewConnectionError instance
-        )
+            pool=None,  # Mock pool or None
+            url=mock_url_path,  # The path part of the URL
+            reason=new_conn_error  # The NewConnectionError instance
+            )
         # Manually set args to match how requests might construct it if its __str__ is just the message.
         # Or rely on its default __str__ if it includes the reason.
         # For this test, ensuring the NewConnectionError is the 'reason' is key.
@@ -434,18 +442,18 @@ class TestHttpPage(unittest.TestCase):
         connection_error = requests.exceptions.ConnectionError(max_retry_error)
         mock_requests_get.side_effect = connection_error
 
-        page = self.page # Instantiated in setUp
+        page = self.page  # Instantiated in setUp
 
         # Configure mocks for UI elements accessed in _on_entry_row_activated and callback
         page.http_entry_row = MagicMock(spec=MockAdw.EntryRow)
-        page.http_entry_row.get_text.return_value = full_mock_url # Use the same URL for consistency
+        page.http_entry_row.get_text.return_value = full_mock_url  # Use the same URL for consistency
         page.http_entry_row.get_sensitive.return_value = True
         page.http_entry_row.set_sensitive = MagicMock()
         page.http_entry_row.add_css_class = MagicMock()
-        page.http_entry_row.remove_css_class = MagicMock() # For _clear_error
+        page.http_entry_row.remove_css_class = MagicMock()  # For _clear_error
 
         page.http_user_agent_row = MagicMock(spec=MockAdw.ComboRow)
-        page.http_user_agent_row.get_selected.return_value = 0 # "None"
+        page.http_user_agent_row.get_selected.return_value = 0  # "None"
         page.http_host_header_row = MagicMock(spec=MockAdw.EntryRow)
         page.http_host_header_row.get_text.return_value = ""
         page.http_pragma_switch_row = MagicMock(spec=MockAdw.SwitchRow)
@@ -455,12 +463,12 @@ class TestHttpPage(unittest.TestCase):
         page.error_banner.set_revealed = MagicMock()
         page.error_banner.set_title = MagicMock()
 
-        page.http_results_group = MagicMock(spec=MockGtk.Box) # Used by _hide_results -> _update_column_view_model
+        page.http_results_group = MagicMock(spec=MockGtk.Box)  # Used by _hide_results -> _update_column_view_model
         page.http_results_group.set_visible = MagicMock()
 
         # Ensure header_list_store mock
         if not hasattr(page.header_list_store, 'remove_all'):
-             page.header_list_store.remove_all = MagicMock()
+            page.header_list_store.remove_all = MagicMock()
 
         # No direct mocking of propagate_value or return_error here for this type of error.
         # The new setUp handles the flow:
@@ -480,7 +488,7 @@ class TestHttpPage(unittest.TestCase):
         page.http_entry_row.add_css_class.assert_called_with("error")
 
         self.mock_task_instance.return_new_error_literal.assert_not_called()
-        self.mock_task_instance.return_value.assert_called_once() # The method on the task instance
+        self.mock_task_instance.return_value.assert_called_once()  # The method on the task instance
         args_call = self.mock_task_instance.return_value.call_args[0][0]
         self.assertIsInstance(args_call, dict)
         self.assertEqual(args_call.get('error_type'), 'ConnectionError')
@@ -493,7 +501,7 @@ class TestHttpPage(unittest.TestCase):
 
         connection_refused_msg = "Failed to establish a new connection: [Errno 111] Connection refused"
         new_conn_error = NewConnectionError(None, reason=connection_refused_msg)
-        max_retry_error = MaxRetryError(None, "http://example-https-only.com", reason=new_conn_error) # HTTP URL
+        max_retry_error = MaxRetryError(None, "http://example-https-only.com", reason=new_conn_error)  # HTTP URL
         connection_error = requests.exceptions.ConnectionError(max_retry_error)
         mock_requests_get.side_effect = connection_error
 
@@ -501,7 +509,7 @@ class TestHttpPage(unittest.TestCase):
 
         # Configure mocks for UI elements
         page.http_entry_row = MagicMock(spec=MockAdw.EntryRow)
-        page.http_entry_row.get_text.return_value = "http://example-https-only.com" # HTTP URL
+        page.http_entry_row.get_text.return_value = "http://example-https-only.com"  # HTTP URL
         page.http_entry_row.get_sensitive.return_value = True
         page.http_entry_row.set_sensitive = MagicMock()
         page.http_entry_row.add_css_class = MagicMock()
@@ -521,7 +529,7 @@ class TestHttpPage(unittest.TestCase):
         page.http_results_group = MagicMock(spec=MockGtk.Box)
         page.http_results_group.set_visible = MagicMock()
         if not hasattr(page.header_list_store, 'remove_all'):
-             page.header_list_store.remove_all = MagicMock()
+            page.header_list_store.remove_all = MagicMock()
 
         # 2. Simulate activating the entry row
         page._on_entry_row_activated(page.http_entry_row)
@@ -542,9 +550,8 @@ class TestHttpPage(unittest.TestCase):
         self.assertEqual(args_call.get('error_type'), 'ConnectionError')
         self.assertEqual(args_call.get('message'), expected_message)
 
-
     def test_clear_results_button_functionality(self):
-        page = self.page # Instantiated in setUp
+        page = self.page  # Instantiated in setUp
 
         # 1. Configure initial state:
         #    - Populate header_list_store (mocked in setUp)
@@ -556,26 +563,25 @@ class TestHttpPage(unittest.TestCase):
         page.header_list_store.append = MagicMock()
         # page.header_list_store.remove_all is already mocked via Gio.ListStore.new in setUp,
         # but ensure it is for this test context specifically if setUp changes.
-        if not hasattr(page.header_list_store, 'remove_all'): # Should be there from global mock
+        if not hasattr(page.header_list_store, 'remove_all'):  # Should be there from global mock
             page.header_list_store.remove_all = MagicMock()
 
-        page.header_list_store.append("dummy_key", "dummy_value") # Simulate adding an item
+        page.header_list_store.append("dummy_key", "dummy_value")  # Simulate adding an item
 
         page.http_results_group = MagicMock(spec=MockGtk.Box)
         page.http_results_group.set_visible = MagicMock()
-        page.http_results_group.set_visible(True) # Simulate it's initially visible
+        page.http_results_group.set_visible(True)  # Simulate it's initially visible
 
         page.http_entry_row = MagicMock(spec=MockAdw.EntryRow)
         page.http_entry_row.set_text = MagicMock()
-        page.http_entry_row.remove_css_class = MagicMock() # For _clear_error
-        page.http_entry_row.set_text("http://example.com/somepath") # Simulate initial text
+        page.http_entry_row.remove_css_class = MagicMock()  # For _clear_error
+        page.http_entry_row.set_text("http://example.com/somepath")  # Simulate initial text
 
         page.error_banner = MagicMock(spec=MockAdw.Banner)
         page.error_banner.set_revealed = MagicMock()
         page.error_banner.set_title = MagicMock()
-        page.error_banner.set_title("Old error message") # Simulate initial error
+        page.error_banner.set_title("Old error message")  # Simulate initial error
         page.error_banner.set_revealed(True)
-
 
         # 2. Simulate a click on the "Clear Results" button
         # The button itself is not mocked here, we call the handler directly.
@@ -590,35 +596,12 @@ class TestHttpPage(unittest.TestCase):
         #    *   `error_banner` is not revealed
 
         page.header_list_store.remove_all.assert_called_once()
-        page.http_results_group.set_visible.assert_called_with(False) # Called by _hide_results
+        page.http_results_group.set_visible.assert_called_with(False)  # Called by _hide_results
         page.http_entry_row.set_text.assert_called_with("")
-        page.error_banner.set_revealed.assert_called_with(False) # Called by _clear_error
-        page.error_banner.set_title.assert_called_with("") # Also part of _clear_error
-
-# Helper function to create mock response objects for testing redirect history
-def _create_mock_response(url, status_code, headers, history_list=None):
-    mock_resp = MagicMock(spec=requests.Response)
-    mock_resp.url = str(url) # Ensure URL is string
-    mock_resp.status_code = status_code
-    mock_resp.headers = headers # Should be a dict-like object
-    mock_resp.history = history_list if history_list is not None else []
-    return mock_resp
+        page.error_banner.set_revealed.assert_called_with(False)  # Called by _clear_error
+        page.error_banner.set_title.assert_called_with("")  # Also part of _clear_error
 
 # TestHttpPage class continues...
-# We will append new test methods inside the TestHttpPage class structure.
-# The following search block targets the end of the class to append new tests.
-# This is a common pattern: find a known line, then add after it.
-# In this case, finding the `if __name__ == '__main__':` line and inserting before it.
-
-# Find the last method of TestHttpPage and add new methods after it.
-# The last method currently is test_clear_results_button_functionality.
-# So, the new content will be added after that method's definition.
-
-# This is a placeholder for the diff tool. The actual content will be appended.
-# SEARCH/REPLACE for adding new methods requires careful structure.
-# It's often easier to replace the whole class or a large chunk if adding multiple methods.
-# However, attempting to append:
-
     @patch('src.http_page.requests.get')
     def test_fetch_headers_no_redirects(self, mock_requests_get):
         page = self.page
@@ -630,225 +613,28 @@ def _create_mock_response(url, status_code, headers, history_list=None):
 
         page._update_column_view_model = MagicMock()
 
-        # This simulates what _fetch_headers_task_thread_func returns via task.return_value(the_dict)
-        # The setUp's mock_task_instance.propagate_value will then return this the_dict.
-        # So, we don't mock propagate_value directly in the test anymore for success cases.
-        # Instead, requests.get is mocked, and _fetch_headers_task_thread_func constructs the success dict.
-
-        # mock_requests_get is already set up by the @patch decorator.
-        # mock_requests_get.return_value = mock_final_response (done at the start of the test)
-
-        page.http_entry_row = MagicMock(spec=MockAdw.EntryRow); page.http_entry_row.get_text.return_value = final_url
-        page.http_user_agent_row = MagicMock(spec=MockAdw.ComboRow); page.http_user_agent_row.get_selected.return_value = 0
-        page.http_host_header_row = MagicMock(spec=MockAdw.EntryRow); page.http_host_header_row.get_text.return_value = ""
-        page.http_pragma_switch_row = MagicMock(spec=MockAdw.SwitchRow); page.http_pragma_switch_row.get_active.return_value = False
-        page.error_banner = MagicMock(spec=MockAdw.Banner); page.error_banner.set_revealed = MagicMock(); page.error_banner.set_title = MagicMock()
-        page.http_entry_row.remove_css_class = MagicMock()
-
-
-        page._on_entry_row_activated(page.http_entry_row)
-        page._update_column_view_model.assert_called_once()
-        processed_items = page._update_column_view_model.call_args[0][0]
-
-        # Expected: URL/Status row (special), header rows (regular). No spacer after the last response block.
-        self.assertEqual(len(processed_items), 1 + len(final_headers))
-        self.assertTrue(processed_items[0].is_special_row)
-        self.assertEqual(processed_items[0].key, f"URL: {final_url}")
-        self.assertEqual(processed_items[0].value, "Status: 200 (Final)")
-        idx = 1
-        for key, value in final_headers.items():
-            self.assertFalse(processed_items[idx].is_special_row)
-            self.assertEqual(processed_items[idx].key, key)
-            self.assertEqual(processed_items[idx].value, value)
-            idx+=1
-
-    @patch('src.http_page.requests.get')
-    def test_fetch_headers_single_redirect(self, mock_requests_get):
-        page = self.page
-        r1_url = "http://initial.com"; r1_hdrs = {"L1": "V1"}; r1_stat = 301
-        final_url = "http://final.com"; final_hdrs = {"L_Final": "V_Final"}; final_stat = 200
-
-        mock_r1 = _create_mock_response(r1_url, r1_stat, r1_hdrs)
-        mock_final = _create_mock_response(final_url, final_stat, final_hdrs, history_list=[mock_r1])
-        mock_requests_get.return_value = mock_final # This is for requests.get() inside the thread func
-
-        page._update_column_view_model = MagicMock()
-        # propagate_value is handled by setUp's mock to return the dict from _fetch_headers_task_thread_func
-
-        page.http_entry_row = MagicMock(spec=MockAdw.EntryRow); page.http_entry_row.get_text.return_value = r1_url
-        page.http_user_agent_row = MagicMock(spec=MockAdw.ComboRow); page.http_user_agent_row.get_selected.return_value = 0
-        page.http_host_header_row = MagicMock(spec=MockAdw.EntryRow); page.http_host_header_row.get_text.return_value = ""
-        page.http_pragma_switch_row = MagicMock(spec=MockAdw.SwitchRow); page.http_pragma_switch_row.get_active.return_value = False
-        page.error_banner = MagicMock(spec=MockAdw.Banner); page.error_banner.set_revealed = MagicMock(); page.error_banner.set_title = MagicMock()
-        page.http_entry_row.remove_css_class = MagicMock()
-
-        page._on_entry_row_activated(page.http_entry_row)
-        page._update_column_view_model.assert_called_once()
-        processed_items = page._update_column_view_model.call_args[0][0]
-
-        expected_len = (1 + len(r1_hdrs) + 1) + (1 + len(final_hdrs)) # r1_info, r1_hdrs, spacer, final_info, final_hdrs
-        self.assertEqual(len(processed_items), expected_len)
-
-        # R1
-        self.assertTrue(processed_items[0].is_special_row)
-        self.assertEqual(processed_items[0].key, f"URL: {r1_url}")
-        self.assertEqual(processed_items[0].value, f"Status: {r1_stat} (Redirect)")
-        idx = 1
-        for k, v in r1_hdrs.items():
-            self.assertFalse(processed_items[idx].is_special_row)
-            self.assertEqual(processed_items[idx].key, k)
-            self.assertEqual(processed_items[idx].value, v)
-            idx += 1
-        # Spacer
-        self.assertTrue(processed_items[idx].is_special_row)
-        self.assertEqual(processed_items[idx].key, "")
-        idx += 1
-        # Final
-        self.assertTrue(processed_items[idx].is_special_row)
-        self.assertEqual(processed_items[idx].key, f"URL: {final_url}")
-        self.assertEqual(processed_items[idx].value, f"Status: {final_stat} (Final)")
-        idx += 1
-        for k, v in final_hdrs.items():
-            self.assertFalse(processed_items[idx].is_special_row)
-            self.assertEqual(processed_items[idx].key, k)
-            self.assertEqual(processed_items[idx].value, v)
-            idx += 1
-
-    @patch('src.http_page.requests.get')
-    def test_fetch_headers_multiple_redirects(self, mock_requests_get):
-        page = self.page
-        r1_url="http://r1.com"; r1_h={"R1H":"1"}; r1_s=301
-        r2_url="http://r2.com"; r2_h={"R2H":"2"}; r2_s=302
-        f_url="http://final.com"; f_h={"FH":"F"}; f_s=200
-
-        mock_r1 = _create_mock_response(r1_url, r1_s, r1_h)
-        mock_r2 = _create_mock_response(r2_url, r2_s, r2_h)
-        mock_final = _create_mock_response(f_url, f_s, f_h, history_list=[mock_r1, mock_r2])
-        mock_requests_get.return_value = mock_final # For requests.get() in thread func
-
-        page._update_column_view_model = MagicMock()
-        # propagate_value is handled by setUp
-
-        page.http_entry_row = MagicMock(spec=MockAdw.EntryRow); page.http_entry_row.get_text.return_value = r1_url
-        page.http_user_agent_row = MagicMock(spec=MockAdw.ComboRow); page.http_user_agent_row.get_selected.return_value = 0
-        page.http_host_header_row = MagicMock(spec=MockAdw.EntryRow); page.http_host_header_row.get_text.return_value = ""
-        page.http_pragma_switch_row = MagicMock(spec=MockAdw.SwitchRow); page.http_pragma_switch_row.get_active.return_value = False
-        page.error_banner = MagicMock(spec=MockAdw.Banner); page.error_banner.set_revealed = MagicMock(); page.error_banner.set_title = MagicMock()
-        page.http_entry_row.remove_css_class = MagicMock()
-
-        page._on_entry_row_activated(page.http_entry_row)
-        page._update_column_view_model.assert_called_once()
-        processed_items = page._update_column_view_model.call_args[0][0]
-
-        expected_len = (1+len(r1_h)+1) + (1+len(r2_h)+1) + (1+len(f_h))
-        self.assertEqual(len(processed_items), expected_len)
-
-        # Basic checks for order and type
-        self.assertTrue(processed_items[0].is_special_row); self.assertIn(r1_url, processed_items[0].key) # R1 info
-        self.assertTrue(processed_items[1+len(r1_h)].is_special_row) # Spacer after R1
-        self.assertTrue(processed_items[2+len(r1_h)].is_special_row); self.assertIn(r2_url, processed_items[2+len(r1_h)].key) # R2 info
-        self.assertTrue(processed_items[2+len(r1_h)+1+len(r2_h)].is_special_row) # Spacer after R2
-        self.assertTrue(processed_items[2+len(r1_h)+2+len(r2_h)].is_special_row); self.assertIn(f_url, processed_items[2+len(r1_h)+2+len(r2_h)].key) # Final info
-
-    def test_styling_of_special_rows(self):
-        page = self.page
-        # Ensure HeaderItem_class_for_test is available
-        self.assertIsNotNone(HeaderItem_class_for_test, "HeaderItem class not loaded for test")
-
-        mock_list_item = MagicMock(spec=MockGtk.ListItem)
-        mock_label = MagicMock(spec=MockGtk.Label)
-        mock_list_item.get_child.return_value = mock_label
-
-        # We need a factory instance that has its 'setup' and 'bind' callbacks captured.
-        # The HttpPage.__init__ normally creates these. We'll create one and manually set up capture.
-        factory_capturer = MagicMock(spec=MockGtk.SignalListItemFactory)
-        captured_callbacks = {}
-        def capture_connect(signal_name, func_to_capture):
-            captured_callbacks[signal_name] = func_to_capture
-        factory_capturer.connect = MagicMock(side_effect=capture_connect)
-
-        # Temporarily override the mock for SignalListItemFactory.new
-        original_factory_new = MockGtk.SignalListItemFactory.new
-        MockGtk.SignalListItemFactory.new = MagicMock(return_value=factory_capturer)
-
-        # Call _create_factory which internally calls new() and connect()
-        # This factory will use the factory_capturer and store its connected functions
-        # in captured_callbacks
-        tested_factory = page._create_factory(attr_name="key")
-
-        self.assertIn("setup", captured_callbacks)
-        self.assertIn("bind", captured_callbacks)
-        setup_func = captured_callbacks["setup"]
-        bind_func = captured_callbacks["bind"]
-
-        # Restore the original mock for SignalListItemFactory.new for other tests
-        MockGtk.SignalListItemFactory.new = original_factory_new
-
-        # Call setup_func to simulate Gtk setting up the list item
-        setup_func(None, mock_list_item) # First arg (factory) is not used in setup_func
-
-        # Test Case 1: Special row
-        special_item_key = "URL: http://example.com"
-        special_item = HeaderItem_class_for_test(key=special_item_key, value="Status: 200", is_special_row=True)
-        mock_list_item.get_item.return_value = special_item
-
-        original_markup_escape = MockGLib.markup_escape_text
-        MockGLib.markup_escape_text = MagicMock(side_effect=lambda text: text) # Simple pass-through for this test
-
-        bind_func(None, mock_list_item) # First arg (factory) is not used in bind_func
-
-        expected_markup = f"<b>{special_item_key}</b>"
-        mock_label.set_markup.assert_called_once_with(expected_markup)
-        mock_label.set_text.assert_not_called()
-        mock_label.reset_mock()
-
-        # Test Case 2: Regular row
-        regular_item_key = "Host"
-        regular_item = HeaderItem_class_for_test(key=regular_item_key, value="example.com", is_special_row=False)
-        mock_list_item.get_item.return_value = regular_item
-
-        bind_func(None, mock_list_item)
-
-        mock_label.set_text.assert_called_once_with(regular_item_key)
-        mock_label.set_markup.assert_not_called()
-
-        MockGLib.markup_escape_text = original_markup_escape # Restore
-
-
-    @patch('src.http_page.requests.get')
-    def test_fetch_headers_no_redirects(self, mock_requests_get):
-        page = self.page
-        final_url = "http://final.com"
-        final_headers = {"Content-Type": "text/html", "X-Final-Header": "FinalValue"}
-
-        mock_final_response = _create_mock_response(final_url, 200, final_headers, history_list=[])
-        mock_requests_get.return_value = mock_final_response
-
-        # Mock _update_column_view_model to capture its arguments
-        # This is where the processed HeaderItem list will be sent.
-        page._update_column_view_model = MagicMock()
-
-        # Simulate that the task returns the structured list of response data
         self.mock_task_instance.propagate_value = MagicMock(return_value=[
             {'type': 'final', 'url': final_url, 'status_code': 200, 'headers': final_headers}
-        ])
+            ])
 
-        # Setup other necessary mocks for _on_entry_row_activated
-        page.http_entry_row = MagicMock(spec=MockAdw.EntryRow); page.http_entry_row.get_text.return_value = final_url
-        page.http_user_agent_row = MagicMock(spec=MockAdw.ComboRow); page.http_user_agent_row.get_selected.return_value = 0
-        page.http_host_header_row = MagicMock(spec=MockAdw.EntryRow); page.http_host_header_row.get_text.return_value = ""
-        page.http_pragma_switch_row = MagicMock(spec=MockAdw.SwitchRow); page.http_pragma_switch_row.get_active.return_value = False
-        page.error_banner = MagicMock(spec=MockAdw.Banner); page.error_banner.set_revealed = MagicMock(); page.error_banner.set_title = MagicMock()
-        page.http_entry_row.remove_css_class = MagicMock() # Called in _fetch_headers_task_done_cb
+        page.http_entry_row = MagicMock(spec=MockAdw.EntryRow)
+        page.http_entry_row.get_text.return_value = final_url
+        page.http_user_agent_row = MagicMock(spec=MockAdw.ComboRow)
+        page.http_user_agent_row.get_selected.return_value = 0
+        page.http_host_header_row = MagicMock(spec=MockAdw.EntryRow)
+        page.http_host_header_row.get_text.return_value = ""
+        page.http_pragma_switch_row = MagicMock(spec=MockAdw.SwitchRow)
+        page.http_pragma_switch_row.get_active.return_value = False
+        page.error_banner = MagicMock(spec=MockAdw.Banner)
+        page.error_banner.set_revealed = MagicMock()
+        page.error_banner.set_title = MagicMock()
+        page.http_entry_row.remove_css_class = MagicMock()
 
         page._on_entry_row_activated(page.http_entry_row)
-
         page._update_column_view_model.assert_called_once()
         processed_items = page._update_column_view_model.call_args[0][0]
 
-        # Expected: 1 special row (URL/Status) + number of headers. No spacer after the last item.
         self.assertEqual(len(processed_items), 1 + len(final_headers))
-        # Ensure HeaderItem is available for isinstance check
         self.assertIsNotNone(http_page_module.HeaderItem, "HeaderItem class could not be loaded from http_page_module")
 
         self.assertIsInstance(processed_items[0], http_page_module.HeaderItem)
@@ -866,24 +652,34 @@ def _create_mock_response(url, status_code, headers, history_list=None):
     @patch('src.http_page.requests.get')
     def test_fetch_headers_single_redirect(self, mock_requests_get):
         page = self.page
-        r1_url = "http://initial.com"; r1_hdrs = {"L1": "V1"}; r1_stat = 301
-        final_url = "http://final.com"; final_hdrs = {"L_Final": "V_Final"}; final_stat = 200
+        r1_url = "http://initial.com"
+        r1_hdrs = {"L1": "V1"}
+        r1_s = 301
+        final_url = "http://final.com"
+        final_hdrs = {"L_Final": "V_Final"}
+        final_stat = 200
 
-        mock_r1 = _create_mock_response(r1_url, r1_stat, r1_hdrs)
+        mock_r1 = _create_mock_response(r1_url, r1_s, r1_hdrs)
         mock_final = _create_mock_response(final_url, final_stat, final_hdrs, history_list=[mock_r1])
         mock_requests_get.return_value = mock_final
 
         page._update_column_view_model = MagicMock()
         self.mock_task_instance.propagate_value = MagicMock(return_value=[
-            {'type': 'redirect', 'url': r1_url, 'status_code': r1_stat, 'headers': r1_hdrs},
+            {'type': 'redirect', 'url': r1_url, 'status_code': r1_s, 'headers': r1_hdrs},
             {'type': 'final', 'url': final_url, 'status_code': final_stat, 'headers': final_hdrs}
-        ])
+            ])
 
-        page.http_entry_row = MagicMock(spec=MockAdw.EntryRow); page.http_entry_row.get_text.return_value = r1_url
-        page.http_user_agent_row = MagicMock(spec=MockAdw.ComboRow); page.http_user_agent_row.get_selected.return_value = 0
-        page.http_host_header_row = MagicMock(spec=MockAdw.EntryRow); page.http_host_header_row.get_text.return_value = ""
-        page.http_pragma_switch_row = MagicMock(spec=MockAdw.SwitchRow); page.http_pragma_switch_row.get_active.return_value = False
-        page.error_banner = MagicMock(spec=MockAdw.Banner); page.error_banner.set_revealed = MagicMock(); page.error_banner.set_title = MagicMock()
+        page.http_entry_row = MagicMock(spec=MockAdw.EntryRow)
+        page.http_entry_row.get_text.return_value = r1_url
+        page.http_user_agent_row = MagicMock(spec=MockAdw.ComboRow)
+        page.http_user_agent_row.get_selected.return_value = 0
+        page.http_host_header_row = MagicMock(spec=MockAdw.EntryRow)
+        page.http_host_header_row.get_text.return_value = ""
+        page.http_pragma_switch_row = MagicMock(spec=MockAdw.SwitchRow)
+        page.http_pragma_switch_row.get_active.return_value = False
+        page.error_banner = MagicMock(spec=MockAdw.Banner)
+        page.error_banner.set_revealed = MagicMock()
+        page.error_banner.set_title = MagicMock()
         page.http_entry_row.remove_css_class = MagicMock()
 
         page._on_entry_row_activated(page.http_entry_row)
@@ -893,37 +689,40 @@ def _create_mock_response(url, status_code, headers, history_list=None):
         expected_len = (1 + len(r1_hdrs) + 1) + (1 + len(final_hdrs))
         self.assertEqual(len(processed_items), expected_len)
 
-        # R1
         self.assertTrue(processed_items[0].is_special_row)
         self.assertEqual(processed_items[0].key, f"URL: {r1_url}")
-        self.assertEqual(processed_items[0].value, f"Status: {r1_stat} (Redirect)")
+        self.assertEqual(processed_items[0].value, f"Status: {r1_s} (Redirect)")
         idx = 1
-        for k,v in r1_hdrs.items():
+        for k, v in r1_hdrs.items():
             self.assertFalse(processed_items[idx].is_special_row)
-            self.assertEqual(processed_items[idx].key,k)
-            self.assertEqual(processed_items[idx].value,v)
-            idx+=1
-        # Spacer
+            self.assertEqual(processed_items[idx].key, k)
+            self.assertEqual(processed_items[idx].value, v)
+            idx += 1
         self.assertTrue(processed_items[idx].is_special_row)
         self.assertEqual(processed_items[idx].key, "")
-        idx+=1
-        # Final
+        idx += 1
         self.assertTrue(processed_items[idx].is_special_row)
         self.assertEqual(processed_items[idx].key, f"URL: {final_url}")
         self.assertEqual(processed_items[idx].value, f"Status: {final_stat} (Final)")
-        idx+=1
-        for k,v in final_hdrs.items():
+        idx += 1
+        for k, v in final_hdrs.items():
             self.assertFalse(processed_items[idx].is_special_row)
-            self.assertEqual(processed_items[idx].key,k)
-            self.assertEqual(processed_items[idx].value,v)
-            idx+=1
+            self.assertEqual(processed_items[idx].key, k)
+            self.assertEqual(processed_items[idx].value, v)
+            idx += 1
 
     @patch('src.http_page.requests.get')
     def test_fetch_headers_multiple_redirects(self, mock_requests_get):
         page = self.page
-        r1_url="http://r1.com"; r1_h={"R1H":"1"}; r1_s=301
-        r2_url="http://r2.com"; r2_h={"R2H":"2"}; r2_s=302
-        f_url="http://final.com"; f_h={"FH":"F"}; f_s=200
+        r1_url = "http://r1.com"
+        r1_h = {"R1H": "1"}
+        r1_s = 301
+        r2_url = "http://r2.com"
+        r2_h = {"R2H": "2"}
+        r2_s = 302
+        f_url = "http://final.com"
+        f_h = {"FH": "F"}
+        f_s = 200
 
         mock_r1 = _create_mock_response(r1_url, r1_s, r1_h)
         mock_r2 = _create_mock_response(r2_url, r2_s, r2_h)
@@ -935,35 +734,45 @@ def _create_mock_response(url, status_code, headers, history_list=None):
             {'type': 'redirect', 'url': r1_url, 'status_code': r1_s, 'headers': r1_h},
             {'type': 'redirect', 'url': r2_url, 'status_code': r2_s, 'headers': r2_h},
             {'type': 'final', 'url': f_url, 'status_code': f_s, 'headers': f_h}
-        ])
+            ])
 
-        page.http_entry_row = MagicMock(spec=MockAdw.EntryRow); page.http_entry_row.get_text.return_value = r1_url
-        page.http_user_agent_row = MagicMock(spec=MockAdw.ComboRow); page.http_user_agent_row.get_selected.return_value = 0
-        page.http_host_header_row = MagicMock(spec=MockAdw.EntryRow); page.http_host_header_row.get_text.return_value = ""
-        page.http_pragma_switch_row = MagicMock(spec=MockAdw.SwitchRow); page.http_pragma_switch_row.get_active.return_value = False
-        page.error_banner = MagicMock(spec=MockAdw.Banner); page.error_banner.set_revealed = MagicMock(); page.error_banner.set_title = MagicMock()
+        page.http_entry_row = MagicMock(spec=MockAdw.EntryRow)
+        page.http_entry_row.get_text.return_value = r1_url
+        page.http_user_agent_row = MagicMock(spec=MockAdw.ComboRow)
+        page.http_user_agent_row.get_selected.return_value = 0
+        page.http_host_header_row = MagicMock(spec=MockAdw.EntryRow)
+        page.http_host_header_row.get_text.return_value = ""
+        page.http_pragma_switch_row = MagicMock(spec=MockAdw.SwitchRow)
+        page.http_pragma_switch_row.get_active.return_value = False
+        page.error_banner = MagicMock(spec=MockAdw.Banner)
+        page.error_banner.set_revealed = MagicMock()
+        page.error_banner.set_title = MagicMock()
         page.http_entry_row.remove_css_class = MagicMock()
 
         page._on_entry_row_activated(page.http_entry_row)
         page._update_column_view_model.assert_called_once()
         processed_items = page._update_column_view_model.call_args[0][0]
 
-        expected_len = (1+len(r1_h)+1) + (1+len(r2_h)+1) + (1+len(f_h))
+        expected_len = (1 + len(r1_h) + 1) + (1 + len(r2_h) + 1) + (1 + len(f_h))
         self.assertEqual(len(processed_items), expected_len)
 
-        # R1 assertions
         idx = 0
-        self.assertTrue(processed_items[idx].is_special_row); self.assertIn(r1_url, processed_items[idx].key); idx +=1
-        for _ in r1_h: idx +=1 # Skip header items
-        # Spacer after R1
-        self.assertTrue(processed_items[idx].is_special_row); idx +=1
-        # R2 assertions
-        self.assertTrue(processed_items[idx].is_special_row); self.assertIn(r2_url, processed_items[idx].key); idx +=1
-        for _ in r2_h: idx +=1 # Skip header items
-        # Spacer after R2
-        self.assertTrue(processed_items[idx].is_special_row); idx +=1
-        # Final assertions
-        self.assertTrue(processed_items[idx].is_special_row); self.assertIn(f_url, processed_items[idx].key)
+        self.assertTrue(processed_items[idx].is_special_row)
+        self.assertIn(r1_url, processed_items[idx].key)
+        idx += 1
+        for _ in r1_h:
+            idx += 1
+        self.assertTrue(processed_items[idx].is_special_row)
+        idx += 1
+        self.assertTrue(processed_items[idx].is_special_row)
+        self.assertIn(r2_url, processed_items[idx].key)
+        idx += 1
+        for _ in r2_h:
+            idx += 1
+        self.assertTrue(processed_items[idx].is_special_row)
+        idx += 1
+        self.assertTrue(processed_items[idx].is_special_row)
+        self.assertIn(f_url, processed_items[idx].key)
 
     def test_styling_of_special_rows(self):
         page = self.page
@@ -975,48 +784,44 @@ def _create_mock_response(url, status_code, headers, history_list=None):
 
         factory_capturer = MagicMock(spec=MockGtk.SignalListItemFactory)
         captured_callbacks = {}
-        # Simplified connect capture
-        def capture_connect(signal_name, func_to_capture, *_): # Added *_ to accept potential extra args
+
+        def capture_connect(signal_name, func_to_capture, *_):
             captured_callbacks[signal_name] = func_to_capture
         factory_capturer.connect = MagicMock(side_effect=capture_connect)
 
         original_factory_new = MockGtk.SignalListItemFactory.new
         MockGtk.SignalListItemFactory.new = MagicMock(return_value=factory_capturer)
 
-        tested_factory = page._create_factory(attr_name="key")
+        page._create_factory(attr_name="key")
 
         self.assertIn("setup", captured_callbacks)
         self.assertIn("bind", captured_callbacks)
         setup_func = captured_callbacks["setup"]
         bind_func = captured_callbacks["bind"]
 
-        MockGtk.SignalListItemFactory.new = original_factory_new # Restore
+        MockGtk.SignalListItemFactory.new = original_factory_new
 
-        # Simulate Gtk's behavior
-        setup_func(tested_factory, mock_list_item) # Pass factory as first arg for consistency with Gtk callbacks
+        setup_func(factory_capturer, mock_list_item)
 
-        # Test Case 1: Special row
         special_item_key = "URL: http://example.com"
-        # Use http_page_module.HeaderItem directly
         special_item = http_page_module.HeaderItem(key=special_item_key, value="Status: 200", is_special_row=True)
         mock_list_item.get_item.return_value = special_item
 
         original_markup_escape = MockGLib.markup_escape_text
         MockGLib.markup_escape_text = MagicMock(side_effect=lambda text: text)
 
-        bind_func(tested_factory, mock_list_item) # Pass factory as first arg
+        bind_func(factory_capturer, mock_list_item)
 
         expected_markup = f"<b>{special_item_key}</b>"
         mock_label.set_markup.assert_called_once_with(expected_markup)
         mock_label.set_text.assert_not_called()
         mock_label.reset_mock()
 
-        # Test Case 2: Regular row
         regular_item_key = "Host"
         regular_item = http_page_module.HeaderItem(key=regular_item_key, value="example.com", is_special_row=False)
         mock_list_item.get_item.return_value = regular_item
 
-        bind_func(tested_factory, mock_list_item) # Pass factory as first arg
+        bind_func(factory_capturer, mock_list_item)
 
         mock_label.set_text.assert_called_once_with(regular_item_key)
         mock_label.set_markup.assert_not_called()
@@ -1040,19 +845,21 @@ def _create_mock_response(url, status_code, headers, history_list=None):
         page.error_banner.set_revealed = MagicMock()
         page.error_banner.set_title = MagicMock()
 
-        page.http_user_agent_row = MagicMock(spec=MockAdw.ComboRow); page.http_user_agent_row.get_selected.return_value = 0
-        page.http_host_header_row = MagicMock(spec=MockAdw.EntryRow); page.http_host_header_row.get_text.return_value = ""
-        page.http_pragma_switch_row = MagicMock(spec=MockAdw.SwitchRow); page.http_pragma_switch_row.get_active.return_value = False
-
+        page.http_user_agent_row = MagicMock(spec=MockAdw.ComboRow)
+        page.http_user_agent_row.get_selected.return_value = 0
+        page.http_host_header_row = MagicMock(spec=MockAdw.EntryRow)
+        page.http_host_header_row.get_text.return_value = ""
+        page.http_pragma_switch_row = MagicMock(spec=MockAdw.SwitchRow)
+        page.http_pragma_switch_row.get_active.return_value = False
 
         # IMPORTANT: Set up the captured result to be a GError instance
         # This will be raised by mock_task_propagate_val_method in setUp
         simulated_gerror_message = "Simulated GError from propagate_value"
         self.captured_task_result_for_propagate = MockGLibErrorForTest(
             message=simulated_gerror_message,
-            domain=MockGio.io_error_quark.return_value, # Use the mocked quark
-            code=MockGio.IOErrorEnum.FAILED # Example error code
-        )
+            domain=MockGio.io_error_quark.return_value,  # Use the mocked quark
+            code=MockGio.IOErrorEnum.FAILED  # Example error code
+            )
 
         # Also, ensure that _fetch_headers_task_thread_func does not call task.return_value()
         # by making requests.get raise an exception. This ensures that
@@ -1064,11 +871,11 @@ def _create_mock_response(url, status_code, headers, history_list=None):
         page.error_banner.set_revealed.assert_called_with(True)
         page.error_banner.set_title.assert_called_once()
         args_title, _ = page.error_banner.set_title.call_args
-        self.assertEqual(args_title[0], simulated_gerror_message) # Message from the GError
+        self.assertEqual(args_title[0], simulated_gerror_message)  # Message from the GError
 
         page.http_entry_row.add_css_class.assert_called_with("error")
-        self.assertIsNone(page.current_http_task) # Task should be cleared
-        page.http_entry_row.set_sensitive.assert_called_with(True) # UI re-enabled
+        self.assertIsNone(page.current_http_task)  # Task should be cleared
+        page.http_entry_row.set_sensitive.assert_called_with(True)  # UI re-enabled
 
     @patch('src.http_page.requests.get')
     def test_actual_timeout_error_flow(self, mock_requests_get):
@@ -1087,29 +894,28 @@ def _create_mock_response(url, status_code, headers, history_list=None):
         # Setup minimal UI mocks
         page.http_entry_row = MagicMock(spec=MockAdw.EntryRow)
         page.http_entry_row.get_text.return_value = "http://timeout-example.com"
-        page.http_entry_row.get_sensitive.return_value = True # Initial state
+        page.http_entry_row.get_sensitive.return_value = True  # Initial state
         page.http_entry_row.set_sensitive = MagicMock()
         page.http_entry_row.add_css_class = MagicMock()
-        page.http_entry_row.remove_css_class = MagicMock() # For _clear_error if called
+        page.http_entry_row.remove_css_class = MagicMock()  # For _clear_error if called
 
         page.http_user_agent_row = MagicMock(spec=MockAdw.ComboRow)
-        page.http_user_agent_row.get_selected.return_value = 0 # "None"
+        page.http_user_agent_row.get_selected.return_value = 0  # "None"
         page.http_host_header_row = MagicMock(spec=MockAdw.EntryRow)
-        page.http_host_header_row.get_text.return_value = "" # No specific host header
+        page.http_host_header_row.get_text.return_value = ""  # No specific host header
         page.http_pragma_switch_row = MagicMock(spec=MockAdw.SwitchRow)
-        page.http_pragma_switch_row.get_active.return_value = False # Pragma off
+        page.http_pragma_switch_row.get_active.return_value = False  # Pragma off
 
         page.error_banner = MagicMock(spec=MockAdw.Banner)
         page.error_banner.set_revealed = MagicMock()
         page.error_banner.set_title = MagicMock()
 
         page.http_results_group = MagicMock(spec=MockGtk.Box)
-        page.http_results_group.set_visible = MagicMock() # For _hide_results
+        page.http_results_group.set_visible = MagicMock()  # For _hide_results
         # page.header_list_store is already mocked globally in setUp
         # Ensure remove_all is available (it should be from Gio.ListStore.new mock)
         if not hasattr(page.header_list_store, 'remove_all'):
             page.header_list_store.remove_all = MagicMock()
-
 
         # --- Action ---
         # This will trigger _fetch_headers_task_thread_func, which should call task.return_error,
@@ -1129,7 +935,7 @@ def _create_mock_response(url, status_code, headers, history_list=None):
             expected_domain,
             expected_code,
             expected_timeout_message
-        )
+            )
 
         # 2. UI reflects the error state (via _fetch_headers_task_done_cb)
         page.error_banner.set_revealed.assert_called_with(True)
@@ -1143,13 +949,12 @@ def _create_mock_response(url, status_code, headers, history_list=None):
         # It's called first with False, then with True in the finally block.
         page.http_entry_row.set_sensitive.assert_has_calls([call(False), call(True)])
 
-
         # 4. task.return_value should NOT have been called
         self.mock_task_instance.return_value.assert_not_called()
 
         # 5. Ensure results are hidden (called by _display_error)
         page.http_results_group.set_visible.assert_called_with(False)
-        page.header_list_store.remove_all.assert_called_once() # Called by _update_column_view_model(None) in _display_error
+        page.header_list_store.remove_all.assert_called_once()  # Called by _update_column_view_model(None) in _display_error
 
 
 # --- Tests for static utility functions (isolated) ---
@@ -1165,6 +970,8 @@ def _isolated_ensure_scheme(url: str) -> str:
     return url
 
 # Copied from HttpPage._is_valid_url
+
+
 def _isolated_is_valid_url(url: str) -> bool:
     # Requires: import re, requests.utils
     url_regex = re.compile(
@@ -1176,18 +983,27 @@ def _isolated_is_valid_url(url: str) -> bool:
         r"(?::\d+)?"
         r"(?:/?|[/?]\S+)$",
         re.IGNORECASE,
-    )
+        )
     return re.match(url_regex, url) is not None and bool(requests.utils.urlparse(url).netloc)
+
 
 # Dummy logger for _isolated_get_detailed_connection_error_message
 isolated_logger = MagicMock(spec=logging.Logger)
 
 # Dummy urllib3_exceptions for _isolated_get_detailed_connection_error_message
 # Use distinct classes for more precise isinstance checks in tests
-class _IsolatedMaxRetryError(Exception): pass
-class _IsolatedNewConnectionError(Exception): pass
+
+
+class _IsolatedMaxRetryError(Exception):
+    pass
+
+
+class _IsolatedNewConnectionError(Exception):
+    pass
 
 # Define a namespace class for these custom exceptions
+
+
 class _Urllib3ExceptionsNamespace:
     MaxRetryError = _IsolatedMaxRetryError
     NewConnectionError = _IsolatedNewConnectionError
@@ -1195,6 +1011,8 @@ class _Urllib3ExceptionsNamespace:
 # Copied from HttpPage._get_detailed_connection_error_message
 # Note: This function is complex and relies on specific string checks in exceptions.
 # The mock exceptions below need to align with these checks.
+
+
 def _isolated_get_detailed_connection_error_message(exc: Exception, url: str) -> Optional[str]:
     # Requires: requests.utils.urlparse, isolated_logger, _Urllib3ExceptionsNamespace
     # And Python's ConnectionRefusedError
@@ -1213,13 +1031,13 @@ def _isolated_get_detailed_connection_error_message(exc: Exception, url: str) ->
         exc_args_str = str(current_exc.args) if hasattr(current_exc, 'args') else "N/A"
         exc_str = str(current_exc)
         isolated_logger.debug("Inspecting exception at depth %d: Type=%s, Args=%s, Str=%s",
-                     depth, exc_type_name, exc_args_str, exc_str)
+                              depth, exc_type_name, exc_args_str, exc_str)
 
         if isinstance(current_exc, ConnectionRefusedError):
             isolated_logger.debug("Direct ConnectionRefusedError found: %s", current_exc)
             found_connection_refused = True
             break
-        if isinstance(current_exc, _Urllib3ExceptionsNamespace.NewConnectionError): # Changed here
+        if isinstance(current_exc, _Urllib3ExceptionsNamespace.NewConnectionError):  # Changed here
             isolated_logger.debug("urllib3.exceptions.NewConnectionError found: %s", current_exc)
             if "connection refused" in exc_str.lower() or "errno 111" in exc_str.lower():
                 found_connection_refused = True
@@ -1231,11 +1049,12 @@ def _isolated_get_detailed_connection_error_message(exc: Exception, url: str) ->
                 break
             if hasattr(current_exc, 'original_error') and \
                hasattr(current_exc.original_error, 'errno') and \
-               current_exc.original_error.errno == 111: # type: ignore
-                isolated_logger.debug("Nested ConnectionRefusedError (errno 111) found in NewConnectionError.original_error")
+               current_exc.original_error.errno == 111:  # type: ignore
+                isolated_logger.debug(
+                    "Nested ConnectionRefusedError (errno 111) found in NewConnectionError.original_error")
                 found_connection_refused = True
                 break
-        if isinstance(current_exc, _Urllib3ExceptionsNamespace.MaxRetryError): # Changed here
+        if isinstance(current_exc, _Urllib3ExceptionsNamespace.MaxRetryError):  # Changed here
             isolated_logger.debug("urllib3.exceptions.MaxRetryError found. Will inspect its reason.")
             if hasattr(current_exc, 'reason') and current_exc.reason is not None:
                 reason_exc = current_exc.reason
@@ -1243,20 +1062,21 @@ def _isolated_get_detailed_connection_error_message(exc: Exception, url: str) ->
                 reason_exc_str = str(reason_exc)
                 isolated_logger.debug(
                     "Inspecting MaxRetryError.reason: Type=%s, Str=%s", reason_exc_type_name, reason_exc_str
-                )
-                if isinstance(reason_exc, _Urllib3ExceptionsNamespace.NewConnectionError): # Changed here
+                    )
+                if isinstance(reason_exc, _Urllib3ExceptionsNamespace.NewConnectionError):  # Changed here
                     if "connection refused" in reason_exc_str.lower() or \
                        "errno 111" in reason_exc_str.lower():
                         found_connection_refused = True
                         break
                     if hasattr(reason_exc, 'original_error') and \
-                       isinstance(reason_exc.original_error, ConnectionRefusedError): # This is the target log path
-                        isolated_logger.debug("Nested ConnectionRefusedError found in NewConnectionError.original_error")
+                       isinstance(reason_exc.original_error, ConnectionRefusedError):  # This is the target log path
+                        isolated_logger.debug(
+                            "Nested ConnectionRefusedError found in NewConnectionError.original_error")
                         found_connection_refused = True
                         break
                     if hasattr(reason_exc, 'original_error') and \
                        hasattr(reason_exc.original_error, 'errno') and \
-                       reason_exc.original_error.errno == 111: # type: ignore
+                       reason_exc.original_error.errno == 111:  # type: ignore
                         found_connection_refused = True
                         break
         if any("connection refused" in str(arg).lower() for arg in current_exc.args if isinstance(arg, str)) or \
@@ -1272,10 +1092,11 @@ def _isolated_get_detailed_connection_error_message(exc: Exception, url: str) ->
         if hasattr(current_exc, '__cause__') and current_exc.__cause__ is not None:
             next_exc = current_exc.__cause__
         elif hasattr(current_exc, '__context__') and \
-             current_exc.__context__ is not None and \
-             not current_exc.__suppress_context__: # type: ignore
+                current_exc.__context__ is not None and \
+                not current_exc.__suppress_context__:  # type: ignore
             next_exc = current_exc.__context__
-        if current_exc is next_exc: break
+        if current_exc is next_exc:
+            break
         current_exc = next_exc
 
     if found_connection_refused:
@@ -1300,7 +1121,7 @@ class TestHttpPageStaticMethods(unittest.TestCase):
         self.assertEqual(_isolated_ensure_scheme("example.com"), "https://example.com")
         self.assertEqual(_isolated_ensure_scheme("http://example.com"), "http://example.com")
         self.assertEqual(_isolated_ensure_scheme("https://example.com"), "https://example.com")
-        self.assertEqual(_isolated_ensure_scheme(""), "https://") # current behavior
+        self.assertEqual(_isolated_ensure_scheme(""), "https://")  # current behavior
 
     def test_is_valid_url(self):
         self.assertTrue(_isolated_is_valid_url("http://example.com"))
@@ -1314,7 +1135,7 @@ class TestHttpPageStaticMethods(unittest.TestCase):
         self.assertFalse(_isolated_is_valid_url("ftp://example.com"))
         self.assertFalse(_isolated_is_valid_url("http://"))
         self.assertFalse(_isolated_is_valid_url(""))
-        self.assertFalse(_isolated_is_valid_url("http://exam ple.com")) # space
+        self.assertFalse(_isolated_is_valid_url("http://exam ple.com"))  # space
 
     def test_get_detailed_connection_error_message_https_refused(self):
         # Test 1: Direct ConnectionRefusedError
@@ -1330,16 +1151,16 @@ class TestHttpPageStaticMethods(unittest.TestCase):
         # Test 2: Nested exception structure
         # ConnectionRefusedError -> _IsolatedNewConnectionError -> _IsolatedMaxRetryError -> requests.ConnectionError
         orig_err = ConnectionRefusedError("actual refusal")
-        orig_err.errno = 111 # type: ignore
+        orig_err.errno = 111  # type: ignore
 
         new_conn_err_L2 = _IsolatedNewConnectionError("L2 new connection error")
-        new_conn_err_L2.original_error = orig_err # type: ignore
+        new_conn_err_L2.original_error = orig_err  # type: ignore
 
         max_retry_err_L1 = _IsolatedMaxRetryError("L1 max retry error")
-        max_retry_err_L1.reason = new_conn_err_L2 # type: ignore
+        max_retry_err_L1.reason = new_conn_err_L2  # type: ignore
 
-        requests_conn_err_L0 = requests.exceptions.ConnectionError(max_retry_err_L1) # Corrected variable name
-        requests_conn_err_L0.__cause__ = max_retry_err_L1 # Explicitly set cause for traversal
+        requests_conn_err_L0 = requests.exceptions.ConnectionError(max_retry_err_L1)  # Corrected variable name
+        requests_conn_err_L0.__cause__ = max_retry_err_L1  # Explicitly set cause for traversal
 
         # Debug prints to inspect the exception chain and attributes - REMOVING THESE for cleaner test
         # print("\nDEBUGGING EXCEPTION CHAIN (Test 2):")
@@ -1361,7 +1182,7 @@ class TestHttpPageStaticMethods(unittest.TestCase):
         actual_formatted_debug_calls = []
         for call_args_tuple in isolated_logger.debug.call_args_list:
             log_format_string = call_args_tuple[0][0]
-            actual_formatted_debug_calls.append(log_format_string) # Store the format string
+            actual_formatted_debug_calls.append(log_format_string)  # Store the format string
             if log_format_string == expected_log_message:
                 found_expected_log = True
                 # No need to break if we want to capture all logs for printing on failure
@@ -1397,7 +1218,7 @@ if __name__ == '__main__':
         # This might still run into issues if TestHttpPage setup itself fails.
         # For now, focus on static methods if HttpPage_class is problematic.
         # suite.addTest(unittest.makeSuite(TestHttpPage)) # This line can be added if TestHttpPage is fixed
-        pass # Keep it simple, just run static if main class fails.
+        pass  # Keep it simple, just run static if main class fails.
     else:
         print("Skipping TestHttpPage tests as HttpPage_class was not loaded.")
 

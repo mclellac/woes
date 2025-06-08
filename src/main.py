@@ -1,3 +1,8 @@
+from .window import WoesWindow
+from .preferences import Preferences
+from .constants import APP_ID, VERSION, RESOURCE_PREFIX, PKGDATADIR  # Import PKGDATADIR
+from gi.repository import Adw, Gio, GLib  # Added GLib for OptionArg/OptionFlags
+import gi
 import sys
 import os
 import logging
@@ -19,14 +24,10 @@ if not logging.getLogger().hasHandlers():
 early_logger.info("src/main.py: Script execution started (early_logger)")
 
 
-import gi
-
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
 # Import GUI related modules here
-from gi.repository import Adw, Gio, GLib # Added GLib for OptionArg/OptionFlags
-from .constants import APP_ID, VERSION, RESOURCE_PREFIX, PKGDATADIR # Import PKGDATADIR
 
 
 def _load_gresources_early():
@@ -44,7 +45,7 @@ def _load_gresources_early():
         logging.info(
             f"Attempting to load GResource file from: {resource_file_path} "
             f"(derived from PKGDATADIR: {PKGDATADIR})"
-        )
+            )
         try:
             if os.path.exists(resource_file_path):
                 resource = Gio.Resource.load(resource_file_path)
@@ -69,38 +70,39 @@ def _load_gresources_early():
                         logging.warning(
                             f"No resources found under prefix {RESOURCE_PREFIX} "
                             f"after loading {resource_file_path}."
-                        )
+                            )
                         temp_log_detail.write(
                             f"No resources found under prefix {RESOURCE_PREFIX} "
                             f"after loading {resource_file_path}.\n"
-                        )
+                            )
                 else:
-                    logging.error(f"Gio.Resource.load() returned None for {resource_file_path}. Application will now exit.")
+                    logging.error(
+                        f"Gio.Resource.load() returned None for {resource_file_path}. Application will now exit.")
                     temp_log_detail.write(f"Gio.Resource.load() returned None for {resource_file_path}.\n")
                     sys.exit(1)
             else:
                 logging.error(
                     f"GResource file not found at {resource_file_path} "
                     f"(derived from PKGDATADIR: {PKGDATADIR}). Application will now exit."
-                )
+                    )
                 temp_log_detail.write(f"GResource file not found at {resource_file_path}.\n")
                 sys.exit(1)
         except GLib.Error as e:
             logging.error(
                 f"Error loading or registering GResource {resource_file_path}: {e}. "
                 "Check if the file is a valid GResource bundle. Application will now exit.", exc_info=True
-            )
+                )
             temp_log_detail.write(f"GLib.Error during GResource loading: {e}\n")
             sys.exit(1)
         except Exception as e:
-            logging.error(f"An unexpected error occurred during GResource loading: {e}. Application will now exit.", exc_info=True)
+            logging.error(
+                f"An unexpected error occurred during GResource loading: {e}. Application will now exit.",
+                exc_info=True)
             temp_log_detail.write(f"Unexpected error during GResource loading: {e}\n")
             sys.exit(1)
 
-_load_gresources_early()
 
-from .preferences import Preferences
-from .window import WoesWindow
+_load_gresources_early()
 
 
 class WoesApplication(Adw.Application):
@@ -118,7 +120,7 @@ class WoesApplication(Adw.Application):
             application_id=APP_ID,
             flags=Gio.ApplicationFlags.DEFAULT_FLAGS,
             **kwargs
-        )
+            )
 
         self.add_main_option(
             "debug",
@@ -127,7 +129,7 @@ class WoesApplication(Adw.Application):
             GLib.OptionArg.NONE,
             "Enable debug logging",
             None
-        )
+            )
 
         self.win = None
 
@@ -138,7 +140,6 @@ class WoesApplication(Adw.Application):
         self.create_action("switch-to-nmap", self.switch_to_nmap, ["<primary>2"])
         self.create_action("switch-to-dns", self.switch_to_dns, ["<primary>3"])
         self.create_action("switch-to-webscan", self.switch_to_webscan, ["<primary>4"])
-
 
     def do_handle_local_options(self, options):
         logging.debug("WoesApplication.do_handle_local_options: Entered with options: %s", options)
@@ -156,7 +157,6 @@ class WoesApplication(Adw.Application):
         self.do_handle_local_options(options.get_options_dict())
         self.activate()
         return 0
-
 
     def do_activate(self):
         """Called when the application is activated.
@@ -184,7 +184,6 @@ class WoesApplication(Adw.Application):
             self.win = win
         else:
             logging.error("WoesApplication.do_activate: Window object is None, cannot proceed.")
-
 
     def switch_to_http(self, *_args):
         if self.win and hasattr(self.win, 'stack'):
@@ -220,7 +219,7 @@ class WoesApplication(Adw.Application):
             version=self.version,
             developers=["Carey McLelland"],
             copyright="© 2025 Carey McLelland",
-        )
+            )
         about.present()
 
     def on_preferences_action(self, _widget, _):
@@ -263,6 +262,7 @@ def main(version=VERSION):
     print(f"src/main.py: main() - app.run() finished with status {exit_status} (print)")
     logging.info("src/main.py: main() - app.run() finished with status %s (logging)", exit_status)
     return exit_status
+
 
 if __name__ == '__main__':
     name_main_log_path = "/tmp/name_main_block.log"

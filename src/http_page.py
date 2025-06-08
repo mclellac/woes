@@ -1,15 +1,16 @@
+from .constants import RESOURCE_PREFIX, USER_AGENTS
+from gi.repository import Adw, Gio, GObject, Gtk, GLib
 import logging
 import re
 from typing import Optional
 
 import requests
-import requests.utils # For urlparse
-from enum import Enum # Added for HttpErrorType
+import requests.utils  # For urlparse
+from enum import Enum  # Added for HttpErrorType
 import gi
 
 gi.require_version('Adw', '1')
 gi.require_version('Gtk', '4.0')
-from gi.repository import Adw, Gio, GObject, Gtk, GLib
 
 # Attempt to import urllib3 exceptions from requests, which vendors it.
 try:
@@ -26,17 +27,17 @@ except ImportError:
         urllib3_exceptions = type('urllib3_exceptions', (), {
             'MaxRetryError': _DummyUrllib3Exception,
             'NewConnectionError': _DummyUrllib3Exception,
-        })
+            })
         logging.warning("Could not import urllib3.exceptions. Connection refused detection might be limited.")
 
-
-from .constants import RESOURCE_PREFIX, USER_AGENTS
 
 # Configure logger for the module
 logger = logging.getLogger(__name__)
 
 # Define error domain and codes for HTTP operations
 WOES_HTTP_ERROR_DOMAIN = "woes-http-error-domain"
+
+
 class HttpErrorType(int, Enum):
     TIMEOUT = 0
     HTTP_ERROR = 1
@@ -102,15 +103,17 @@ class HttpPage(Adw.PreferencesPage):
     def _connect_signals(self) -> None:
         self.http_entry_row.connect(
             "entry-activated", self._on_entry_row_activated
-        )
+            )
         self.http_apply_button.connect("clicked", self._on_entry_row_activated)
         self.http_pragma_switch_row.connect(
             "notify::active", self._on_pragma_toggled
-        )
+            )
         self.clear_results_button.connect("clicked", self._on_clear_results_clicked)
+        if self.error_banner:
+            self.error_banner.connect("button-clicked", self._on_error_banner_dismiss)
 
-    def _on_entry_row_activated(self, _widget: Gtk.Widget) -> None: # Parameter renamed
-        original_url = self.http_entry_row.get_text().strip() # Changed to self.http_entry_row
+    def _on_entry_row_activated(self, _widget: Gtk.Widget) -> None:
+        original_url = self.http_entry_row.get_text().strip()
         url = self._ensure_scheme(original_url)
         logger.info("Fetching headers for URL: %s (original: %s)", url, original_url)
 
@@ -118,13 +121,12 @@ class HttpPage(Adw.PreferencesPage):
             logger.warning("Invalid URL provided: %s (processed as: %s)", original_url, url)
             self._display_error(
                 "Invalid URL format: Please enter a valid URL."
-            )
-            self._update_column_view_model(None)  # Clear previous results
+                )
+            self._update_column_view_model(None)
             return
 
         self._clear_error()
         self.http_entry_row.set_sensitive(False)
-        # Disable the button too
         if hasattr(self, 'http_apply_button'):
             self.http_apply_button.set_sensitive(False)
 
@@ -140,12 +142,16 @@ class HttpPage(Adw.PreferencesPage):
             "use_akamai_pragma": self.http_pragma_switch_row.get_active(),
             "host_header": host_header,
             "user_agent": user_agent,
-        }
+            }
         task = Gio.Task.new(self, None, self._fetch_headers_task_done_cb, None)
         self.current_http_task = task
         task.run_in_thread(self._fetch_headers_task_thread_func)
 
-    def _fetch_headers_task_thread_func(self, task: Gio.Task, source_object, task_data: dict, cancellable: Optional[Gio.Cancellable]):
+    def _fetch_headers_task_thread_func(self,
+                                        task: Gio.Task,
+                                        source_object,
+                                        task_data: dict,
+                                        cancellable: Optional[Gio.Cancellable]):
         current_task_data = source_object._http_task_data_for_thread
 
         url = current_task_data["url"]
@@ -156,7 +162,7 @@ class HttpPage(Adw.PreferencesPage):
         logger.debug(
             "Task thread: Making GET request to %s with Akamai headers: %s, Host: %s, UA: %s",
             url, use_akamai_pragma, host_header, user_agent
-        )
+            )
 
         request_headers = {}
         if host_header:
@@ -175,7 +181,7 @@ class HttpPage(Adw.PreferencesPage):
                 "akamai-x-get-extracted-values",
                 "akamai-x-feo-trace",
                 "x-akamai-logging-mode: verbose",
-            ]
+                ]
             request_headers["Pragma"] = ", ".join(akamai_pragma_directives)
 
         try:
@@ -184,101 +190,97 @@ class HttpPage(Adw.PreferencesPage):
                     GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
                     HttpErrorType.CANCELLED.value,
                     "Task was cancelled."
-                )
+                    )
                 return
 
             response = requests.get(url, headers=request_headers, allow_redirects=True, timeout=5)
-            # Note: response.raise_for_status() will be called *after* initial response is received.
-            # If an HTTPError occurs (4xx, 5xx), it will be caught by the HTTPError block.
 
             all_responses_data = []
 
-            # Process history (redirects)
             for hist_resp in response.history:
-                hist_data = { # Ensure this block is correctly defined
+                hist_data = {
                     'type': 'redirect',
                     'url': str(hist_resp.url),
                     'status_code': hist_resp.status_code,
                     'headers': {str(k): str(v) for k, v in dict(hist_resp.headers).items()}
-                }
+                    }
                 all_responses_data.append(hist_data)
 
-            # Try to process the final response and its status
             try:
-                response.raise_for_status()  # Check for 4xx/5xx errors
-                final_data_type = 'final'    # Set if no HTTPError
+                response.raise_for_status()
+                final_data_type = 'final'
             except requests.exceptions.HTTPError as http_err:
-                # This block is entered if response.status_code is an HTTP error (4xx or 5xx)
                 logger.warning("Task thread: HTTPError for %s: %s", url, http_err)
                 error_message = self._format_http_error(http_err)
                 task.return_new_error_literal(
                     GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
                     HttpErrorType.HTTP_ERROR.value,
                     error_message
-                )
-                return # Exit the function after reporting the error
+                    )
+                return
 
-            # This part is reached ONLY if response.raise_for_status() did NOT raise an exception
             final_data = {
                 'type': final_data_type,
                 'url': str(response.url),
                 'status_code': response.status_code,
                 'headers': {str(k): str(v) for k, v in dict(response.headers).items()}
-            }
+                }
             all_responses_data.append(final_data)
 
-            task.return_value(all_responses_data) # Success: return all collected data
-            # No explicit return needed here if this is the end of the main try's success path
+            task.return_value(all_responses_data)
 
         except requests.exceptions.Timeout as e:
             logger.warning("Task thread: Timeout for %s: %s", url, e)
-            error_message = "Request timed out. This could be due to a slow network, server issues, or a Web Application Firewall (WAF) interfering. Please check the URL or try again later."
+            error_message = (
+                "Request timed out. This could be due to a slow network, server issues, "
+                "or a Web Application Firewall (WAF) interfering. "
+                "Please check the URL or try again later."
+            )
             task.return_new_error_literal(
                 GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
                 HttpErrorType.TIMEOUT.value,
                 error_message
-            )
+                )
             return
-        # HTTPError is handled above for the final response. If requests.get itself raises one for a redirect, it's caught by RequestException.
         except requests.exceptions.ConnectionError as e:
             logger.warning("Task thread: ConnectionError for %s: %s", url, e)
             custom_msg = self._get_detailed_connection_error_message(e, url)
             if custom_msg:
                 error_message = custom_msg
             else:
-                # The original str(e) could be too technical.
-                # Provide a more generic user-friendly message.
-                error_message = "A network connection error occurred. Please check your internet connection and the entered URL, then try again."
-            # The fallback 'if not str(e) and not custom_msg:' might no longer be strictly necessary
-            # if custom_msg covers specific cases and the new else provides a good generic default.
-            # However, to be safe and ensure a message is always present if custom_msg is empty but not None:
-            if not error_message: # Simplified check
-                 error_message = "Connection Error: Failed to establish a connection."
+                error_message = (
+                    "A network connection error occurred. Please check your internet connection "
+                    "and the entered URL, then try again."
+                )
+            if not error_message:
+                error_message = "Connection Error: Failed to establish a connection."
             task.return_new_error_literal(
                 GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
                 HttpErrorType.CONNECTION_ERROR.value,
                 error_message
-            )
+                )
             return
-        except requests.exceptions.RequestException as e: # Catches other requests errors like TooManyRedirects, etc.
+        except requests.exceptions.RequestException as e:
             logger.warning("Task thread: RequestException for %s: %s", url, e)
             error_message = "The request could not be completed. Please verify the URL and your network connection."
             task.return_new_error_literal(
                 GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
                 HttpErrorType.REQUEST_EXCEPTION.value,
                 error_message
-            )
+                )
             return
         except Exception as e:
             logger.error("Task thread: Truly unexpected error for %s: %s", url, e, exc_info=True)
-            error_message = "An unexpected internal error occurred while processing your request. Please try again later."
+            error_message = (
+                "An unexpected internal error occurred while processing your request. "
+                "Please try again later."
+            )
             task.return_new_error_literal(
                 GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
                 HttpErrorType.GENERIC_UNEXPECTED.value,
                 error_message
-            )
+                )
             return
-
 
     def _get_detailed_connection_error_message(self, exc: Exception, url: str) -> Optional[str]:
         """
@@ -297,20 +299,16 @@ class HttpPage(Adw.PreferencesPage):
                 logger.debug("Reached end of exception chain (current_exc is None) at depth %d.", depth)
                 break
 
-            exc_type_name = type(current_exc).__name__
-            exc_args_str = str(current_exc.args) if hasattr(current_exc, 'args') else "N/A"
             exc_str = str(current_exc)
 
             logger.debug("Inspecting exception at depth %d: Type=%s, Args=%s, Str=%s",
-                         depth, exc_type_name, exc_args_str, exc_str)
+                         depth, type(current_exc).__name__, str(current_exc.args) if hasattr(current_exc, 'args') else "N/A", exc_str)
 
-            # Check for ConnectionRefusedError explicitly
             if isinstance(current_exc, ConnectionRefusedError):
                 logger.debug("Direct ConnectionRefusedError found: %s", current_exc)
                 found_connection_refused = True
-                break  # Found the most specific type
+                break
 
-            # Check for urllib3.exceptions common in requests
             if isinstance(current_exc, urllib3_exceptions.NewConnectionError):
                 logger.debug("urllib3.exceptions.NewConnectionError found: %s", current_exc)
                 if "connection refused" in exc_str.lower() or "errno 111" in exc_str.lower():
@@ -332,11 +330,10 @@ class HttpPage(Adw.PreferencesPage):
                 logger.debug("urllib3.exceptions.MaxRetryError found. Will inspect its reason.")
                 if hasattr(current_exc, 'reason') and current_exc.reason is not None:
                     reason_exc = current_exc.reason
-                    reason_exc_type_name = type(reason_exc).__name__
                     reason_exc_str = str(reason_exc)
                     logger.debug(
-                        "Inspecting MaxRetryError.reason: Type=%s, Str=%s", reason_exc_type_name, reason_exc_str
-                    )
+                        "Inspecting MaxRetryError.reason: Type=%s, Str=%s", type(reason_exc).__name__, reason_exc_str
+                        )
                     if isinstance(reason_exc, urllib3_exceptions.NewConnectionError):
                         if "connection refused" in reason_exc_str.lower() or \
                            "errno 111" in reason_exc_str.lower():
@@ -367,8 +364,8 @@ class HttpPage(Adw.PreferencesPage):
                 logger.debug("Moving to __cause__: %s", type(current_exc.__cause__).__name__)
                 next_exc = current_exc.__cause__
             elif hasattr(current_exc, '__context__') and \
-                 current_exc.__context__ is not None and \
-                 not current_exc.__suppress_context__:
+                    current_exc.__context__ is not None and \
+                    not current_exc.__suppress_context__:
                 logger.debug("Moving to __context__: %s", type(current_exc.__context__).__name__)
                 next_exc = current_exc.__context__
 
@@ -384,13 +381,13 @@ class HttpPage(Adw.PreferencesPage):
                 return (
                     "The URL targetted via HTTPS is refusing the connection. "
                     "It might be an HTTP-only service. Please try with 'http://'."
-                )
+                    )
             elif requests.utils.urlparse(url).scheme == 'http':
                 logger.info("URL is HTTP and connection was refused. Suggesting HTTPS.")
                 return (
                     "The HTTP request failed. The server might only support HTTPS for this resource. "
                     "Please try with 'https://'."
-                )
+                    )
             else:
                 logger.info("URL is non-HTTP/HTTPS (or scheme missing) and connection was refused.")
                 return "Connection Error: The server at the specified URL actively refused the connection."
@@ -398,37 +395,31 @@ class HttpPage(Adw.PreferencesPage):
         logger.debug("No specific 'Connection refused' condition found that warrants a custom message.")
         return None
 
-
     def _fetch_headers_task_done_cb(self, source_object, result: Gio.AsyncResult, user_data):
         local_task_ref = self.current_http_task
-        # Ensure _http_task_data_for_thread is accessed from source_object if needed for URL in ConnectionError
-        # However, it's better if the URL is part of the exception or GLib.Error data.
-        # For now, we'll try to get it from the instance if an error occurs that needs it.
-        url_for_error_reporting = ""
-        if hasattr(self, '_http_task_data_for_thread') and self._http_task_data_for_thread:
-            url_for_error_reporting = self._http_task_data_for_thread.get('url', '')
-
+        # url_for_error_reporting = "" # F841
+        # if hasattr(self, '_http_task_data_for_thread') and self._http_task_data_for_thread:
+        #     url_for_error_reporting = self._http_task_data_for_thread.get('url', '') # F841
 
         try:
             actual_list_of_responses = local_task_ref.propagate_value()
 
-            # Attempt to handle _ResultTuple if it appears for successful calls
-            # This is speculative and might need adjustment based on actual _ResultTuple structure
             if not isinstance(actual_list_of_responses, list) and isinstance(actual_list_of_responses, tuple):
-                logger.warning(f"Received a tuple {type(actual_list_of_responses)} instead of a list for success value. Trying to extract from it.")
+                logger.warning((
+                    f"Received a tuple {type(actual_list_of_responses)} instead of a list for "
+                    f"success value. Trying to extract from it."
+                ))
                 if len(actual_list_of_responses) > 0 and isinstance(actual_list_of_responses[0], list):
                     actual_list_of_responses = actual_list_of_responses[0]
-                # Add more checks if _ResultTuple has a known structure, e.g. by name if it's a namedtuple
-                elif hasattr(actual_list_of_responses, 'value') and isinstance(actual_list_of_responses.value, list): # Example if it's an object
-                     actual_list_of_responses = actual_list_of_responses.value
-
+                elif hasattr(actual_list_of_responses, 'value') and isinstance(actual_list_of_responses.value, list):
+                    actual_list_of_responses = actual_list_of_responses.value
 
             if isinstance(actual_list_of_responses, list):
                 logger.info("Successfully processed task result as list.")
                 processed_headers_for_store = []
                 if not actual_list_of_responses:
                     logger.warning("Received empty list for actual_list_of_responses.")
-                    self._update_column_view_model(None) # Clear view if empty results
+                    self._update_column_view_model(None)
                 else:
                     for i, response_data in enumerate(actual_list_of_responses):
                         url_display = f"URL: {response_data.get('url', 'N/A')}"
@@ -441,48 +432,48 @@ class HttpPage(Adw.PreferencesPage):
 
                         processed_headers_for_store.append(
                             HeaderItem(key=url_display, value=status_display, is_special_row=True)
-                        )
+                            )
 
                         headers_for_this_response = response_data.get('headers', {})
                         for header_key, header_value in headers_for_this_response.items():
                             processed_headers_for_store.append(
                                 HeaderItem(key=str(header_key), value=str(header_value), is_special_row=False)
-                            )
+                                )
 
-                        if i < len(actual_list_of_responses) - 1: # Add spacer between responses
+                        if i < len(actual_list_of_responses) - 1:
                             processed_headers_for_store.append(HeaderItem(key="", value="", is_special_row=True))
                     self._update_column_view_model(processed_headers_for_store)
                 self.http_entry_row.remove_css_class("error")
             else:
-                # This case should ideally not be hit if success means a list and errors are exceptions.
                 logger.error(
                     f"Task result data of unexpected type {type(actual_list_of_responses)}. Expected list."
-                )
-                self._display_error(
-                    f"Failed to process task result data (unexpected data structure: {type(actual_list_of_responses).__name__})."
-                )
+                    )
+                self._display_error((
+                    f"Failed to process task result data (unexpected data structure: "
+                    f"{type(actual_list_of_responses).__name__})."
+                ))
                 self.http_entry_row.add_css_class("error")
                 self._update_column_view_model(None)
 
         except GLib.Error as e:
             logger.error("Task failed with GLib.Error: Domain=%s, Code=%s, Message=%s", e.domain, e.code, e.message)
-            # You can use e.code and e.domain to show more specific user messages if desired
-            # For now, e.message should contain the message from the thread.
-            self._display_error(e.message.replace("<b>", "").replace("</b>", "")) # Sanitize markup
+            self._display_error(e.message.replace("<b>", "").replace("</b>", ""))
             self.http_entry_row.add_css_class("error")
             self._update_column_view_model(None)
-        except Exception as e: # Fallback for any other unexpected error in the callback itself
+        except Exception as e:
             logger.error("Unexpected Python error in _fetch_headers_task_done_cb: %s", e, exc_info=True)
-            self._display_error("An unexpected application error occurred while trying to display the results. Please try the operation again.")
+            self._display_error((
+                "An unexpected application error occurred while trying to display the results. "
+                "Please try the operation again."
+            ))
             self.http_entry_row.add_css_class("error")
             self._update_column_view_model(None)
         finally:
             self.http_entry_row.set_sensitive(True)
-            if hasattr(self, 'http_apply_button'): # Check if button exists
+            if hasattr(self, 'http_apply_button'):
                 self.http_apply_button.set_sensitive(True)
-            if self.current_http_task is local_task_ref: # Check if this task is still the current one
+            if self.current_http_task is local_task_ref:
                 self.current_http_task = None
-
 
     @staticmethod
     def _ensure_scheme(url: str) -> str:
@@ -502,7 +493,7 @@ class HttpPage(Adw.PreferencesPage):
             r"(?::\d+)?"
             r"(?:/?|[/?]\S+)$",
             re.IGNORECASE,
-        )
+            )
 
         return re.match(url_regex, url) is not None and bool(requests.utils.urlparse(url).netloc)
 
@@ -517,16 +508,16 @@ class HttpPage(Adw.PreferencesPage):
         return f"HTTP Error {status_code}: {e.response.reason}."
 
     def _on_pragma_toggled(
-        self, widget: Gtk.Switch, _gparam: GObject.ParamSpec
-    ) -> None:
+            self, widget: Gtk.Switch, _gparam: GObject.ParamSpec
+            ) -> None:
         logger.debug("Akamai Pragma toggled to: %s", widget.get_active())
         if self.http_entry_row.get_text().strip():
             self._on_entry_row_activated(self.http_entry_row)
 
     def _update_column_view_model(self, header_items: Optional[list[HeaderItem]]) -> None:
-        self.header_list_store.remove_all()  # Clear existing items
+        self.header_list_store.remove_all()
 
-        if header_items:  # Check if list is not None and not empty implicitly
+        if header_items:
             for item in header_items:
                 self.header_list_store.append(item)
             self._show_results()
@@ -545,7 +536,7 @@ class HttpPage(Adw.PreferencesPage):
         self.error_banner.set_title(message)
         self.error_banner.set_revealed(True)
         self.http_entry_row.add_css_class("error")
-        self._hide_results()  # Hide results on error
+        self._hide_results()
 
     def _clear_error(self) -> None:
         self.error_banner.set_revealed(False)
@@ -561,11 +552,10 @@ class HttpPage(Adw.PreferencesPage):
         self._clear_error()
         self.http_entry_row.set_text("")
 
-
     @staticmethod
     def _create_factory(
-        attr_name: str, wrap_text: bool = False
-    ) -> Gtk.SignalListItemFactory:
+            attr_name: str, wrap_text: bool = False
+            ) -> Gtk.SignalListItemFactory:
         factory = Gtk.SignalListItemFactory()
 
         def setup_func(_, list_item: Gtk.ListItem) -> None:

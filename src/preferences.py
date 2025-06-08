@@ -1,12 +1,11 @@
+from .constants import APP_ID, RESOURCE_PREFIX
+from gi.repository import Adw, Gio, Gtk, GLib
 import logging
 import re
 import gi
 
 gi.require_version('Adw', '1')
 gi.require_version('Gtk', '4.0')
-from gi.repository import Adw, Gio, Gtk, GLib
-
-from .constants import APP_ID, RESOURCE_PREFIX
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/preferences.ui")
@@ -33,7 +32,7 @@ class Preferences(Adw.PreferencesWindow):
         self.theme_combo_row.connect("notify::selected", self.on_theme_preference_changed)
         self.source_style_scheme_combo_row.connect(
             "notify::selected", self.on_source_style_scheme_changed
-        )
+            )
         self.dns_server_entryrow.connect("entry-activated", self.on_dns_server_changed)
         self.prefs_dns_apply_button.connect("clicked", self.on_dns_server_changed)
 
@@ -45,7 +44,7 @@ class Preferences(Adw.PreferencesWindow):
 
         ip_pattern = re.compile(
             r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$"
-        )
+            )
 
         if ip_pattern.match(dns_server) and self.is_valid_ipv4(dns_server):
             self.settings.set_string("custom-dns-server", dns_server)
@@ -144,7 +143,7 @@ class Preferences(Adw.PreferencesWindow):
         if not found_scheme:
             logging.warning(
                 "Style scheme '%s' not found or model is not Gtk.StringList.", source_style_scheme
-            )
+                )
 
         dns_server = self.settings.get_string("custom-dns-server")
         self.dns_server_entryrow.set_text(dns_server)

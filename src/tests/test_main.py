@@ -1,3 +1,7 @@
+from src.main import parse_arguments_and_setup_logging
+import logging
+from unittest.mock import patch
+import unittest
 import sys
 import os
 
@@ -12,9 +16,6 @@ setattr(gi_repo_mock, 'GObject', MagicMock())
 setattr(gi_repo_mock, 'GtkSource', MagicMock())
 setattr(gi_repo_mock, 'Pango', MagicMock())
 
-import unittest
-from unittest.mock import patch
-import logging
 
 current_script_path = os.path.abspath(__file__)
 tests_dir = os.path.dirname(current_script_path)
@@ -23,8 +24,6 @@ project_root = os.path.dirname(src_dir)
 
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
-
-from src.main import parse_arguments_and_setup_logging
 
 
 class TestMainAppArgs(unittest.TestCase):
