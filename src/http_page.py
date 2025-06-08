@@ -7,6 +7,10 @@ from typing import Optional
 import requests
 import requests.utils  # For urlparse
 from enum import Enum  # Added for HttpErrorType
+import ssl
+from requests.adapters import HTTPAdapter
+# We might need urllib3.util.ssl_ later if ssl.CERT_REQUIRED needs resolving, but requests usually handles this.
+# from urllib3.util.ssl_ import resolve_cert_reqs
 import gi
 
 gi.require_version('Adw', '1')
@@ -38,6 +42,37 @@ except ImportError:
             })
         logging.warning("Could not import urllib3.exceptions. Connection refused detection might be limited.")
 
+
+class CustomSNIAdapter(HTTPAdapter):
+    def __init__(self, sni_hostname=None, *args, **kwargs):
+        self.sni_hostname = sni_hostname
+        super().__init__(*args, **kwargs)
+
+    def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
+        if self.sni_hostname:
+            # Ensure connection_pool_kw exists
+            if 'connection_pool_kw' not in pool_kwargs:
+                pool_kwargs['connection_pool_kw'] = {}
+
+            # Set server_hostname for SNI in the connection arguments for the pool
+            pool_kwargs['connection_pool_kw']['server_hostname'] = self.sni_hostname
+
+            # Tell the PoolManager to assert the hostname against this SNI value during verification
+            pool_kwargs['assert_hostname'] = self.sni_hostname
+
+            # Ensure certificate requirements are set to CERT_REQUIRED.
+            # This should be the default if session.verify is True, but being explicit is safer.
+            # Requests/urllib3 usually handle translating session.verify to cert_reqs.
+            # If session.verify is True (default), cert_reqs will be CERT_REQUIRED.
+            # We are just ensuring the assert_hostname matches our SNI.
+            if 'cert_reqs' not in pool_kwargs: # Only set if not already specified (e.g. by session.verify=False)
+                 pool_kwargs['cert_reqs'] = ssl.CERT_REQUIRED
+
+
+        super().init_poolmanager(connections, maxsize, block=block, **pool_kwargs)
+
+    # If proxies are a concern, proxy_manager_for might also need overriding.
+    # For now, focusing on direct connections.
 
 # Configure logger for the module
 logger = logging.getLogger(__name__)
@@ -221,15 +256,9 @@ class HttpPage(Adw.PreferencesPage):
         user_agent = current_task_data.get("user_agent")
         custom_dns_server = current_task_data.get("custom_dns_server")
 
-        session = requests.Session()
-        # Apply verify=False to the whole session for this task, as the entire operation
-        # is under this "insecure" context (typically for specific self-signed certs or test IPs)
-        # session.verify = False # SSL Verification is now ON by default
-
         initial_request_specific_headers = {} # For Host header mainly
         session_headers = {} # For User-Agent, Pragma
-        original_hostname = None
-
+        original_hostname = None # Will be populated if custom DNS is used
 
         if custom_dns_server and dns: # Check if dnspython was imported
             try:
@@ -254,35 +283,67 @@ class HttpPage(Adw.PreferencesPage):
                             f"New URL for request: {url_to_fetch}. Host header set to: {original_hostname}"
                         )
                     else:
+                        # original_hostname remains set, but url_to_fetch is unchanged. SNI logic will check this.
                         logger.warning(
                             f"Custom DNS {custom_dns_server} provided no A records for {original_hostname}. "
                             "Falling back to system DNS / original URL."
                         )
             except dns.exception.DNSException as e:
                 logger.warning(
-                    f"Custom DNS resolution for {original_hostname} via {custom_dns_server} failed: {e}. "
+                    f"Custom DNS resolution for {original_hostname if original_hostname else original_url_with_scheme} via {custom_dns_server} failed: {e}. "
                     "Falling back to system DNS / original URL."
                 )
+                original_hostname = None # Ensure original_hostname is None if DNS fails before using it for SNI
             except Exception as e:
                 logger.error(
-                    f"Unexpected error during custom DNS processing for {original_hostname}: {e}", exc_info=True
+                    f"Unexpected error during custom DNS processing for {original_hostname if original_hostname else original_url_with_scheme}: {e}", exc_info=True
                 )
+                original_hostname = None # Ensure original_hostname is None on other errors
 
+        # Determine if SNI override is needed
+        use_custom_sni_adapter = False
+        if custom_dns_server and original_hostname and url_to_fetch.startswith("https://"):
+            resolved_netloc = requests.utils.urlparse(url_to_fetch).netloc
+            if ':' in resolved_netloc: # Strip port if present
+                resolved_netloc = resolved_netloc.split(':', 1)[0]
+
+            # Check if original_hostname looks like a domain and resolved_netloc is different (likely an IP)
+            # This simple check helps distinguish. A more robust IP check could be used.
+            is_resolved_ip_likely = all(c.isdigit() or c == '.' for c in resolved_netloc)
+
+            if original_hostname != resolved_netloc and is_resolved_ip_likely:
+                use_custom_sni_adapter = True
+                logger.info(f"Custom DNS resolved {original_hostname} to IP {resolved_netloc}. Will use CustomSNIAdapter for HTTPS SNI.")
+
+        session = requests.Session()
+        # session.verify = True by default (SSL Verification ON)
+
+        if use_custom_sni_adapter:
+            # original_hostname should be valid here due to the checks above
+            adapter = CustomSNIAdapter(sni_hostname=original_hostname)
+            session.mount('https://', adapter)
+            logger.debug(f"Mounted CustomSNIAdapter for https:// with SNI: {original_hostname}")
+
+        # Host header from user input (takes precedence if no custom DNS override, or if custom DNS failed to set Host)
         if host_header_from_input:
             if "Host" in initial_request_specific_headers:
                  logger.info(
                      f"Custom DNS set Host to {initial_request_specific_headers['Host']}. "
                      f"User input Host '{host_header_from_input}' will be overridden for this IP-based request."
                  )
-            else:
+            else: # No custom DNS resolution that set Host, so use user's input
                 initial_request_specific_headers["Host"] = host_header_from_input
-        elif not "Host" in initial_request_specific_headers and original_hostname:
-             pass # Logic for this case remains the same as before, handled by requests if no override.
+        elif not "Host" in initial_request_specific_headers and original_hostname and not use_custom_sni_adapter:
+             # This case means custom DNS might have resolved original_hostname but we are NOT using SNI adapter
+             # (e.g. HTTP). If url_to_fetch is still original_url_with_scheme, requests sets Host.
+             # If url_to_fetch became an IP but it's HTTP, Host might need to be original_hostname.
+             # However, initial_request_specific_headers["Host"] would have been set if DNS was successful.
+             # This path is less critical if initial_request_specific_headers["Host"] is correctly set by DNS logic.
+             pass
 
-        # Prepare session-level headers
+        # Prepare and set session-level headers (User-Agent, Pragma)
         if user_agent and user_agent != "None":
             session_headers["User-Agent"] = user_agent
-
         if use_akamai_pragma:
             akamai_pragma_directives = [
                 "akamai-x-get-request-id", "akamai-x-get-cache-key", "akamai-x-cache-on",
@@ -290,15 +351,15 @@ class HttpPage(Adw.PreferencesPage):
                 "akamai-x-get-extracted-values", "akamai-x-feo-trace", "x-akamai-logging-mode: verbose",
             ]
             session_headers["Pragma"] = ", ".join(akamai_pragma_directives)
-
         if session_headers:
             session.headers.update(session_headers)
 
         logger.debug(
-            "Task thread: Making GET request via session to %s. Akamai Pragma (on session): %s, User-Agent (on session): %s, Initial Specific Headers (Host): %s",
+            "Task thread: Making GET request via session to %s. SNI Adapter in use: %s. Akamai Pragma (on session): %s, User-Agent (on session): %s, Initial Specific Headers (Host): %s",
             url_to_fetch,
-            "Yes" if use_akamai_pragma else "No", # More concise logging for boolean
-            session.headers.get("User-Agent", "Default"), # Get from session directly
+            use_custom_sni_adapter,
+            "Yes" if use_akamai_pragma else "No",
+            session.headers.get("User-Agent", "Default"),
             initial_request_specific_headers.get("Host", "Default")
         )
 
@@ -311,12 +372,12 @@ class HttpPage(Adw.PreferencesPage):
                 )
                 return
 
-            # The verify=False is now set on the session (session.verify = False)
             response = session.get(
                 url_to_fetch,
                 headers=initial_request_specific_headers if initial_request_specific_headers else None,
-                allow_redirects=True, # Default for session, but explicit
+                allow_redirects=True,
                 timeout=5
+                # verify=True is implied by session default (session.verify is not False)
             )
 
             all_responses_data = []
