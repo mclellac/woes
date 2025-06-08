@@ -165,10 +165,13 @@ class NmapPage(Adw.PreferencesPage):
         timing_match = re.search(r"\(T([0-5])\)", timing_template_str)
         timing_template = f"T{timing_match.group(1)}" if timing_match else "T3"
 
+        custom_dns_server = self.settings.get_string("custom-dns-server")
+
         logging.info(
-            "Nmap scan for target: %s (OSScan:%s, AllPorts:%s, Script:%s, Ver:%s, NoPing:%s, Time:%s)",
+            "Nmap scan for target: %s (OSScan:%s, AllPorts:%s, Script:%s, Ver:%s, NoPing:%s, Time:%s, CustomDNS:%s)",
             target, os_fingerprinting, all_ports, script_name,
-            service_version_detection, no_ping_scan, timing_template
+            service_version_detection, no_ping_scan, timing_template,
+            custom_dns_server if custom_dns_server else "None"
             )
         self.scanner.executor.submit(
             self._run_nmap_scan_task,
@@ -178,7 +181,8 @@ class NmapPage(Adw.PreferencesPage):
             script_name,
             service_version_detection,
             no_ping_scan,
-            timing_template
+            timing_template,
+            custom_dns_server # New argument
             )
         logging.debug(
             f"Scan task params: target={target}, os_fingerprint={os_fingerprinting}, "
@@ -195,12 +199,14 @@ class NmapPage(Adw.PreferencesPage):
             script_name,
             service_version_detection,
             no_ping_scan,
-            timing_template):
+            timing_template,
+            custom_dns_server): # New parameter
         logging.info("Nmap scan task started for %s in executor thread.", target)
         try:
             nm = self.scanner.run_nmap_scan(target, os_fingerprinting, all_ports,
                                             script_name, service_version_detection,
-                                            no_ping_scan, timing_template)
+                                            no_ping_scan, timing_template,
+                                            custom_dns_server=custom_dns_server) # Pass to scanner
             GLib.idle_add(self._process_scan_results, nm, target)
         except nmap.PortScannerError as e:
             logging.error("Nmap PortScannerError for %s: %s", target, e, exc_info=True)

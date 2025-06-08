@@ -24,6 +24,7 @@ class WoesWindow(Adw.ApplicationWindow):
         super().__init__(**kwargs)
         self.settings = Gio.Settings(schema_id=APP_ID)
         self.style_manager = Adw.StyleManager.get_default()
+        self._save_state_timer_id = 0
 
         self.gnome_interface_settings = None
         # self.gnome_a11y_settings = None # Placeholder for if a11y settings are needed later
@@ -45,6 +46,12 @@ class WoesWindow(Adw.ApplicationWindow):
 
         self.settings.connect("changed::theme-preference", self._on_theme_preference_setting_changed)
         self.settings.connect("changed::font-scaling-percentage", self._on_font_scaling_setting_changed)
+
+        # Connect signals for saving window state
+        self.connect("notify::default-width", self._schedule_save_window_state)
+        self.connect("notify::default-height", self._schedule_save_window_state)
+        self.connect("notify::maximized", self._schedule_save_window_state)
+        self.connect("notify::fullscreened", self._schedule_save_window_state)
 
         try:
             self.setup_ui()
@@ -121,6 +128,20 @@ class WoesWindow(Adw.ApplicationWindow):
 
             apply_font_size(self.settings, "")  # Second argument is ignored by the updated style_utils.apply_font_size
             apply_theme(self.style_manager, theme_pref)
+
+            # Restore window size and state
+            saved_width = self.settings.get_int("window-width")
+            saved_height = self.settings.get_int("window-height")
+            is_maximized = self.settings.get_boolean("window-is-maximized")
+
+            if is_maximized:
+                self.maximize()
+            else:
+                if saved_width > 0 and saved_height > 0:
+                    self.set_default_size(saved_width, saved_height)
+                # else, it will use the default size from the UI file or Adwaita defaults
+            logging.debug(f"Applied window state: maximized={is_maximized}, width={saved_width}, height={saved_height}")
+
         except GLib.Error as e:
             logging.error(f"Error applying preferences (GSettings): {e}")
         except Exception as e:  # pylint: disable=broad-except
@@ -129,3 +150,34 @@ class WoesWindow(Adw.ApplicationWindow):
     def on_page_switched(self, _widget, _gparam):
         # selected_page = self.stack.get_visible_child() # F841
         logging.debug(f"Switched to page: {self.stack.get_visible_child_name()}")
+
+    # Window state saving methods
+    def _schedule_save_window_state(self, *args):
+        if self._save_state_timer_id > 0:
+            GLib.source_remove(self._save_state_timer_id)
+        self._save_state_timer_id = GLib.timeout_add(300, self._save_window_state_actual)
+
+    def _save_window_state_actual(self):
+        self._save_state_timer_id = 0  # Reset timer ID
+
+        current_gdk_state = self.get_surface().get_state()
+
+        if current_gdk_state & Gdk.WindowState.MINIMIZED:
+            logging.debug("Window is minimized, skipping state save.")
+            return GLib.SOURCE_REMOVE  # Or False
+
+        is_maximized = self.is_maximized() # bool(current_gdk_state & Gdk.WindowState.MAXIMIZED)
+        is_fullscreen = self.is_fullscreen() # bool(current_gdk_state & Gdk.WindowState.FULLSCREEN)
+
+        if is_maximized or is_fullscreen:
+            logging.debug(f"Window is maximized or fullscreen. Saving state: is_maximized=True")
+            self.settings.set_boolean("window-is-maximized", True)
+        else:
+            width = self.get_width() # Or self.get_default_width()
+            height = self.get_height() # Or self.get_default_height()
+            logging.debug(f"Window is in normal state. Saving state: width={width}, height={height}, is_maximized=False")
+            self.settings.set_boolean("window-is-maximized", False)
+            self.settings.set_int("window-width", width)
+            self.settings.set_int("window-height", height)
+
+        return GLib.SOURCE_REMOVE # Or False, to ensure it doesn't run again automatically
