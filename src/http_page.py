@@ -221,8 +221,16 @@ class HttpPage(Adw.PreferencesPage):
         user_agent = current_task_data.get("user_agent")
         custom_dns_server = current_task_data.get("custom_dns_server")
 
-        request_headers = {}
+        session = requests.Session()
+        # Apply verify=False to the whole session for this task, as the entire operation
+        # is under this "insecure" context (typically for specific self-signed certs or test IPs)
+        session.verify = False
+        logger.warning("Disabling SSL certificate verification for session. This is insecure and applies to URL: %s and its redirects.", url_to_fetch)
+
+        initial_request_specific_headers = {} # For Host header mainly
+        session_headers = {} # For User-Agent, Pragma
         original_hostname = None
+
 
         if custom_dns_server and dns: # Check if dnspython was imported
             try:
@@ -234,17 +242,14 @@ class HttpPage(Adw.PreferencesPage):
                     logger.info(f"Attempting to resolve {original_hostname} using custom DNS server {custom_dns_server}")
                     resolver = dns.resolver.Resolver()
                     resolver.nameservers = [custom_dns_server]
-                    # Add short timeouts for DNS resolution to prevent long hangs
-                    resolver.timeout = 2.0  # Total time for query
-                    resolver.lifetime = 2.0 # Time to wait for response from a nameserver
+                    resolver.timeout = 2.0
+                    resolver.lifetime = 2.0
 
                     answers = resolver.resolve(original_hostname, 'A')
                     if answers:
                         resolved_ip = answers[0].address
-                        # Reconstruct URL with IP, keeping original scheme, path, query etc.
                         url_to_fetch = parsed_url_obj._replace(netloc=resolved_ip).geturl()
-                        # Crucially, set the Host header to the original hostname
-                        request_headers["Host"] = original_hostname
+                        initial_request_specific_headers["Host"] = original_hostname
                         logger.info(
                             f"Resolved {original_hostname} to {resolved_ip} via {custom_dns_server}. "
                             f"New URL for request: {url_to_fetch}. Host header set to: {original_hostname}"
@@ -259,48 +264,44 @@ class HttpPage(Adw.PreferencesPage):
                     f"Custom DNS resolution for {original_hostname} via {custom_dns_server} failed: {e}. "
                     "Falling back to system DNS / original URL."
                 )
-            except Exception as e: # Catch any other unexpected errors during DNS
+            except Exception as e:
                 logger.error(
                     f"Unexpected error during custom DNS processing for {original_hostname}: {e}", exc_info=True
                 )
 
-        # If Host header was manually set by user, it takes precedence (unless custom DNS overrode it)
         if host_header_from_input:
-            if "Host" in request_headers:
-                 logger.info(f"Custom DNS set Host to {request_headers['Host']}. User input Host '{host_header_from_input}' will be overridden for this IP-based request.")
-            else: # No custom DNS resolution that set Host, so use user's input
-                request_headers["Host"] = host_header_from_input
-        elif not "Host" in request_headers and original_hostname: # No user input, no custom DNS override, but we have a hostname
-             # This case is if custom DNS failed and we are using original URL,
-             # ensure Host header is not accidentally the IP if original_url_with_scheme was an IP.
-             # If url_to_fetch is still the original hostname-based URL, requests will set Host correctly.
-             # If original_url_with_scheme was IP-based, original_hostname would be that IP.
-             # This logic is mostly for clarity; requests handles Host header well for hostname URLs.
-             pass
+            if "Host" in initial_request_specific_headers:
+                 logger.info(
+                     f"Custom DNS set Host to {initial_request_specific_headers['Host']}. "
+                     f"User input Host '{host_header_from_input}' will be overridden for this IP-based request."
+                 )
+            else:
+                initial_request_specific_headers["Host"] = host_header_from_input
+        elif not "Host" in initial_request_specific_headers and original_hostname:
+             pass # Logic for this case remains the same as before, handled by requests if no override.
 
-
-        logger.debug(
-            "Task thread: Making GET request to %s with Akamai headers: %s, User-Agent: %s, Full Headers: %s",
-            url_to_fetch, use_akamai_pragma, user_agent, request_headers
-            )
-
-        # User-Agent is set here, after Host header logic
+        # Prepare session-level headers
         if user_agent and user_agent != "None":
-            request_headers["User-Agent"] = user_agent
+            session_headers["User-Agent"] = user_agent
 
         if use_akamai_pragma:
             akamai_pragma_directives = [
-                "akamai-x-get-request-id",
-                "akamai-x-get-cache-key",
-                "akamai-x-cache-on",
-                "akamai-x-cache-remote-on",
-                "akamai-x-get-true-cache-key",
-                "akamai-x-check-cacheable",
-                "akamai-x-get-extracted-values",
-                "akamai-x-feo-trace",
-                "x-akamai-logging-mode: verbose",
-                ]
-            request_headers["Pragma"] = ", ".join(akamai_pragma_directives)
+                "akamai-x-get-request-id", "akamai-x-get-cache-key", "akamai-x-cache-on",
+                "akamai-x-cache-remote-on", "akamai-x-get-true-cache-key", "akamai-x-check-cacheable",
+                "akamai-x-get-extracted-values", "akamai-x-feo-trace", "x-akamai-logging-mode: verbose",
+            ]
+            session_headers["Pragma"] = ", ".join(akamai_pragma_directives)
+
+        if session_headers:
+            session.headers.update(session_headers)
+
+        logger.debug(
+            "Task thread: Making GET request via session to %s. Akamai Pragma (on session): %s, User-Agent (on session): %s, Initial Specific Headers (Host): %s",
+            url_to_fetch,
+            "Yes" if use_akamai_pragma else "No", # More concise logging for boolean
+            session.headers.get("User-Agent", "Default"), # Get from session directly
+            initial_request_specific_headers.get("Host", "Default")
+        )
 
         try:
             if cancellable and cancellable.is_cancelled():
@@ -308,14 +309,20 @@ class HttpPage(Adw.PreferencesPage):
                     GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
                     HttpErrorType.CANCELLED.value,
                     "Task was cancelled."
-                    )
+                )
                 return
 
-            logger.warning("Disabling SSL certificate verification for URL: %s. This is insecure.", url_to_fetch)
-            response = requests.get(url_to_fetch, headers=request_headers, allow_redirects=True, timeout=5, verify=False)
+            # The verify=False is now set on the session (session.verify = False)
+            response = session.get(
+                url_to_fetch,
+                headers=initial_request_specific_headers if initial_request_specific_headers else None,
+                allow_redirects=True, # Default for session, but explicit
+                timeout=5
+            )
 
             all_responses_data = []
 
+            # Process history (redirects)
             for hist_resp in response.history:
                 hist_data = {
                     'type': 'redirect',
