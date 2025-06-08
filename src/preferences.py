@@ -46,6 +46,11 @@ class Preferences(Adw.PreferencesWindow):
     http_header_value_color_button = Gtk.Template.Child("http_header_value_color_button")
     http_special_row_color_button = Gtk.Template.Child("http_special_row_color_button")
 
+    # Custom User Agent UI
+    new_custom_ua_entry = Gtk.Template.Child("new_custom_ua_entry")
+    add_custom_ua_button = Gtk.Template.Child("add_custom_ua_button")
+    custom_ua_list_container = Gtk.Template.Child("custom_ua_list_container")
+
     def __init__(self, main_window: Gtk.Window = None):
         """Initialize the Preferences window.
 
@@ -88,6 +93,14 @@ class Preferences(Adw.PreferencesWindow):
             dialog_sr = Gtk.ColorDialog(title="Select Special Row Colour", modal=True, with_alpha=True)
             self.http_special_row_color_button.set_dialog(dialog_sr)
             self.http_special_row_color_button.connect("notify::rgba", self.on_http_color_changed, "http-output-special-row-color")
+
+        # Custom User Agent Signals
+        if self.add_custom_ua_button:
+            self.add_custom_ua_button.connect("clicked", self._on_add_custom_ua_clicked)
+        if self.new_custom_ua_entry:
+            self.new_custom_ua_entry.connect("entry-activated", self._on_add_custom_ua_clicked)
+
+        self.settings.connect("changed::custom-user-agents", lambda _s, _k: self._render_custom_ua_list())
 
     def on_error_banner_dismiss_clicked(self, _banner: Adw.Banner, *_args):
         """Handle the click event for dismissing the error banner.
@@ -260,9 +273,9 @@ class Preferences(Adw.PreferencesWindow):
     def on_http_color_changed(self, button: Gtk.ColorDialogButton, _gparam: GObject.ParamSpec, gsettings_key: str):
         rgba = button.get_rgba()
         if rgba:
-            color_hex_string = self._rgba_to_hex(rgba)
-            self.settings.set_string(gsettings_key, color_hex_string)
-            logging.debug(f"HTTP color for {gsettings_key} set to hex: {color_hex_string}")
+            color_hex_string = self._rgba_to_hex(rgba) # Use the new helper
+            self.settings.set_string(gsettings_key, color_hex_string) # Save hex string
+            logging.debug(f"HTTP color for {gsettings_key} set to hex: {color_hex_string}") # Update log
 
     def _load_color_button_preference(self, button: Gtk.ColorDialogButton, gsettings_key: str):
         color_string = self.settings.get_string(gsettings_key)
@@ -275,6 +288,70 @@ class Preferences(Adw.PreferencesWindow):
                     logging.warning(f"Gdk.RGBA.parse returned false for color string '{color_string}' for GSettings key '{gsettings_key}'.")
             except GLib.Error as e:
                 logging.warning(f"Failed to parse color string '{color_string}' for GSettings key '{gsettings_key}': {e}.")
+
+    def _render_custom_ua_list(self):
+        if not self.custom_ua_list_container:
+            return
+
+        # Clear existing rows
+        child = self.custom_ua_list_container.get_first_child()
+        while child:
+            self.custom_ua_list_container.remove(child)
+            child = self.custom_ua_list_container.get_first_child()
+
+        custom_uas = self.settings.get_strv("custom-user-agents")
+        if not custom_uas: # Should be an empty list by default, not None
+            custom_uas = []
+
+        for ua_string in custom_uas:
+            row = Adw.ActionRow(title=ua_string)
+            row.set_activatable(False) # Don't want the row itself to be activatable
+            remove_button = Gtk.Button(icon_name="edit-delete-symbolic", valign=Gtk.Align.CENTER)
+            remove_button.add_css_class("flat")
+            remove_button.set_tooltip_text(f"Remove '{ua_string}'")
+            # Use a lambda that captures the ua_string for this iteration
+            remove_button.connect("clicked", lambda _btn, s=ua_string: self._on_remove_custom_ua_clicked(s))
+            row.add_suffix(remove_button)
+            row.set_activatable_widget(remove_button) # Makes the button part of row activation focus
+            self.custom_ua_list_container.append(row)
+
+    def _on_add_custom_ua_clicked(self, _widget):
+        if not self.new_custom_ua_entry:
+            return
+        ua_text = self.new_custom_ua_entry.get_text().strip()
+        if not ua_text:
+            # Optionally show a small error/toast or just ignore
+            logging.info("Attempted to add empty custom User-Agent.")
+            return
+
+        current_uas = list(self.settings.get_strv("custom-user-agents")) # Get a mutable copy
+        if ua_text in current_uas:
+            logging.info(f"Custom User-Agent '{ua_text}' already exists.")
+            # Optionally show a small error/toast
+            self.new_custom_ua_entry.set_text("") # Clear entry even if duplicate
+            return
+
+        current_uas.append(ua_text)
+        if self.settings.set_strv("custom-user-agents", current_uas):
+            logging.info(f"Added custom User-Agent: {ua_text}")
+            self.new_custom_ua_entry.set_text("")
+            self._render_custom_ua_list() # Re-render the list
+        else:
+            logging.error(f"Failed to save custom User-Agent list to GSettings with new UA: {ua_text}")
+            # Optionally show an error to the user
+
+    def _on_remove_custom_ua_clicked(self, ua_to_remove: str):
+        current_uas = list(self.settings.get_strv("custom-user-agents"))
+        if ua_to_remove in current_uas:
+            current_uas.remove(ua_to_remove)
+            if self.settings.set_strv("custom-user-agents", current_uas):
+                logging.info(f"Removed custom User-Agent: {ua_to_remove}")
+                self._render_custom_ua_list() # Re-render the list
+            else:
+                logging.error(f"Failed to save custom User-Agent list to GSettings after removing: {ua_to_remove}")
+                # Optionally show an error
+        else:
+            logging.warning(f"Attempted to remove non-existent User-Agent: {ua_to_remove}")
 
     def _select_combo_row_item(
         self, combo_row: Adw.ComboRow, setting_value: str, case_sensitive: bool = True
@@ -349,3 +426,5 @@ class Preferences(Adw.PreferencesWindow):
             self._load_color_button_preference(self.http_header_value_color_button, "http-output-header-value-color")
         if self.http_special_row_color_button:
             self._load_color_button_preference(self.http_special_row_color_button, "http-output-special-row-color")
+
+        self._render_custom_ua_list()

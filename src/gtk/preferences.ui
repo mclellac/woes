@@ -143,6 +143,38 @@
             </child>
           </object>
         </child>
+        <child>
+          <object class="AdwPreferencesGroup" id="custom_ua_group">
+            <property name="title" translatable="yes">Custom User Agents</property>
+            <property name="description" translatable="yes">Manage your list of custom User-Agent strings for the HTTP Page.</property>
+            <child>
+              <object class="AdwEntryRow" id="new_custom_ua_entry">
+                <property name="title" translatable="yes">New User Agent</property>
+                <property name="placeholder-text" translatable="yes">Enter new User-Agent string here</property>
+                <child type="suffix">
+                  <object class="GtkButton" id="add_custom_ua_button">
+                    <property name="icon-name">list-add-symbolic</property>
+                    <property name="tooltip-text" translatable="yes">Add User Agent</property>
+                    <property name="valign">center</property>
+                    <style>
+                      <class name="flat"/>
+                    </style>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <!-- This Gtk.ListBox will act as a container for dynamically added Adw.ActionRows -->
+              <object class="Gtk.ListBox" id="custom_ua_list_container">
+                <property name="selection-mode">none</property> <!-- We don't want rows to be selectable -->
+                <style>
+                  <class name="boxed-list"/> <!-- Adwaita style for a list of rows -->
+                </style>
+                <!-- Adw.ActionRows representing custom UAs will be added here from code -->
+              </object>
+            </child>
+          </object>
+        </child>
       </object>
     </child>
   </template>
