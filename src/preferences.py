@@ -77,8 +77,9 @@ class Preferences(Adw.PreferencesWindow):
     def on_error_banner_dismiss_clicked(self, _banner, *_args):
         self.hide_banner_and_clear_error_state()
 
-    def on_dns_server_changed(self, entryrow: Adw.EntryRow):
-        dns_server = entryrow.get_text().strip()
+    # Changed 'entryrow: Adw.EntryRow' to 'widget' as it can be a button or entry row
+    def on_dns_server_changed(self, widget):
+        dns_server = self.dns_server_entryrow.get_text().strip()
 
         ip_pattern = re.compile(
             r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$"
@@ -88,18 +89,19 @@ class Preferences(Adw.PreferencesWindow):
             self.settings.set_string("custom-dns-server", dns_server)
             logging.info("Custom DNS server set to: %s", dns_server)
             self.preferences_error_banner.set_revealed(False)
-            entryrow.remove_css_class("error")
+            self.dns_server_entryrow.remove_css_class("error")
         else:
-            entryrow.add_css_class("error")
+            self.dns_server_entryrow.add_css_class("error")
             error_message = "Invalid IPv4 address for DNS server."
             logging.error("Invalid custom DNS server IP address provided: %s", dns_server)
 
             self.preferences_error_banner.set_title(error_message)
             self.preferences_error_banner.set_revealed(True)
 
-            entryrow.set_text("")
+            self.dns_server_entryrow.set_text("")
 
-            GLib.timeout_add_seconds(4, self.hide_banner_and_clear_error_state, entryrow)
+            # Pass self.dns_server_entryrow explicitly to the timeout handler
+            GLib.timeout_add_seconds(4, self.hide_banner_and_clear_error_state, self.dns_server_entryrow)
 
     def hide_banner_and_clear_error_state(self, entry_row_widget=None):
         """Hides the banner and clears error CSS from the entry row if provided."""

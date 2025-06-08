@@ -160,7 +160,7 @@ class WoesWindow(Adw.ApplicationWindow):
     def _save_window_state_actual(self):
         self._save_state_timer_id = 0  # Reset timer ID
 
-        if self.get_property("state") & Gdk.WindowState.ICONIFIED:
+        if self.get_surface().get_state() & Gdk.SurfaceState.MINIMIZED:
             logging.debug("Window is minimized, skipping state save.")
             return GLib.SOURCE_REMOVE  # Or False
 
