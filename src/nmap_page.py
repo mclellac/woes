@@ -120,6 +120,46 @@ class NmapPage(Gtk.Box):
         """
         super().__init__(**kwargs)
         logging.info("Initializing NmapPage...")
+
+        # Manual binding fallback for nmap_host_listbox
+        if self.nmap_host_listbox is None:
+            logging.warning("NmapPage: nmap_host_listbox is None after init_template(). Attempting manual retrieval.")
+            if self.left_vbox_content is not None: # This parent must be bound correctly by @Gtk.Template.Child
+                # According to nmap_page.ui, left_vbox_content's children are:
+                # 1. AdwPreferencesGroup (nmap_scan_parameters_group)
+                # 2. GtkListBox (nmap_host_listbox)
+                child = self.left_vbox_content.get_first_child()
+                if child is not None:
+                    listbox_candidate = child.get_next_sibling()
+                    if isinstance(listbox_candidate, Gtk.ListBox):
+                        # To be more certain, check the buildable ID
+                        buildable_id = None
+                        if isinstance(listbox_candidate, Gtk.Buildable):
+                            buildable_id = listbox_candidate.get_buildable_id()
+
+                        if buildable_id == "nmap_host_listbox":
+                            self.nmap_host_listbox = listbox_candidate
+                            logging.info("NmapPage: Successfully manually bound nmap_host_listbox via ID check.")
+                        elif listbox_candidate.get_buildable_id() is None: # Fallback if get_buildable_id() returns None but type is right
+                            self.nmap_host_listbox = listbox_candidate # Assign if type matches, assuming structure
+                            logging.warning("NmapPage: Manually bound nmap_host_listbox (type match, ID not confirmed as string 'nmap_host_listbox').")
+                        else:
+                            logging.warning(f"NmapPage: Found ListBox sibling, but its buildable_id is '{buildable_id}' not 'nmap_host_listbox'. Manual binding skipped.")
+                    elif listbox_candidate is not None:
+                        logging.warning(f"NmapPage: Sibling of AdwPreferencesGroup is not a Gtk.ListBox, but a {type(listbox_candidate)}. Cannot bind manually this way.")
+                    else:
+                        logging.warning("NmapPage: left_vbox_content's first child (AdwPreferencesGroup) has no sibling. Cannot find nmap_host_listbox this way.")
+                else:
+                    logging.warning("NmapPage: left_vbox_content has no children. Cannot find nmap_host_listbox this way.")
+            else:
+                logging.warning("NmapPage: self.left_vbox_content is None. Cannot attempt manual binding of nmap_host_listbox.")
+
+        if self.nmap_host_listbox is None:
+            # This log should be prominent if it happens, as it means the page will crash.
+            logging.critical("NmapPage: CRITICAL - nmap_host_listbox remains None after all binding attempts. Expect AttributeError.")
+        else:
+            logging.info("NmapPage: nmap_host_listbox appears to be bound.")
+
         self.results_by_host = {}
         self.nmap_target_listbox_store = Gio.ListStore(item_type=NmapItem)
         self.scanner = NmapScanner()
