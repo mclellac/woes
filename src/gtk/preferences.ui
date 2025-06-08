@@ -164,7 +164,7 @@
             </child>
             <child>
               <!-- This Gtk.ListBox will act as a container for dynamically added Adw.ActionRows -->
-              <object class="Gtk.ListBox" id="custom_ua_list_container">
+              <object class="GtkListBox" id="custom_ua_list_container">
                 <property name="selection-mode">none</property> <!-- We don't want rows to be selectable -->
                 <style>
                   <class name="boxed-list"/> <!-- Adwaita style for a list of rows -->
