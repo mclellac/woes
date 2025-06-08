@@ -1121,15 +1121,17 @@ class HttpPage(Adw.PreferencesPage):
         """Update the User-Agent dropdown model.
 
         Clears and repopulates the User-Agent title-to-value map and
-        the dropdown model (Gtk.StringList) with default and custom User-Agents.
+        the dropdown model (Gtk.StringList) with custom User-Agents first,
+        then "None", then default User-Agents.
         Preserves selection if possible.
         """
         if not self.http_user_agent_row:
             return
 
-        self._ua_title_to_value_map.clear()
+        self._ua_title_to_value_map.clear() # Clear map at the beginning
 
         current_selection_text = None
+        # Preserve current selection
         if self.http_user_agent_row.get_model() and self.http_user_agent_row.get_selected() != Gtk.INVALID_LIST_POSITION:
             selected_item = self.http_user_agent_row.get_selected_item()
             if isinstance(selected_item, Gtk.StringObject):
@@ -1137,28 +1139,34 @@ class HttpPage(Adw.PreferencesPage):
 
         display_titles = []
 
-        # "None" option
-        none_title = "None"
-        display_titles.append(none_title)
-        self._ua_title_to_value_map[none_title] = None # Represents no UA header override
-
-        # Default UAs from constants.py
-        for ua_dict in USER_AGENTS:
-            title = ua_dict.get("title")
-            value = ua_dict.get("value")
-            if title and value: # Basic check for valid entry
-                if title not in self._ua_title_to_value_map: # Add to display list only if new title
-                    display_titles.append(title)
-                self._ua_title_to_value_map[title] = value # Always update map
-
-        # Custom UAs from GSettings
+        # 1. Custom UAs from GSettings
         variant = self.settings.get_value("custom-user-agents")
         custom_ua_pairs = list(variant.unpack() if variant and variant.get_type_string() == 'a(ss)' else [])
 
         for title, value in custom_ua_pairs:
-            if title not in self._ua_title_to_value_map: # Add to display list only if new title
-                display_titles.append(title)
-            self._ua_title_to_value_map[title] = value # Custom can override default in map
+            # Custom UAs are added first, so their titles are definitely new to the map in this loop
+            display_titles.append(title)
+            self._ua_title_to_value_map[title] = value
+
+        # 2. "None" option
+        none_title = "None"
+        # Ensure "None" title is unique if a custom UA is named "None"
+        if none_title not in self._ua_title_to_value_map:
+             display_titles.append(none_title)
+        # Always ensure "None" maps to None for sending no header,
+        # even if a custom UA is named "None" (its custom value would be in the map for selection purposes).
+        self._ua_title_to_value_map[none_title] = None
+
+        # 3. Default UAs from constants.py
+        for ua_dict in USER_AGENTS:
+            title = ua_dict.get("title")
+            value = ua_dict.get("value")
+            if title and value:
+                if title not in self._ua_title_to_value_map: # Add if title not used by custom or "None"
+                    display_titles.append(title)
+                    self._ua_title_to_value_map[title] = value
+                # If title was used by custom, map already has custom value.
+                # If title is "None", it's already handled to map to None for sending.
 
         self.http_user_agent_row.set_model(Gtk.StringList.new(display_titles))
 
@@ -1167,12 +1175,14 @@ class HttpPage(Adw.PreferencesPage):
             try:
                 idx = display_titles.index(current_selection_text)
                 self.http_user_agent_row.set_selected(idx)
-            except ValueError: # Should not happen if current_selection_text in map and display_titles is consistent
+            except ValueError:
+                # If current_selection_text is in map but not display_titles (e.g. a default overridden by custom and not re-added)
+                # or simply not found, default to the first available item.
                 if display_titles: self.http_user_agent_row.set_selected(0)
         elif display_titles:
             self.http_user_agent_row.set_selected(0)
 
-        logging.info(f"User-Agent dropdown model updated with {len(display_titles)} titles.")
+        logging.info(f"User-Agent dropdown model updated with {len(display_titles)} titles in custom->None->default order.")
 
     def _create_factory(self, attr_name: str, wrap_text: bool = False) -> Gtk.SignalListItemFactory:
         """Create a Gtk.SignalListItemFactory for a column in the Gtk.ColumnView.
