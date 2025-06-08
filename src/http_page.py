@@ -54,25 +54,38 @@ class CustomSNIAdapter(HTTPAdapter):
         # We are adding our SNI-specific configurations to this dictionary.
 
         if self.sni_hostname:
-            # Configure the PoolManager instance itself
+            # Configure the PoolManager instance itself.
+            # These are direct arguments for PoolManager or will be passed via **connection_pool_kw
+            # if they are not explicit PoolManager constructor args.
             pool_kwargs['assert_hostname'] = self.sni_hostname
             # Ensure cert_reqs is set for validation.
             # ssl.CERT_REQUIRED is the typical value when verification is enabled.
-            # requests.Session.verify = True should translate to this via urllib3's defaults,
-            # but being explicit when overriding assert_hostname is safer.
             pool_kwargs['cert_reqs'] = ssl.CERT_REQUIRED
 
-            # Configure arguments for the HTTPSConnectionPool instances
-            # that this PoolManager will create. This is done via 'connection_pool_kw'.
-            # Take a copy to avoid modifying a shared dict if pool_kwargs came from elsewhere.
-            current_conn_pool_kw = pool_kwargs.get('connection_pool_kw', {}).copy()
-            current_conn_pool_kw['server_hostname'] = self.sni_hostname
-            # 'assert_hostname' can also be set per-pool, but PoolManager's should cover it if SNI matches.
-            # current_conn_pool_kw['assert_hostname'] = self.sni_hostname
-            pool_kwargs['connection_pool_kw'] = current_conn_pool_kw
+            # Retrieve existing connection_pool_kw if any, or an empty dict.
+            # These are kwargs intended for the ConnectionPool instances that PoolManager will create.
+            conn_pool_specific_kwargs = pool_kwargs.pop('connection_pool_kw', {}).copy()
 
-        # Call the superclass's init_poolmanager, which will create
-        # self.poolmanager = urllib3.PoolManager(**pool_kwargs)
+            # Add our SNI-specific server_hostname to these ConnectionPool kwargs.
+            conn_pool_specific_kwargs['server_hostname'] = self.sni_hostname
+
+            # 'assert_hostname' can also be set per-pool, but setting it on PoolManager
+            # (as done above) is generally sufficient if SNI matches the asserted hostname.
+            # If needed, it could be added here too:
+            # conn_pool_specific_kwargs['assert_hostname'] = self.sni_hostname
+
+            # Merge these ConnectionPool-specific kwargs back into the main pool_kwargs.
+            # They will be passed flatly to the PoolManager constructor.
+            # PoolManager will then use them when creating new ConnectionPools.
+            pool_kwargs.update(conn_pool_specific_kwargs)
+
+        # Call the superclass's init_poolmanager.
+        # requests.HTTPAdapter.init_poolmanager will call:
+        # self.poolmanager = urllib3.PoolManager(num_pools=connections, maxsize=maxsize, block=block, **pool_kwargs)
+        # Our modified pool_kwargs (with 'server_hostname', 'assert_hostname', 'cert_reqs' as top-level keys)
+        # will be passed. urllib3.PoolManager's constructor accepts 'cert_reqs' directly, and
+        # 'server_hostname'/'assert_hostname' via its **connection_pool_kw parameter, storing them
+        # in its self.connection_pool_kw attribute for later use by ConnectionPools.
         super().init_poolmanager(connections, maxsize, block=block, **pool_kwargs)
 
     # If proxies are a concern, proxy_manager_for might also need overriding.

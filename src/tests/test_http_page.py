@@ -1179,28 +1179,151 @@ class TestHttpPageStaticMethods(unittest.TestCase):
         found_expected_log = False
         expected_log_message = "Nested ConnectionRefusedError found in NewConnectionError.original_error"
         # Store formatted actual calls for better error reporting if assert fails
-        actual_formatted_debug_calls = []
+        # actual_formatted_debug_calls = [] # Commented out to avoid lint errors if not used
         for call_args_tuple in isolated_logger.debug.call_args_list:
             log_format_string = call_args_tuple[0][0]
-            actual_formatted_debug_calls.append(log_format_string)  # Store the format string
+            # actual_formatted_debug_calls.append(log_format_string)  # Store the format string
             if log_format_string == expected_log_message:
                 found_expected_log = True
-                # No need to break if we want to capture all logs for printing on failure
+                break # Found it, no need to iterate further
 
-        if not found_expected_log:
-            print(f"\nExpected log message '{expected_log_message}' not found in actual calls:")
-            for call_arg_tuple in isolated_logger.debug.call_args_list:
-                log_format = call_arg_tuple[0][0]
-                log_args = call_arg_tuple[0][1:]
-                try:
-                    # Attempt to format the log string with its arguments for readability
-                    formatted_log = log_format % log_args
-                except TypeError:
-                    # If formatting fails (e.g. wrong number of args, type mismatch), show raw parts
-                    formatted_log = f"Raw format: '{log_format}', Raw args: {log_args}"
-                print(f"- {formatted_log}")
+        # Commented out verbose logging for passing tests
+        # if not found_expected_log:
+        #     print(f"\nExpected log message '{expected_log_message}' not found in actual calls:")
+        #     for call_arg_tuple in isolated_logger.debug.call_args_list:
+        #         log_format = call_arg_tuple[0][0]
+        #         log_args = call_arg_tuple[0][1:]
+        #         try:
+        #             # Attempt to format the log string with its arguments for readability
+        #             formatted_log = log_format % log_args
+        #         except TypeError:
+        #             # If formatting fails (e.g. wrong number of args, type mismatch), show raw parts
+        #             formatted_log = f"Raw format: '{log_format}', Raw args: {log_args}"
+        #         print(f"- {formatted_log}")
 
         self.assertTrue(found_expected_log, f"Expected log message '{expected_log_message}' not found.")
+
+    @patch('src.http_page.dns.resolver')
+    @patch('src.http_page.requests.Session')
+    @patch('src.http_page.Gio.Settings') # Mock Gio.Settings for HttpPage
+    def test_custom_dns_sni_https_request_no_type_error(self, MockGioSettings, MockRequestsSession, MockDnsResolver):
+        if not self.HttpPage_class_to_test:
+            self.skipTest("HttpPage class could not be loaded.")
+        if not hasattr(http_page_module, 'CustomSNIAdapter'):
+            self.skipTest("CustomSNIAdapter not found in http_page_module.")
+        CustomSNIAdapter = http_page_module.CustomSNIAdapter
+
+        # 1. Configure Mocks
+        # Mock dns.resolver.Resolver
+        mock_resolver_instance = MockDnsResolver.Resolver.return_value
+        mock_dns_answer = MagicMock()
+        mock_dns_answer.address = "192.0.2.1" # Resolved IP
+        mock_resolver_instance.resolve.return_value = [mock_dns_answer]
+
+        # Mock requests.Session
+        mock_session_instance = MockRequestsSession.return_value
+        mock_response = MagicMock(spec=requests.Response)
+        mock_response.status_code = 200
+        mock_response.headers = {"Content-Type": "text/plain"}
+        mock_response.history = []
+        mock_response.url = "https://192.0.2.1" # URL after resolution
+        mock_response.raise_for_status = MagicMock()
+        mock_session_instance.get.return_value = mock_response
+
+        # Mock Gio.Settings for custom DNS
+        mock_settings_instance = MockGioSettings.return_value
+        mock_settings_instance.get_string.side_effect = lambda key: "10.0.0.1" if key == "custom-dns-server" else None
+
+        # Mock Adw.PreferencesPage.__init__ is not strictly needed if HttpPage.__init__ doesn't call super
+        # or if super call is fine with MagicMock. Assuming HttpPage_class is correctly patched/mocked at class level.
+        # The setUp method already instantiates self.page. We will re-configure its settings.
+        self.page.settings = mock_settings_instance
+
+        # Mock UI elements that _fetch_headers_task_thread_func might interact with indirectly or directly
+        self.page.http_entry_row = MagicMock(spec=MockAdw.EntryRow)
+        self.page.http_entry_row.get_text.return_value = "https://example.com" # Input URL
+
+        self.page.http_host_header_row = MagicMock(spec=MockAdw.EntryRow)
+        self.page.http_host_header_row.get_text.return_value = "" # No manual host header override
+
+        self.page.http_user_agent_row = MagicMock(spec=MockAdw.ComboRow)
+        self.page.http_user_agent_row.get_selected.return_value = 0 # "None" UA
+
+        self.page.http_pragma_switch_row = MagicMock(spec=MockAdw.SwitchRow)
+        self.page.http_pragma_switch_row.get_active.return_value = False # Pragma off
+
+        self.page.error_banner = MagicMock(spec=MockAdw.Banner) # To catch any errors displayed
+        self.page.error_banner.set_revealed = MagicMock()
+        self.page.error_banner.set_title = MagicMock()
+
+        # Ensure header_list_store has remove_all if it wasn't set up by Gio.ListStore.new mock
+        if not hasattr(self.page.header_list_store, 'remove_all'):
+            self.page.header_list_store.remove_all = MagicMock()
+        if not hasattr(self.page.header_list_store, 'append'):
+            self.page.header_list_store.append = MagicMock()
+
+        self.page._update_column_view_model = MagicMock() # Mock this to prevent UI errors
+
+        # 2. Prepare task data (mimicking _on_entry_row_activated)
+        original_url = self.page.http_entry_row.get_text().strip()
+        url_to_fetch_initially = self.page._ensure_scheme(original_url)
+
+        self.page._http_task_data_for_thread = {
+            "url": url_to_fetch_initially,
+            "use_akamai_pragma": self.page.http_pragma_switch_row.get_active(),
+            "host_header": self.page.http_host_header_row.get_text().strip(),
+            "user_agent": None, # Simplified
+            "custom_dns_server": self.page.settings.get_string("custom-dns-server"),
+        }
+
+        # 3. Trigger the header fetching mechanism
+        # The setUp's mock_task_instance.run_in_thread will call _fetch_headers_task_thread_func
+        # and then the callback.
+        self.mock_task_instance.run_in_thread(self.page._fetch_headers_task_thread_func)
+
+        # 4. Assertions
+        # Assert dns.resolver call
+        mock_resolver_instance.resolve.assert_called_once_with("example.com", 'A')
+
+        # Assert requests.Session.mount for CustomSNIAdapter
+        # We need to check if mount was called with an instance of CustomSNIAdapter
+        # and that this instance has the correct sni_hostname.
+        mounted_adapter_instance = None
+        for call_args in mock_session_instance.mount.call_args_list:
+            prefix, adapter = call_args[0]
+            if prefix == 'https://' and isinstance(adapter, CustomSNIAdapter):
+                mounted_adapter_instance = adapter
+                break
+        self.assertIsNotNone(mounted_adapter_instance, "CustomSNIAdapter was not mounted for https://")
+        self.assertEqual(mounted_adapter_instance.sni_hostname, "example.com")
+
+        # Assert requests.Session.get call
+        mock_session_instance.get.assert_called_once_with(
+            "https://192.0.2.1", # URL with resolved IP
+            headers={'Host': 'example.com'}, # Host header set to original domain
+            allow_redirects=True,
+            timeout=5
+        )
+
+        # Assert task success (return_value called, return_new_error_literal not called)
+        self.mock_task_instance.return_value.assert_called_once()
+        self.mock_task_instance.return_new_error_literal.assert_not_called()
+
+        # Assert no error banner was shown
+        self.page.error_banner.set_revealed.assert_not_called()
+        self.page.error_banner.set_title.assert_not_called()
+
+        # Check that the results were processed (simplified check)
+        self.page._update_column_view_model.assert_called_once()
+        # Further check on the content of _update_column_view_model if necessary
+        args_processed = self.page._update_column_view_model.call_args[0][0]
+        self.assertIsInstance(args_processed, list)
+        self.assertTrue(len(args_processed) > 0) # We expect at least the URL/Status special row + headers
+        self.assertEqual(args_processed[0].key, "URL: https://192.0.2.1") # URL from response
+        self.assertEqual(args_processed[0].value, "Status: 200 (Final)")
+
+
+# This ensures that if the script is run directly, only these new tests are executed
 
 
 # This ensures that if the script is run directly, only these new tests are executed
