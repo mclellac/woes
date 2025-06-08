@@ -15,7 +15,7 @@ import re
 from typing import Optional # Added for type hinting
 
 import gi
-from gi.repository import Adw, Gio, Gtk, GLib, GObject  # pylint: disable=wrong-import-position # Added GObject
+from gi.repository import Adw, Gio, Gtk, GLib, GObject, Gdk  # pylint: disable=wrong-import-position # Added GObject and Gdk
 
 from .constants import APP_ID, RESOURCE_PREFIX  # pylint: disable=wrong-import-position
 
@@ -42,9 +42,9 @@ class Preferences(Adw.PreferencesWindow):
     preferences_error_banner = Gtk.Template.Child("preferences_error_banner")
 
     # HTTP Output Color Rows
-    http_header_key_color_row = Gtk.Template.Child("http_header_key_color_row")
-    http_header_value_color_row = Gtk.Template.Child("http_header_value_color_row")
-    http_special_row_color_row = Gtk.Template.Child("http_special_row_color_row")
+    http_header_key_color_button = Gtk.Template.Child("http_header_key_color_button")
+    http_header_value_color_button = Gtk.Template.Child("http_header_value_color_button")
+    http_special_row_color_button = Gtk.Template.Child("http_special_row_color_button")
 
     def __init__(self, main_window: Gtk.Window = None):
         """Initialize the Preferences window.
@@ -76,38 +76,18 @@ class Preferences(Adw.PreferencesWindow):
         self.dns_server_entryrow.connect("entry-activated", self.on_dns_server_changed)
         self.prefs_dns_apply_button.connect("clicked", self.on_dns_server_changed)
 
-        if self.http_header_key_color_row:
-            self.settings.bind(
-                "http-output-header-key-color",
-                self.http_header_key_color_row,
-                "text",
-                Gio.SettingsBindFlags.DEFAULT,
-            )
-            logging.debug("Bound http_header_key_color_row text to GSettings.")
-        else:
-            logging.warning("http_header_key_color_row is None, cannot bind GSettings.")
-
-        if self.http_header_value_color_row:
-            self.settings.bind(
-                "http-output-header-value-color",
-                self.http_header_value_color_row,
-                "text",
-                Gio.SettingsBindFlags.DEFAULT,
-            )
-            logging.debug("Bound http_header_value_color_row text to GSettings.")
-        else:
-            logging.warning("http_header_value_color_row is None, cannot bind GSettings.")
-
-        if self.http_special_row_color_row:
-            self.settings.bind(
-                "http-output-special-row-color",
-                self.http_special_row_color_row,
-                "text",
-                Gio.SettingsBindFlags.DEFAULT,
-            )
-            logging.debug("Bound http_special_row_color_row text to GSettings.")
-        else:
-            logging.warning("http_special_row_color_row is None, cannot bind GSettings.")
+        if self.http_header_key_color_button:
+            dialog_hk = Gtk.ColorDialog(title="Select Header Key Color", modal=True, with_alpha=True)
+            self.http_header_key_color_button.set_dialog(dialog_hk)
+            self.http_header_key_color_button.connect("notify::rgba", self.on_http_color_changed, "http-output-header-key-color")
+        if self.http_header_value_color_button:
+            dialog_hv = Gtk.ColorDialog(title="Select Header Value Color", modal=True, with_alpha=True)
+            self.http_header_value_color_button.set_dialog(dialog_hv)
+            self.http_header_value_color_button.connect("notify::rgba", self.on_http_color_changed, "http-output-header-value-color")
+        if self.http_special_row_color_button:
+            dialog_sr = Gtk.ColorDialog(title="Select Special Row Color", modal=True, with_alpha=True)
+            self.http_special_row_color_button.set_dialog(dialog_sr)
+            self.http_special_row_color_button.connect("notify::rgba", self.on_http_color_changed, "http-output-special-row-color")
 
     def on_error_banner_dismiss_clicked(self, _banner: Adw.Banner, *_args):
         """Handle the click event for dismissing the error banner.
@@ -133,23 +113,32 @@ class Preferences(Adw.PreferencesWindow):
         """
         dns_server = self.dns_server_entryrow.get_text().strip()
 
-        ip_pattern = re.compile(r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$")
+        if not dns_server:  # Handles empty string
+            self.settings.set_string("custom-dns-server", "")
+            logging.info("Custom DNS server cleared.")
+            self.preferences_error_banner.set_revealed(False)
+            if self.dns_server_entryrow:
+                self.dns_server_entryrow.remove_css_class("error")
+            return
 
+        # Proceed with validation for non-empty strings
+        ip_pattern = re.compile(r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$")
         if ip_pattern.match(dns_server) and self.is_valid_ipv4(dns_server):
             self.settings.set_string("custom-dns-server", dns_server)
-            logging.info("Custom DNS server set to: %s", dns_server)
+            logging.info("Custom DNS server set to: %s", dns_server) # Keep %s for compatibility if specific log parsing exists
             self.preferences_error_banner.set_revealed(False)
-            self.dns_server_entryrow.remove_css_class("error")
+            if self.dns_server_entryrow:
+                self.dns_server_entryrow.remove_css_class("error")
         else:
-            self.dns_server_entryrow.add_css_class("error")
+            # Invalid non-empty input
+            if self.dns_server_entryrow:
+                self.dns_server_entryrow.add_css_class("error")
             error_message = "Invalid IPv4 address for DNS server."
-            logging.error("Invalid custom DNS server IP address provided: %s", dns_server)
+            logging.error(f"Invalid custom DNS server IP address provided: {dns_server}") # Use f-string
 
             self.preferences_error_banner.set_title(error_message)
             self.preferences_error_banner.set_revealed(True)
-
-            self.dns_server_entryrow.set_text("")
-
+            # Do NOT clear self.dns_server_entryrow.set_text("") here.
             # Pass self.dns_server_entryrow explicitly to the timeout handler
             GLib.timeout_add_seconds(
                 4, self.hide_banner_and_clear_error_state, self.dns_server_entryrow
@@ -256,6 +245,25 @@ class Preferences(Adw.PreferencesWindow):
             source_style_scheme = selected_item.get_string()
             self.settings.set_string("source-style-scheme", source_style_scheme)
 
+    def on_http_color_changed(self, button: Gtk.ColorDialogButton, _gparam: GObject.ParamSpec, gsettings_key: str):
+        rgba = button.get_rgba()
+        if rgba:
+            color_string = rgba.to_string()
+            self.settings.set_string(gsettings_key, color_string)
+            logging.debug(f"HTTP color for {gsettings_key} set to: {color_string}")
+
+    def _load_color_button_preference(self, button: Gtk.ColorDialogButton, gsettings_key: str):
+        color_string = self.settings.get_string(gsettings_key)
+        if color_string:
+            color = Gdk.RGBA()
+            try:
+                if color.parse(color_string):
+                    button.set_rgba(color)
+                else:
+                    logging.warning(f"Gdk.RGBA.parse returned false for color string '{color_string}' for GSettings key '{gsettings_key}'.")
+            except GLib.Error as e:
+                logging.warning(f"Failed to parse color string '{color_string}' for GSettings key '{gsettings_key}': {e}.")
+
     def _select_combo_row_item(
         self, combo_row: Adw.ComboRow, setting_value: str, case_sensitive: bool = True
     ) -> bool:
@@ -322,3 +330,10 @@ class Preferences(Adw.PreferencesWindow):
 
         dns_server = self.settings.get_string("custom-dns-server")
         self.dns_server_entryrow.set_text(dns_server)
+
+        if self.http_header_key_color_button:
+            self._load_color_button_preference(self.http_header_key_color_button, "http-output-header-key-color")
+        if self.http_header_value_color_button:
+            self._load_color_button_preference(self.http_header_value_color_button, "http-output-header-value-color")
+        if self.http_special_row_color_button:
+            self._load_color_button_preference(self.http_special_row_color_button, "http-output-special-row-color")
