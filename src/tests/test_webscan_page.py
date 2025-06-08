@@ -22,7 +22,6 @@ def process_gtk_events():
 
 
 class TestWebScanPage(unittest.TestCase):
-
     @classmethod
     def setUpClass(cls):
         cls.app = Adw.Application(application_id="com.example.test.woes")
@@ -54,23 +53,17 @@ class TestWebScanPage(unittest.TestCase):
     def test_02_ui_elements_present(self):
         """Test that essential UI elements are present."""
         self.assertIsNotNone(self.page.url_entry, "URL entry row should exist")
-        self.assertIsInstance(
-            self.page.url_entry, Adw.EntryRow, "URL entry should be AdwEntryRow"
-            )
+        self.assertIsInstance(self.page.url_entry, Adw.EntryRow, "URL entry should be AdwEntryRow")
 
         self.assertIsNotNone(self.page.scan_button, "Scan button should exist")
-        self.assertIsInstance(
-            self.page.scan_button, Gtk.Button, "Scan button should be GtkButton"
-            )
+        self.assertIsInstance(self.page.scan_button, Gtk.Button, "Scan button should be GtkButton")
 
-        self.assertIsNotNone(
-            self.page.results_textview, "Results text view should exist"
-            )
+        self.assertIsNotNone(self.page.results_textview, "Results text view should exist")
         self.assertIsInstance(
             self.page.results_textview,
             Gtk.TextView,
             "Results text view should be GtkTextView",
-            )
+        )
 
     def test_03_empty_url_shows_error(self):
         """Test that clicking scan with an empty URL shows an error and does not run nikto."""
@@ -102,7 +95,7 @@ class TestWebScanPage(unittest.TestCase):
         self.assertTrue(
             self.page.scan_button.get_sensitive(),
             "Button should be sensitive initially",
-            )
+        )
 
         self.page.scan_button.clicked()
         process_gtk_events()
@@ -110,7 +103,7 @@ class TestWebScanPage(unittest.TestCase):
         self.assertFalse(
             self.page.scan_button.get_sensitive(),
             "Button should be insensitive during scan",
-            )
+        )
 
         for _ in range(5):
             process_gtk_events()
@@ -120,20 +113,20 @@ class TestWebScanPage(unittest.TestCase):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            )
+        )
         mock_process.communicate.assert_called_once_with(timeout=300)
 
         results_buffer = self.page.results_textview.get_buffer()
         results_text = results_buffer.get_text(
             results_buffer.get_start_iter(), results_buffer.get_end_iter(), False
-            )
+        )
 
         self.assertIn(f"Scanning {target_url}...", results_text)
         self.assertIn("Nikto scan successful!", results_text)
         self.assertTrue(
             self.page.scan_button.get_sensitive(),
             "Button should be sensitive after scan",
-            )
+        )
 
     @patch("webscan_page.subprocess.Popen")
     def test_05_scan_with_stderr_output(self, mock_popen_class):
@@ -142,7 +135,7 @@ class TestWebScanPage(unittest.TestCase):
         mock_process.communicate.return_value = (
             "Nikto scan partial.",
             "Some errors occurred.",
-            )
+        )
         mock_popen_class.return_value = mock_process
 
         target_url = "http://testserver.invalid"
@@ -155,7 +148,7 @@ class TestWebScanPage(unittest.TestCase):
         results_buffer = self.page.results_textview.get_buffer()
         results_text = results_buffer.get_text(
             results_buffer.get_start_iter(), results_buffer.get_end_iter(), False
-            )
+        )
 
         self.assertIn("Nikto scan partial.", results_text)
         self.assertIn("--- Errors ---\nSome errors occurred.", results_text)
@@ -177,12 +170,12 @@ class TestWebScanPage(unittest.TestCase):
 
             mock_show_error.assert_any_call(
                 "Nikto command not found. Please ensure it is installed and in your PATH."
-                )
+            )
 
         results_buffer = self.page.results_textview.get_buffer()
         results_text = results_buffer.get_text(
             results_buffer.get_start_iter(), results_buffer.get_end_iter(), False
-            )
+        )
         self.assertIn("Error: Nikto not found.", results_text)
         self.assertTrue(self.page.scan_button.get_sensitive())
 
@@ -190,9 +183,7 @@ class TestWebScanPage(unittest.TestCase):
     def test_07_scan_timeout(self, mock_popen_class):
         """Test handling of subprocess.TimeoutExpired."""
         mock_process = MagicMock()
-        mock_process.communicate.side_effect = subprocess.TimeoutExpired(
-            cmd="nikto", timeout=300
-            )
+        mock_process.communicate.side_effect = subprocess.TimeoutExpired(cmd="nikto", timeout=300)
         mock_popen_class.return_value = mock_process
 
         target_url = "http://timeout.com"
@@ -209,10 +200,8 @@ class TestWebScanPage(unittest.TestCase):
         results_buffer = self.page.results_textview.get_buffer()
         results_text = results_buffer.get_text(
             results_buffer.get_start_iter(), results_buffer.get_end_iter(), False
-            )
-        self.assertIn(
-            f"Error: Scan for {target_url} timed out after 5 minutes.", results_text
-            )
+        )
+        self.assertIn(f"Error: Scan for {target_url} timed out after 5 minutes.", results_text)
         self.assertTrue(self.page.scan_button.get_sensitive())
 
     def test_08_url_scheme_addition(self):
@@ -233,7 +222,7 @@ class TestWebScanPage(unittest.TestCase):
                 stdout=ANY,
                 stderr=ANY,
                 text=True,
-                )
+            )
 
             self.page.url_entry.set_text("https://secure.example.com")
             self.page.scan_button.clicked()
@@ -248,11 +237,11 @@ class TestWebScanPage(unittest.TestCase):
                     "https://secure.example.com",
                     "-Tuning",
                     "xCGIVulnerable",
-                    ],
+                ],
                 stdout=ANY,
                 stderr=ANY,
                 text=True,
-                )
+            )
             self.assertEqual(mock_popen_class.call_count, 2)
 
 

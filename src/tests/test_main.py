@@ -28,7 +28,6 @@ if project_root not in sys.path:
 
 
 class TestMainAppArgs(unittest.TestCase):
-
     @patch("src.main.logging.basicConfig")
     def test_no_arguments_logging_info(self, mock_basic_config):
         """Test that logging.INFO is set when no arguments are passed."""
@@ -40,9 +39,7 @@ class TestMainAppArgs(unittest.TestCase):
             if call_item.kwargs.get("level") == logging.INFO:
                 called_with_info = True
                 break
-        self.assertTrue(
-            called_with_info, "basicConfig was not called with level=logging.INFO"
-            )
+        self.assertTrue(called_with_info, "basicConfig was not called with level=logging.INFO")
         self.assertFalse(args.debug)
 
     @patch("src.main.logging.basicConfig")
@@ -56,9 +53,7 @@ class TestMainAppArgs(unittest.TestCase):
             if call_item.kwargs.get("level") == logging.DEBUG:
                 called_with_debug = True
                 break
-        self.assertTrue(
-            called_with_debug, "basicConfig was not called with level=logging.DEBUG"
-            )
+        self.assertTrue(called_with_debug, "basicConfig was not called with level=logging.DEBUG")
         self.assertTrue(args.debug)
 
     @patch("src.main.argparse.ArgumentParser._print_message")

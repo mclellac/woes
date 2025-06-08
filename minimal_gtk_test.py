@@ -1,12 +1,13 @@
 import gi
-gi.require_version('Gtk', '4.0')
+
+gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk
 import sys
 
 
 class MinimalApp(Gtk.Application):
     def __init__(self):
-        super().__init__(application_id='com.example.minimal')
+        super().__init__(application_id="com.example.minimal")
 
     def do_activate(self):
         window = Gtk.ApplicationWindow(application=self, title="Minimal Test")

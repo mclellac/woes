@@ -1,6 +1,7 @@
 import gi
-gi.require_version('Gtk', '4.0')  # Gtk might still be needed by Adw or other implicit parts
-gi.require_version('Adw', '1')
+
+gi.require_version("Gtk", "4.0")  # Gtk might still be needed by Adw or other implicit parts
+gi.require_version("Adw", "1")
 from gi.repository import Adw, Gio, GLib  # Removed Gtk as it's directly unused
 import os  # For manipulating paths if needed
 import sys
@@ -19,8 +20,10 @@ try:
 
     if not os.path.exists(gresource_path):
         print(f"Error: Compiled GResource file not found at {gresource_path}")
-        print("Please ensure 'glib-compile-resources --target=src/woes.gresources "
-              "src/woes.gresource.xml --sourcedir=src/' has been run.")
+        print(
+            "Please ensure 'glib-compile-resources --target=src/woes.gresources "
+            "src/woes.gresource.xml --sourcedir=src/' has been run."
+        )
         exit(1)
 
     resource = Gio.Resource.load(gresource_path)
@@ -37,7 +40,9 @@ except Exception as e:
 
 
 # Mock necessary Gtk Application and Window if needed for instantiation
-class MockApplication(Adw.Application):  # Changed to Adw.Application as Adw.PreferencesPage might need it
+class MockApplication(
+    Adw.Application
+):  # Changed to Adw.Application as Adw.PreferencesPage might need it
     def __init__(self, **kwargs):
         # We need to ensure the application_id matches what's used by Gio.Settings (APP_ID from constants)
         # or that settings are not strictly required for basic instantiation.
@@ -55,6 +60,7 @@ class MockApplication(Adw.Application):  # Changed to Adw.Application as Adw.Pre
         print("MockApplication activated. Attempting to import and instantiate NmapPage...")
         try:
             from src.nmap_page import NmapPage
+
             print("NmapPage class imported successfully.")
 
             # NmapPage.__init__ takes **kwargs, and its super Adw.PreferencesPage also takes them.

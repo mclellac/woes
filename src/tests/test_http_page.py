@@ -4,7 +4,7 @@ from gi.repository import (
     Gio as MockGio,
     GLib as MockGLib,
     GObject as MockGObject,
-    )
+)
 import unittest
 from unittest.mock import patch, MagicMock, call
 import requests  # Keep standard imports
@@ -40,7 +40,7 @@ MOCK_GI_MODULES = {
     "gi.repository.Gio": MagicMock(),
     "gi.repository.GLib": MagicMock(),
     "gi.repository.GObject": MagicMock(),
-    }
+}
 # Ensure the mocked 'gi' module can handle require_version calls
 MOCK_GI_MODULES["gi"].require_version = MagicMock()
 sys.modules.update(MOCK_GI_MODULES)
@@ -50,8 +50,8 @@ HeaderItem_class_for_test = None
 if "src.http_page" in sys.modules:  # http_page_module might be defined below
     temp_http_page_module = sys.modules["src.http_page"]
     if hasattr(temp_http_page_module, "HeaderItem") and inspect.isclass(
-            temp_http_page_module.HeaderItem
-            ):
+        temp_http_page_module.HeaderItem
+    ):
         HeaderItem_class_for_test = temp_http_page_module.HeaderItem
 
 # Now, when any module (like src.http_page) does 'from gi.repository import Gtk',
@@ -80,13 +80,11 @@ MockGtk.Template = MagicMock(side_effect=_mock_gtk_template_decorator)
 # Gtk.Template.Child used at class level also needs to return a mock
 MockGtk.Template.Child = MagicMock(
     side_effect=lambda name: MagicMock(name=f"mock_template_child_class_level_{name}")
-    )
+)
 
 
 # Setup specific attributes on the Mocks that HttpPage or tests might need
-MockGLib.get_monotonic_time = MagicMock(
-    side_effect=lambda: int(time.time() * 1e6)
-    )  # microseconds
+MockGLib.get_monotonic_time = MagicMock(side_effect=lambda: int(time.time() * 1e6))  # microseconds
 MockGLib.MainContext.default.return_value.iteration = MagicMock(return_value=False)
 MockGLib.MainContext.default.return_value.pending = MagicMock(return_value=False)
 MockGLib.usleep = MagicMock(side_effect=lambda us: time.sleep(us / 1e6))
@@ -121,14 +119,10 @@ HttpPage_class = None
 WOES_HTTP_ERROR_DOMAIN = None
 HttpErrorType = None
 try:  # noqa: C901
-    if (
-            "src.http_page" in sys.modules
-            ):  # Should have been deleted if it was there before mocks
+    if "src.http_page" in sys.modules:  # Should have been deleted if it was there before mocks
         del sys.modules["src.http_page"]
     http_page_module = importlib.import_module("src.http_page")
-    if hasattr(http_page_module, "HttpPage") and inspect.isclass(
-            http_page_module.HttpPage
-            ):
+    if hasattr(http_page_module, "HttpPage") and inspect.isclass(http_page_module.HttpPage):
         HttpPage_class = http_page_module.HttpPage
         # --- Import constants after http_page_module is loaded ---
         if hasattr(http_page_module, "WOES_HTTP_ERROR_DOMAIN"):
@@ -153,27 +147,23 @@ try:  # noqa: C901
     else:
         # This path will be taken if HttpPage is a mock after import
         # Try the fallback from the problem description
-        temp_HttpPage = (
-            http_page_module.HttpPage if hasattr(http_page_module, "HttpPage") else None
-            )
+        temp_HttpPage = http_page_module.HttpPage if hasattr(http_page_module, "HttpPage") else None
         if temp_HttpPage and not inspect.isclass(temp_HttpPage):
             if hasattr(temp_HttpPage, "get_original"):
                 original_obj = temp_HttpPage.get_original()
                 if (
-                        isinstance(original_obj, tuple)
-                        and len(original_obj) > 0
-                        and inspect.isclass(original_obj[0])
-                        ):
+                    isinstance(original_obj, tuple)
+                    and len(original_obj) > 0
+                    and inspect.isclass(original_obj[0])
+                ):
                     HttpPage_class = original_obj[0]  # Assuming (original_class, ...)
-                elif inspect.isclass(
-                        original_obj
-                        ):  # If get_original returns the class directly
+                elif inspect.isclass(original_obj):  # If get_original returns the class directly
                     HttpPage_class = original_obj
             elif (
-                    hasattr(temp_HttpPage, "_mock_wraps")
-                    and temp_HttpPage._mock_wraps
-                    and inspect.isclass(temp_HttpPage._mock_wraps)
-                    ):
+                hasattr(temp_HttpPage, "_mock_wraps")
+                and temp_HttpPage._mock_wraps
+                and inspect.isclass(temp_HttpPage._mock_wraps)
+            ):
                 HttpPage_class = temp_HttpPage._mock_wraps
 
 except Exception:
@@ -192,7 +182,6 @@ def _create_mock_response(url, status_code, headers, history_list=None):
 
 
 class TestHttpPage(unittest.TestCase):
-
     @classmethod
     def setUpClass(cls):
         cls.HttpPage_class_to_test = HttpPage_class
@@ -206,9 +195,7 @@ class TestHttpPage(unittest.TestCase):
         self.page = None
         self.mock_task_instance = MagicMock(spec=MockGio.Task)
         self.mock_task_instance.get_cancellable.return_value = mock_cancellable
-        self.mock_task_instance.return_new_error_literal = (
-            MagicMock()
-            )  # Changed mock name
+        self.mock_task_instance.return_new_error_literal = MagicMock()  # Changed mock name
 
         self.done_cb_to_call = None
         self.done_cb_args = None
@@ -238,23 +225,17 @@ class TestHttpPage(unittest.TestCase):
             if self.mock_task_instance.return_new_error_literal.called:
                 # If task.return_new_error_literal() was called, simulate GLib.Error being raised by propagate_value()
                 # Arguments are: (domain_quark, code_int, message_str)
-                call_args = self.mock_task_instance.return_new_error_literal.call_args[
-                    0
-                    ]
+                call_args = self.mock_task_instance.return_new_error_literal.call_args[0]
                 domain_quark, code_int, message_str = (
                     call_args[0],
                     call_args[1],
                     call_args[2],
-                    )
-                raise MockGLibErrorForTest(
-                    message=message_str, domain=domain_quark, code=code_int
-                    )
+                )
+                raise MockGLibErrorForTest(message=message_str, domain=domain_quark, code=code_int)
 
-            if isinstance(
-                    self.captured_task_result_for_propagate, Exception
-                    ) and not isinstance(
-                    self.captured_task_result_for_propagate, dict
-                    ):  # Ensure it's not our result dict
+            if isinstance(self.captured_task_result_for_propagate, Exception) and not isinstance(
+                self.captured_task_result_for_propagate, dict
+            ):  # Ensure it's not our result dict
                 # This path is for testing GObject.GError from propagate_value (other GErrors not from return_error)
                 raise self.captured_task_result_for_propagate
             return self.captured_task_result_for_propagate
@@ -262,12 +243,10 @@ class TestHttpPage(unittest.TestCase):
         # self.mock_task_instance is the instance of the mocked Gio.Task
         # When _fetch_headers_task_thread_func calls task.return_value(value),
         # it will call self.mock_task_instance.return_value(value) due to how task is passed.
-        self.mock_task_instance.return_value = MagicMock(
-            side_effect=mock_task_return_val_method
-            )
+        self.mock_task_instance.return_value = MagicMock(side_effect=mock_task_return_val_method)
         self.mock_task_instance.propagate_value = MagicMock(
             side_effect=mock_task_propagate_val_method
-            )
+        )
         # --- End New Task Mocking Setup ---
 
         def actual_run_in_thread(task_func_on_http_page):
@@ -277,7 +256,7 @@ class TestHttpPage(unittest.TestCase):
                 self.page,
                 self.page._http_task_data_for_thread,
                 self.mock_task_instance.get_cancellable(),
-                )
+            )
             # After task_func_on_http_page executes, it will have called self.mock_task_instance.return_value(),
             # which in turn calls mock_task_return_val_method, storing the result in
             # self.captured_task_result_for_propagate.
@@ -291,9 +270,7 @@ class TestHttpPage(unittest.TestCase):
                 self.done_cb_kwargs = None
             return None
 
-        self.mock_task_instance.run_in_thread = MagicMock(
-            side_effect=actual_run_in_thread
-            )
+        self.mock_task_instance.run_in_thread = MagicMock(side_effect=actual_run_in_thread)
         MockGio.Task.new.return_value = self.mock_task_instance
         MockGLib.quark_from_string = lambda s: s  # Simplify domain assertion
 
@@ -303,11 +280,9 @@ class TestHttpPage(unittest.TestCase):
         # Patches for Gtk.Template.Child should be active here.
         template_child_mock = MagicMock(
             side_effect=lambda name: MagicMock(name=f"mock_template_child_{name}")
-            )
+        )
         list_store_mock = MagicMock(spec=MockGio.ListStore)  # Mock for Gio.ListStore
-        list_store_mock.remove_all = (
-            MagicMock()
-            )  # Mock method used in _update_column_view_model
+        list_store_mock.remove_all = MagicMock()  # Mock method used in _update_column_view_model
 
         try:
             # The Gtk, Gio, etc. used by HttpPage at definition time are already the global mocks
@@ -316,18 +291,16 @@ class TestHttpPage(unittest.TestCase):
             # This means the global MockGtk.Template.Child should be set up.
             MockGtk.Template.Child = template_child_mock
             MockGio.ListStore.new = MagicMock(return_value=list_store_mock)
-            MockGtk.StringList.new = MagicMock(
-                return_value=MagicMock(spec=MockGtk.StringList)
-                )
+            MockGtk.StringList.new = MagicMock(return_value=MagicMock(spec=MockGtk.StringList))
             MockGtk.MultiSelection.new = MagicMock(
                 return_value=MagicMock(spec=MockGtk.MultiSelection)
-                )
+            )
             MockGtk.ColumnViewColumn.new = MagicMock(
                 return_value=MagicMock(spec=MockGtk.ColumnViewColumn)
-                )
+            )
             MockGtk.SignalListItemFactory.new = MagicMock(
                 return_value=MagicMock(spec=MockGtk.SignalListItemFactory)
-                )
+            )
 
             self.page = self.HttpPage_class_to_test()
         except Exception as e:
@@ -375,13 +348,9 @@ class TestHttpPage(unittest.TestCase):
 
         # Assertions
         page.error_banner.set_revealed.assert_called_with(True)
-        page.error_banner.set_title.assert_called_once_with(
-            "Timeout Error: The request timed out."
-            )
+        page.error_banner.set_title.assert_called_once_with("Timeout Error: The request timed out.")
 
-        self.assertIsNone(
-            page.current_http_task, "Task should be cleared after error handling."
-            )
+        self.assertIsNone(page.current_http_task, "Task should be cleared after error handling.")
         page.http_entry_row.set_sensitive.assert_called_with(True)
         page.http_entry_row.add_css_class.assert_called_with("error")
 
@@ -392,20 +361,16 @@ class TestHttpPage(unittest.TestCase):
 
     @patch("src.http_page.requests.get")
     def test_timeout_error_post_fix_verification(self, mock_requests_get):
-        """
-        Verifies timeout handling. The main code now returns a dict via task.return_value.
-        """
+        """Verifies timeout handling. The main code now returns a dict via task.return_value."""
         mock_requests_get.side_effect = requests.exceptions.Timeout(
             "Test timeout specifically for post-fix verification"
-            )
+        )
 
         page = self.page
 
         # Minimal UI mock setup
         page.http_entry_row = MagicMock(spec=MockAdw.EntryRow)
-        page.http_entry_row.get_text.return_value = (
-            "http://example-for-timeout-verification.com"
-            )
+        page.http_entry_row.get_text.return_value = "http://example-for-timeout-verification.com"
         page.http_entry_row.get_sensitive.return_value = True  # Initial state
         page.http_entry_row.set_sensitive = MagicMock()
         page.http_entry_row.add_css_class = MagicMock()
@@ -433,14 +398,10 @@ class TestHttpPage(unittest.TestCase):
         # --- Assertions ---
         # 1. Error banner shows the correct timeout message and is revealed
         page.error_banner.set_revealed.assert_called_with(True)
-        page.error_banner.set_title.assert_called_once_with(
-            "Timeout Error: The request timed out."
-            )
+        page.error_banner.set_title.assert_called_once_with("Timeout Error: The request timed out.")
 
         # 2. UI elements are in the correct state post-error
-        self.assertIsNone(
-            page.current_http_task, "Task should be cleared after error handling."
-            )
+        self.assertIsNone(page.current_http_task, "Task should be cleared after error handling.")
         page.http_entry_row.set_sensitive.assert_called_with(True)
         page.http_entry_row.add_css_class.assert_called_with("error")
 
@@ -453,9 +414,7 @@ class TestHttpPage(unittest.TestCase):
         args_call = self.mock_task_instance.return_value.call_args[0][0]
         self.assertIsInstance(args_call, dict)
         self.assertEqual(args_call.get("error_type"), "Timeout")
-        self.assertEqual(
-            args_call.get("message"), "Timeout Error: The request timed out."
-            )
+        self.assertEqual(args_call.get("message"), "Timeout Error: The request timed out.")
         self.assertIsNone(args_call.get("data"))
 
     @patch("src.http_page.requests.get")
@@ -465,7 +424,7 @@ class TestHttpPage(unittest.TestCase):
         from requests.packages.urllib3.exceptions import (
             MaxRetryError,
             NewConnectionError,
-            )
+        )
 
         # Define parts of the URL for consistency in the mock error messages
         mock_url_host = "example.com"
@@ -480,7 +439,7 @@ class TestHttpPage(unittest.TestCase):
         new_conn_error_message = (
             f"<requests.packages.urllib3.connection.HTTPSConnection object at 0xmockaddress>: "
             f"Failed to establish a new connection: {inner_refused_msg_fragment}"
-            )
+        )
         # The NewConnectionError usually takes the pool and the message string as positional args.
         # For testing, the pool can be None.
         new_conn_error = NewConnectionError(None, new_conn_error_message)
@@ -494,7 +453,7 @@ class TestHttpPage(unittest.TestCase):
             pool=None,  # Mock pool or None
             url=mock_url_path,  # The path part of the URL
             reason=new_conn_error,  # The NewConnectionError instance
-            )
+        )
         # Manually set args to match how requests might construct it if its __str__ is just the message.
         # Or rely on its default __str__ if it includes the reason.
         # For this test, ensuring the NewConnectionError is the 'reason' is key.
@@ -511,7 +470,7 @@ class TestHttpPage(unittest.TestCase):
         page.http_entry_row = MagicMock(spec=MockAdw.EntryRow)
         page.http_entry_row.get_text.return_value = (
             full_mock_url  # Use the same URL for consistency
-            )
+        )
         page.http_entry_row.get_sensitive.return_value = True
         page.http_entry_row.set_sensitive = MagicMock()
         page.http_entry_row.add_css_class = MagicMock()
@@ -530,7 +489,7 @@ class TestHttpPage(unittest.TestCase):
 
         page.http_results_group = MagicMock(
             spec=MockGtk.Box
-            )  # Used by _hide_results -> _update_column_view_model
+        )  # Used by _hide_results -> _update_column_view_model
         page.http_results_group.set_visible = MagicMock()
 
         # Ensure header_list_store mock
@@ -549,7 +508,7 @@ class TestHttpPage(unittest.TestCase):
         expected_message = (
             "The URL targetted via HTTPS is refusing the connection. "
             "It might be an HTTP-only service. Please try with 'http://'."
-            )
+        )
         page.error_banner.set_revealed.assert_called_with(True)
         page.error_banner.set_title.assert_called_once_with(expected_message)
 
@@ -570,15 +529,15 @@ class TestHttpPage(unittest.TestCase):
         from requests.packages.urllib3.exceptions import (
             MaxRetryError,
             NewConnectionError,
-            )
+        )
 
         connection_refused_msg = (
             "Failed to establish a new connection: [Errno 111] Connection refused"
-            )
+        )
         new_conn_error = NewConnectionError(None, reason=connection_refused_msg)
         max_retry_error = MaxRetryError(
             None, "http://example-https-only.com", reason=new_conn_error
-            )  # HTTP URL
+        )  # HTTP URL
         connection_error = requests.exceptions.ConnectionError(max_retry_error)
         mock_requests_get.side_effect = connection_error
 
@@ -586,9 +545,7 @@ class TestHttpPage(unittest.TestCase):
 
         # Configure mocks for UI elements
         page.http_entry_row = MagicMock(spec=MockAdw.EntryRow)
-        page.http_entry_row.get_text.return_value = (
-            "http://example-https-only.com"  # HTTP URL
-            )
+        page.http_entry_row.get_text.return_value = "http://example-https-only.com"  # HTTP URL
         page.http_entry_row.get_sensitive.return_value = True
         page.http_entry_row.set_sensitive = MagicMock()
         page.http_entry_row.add_css_class = MagicMock()
@@ -617,7 +574,7 @@ class TestHttpPage(unittest.TestCase):
         expected_message = (
             "The HTTP request failed. The server might only support HTTPS for this resource. "
             "Please try with 'https://'."
-            )
+        )
         page.error_banner.set_revealed.assert_called_with(True)
         page.error_banner.set_title.assert_called_once_with(expected_message)
 
@@ -645,14 +602,10 @@ class TestHttpPage(unittest.TestCase):
         page.header_list_store.append = MagicMock()
         # page.header_list_store.remove_all is already mocked via Gio.ListStore.new in setUp,
         # but ensure it is for this test context specifically if setUp changes.
-        if not hasattr(
-                page.header_list_store, "remove_all"
-                ):  # Should be there from global mock
+        if not hasattr(page.header_list_store, "remove_all"):  # Should be there from global mock
             page.header_list_store.remove_all = MagicMock()
 
-        page.header_list_store.append(
-            "dummy_key", "dummy_value"
-            )  # Simulate adding an item
+        page.header_list_store.append("dummy_key", "dummy_value")  # Simulate adding an item
 
         page.http_results_group = MagicMock(spec=MockGtk.Box)
         page.http_results_group.set_visible = MagicMock()
@@ -661,9 +614,7 @@ class TestHttpPage(unittest.TestCase):
         page.http_entry_row = MagicMock(spec=MockAdw.EntryRow)
         page.http_entry_row.set_text = MagicMock()
         page.http_entry_row.remove_css_class = MagicMock()  # For _clear_error
-        page.http_entry_row.set_text(
-            "http://example.com/somepath"
-            )  # Simulate initial text
+        page.http_entry_row.set_text("http://example.com/somepath")  # Simulate initial text
 
         page.error_banner = MagicMock(spec=MockAdw.Banner)
         page.error_banner.set_revealed = MagicMock()
@@ -684,13 +635,9 @@ class TestHttpPage(unittest.TestCase):
         #    *   `error_banner` is not revealed
 
         page.header_list_store.remove_all.assert_called_once()
-        page.http_results_group.set_visible.assert_called_with(
-            False
-            )  # Called by _hide_results
+        page.http_results_group.set_visible.assert_called_with(False)  # Called by _hide_results
         page.http_entry_row.set_text.assert_called_with("")
-        page.error_banner.set_revealed.assert_called_with(
-            False
-            )  # Called by _clear_error
+        page.error_banner.set_revealed.assert_called_with(False)  # Called by _clear_error
         page.error_banner.set_title.assert_called_with("")  # Also part of _clear_error
 
     # TestHttpPage class continues...
@@ -700,9 +647,7 @@ class TestHttpPage(unittest.TestCase):
         final_url = "http://final.com"
         final_headers = {"Content-Type": "text/html", "X-Final-Header": "FinalValue"}
 
-        mock_final_response = _create_mock_response(
-            final_url, 200, final_headers, history_list=[]
-            )
+        mock_final_response = _create_mock_response(final_url, 200, final_headers, history_list=[])
         mock_requests_get.return_value = mock_final_response
 
         page._update_column_view_model = MagicMock()
@@ -714,9 +659,9 @@ class TestHttpPage(unittest.TestCase):
                     "url": final_url,
                     "status_code": 200,
                     "headers": final_headers,
-                    }
-                ]
-            )
+                }
+            ]
+        )
 
         page.http_entry_row = MagicMock(spec=MockAdw.EntryRow)
         page.http_entry_row.get_text.return_value = final_url
@@ -739,7 +684,7 @@ class TestHttpPage(unittest.TestCase):
         self.assertIsNotNone(
             http_page_module.HeaderItem,
             "HeaderItem class could not be loaded from http_page_module",
-            )
+        )
 
         self.assertIsInstance(processed_items[0], http_page_module.HeaderItem)
         self.assertTrue(processed_items[0].is_special_row)
@@ -766,7 +711,7 @@ class TestHttpPage(unittest.TestCase):
         mock_r1 = _create_mock_response(r1_url, r1_s, r1_hdrs)
         mock_final = _create_mock_response(
             final_url, final_stat, final_hdrs, history_list=[mock_r1]
-            )
+        )
         mock_requests_get.return_value = mock_final
 
         page._update_column_view_model = MagicMock()
@@ -777,15 +722,15 @@ class TestHttpPage(unittest.TestCase):
                     "url": r1_url,
                     "status_code": r1_s,
                     "headers": r1_hdrs,
-                    },
+                },
                 {
                     "type": "final",
                     "url": final_url,
                     "status_code": final_stat,
                     "headers": final_hdrs,
-                    },
-                ]
-            )
+                },
+            ]
+        )
 
         page.http_entry_row = MagicMock(spec=MockAdw.EntryRow)
         page.http_entry_row.get_text.return_value = r1_url
@@ -844,9 +789,7 @@ class TestHttpPage(unittest.TestCase):
 
         mock_r1 = _create_mock_response(r1_url, r1_s, r1_h)
         mock_r2 = _create_mock_response(r2_url, r2_s, r2_h)
-        mock_final = _create_mock_response(
-            f_url, f_s, f_h, history_list=[mock_r1, mock_r2]
-            )
+        mock_final = _create_mock_response(f_url, f_s, f_h, history_list=[mock_r1, mock_r2])
         mock_requests_get.return_value = mock_final
 
         page._update_column_view_model = MagicMock()
@@ -857,16 +800,16 @@ class TestHttpPage(unittest.TestCase):
                     "url": r1_url,
                     "status_code": r1_s,
                     "headers": r1_h,
-                    },
+                },
                 {
                     "type": "redirect",
                     "url": r2_url,
                     "status_code": r2_s,
                     "headers": r2_h,
-                    },
+                },
                 {"type": "final", "url": f_url, "status_code": f_s, "headers": f_h},
-                ]
-            )
+            ]
+        )
 
         page.http_entry_row = MagicMock(spec=MockAdw.EntryRow)
         page.http_entry_row.get_text.return_value = r1_url
@@ -911,7 +854,7 @@ class TestHttpPage(unittest.TestCase):
         self.assertIsNotNone(
             http_page_module.HeaderItem,
             "HeaderItem class not loaded for test via http_page_module",
-            )
+        )
 
         mock_list_item = MagicMock(spec=MockGtk.ListItem)
         mock_label = MagicMock(spec=MockGtk.Label)
@@ -942,7 +885,7 @@ class TestHttpPage(unittest.TestCase):
         special_item_key = "URL: http://example.com"
         special_item = http_page_module.HeaderItem(
             key=special_item_key, value="Status: 200", is_special_row=True
-            )
+        )
         mock_list_item.get_item.return_value = special_item
 
         original_markup_escape = MockGLib.markup_escape_text
@@ -958,7 +901,7 @@ class TestHttpPage(unittest.TestCase):
         regular_item_key = "Host"
         regular_item = http_page_module.HeaderItem(
             key=regular_item_key, value="example.com", is_special_row=False
-            )
+        )
         mock_list_item.get_item.return_value = regular_item
 
         bind_func(factory_capturer, mock_list_item)
@@ -969,8 +912,7 @@ class TestHttpPage(unittest.TestCase):
         MockGLib.markup_escape_text = original_markup_escape
 
     def test_callback_handles_gerror_from_propagate_value(self):
-        """
-        Tests the scenario where task.propagate_value() itself raises a GObject.GError.
+        """Tests the scenario where task.propagate_value() itself raises a GObject.GError.
         This simulates a fundamental task failure recognized by Gio.
         """
         page = self.page
@@ -999,24 +941,22 @@ class TestHttpPage(unittest.TestCase):
             message=simulated_gerror_message,
             domain=MockGio.io_error_quark.return_value,  # Use the mocked quark
             code=MockGio.IOErrorEnum.FAILED,  # Example error code
-            )
+        )
 
         # Also, ensure that _fetch_headers_task_thread_func does not call task.return_value()
         # by making requests.get raise an exception. This ensures that
         # self.captured_task_result_for_propagate is not overwritten by a normal dict result.
         with patch(
-                "src.http_page.requests.get",
-                side_effect=requests.exceptions.RequestException("Force error in thread"),
-                ):
+            "src.http_page.requests.get",
+            side_effect=requests.exceptions.RequestException("Force error in thread"),
+        ):
             page._on_entry_row_activated(page.http_entry_row)
 
         # Assertions: Check if _display_error was called with the GError's message
         page.error_banner.set_revealed.assert_called_with(True)
         page.error_banner.set_title.assert_called_once()
         args_title, _ = page.error_banner.set_title.call_args
-        self.assertEqual(
-            args_title[0], simulated_gerror_message
-            )  # Message from the GError
+        self.assertEqual(args_title[0], simulated_gerror_message)  # Message from the GError
 
         page.http_entry_row.add_css_class.assert_called_with("error")
         self.assertIsNone(page.current_http_task)  # Task should be cleared
@@ -1024,15 +964,12 @@ class TestHttpPage(unittest.TestCase):
 
     @patch("src.http_page.requests.get")
     def test_actual_timeout_error_flow(self, mock_requests_get):
-        """
-        Tests the full flow when requests.get raises a Timeout exception,
+        """Tests the full flow when requests.get raises a Timeout exception,
         ensuring task.return_error is called correctly and UI reflects the error.
         """
         # Ensure HttpErrorType and WOES_HTTP_ERROR_DOMAIN are loaded
         self.assertIsNotNone(HttpErrorType, "HttpErrorType not loaded for test")
-        self.assertIsNotNone(
-            WOES_HTTP_ERROR_DOMAIN, "WOES_HTTP_ERROR_DOMAIN not loaded for test"
-            )
+        self.assertIsNotNone(WOES_HTTP_ERROR_DOMAIN, "WOES_HTTP_ERROR_DOMAIN not loaded for test")
 
         mock_requests_get.side_effect = requests.exceptions.Timeout("Simulated timeout")
 
@@ -1077,18 +1014,16 @@ class TestHttpPage(unittest.TestCase):
             "Request timed out. This could be due to a slow network, server issues, "
             "or a Web Application Firewall (WAF) interfering. "
             "Please check the URL or try again later."
-            )
+        )
         # Ensure module-level constants are used for assertion if available, otherwise direct values
         expected_domain = (
-            WOES_HTTP_ERROR_DOMAIN
-            if WOES_HTTP_ERROR_DOMAIN
-            else "woes-http-error-domain"
-            )
+            WOES_HTTP_ERROR_DOMAIN if WOES_HTTP_ERROR_DOMAIN else "woes-http-error-domain"
+        )
         expected_code = HttpErrorType.TIMEOUT.value if HttpErrorType else 0
 
         self.mock_task_instance.return_new_error_literal.assert_called_once_with(
             expected_domain, expected_code, expected_timeout_message
-            )
+        )
 
         # 2. UI reflects the error state (via _fetch_headers_task_done_cb)
         page.error_banner.set_revealed.assert_called_with(True)
@@ -1097,9 +1032,7 @@ class TestHttpPage(unittest.TestCase):
         page.http_entry_row.add_css_class.assert_called_with("error")
 
         # 3. Task and UI state after completion
-        self.assertIsNone(
-            page.current_http_task, "Task should be cleared after error handling."
-            )
+        self.assertIsNone(page.current_http_task, "Task should be cleared after error handling.")
         # Check that set_sensitive was called to re-enable the entry row
         # It's called first with False, then with True in the finally block.
         page.http_entry_row.set_sensitive.assert_has_calls([call(False), call(True)])
@@ -1141,10 +1074,8 @@ def _isolated_is_valid_url(url: str) -> bool:
         r"(?::\d+)?"
         r"(?:/?|[/?]\S+)$",
         re.IGNORECASE,
-        )
-    return re.match(url_regex, url) is not None and bool(
-        requests.utils.urlparse(url).netloc
-        )
+    )
+    return re.match(url_regex, url) is not None and bool(requests.utils.urlparse(url).netloc)
 
 
 # Dummy logger for _isolated_get_detailed_connection_error_message
@@ -1176,8 +1107,8 @@ class _Urllib3ExceptionsNamespace:
 
 
 def _isolated_get_detailed_connection_error_message(  # noqa: C901
-        exc: Exception, url: str
-        ) -> Optional[str]:
+    exc: Exception, url: str
+) -> Optional[str]:
     # Requires: requests.utils.urlparse, isolated_logger, _Urllib3ExceptionsNamespace
     # And Python's ConnectionRefusedError
     # from typing import Optional # This is now at the top of the file
@@ -1192,7 +1123,7 @@ def _isolated_get_detailed_connection_error_message(  # noqa: C901
             isolated_logger.debug(
                 "Reached end of exception chain (current_exc is None) at depth %d.",
                 depth,
-                )
+            )
             break
         exc_type_name = type(current_exc).__name__
         exc_args_str = str(current_exc.args) if hasattr(current_exc, "args") else "N/A"
@@ -1203,50 +1134,39 @@ def _isolated_get_detailed_connection_error_message(  # noqa: C901
             exc_type_name,
             exc_args_str,
             exc_str,
-            )
+        )
 
         if isinstance(current_exc, ConnectionRefusedError):
-            isolated_logger.debug(
-                "Direct ConnectionRefusedError found: %s", current_exc
-                )
+            isolated_logger.debug("Direct ConnectionRefusedError found: %s", current_exc)
             found_connection_refused = True
             break
-        if isinstance(
-                current_exc, _Urllib3ExceptionsNamespace.NewConnectionError
-                ):  # Changed here
-            isolated_logger.debug(
-                "urllib3.exceptions.NewConnectionError found: %s", current_exc
-                )
-            if (
-                    "connection refused" in exc_str.lower()
-                    or "errno 111" in exc_str.lower()
-                    ):
+        if isinstance(current_exc, _Urllib3ExceptionsNamespace.NewConnectionError):  # Changed here
+            isolated_logger.debug("urllib3.exceptions.NewConnectionError found: %s", current_exc)
+            if "connection refused" in exc_str.lower() or "errno 111" in exc_str.lower():
                 found_connection_refused = True
                 break
             if hasattr(current_exc, "original_error") and isinstance(
-                    current_exc.original_error, ConnectionRefusedError
-                    ):
+                current_exc.original_error, ConnectionRefusedError
+            ):
                 isolated_logger.debug(
                     "Nested ConnectionRefusedError found in NewConnectionError.original_error"
-                    )
+                )
                 found_connection_refused = True
                 break
             if (
-                    hasattr(current_exc, "original_error")
-                    and hasattr(current_exc.original_error, "errno")
-                    and current_exc.original_error.errno == 111
-                    ):  # type: ignore
+                hasattr(current_exc, "original_error")
+                and hasattr(current_exc.original_error, "errno")
+                and current_exc.original_error.errno == 111
+            ):  # type: ignore
                 isolated_logger.debug(
                     "Nested ConnectionRefusedError (errno 111) found in NewConnectionError.original_error"
-                    )
+                )
                 found_connection_refused = True
                 break
-        if isinstance(
-                current_exc, _Urllib3ExceptionsNamespace.MaxRetryError
-                ):  # Changed here
+        if isinstance(current_exc, _Urllib3ExceptionsNamespace.MaxRetryError):  # Changed here
             isolated_logger.debug(
                 "urllib3.exceptions.MaxRetryError found. Will inspect its reason."
-                )
+            )
             if hasattr(current_exc, "reason") and current_exc.reason is not None:
                 reason_exc = current_exc.reason
                 reason_exc_type_name = type(reason_exc).__name__
@@ -1255,51 +1175,45 @@ def _isolated_get_detailed_connection_error_message(  # noqa: C901
                     "Inspecting MaxRetryError.reason: Type=%s, Str=%s",
                     reason_exc_type_name,
                     reason_exc_str,
-                    )
+                )
                 if isinstance(
-                        reason_exc, _Urllib3ExceptionsNamespace.NewConnectionError
-                        ):  # Changed here
+                    reason_exc, _Urllib3ExceptionsNamespace.NewConnectionError
+                ):  # Changed here
                     if (
-                            "connection refused" in reason_exc_str.lower()
-                            or "errno 111" in reason_exc_str.lower()
-                            ):
+                        "connection refused" in reason_exc_str.lower()
+                        or "errno 111" in reason_exc_str.lower()
+                    ):
                         found_connection_refused = True
                         break
                     if hasattr(reason_exc, "original_error") and isinstance(
-                            reason_exc.original_error, ConnectionRefusedError
-                            ):  # This is the target log path
+                        reason_exc.original_error, ConnectionRefusedError
+                    ):  # This is the target log path
                         isolated_logger.debug(
                             "Nested ConnectionRefusedError found in NewConnectionError.original_error"
-                            )
+                        )
                         found_connection_refused = True
                         break
                     if (
-                            hasattr(reason_exc, "original_error")
-                            and hasattr(reason_exc.original_error, "errno")
-                            and reason_exc.original_error.errno == 111
-                            ):  # type: ignore
+                        hasattr(reason_exc, "original_error")
+                        and hasattr(reason_exc.original_error, "errno")
+                        and reason_exc.original_error.errno == 111
+                    ):  # type: ignore
                         found_connection_refused = True
                         break
         if (
-                any(
-                    "connection refused" in str(arg).lower()
-                    for arg in current_exc.args
-                    if isinstance(arg, str)
-                    )
-                or "connection refused" in exc_str.lower()
-                ):
-            isolated_logger.debug(
-                "Found 'connection refused' in string representation."
-                )
+            any(
+                "connection refused" in str(arg).lower()
+                for arg in current_exc.args
+                if isinstance(arg, str)
+            )
+            or "connection refused" in exc_str.lower()
+        ):
+            isolated_logger.debug("Found 'connection refused' in string representation.")
             found_connection_refused = True
         if (
-                any(
-                    "errno 111" in str(arg).lower()
-                    for arg in current_exc.args
-                    if isinstance(arg, str)
-                    )
-                or "errno 111" in exc_str.lower()
-                ):
+            any("errno 111" in str(arg).lower() for arg in current_exc.args if isinstance(arg, str))
+            or "errno 111" in exc_str.lower()
+        ):
             isolated_logger.debug("Found 'errno 111' in string representation.")
             found_connection_refused = True
 
@@ -1307,10 +1221,10 @@ def _isolated_get_detailed_connection_error_message(  # noqa: C901
         if hasattr(current_exc, "__cause__") and current_exc.__cause__ is not None:
             next_exc = current_exc.__cause__
         elif (
-                hasattr(current_exc, "__context__")
-                and current_exc.__context__ is not None
-                and not current_exc.__suppress_context__
-                ):  # type: ignore
+            hasattr(current_exc, "__context__")
+            and current_exc.__context__ is not None
+            and not current_exc.__suppress_context__
+        ):  # type: ignore
             next_exc = current_exc.__context__
         if current_exc is next_exc:
             break
@@ -1319,47 +1233,39 @@ def _isolated_get_detailed_connection_error_message(  # noqa: C901
     if found_connection_refused:
         isolated_logger.info("Connection refused condition identified for URL: %s", url)
         if requests.utils.urlparse(url).scheme == "https":
-            isolated_logger.info(
-                "URL is HTTPS and connection was refused. Suggesting HTTP."
-                )
+            isolated_logger.info("URL is HTTPS and connection was refused. Suggesting HTTP.")
             return (
                 "The URL targetted via HTTPS is refusing the connection. "
                 "It might be an HTTP-only service. Please try with 'http://'."
-                )
+            )
         elif requests.utils.urlparse(url).scheme == "http":
-            isolated_logger.info(
-                "URL is HTTP and connection was refused. Suggesting HTTPS."
-                )
+            isolated_logger.info("URL is HTTP and connection was refused. Suggesting HTTPS.")
             return (
                 "The HTTP request failed. The server might only support HTTPS for this resource. "
                 "Please try with 'https://'."
-                )
+            )
         else:
             isolated_logger.info("URL is non-HTTP/HTTPS and connection was refused.")
-            return "Connection Error: The server at the specified URL actively refused the connection."
+            return (
+                "Connection Error: The server at the specified URL actively refused the connection."
+            )
     isolated_logger.debug(
         "No specific 'Connection refused' condition found that warrants a custom message."
-        )
+    )
     return None
 
 
 class TestHttpPageStaticMethods(unittest.TestCase):
     def test_ensure_scheme(self):
         self.assertEqual(_isolated_ensure_scheme("example.com"), "https://example.com")
-        self.assertEqual(
-            _isolated_ensure_scheme("http://example.com"), "http://example.com"
-            )
-        self.assertEqual(
-            _isolated_ensure_scheme("https://example.com"), "https://example.com"
-            )
+        self.assertEqual(_isolated_ensure_scheme("http://example.com"), "http://example.com")
+        self.assertEqual(_isolated_ensure_scheme("https://example.com"), "https://example.com")
         self.assertEqual(_isolated_ensure_scheme(""), "https://")  # current behavior
 
     def test_is_valid_url(self):
         self.assertTrue(_isolated_is_valid_url("http://example.com"))
         self.assertTrue(_isolated_is_valid_url("https://example.com"))
-        self.assertTrue(
-            _isolated_is_valid_url("https://example.com/path?query=1#fragment")
-            )
+        self.assertTrue(_isolated_is_valid_url("https://example.com/path?query=1#fragment"))
         self.assertTrue(_isolated_is_valid_url("http://localhost:8000"))
         self.assertTrue(_isolated_is_valid_url("http://127.0.0.1"))
         self.assertTrue(_isolated_is_valid_url("https://[::1]:8080/test"))
@@ -1377,16 +1283,14 @@ class TestHttpPageStaticMethods(unittest.TestCase):
         expected_msg = (
             "The URL targetted via HTTPS is refusing the connection. "
             "It might be an HTTP-only service. Please try with 'http://'."
-            )
+        )
 
         isolated_logger.reset_mock()
-        msg = _isolated_get_detailed_connection_error_message(
-            simple_refused_error, url_https
-            )
+        msg = _isolated_get_detailed_connection_error_message(simple_refused_error, url_https)
         self.assertEqual(msg, expected_msg)
         isolated_logger.debug.assert_any_call(
             "Direct ConnectionRefusedError found: %s", simple_refused_error
-            )
+        )
 
         # Test 2: Nested exception structure
         # ConnectionRefusedError -> _IsolatedNewConnectionError -> _IsolatedMaxRetryError -> requests.ConnectionError
@@ -1401,22 +1305,20 @@ class TestHttpPageStaticMethods(unittest.TestCase):
 
         requests_conn_err_L0 = requests.exceptions.ConnectionError(
             max_retry_err_L1
-            )  # Corrected variable name
-        requests_conn_err_L0.__cause__ = (
-            max_retry_err_L1  # Explicitly set cause for traversal
-            )
+        )  # Corrected variable name
+        requests_conn_err_L0.__cause__ = max_retry_err_L1  # Explicitly set cause for traversal
 
         isolated_logger.reset_mock()
         msg_nested = _isolated_get_detailed_connection_error_message(
             requests_conn_err_L0, url_https
-            )
+        )
         self.assertEqual(msg_nested, expected_msg)
 
         # Check log messages directly
         found_expected_log = False
         expected_log_message = (
             "Nested ConnectionRefusedError found in NewConnectionError.original_error"
-            )
+        )
         # Store formatted actual calls for better error reporting if assert fails
         for call_args_tuple in isolated_logger.debug.call_args_list:
             log_format_string = call_args_tuple[0][0]
@@ -1427,19 +1329,19 @@ class TestHttpPageStaticMethods(unittest.TestCase):
         self.assertTrue(
             found_expected_log,
             f"Expected log message '{expected_log_message}' not found.",
-            )
+        )
 
     @patch("src.http_page.socket.getaddrinfo")
     @patch("src.http_page.dns.resolver")
     @patch("src.http_page.requests.Session")
     @patch("src.http_page.Gio.Settings")
     def test_custom_dns_with_hostname_uses_socket_patching(
-            self,
-            MockGioSettings,
-            MockRequestsSession,
-            MockDnsResolver,
-            mock_socket_getaddrinfo_in_module,
-            ):
+        self,
+        MockGioSettings,
+        MockRequestsSession,
+        MockDnsResolver,
+        mock_socket_getaddrinfo_in_module,
+    ):
         if not self.HttpPage_class_to_test:
             self.skipTest("HttpPage class could not be loaded.")
 
@@ -1452,7 +1354,7 @@ class TestHttpPageStaticMethods(unittest.TestCase):
         mock_settings_instance = MockGioSettings.return_value
         mock_settings_instance.get_string.side_effect = lambda key: (
             custom_dns_ip if key == "custom-dns-server" else None
-            )
+        )
         self.page.settings = mock_settings_instance
 
         # Mock dns.resolver.Resolver
@@ -1464,7 +1366,7 @@ class TestHttpPageStaticMethods(unittest.TestCase):
             [mock_dns_answer_a]
             if rdtype == "A"
             else (_ for _ in ()).throw(http_page_module.dns.resolver.NoAnswer)
-            )
+        )
 
         # Mock socket.getaddrinfo (the one imported in src.http_page)
         # This mock will be the *original* getaddrinfo that our custom_getaddrinfo calls.
@@ -1477,8 +1379,8 @@ class TestHttpPageStaticMethods(unittest.TestCase):
                 socket.IPPROTO_TCP,
                 "",
                 (resolved_ip, 443),
-                )
-            ]
+            )
+        ]
 
         # Mock requests.Session
         mock_session_instance = MockRequestsSession.return_value
@@ -1486,9 +1388,7 @@ class TestHttpPageStaticMethods(unittest.TestCase):
         mock_response.status_code = 200
         mock_response.headers = {"Content-Type": "text/plain"}
         mock_response.history = []
-        mock_response.url = (
-            f"https://{test_hostname}"  # Response URL should be original hostname
-            )
+        mock_response.url = f"https://{test_hostname}"  # Response URL should be original hostname
         mock_response.raise_for_status = MagicMock()
         mock_session_instance.get.return_value = mock_response
 
@@ -1513,7 +1413,7 @@ class TestHttpPageStaticMethods(unittest.TestCase):
             "host_header": "",
             "user_agent": None,
             "custom_dns_server": custom_dns_ip,
-            }
+        }
 
         # 3. Trigger execution
         # Keep track of how socket.getaddrinfo in the http_page module changes
@@ -1526,9 +1426,7 @@ class TestHttpPageStaticMethods(unittest.TestCase):
             # The actual custom_getaddrinfo defined in http_page will call the *original* (mocked above)
             # getaddrinfo if the host doesn't match.
             new_func = args[0]  # The custom_getaddrinfo function from http_page
-            getaddrinfo_call_history.append(
-                new_func
-                )  # Record that socket.getaddrinfo was changed
+            getaddrinfo_call_history.append(new_func)  # Record that socket.getaddrinfo was changed
 
             # Replace the module's getaddrinfo with a spy that calls the new_func
             # but allows us to also check that the custom function was called.
@@ -1571,14 +1469,14 @@ class TestHttpPageStaticMethods(unittest.TestCase):
             http_page_module.socket.getaddrinfo,
             initial_module_getaddrinfo,
             "socket.getaddrinfo was not patched in the module.",
-            )
+        )
         # And that it was later restored
         # The run_in_thread simulation executes the finally block too.
         self.assertEqual(
             http_page_module.socket.getaddrinfo,
             initial_module_getaddrinfo,
             "socket.getaddrinfo was not restored in the module.",
-            )
+        )
 
         # To assert the custom getaddrinfo was called:
         # The mock_socket_getaddrinfo_in_module is the one that the *custom* getaddrinfo in http_page.py
@@ -1599,7 +1497,7 @@ class TestHttpPageStaticMethods(unittest.TestCase):
             called_with_test_hostname,
             f"The original getaddrinfo was called with {test_hostname}, "
             f"meaning custom logic didn't fully intercept.",
-            )
+        )
 
         # Session.get call
         mock_session_instance.get.assert_called_once_with(
@@ -1607,7 +1505,7 @@ class TestHttpPageStaticMethods(unittest.TestCase):
             headers=unittest.mock.ANY,  # Host header is set by requests from URL
             allow_redirects=True,
             timeout=5,
-            )
+        )
 
         # CustomSNIAdapter should NOT be used
         mock_session_instance.mount.assert_not_called()
@@ -1619,13 +1517,13 @@ class TestHttpPageStaticMethods(unittest.TestCase):
 
     @patch(
         f"{http_page_module.__name__}.CustomSNIAdapter"
-        )  # Patch CustomSNIAdapter in http_page module
+    )  # Patch CustomSNIAdapter in http_page module
     @patch("src.http_page.requests.Session")
     @patch("src.http_page.Gio.Settings")
     # No need to patch dns.resolver or socket.getaddrinfo if custom DNS is off
     def test_ip_url_with_host_header_uses_custom_sni_adapter(
-            self, MockGioSettings, MockRequestsSession, MockCustomSNIAdapter
-            ):
+        self, MockGioSettings, MockRequestsSession, MockCustomSNIAdapter
+    ):
         if not self.HttpPage_class_to_test:
             self.skipTest("HttpPage class could not be loaded.")
 
@@ -1658,7 +1556,7 @@ class TestHttpPageStaticMethods(unittest.TestCase):
         self.page.http_host_header_row = MagicMock(spec=MockAdw.EntryRow)
         self.page.http_host_header_row.get_text.return_value = (
             test_host_header  # User sets Host header
-            )
+        )
 
         self.page.http_user_agent_row = MagicMock(spec=MockAdw.ComboRow)
         self.page.http_user_agent_row.get_selected.return_value = 0
@@ -1676,7 +1574,7 @@ class TestHttpPageStaticMethods(unittest.TestCase):
             "host_header": test_host_header,  # Host header is provided
             "user_agent": None,
             "custom_dns_server": "",  # Custom DNS is off
-            }
+        }
 
         # 3. Trigger execution
         self.mock_task_instance.run_in_thread(self.page._fetch_headers_task_thread_func)
@@ -1684,9 +1582,7 @@ class TestHttpPageStaticMethods(unittest.TestCase):
         # 4. Assertions
         # CustomSNIAdapter usage
         MockCustomSNIAdapter.assert_called_once_with(sni_hostname=test_host_header)
-        mock_session_instance.mount.assert_called_once_with(
-            "https://", mock_sni_adapter_instance
-            )
+        mock_session_instance.mount.assert_called_once_with("https://", mock_sni_adapter_instance)
 
         # Session.get call
         mock_session_instance.get.assert_called_once_with(
@@ -1694,12 +1590,10 @@ class TestHttpPageStaticMethods(unittest.TestCase):
             headers={"Host": test_host_header},  # Host header is passed
             allow_redirects=True,
             timeout=5,
-            )
+        )
 
         # dns.resolver should not be called if custom_dns_server is empty
-        if (
-                hasattr(http_page_module, "dns") and http_page_module.dns
-                ):  # Check if dns was imported
+        if hasattr(http_page_module, "dns") and http_page_module.dns:  # Check if dns was imported
             # If you had a mock for dns.resolver specific to the module, assert not called.
             # e.g. with @patch('src.http_page.dns.resolver') as MockDnsResolverGlobal:
             #     MockDnsResolverGlobal.Resolver.return_value.resolve.assert_not_called()
