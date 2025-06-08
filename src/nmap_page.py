@@ -47,6 +47,7 @@ class NmapItem(GObject.Object):
         """Initialize an NmapItem.
 
         Args:
+        ----
             key: The key (e.g., host IP or name).
             value: The value (e.g., YAML string of scan results for the host).
 
@@ -65,6 +66,7 @@ class NmapTargetRow(Gtk.ListBoxRow):
         """Initialize an NmapTargetRow.
 
         Args:
+        ----
             nmap_item: The NmapItem to associate with this row.
             **kwargs: Additional keyword arguments for Gtk.ListBoxRow.
 
@@ -141,6 +143,7 @@ class NmapPage(Adw.PreferencesPage):
         Consider connecting this to `_apply_source_view_style_to_buffer` for active buffers if needed.
 
         Args:
+        ----
             _settings: The Gio.Settings object that changed.
             key: The name of the GSettings key that changed.
 
@@ -154,6 +157,7 @@ class NmapPage(Adw.PreferencesPage):
         """Apply the current GSettings style scheme to a given GtkSource.Buffer.
 
         Args:
+        ----
             buffer: The GtkSource.Buffer to apply the style to.
 
         """
@@ -293,6 +297,7 @@ class NmapPage(Adw.PreferencesPage):
         on the main thread using `GLib.idle_add`.
 
         Args:
+        ----
             target: The target string for Nmap.
             os_fingerprinting: Whether to enable OS fingerprinting.
             all_ports: Whether to scan all ports.
@@ -339,6 +344,7 @@ class NmapPage(Adw.PreferencesPage):
         displays an appropriate message.
 
         Args:
+        ----
             nm: The `nmap.PortScanner` object containing the scan results.
             original_target: The original target string for which the scan was run.
 
@@ -377,6 +383,7 @@ class NmapPage(Adw.PreferencesPage):
         Displays an error message in the UI and sets the scan status to FAILED.
 
         Args:
+        ----
             target: The target for which the scan failed.
             error_message: The error message to display.
 
@@ -392,6 +399,7 @@ class NmapPage(Adw.PreferencesPage):
         for the newly selected host using various expander rows.
 
         Args:
+        ----
             _listbox: The Gtk.ListBox where the selection changed.
             row: The selected Gtk.ListBoxRow, or None if deselected.
 
@@ -464,6 +472,7 @@ class NmapPage(Adw.PreferencesPage):
         """Add an Adw.ExpanderRow to display the raw Nmap YAML output for a host.
 
         Args:
+        ----
             yaml_string: The Nmap scan result for the host, formatted as a YAML string.
             host_key: The identifier for the host (IP or name).
 
@@ -492,6 +501,7 @@ class NmapPage(Adw.PreferencesPage):
         Includes status, IP/MAC addresses, and hostnames.
 
         Args:
+        ----
             host_data: A dictionary parsed from the Nmap YAML output for the host.
             host_key: The identifier for the host.
 
@@ -537,6 +547,7 @@ class NmapPage(Adw.PreferencesPage):
         Covers TCP, UDP, SCTP, and IP protocols.
 
         Args:
+        ----
             host_data: A dictionary parsed from the Nmap YAML output for the host.
             host_key: The identifier for the host.
 
@@ -587,6 +598,7 @@ class NmapPage(Adw.PreferencesPage):
         Shows OS matches with accuracy and class details.
 
         Args:
+        ----
             host_data: A dictionary parsed from the Nmap YAML output for the host.
             host_key: The identifier for the host.
 
@@ -650,6 +662,7 @@ class NmapPage(Adw.PreferencesPage):
         created from the `results_map`. Selects the first host if available.
 
         Args:
+        ----
             hosts: A list of host identifiers (IPs/names) found by Nmap.
             results_map: A dictionary mapping host identifiers to their YAML scan data.
 
@@ -689,6 +702,7 @@ class NmapPage(Adw.PreferencesPage):
         """Set the scan status and update the UI via GLib.idle_add.
 
         Args:
+        ----
             status_type: The `ScanStatus` enum member.
             message: The message string to display for the status.
 
@@ -700,6 +714,7 @@ class NmapPage(Adw.PreferencesPage):
         """Update the status row and spinner in the UI. (Called via GLib.idle_add).
 
         Args:
+        ----
             status_type: The `ScanStatus` to reflect in the UI.
             message: The status message to display.
 
@@ -751,6 +766,7 @@ class NmapPage(Adw.PreferencesPage):
         """Display an error message in the UI banner.
 
         Args:
+        ----
             message: The error message to display.
 
         """
@@ -766,9 +782,11 @@ class NmapPage(Adw.PreferencesPage):
         """Factory function to create an NmapTargetRow for the host ListBox.
 
         Args:
+        ----
             item: The `NmapItem` to display in the row.
 
         Returns:
+        -------
             An `NmapTargetRow` instance.
 
         """

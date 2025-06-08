@@ -14,6 +14,7 @@ class Helper:
         """Initialize the Helper class.
 
         Args:
+        ----
             widget (Gtk.Widget): The widget to which the helper is attached.
             parent_window (Gtk.Window): The parent window containing the widget.
 
@@ -51,6 +52,7 @@ class Helper:
         """Display the context menu popover at the location of the mouse click.
 
         Args:
+        ----
             _gesture (Gtk.GestureClick): The gesture that triggered the event.
             n_press (int): The number of mouse button presses.
             x (float): The x-coordinate of the mouse click relative to the widget.
@@ -74,6 +76,7 @@ class Helper:
         Copies selected content to the clipboard and hides the popover.
 
         Args:
+        ----
             _button (Gtk.Button): The button that triggered the event.
 
         """
@@ -84,12 +87,14 @@ class Helper:
         """Handle the Ctrl+C keyboard shortcut to copy selected content to the clipboard.
 
         Args:
+        ----
             _controller (Gtk.EventControllerKey): The key controller that triggered the event.
             keyval (int): The value of the key pressed.
             _keycode (int): The code of the key pressed.
             state (Gdk.ModifierType): The state of the modifier keys.
 
         Returns:
+        -------
             bool: True if the event was handled, False otherwise.
 
         """

@@ -2,4 +2,4 @@
 # Script to run the primary linter (Ruff)
 
 echo "Running Ruff linter..."
-ruff check .
+ruff check src/*.py --fix

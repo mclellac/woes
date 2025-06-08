@@ -75,6 +75,7 @@ class DNSPage(Adw.PreferencesPage):
         """Handle changes to the 'source-style-scheme' GSettings key.
 
         Args:
+        ----
             _settings: The Gio.Settings object that changed.
             key: The name of the GSettings key that changed.
 
@@ -96,9 +97,11 @@ class DNSPage(Adw.PreferencesPage):
         """Check if the input string is a valid IP address (IPv4 or IPv6).
 
         Args:
+        ----
             input_str: The string to check.
 
         Returns:
+        -------
             True if the string is a valid IP address, False otherwise.
 
         """
@@ -112,9 +115,11 @@ class DNSPage(Adw.PreferencesPage):
         """Validate whether the input string is a syntactically valid IP address or domain name.
 
         Args:
+        ----
             input_str: The string to validate.
 
         Returns:
+        -------
             True if the string is a valid IP address or domain name, False otherwise.
 
         """
@@ -134,6 +139,7 @@ class DNSPage(Adw.PreferencesPage):
         """Handle DNS entry activation (e.g., pressing Enter or clicking Apply).
 
         Args:
+        ----
             _widget: The widget that emitted the signal.
 
         """
@@ -143,6 +149,7 @@ class DNSPage(Adw.PreferencesPage):
         """Handle the record type dropdown change event.
 
         Args:
+        ----
             _dropdown: The Gtk.DropDown widget whose selection changed.
             _param_spec: The GLib.ParamSpec of the property that changed.
 
@@ -156,7 +163,8 @@ class DNSPage(Adw.PreferencesPage):
     def _prepare_resolver(self) -> dns.resolver.Resolver:
         """Prepare a DNS resolver, incorporating custom server settings if configured.
 
-        Returns:
+        Returns
+        -------
             dns.resolver.Resolver: The configured DNS resolver instance.
 
         """
@@ -175,14 +183,17 @@ class DNSPage(Adw.PreferencesPage):
         """Fetch DNS records for the given input.
 
         Args:
+        ----
             user_input: The domain name or IP address to query.
             requested_record_type: The DNS record type as a string (e.g., "A", "MX").
             resolver: The DNS resolver instance to use for the query.
 
         Returns:
+        -------
             A tuple containing the result string and the actual record type used for the query.
 
         Raises:
+        ------
             dns.resolver.NXDOMAIN: If the domain does not exist.
             dns.resolver.NoAnswer: If the query succeeded but no records of the requested type exist.
             dns.resolver.Timeout: If the query timed out.
@@ -258,7 +269,8 @@ class DNSPage(Adw.PreferencesPage):
     def _get_selected_record_type(self) -> str:
         """Get the currently selected DNS record type from the dropdown.
 
-        Returns:
+        Returns
+        -------
             The selected record type as a string (e.g., "A", "MX").
 
         """
@@ -270,6 +282,7 @@ class DNSPage(Adw.PreferencesPage):
         """Display an error message in the UI banner and style the entry row.
 
         Args:
+        ----
             message: The error message to display.
 
         """
@@ -288,14 +301,17 @@ class DNSPage(Adw.PreferencesPage):
         """Look up DNS records using the provided resolver.
 
         Args:
+        ----
             domain_or_ip: The domain name or IP address to query.
             record_type: The DNS record type (e.g., "A", "MX", "PTR").
             resolver: The DNS resolver instance.
 
         Returns:
+        -------
             A string containing the formatted DNS records.
 
         Raises:
+        ------
             dns.resolver.NXDOMAIN: If the domain does not exist.
             dns.resolver.NoAnswer: If no records of the requested type exist.
             dns.resolver.Timeout: If the query times out.
@@ -317,6 +333,7 @@ class DNSPage(Adw.PreferencesPage):
         Formats the output with headers, timestamps, and the DNS server used.
 
         Args:
+        ----
             result: The raw DNS result string.
             domain_or_ip: The domain or IP that was queried.
             record_type: The record type used for the query.
@@ -364,6 +381,7 @@ class DNSPage(Adw.PreferencesPage):
         Applies Pango tags for syntax highlighting of different parts of the DNS records.
 
         Args:
+        ----
             result: The raw DNS result string, with each record typically on a new line.
 
         """

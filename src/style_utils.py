@@ -11,7 +11,6 @@ This module provides functions for applying font preferences, themes,
 and GtkSourceView style schemes. It interacts with GSettings to retrieve
 system and application-specific style configurations.
 """
-import logging
 import re
 import platform
 from typing import Optional, Tuple # Added Tuple
@@ -42,9 +41,11 @@ def _get_linux_font_preferences(
     Applies GNOME's text scaling factor.
 
     Args:
+    ----
         base_font_size_pt: The base font size to use if system settings are unavailable.
 
     Returns:
+    -------
         A tuple containing the font family (str or None) and the calculated font size in points.
 
     """
@@ -90,9 +91,11 @@ def _get_app_font_scaling(app_settings: Gio.Settings) -> float:
     Defaults to 100.0 if parsing fails.
 
     Args:
+    ----
         app_settings: The application's Gio.Settings object.
 
     Returns:
+    -------
         The font scaling percentage as a float (e.g., 100.0, 120.0).
 
     """
@@ -124,6 +127,7 @@ def apply_system_font_preferences(app_settings: Gio.Settings):
     The resulting font style is applied globally using a Gtk.CssProvider.
 
     Args:
+    ----
         app_settings: The application's Gio.Settings object.
 
     """
@@ -169,6 +173,7 @@ def apply_font_size(settings: Gio.Settings):
     This function is a wrapper around `apply_system_font_preferences`.
 
     Args:
+    ----
         settings: The application's Gio.Settings object.
 
     """
@@ -179,6 +184,7 @@ def apply_theme(style_manager: Adw.StyleManager, theme_preference: str):
     """Apply the selected color scheme (theme) to the application.
 
     Args:
+    ----
         style_manager: The Adw.StyleManager instance for the application.
         theme_preference: The theme preference string ("Light", "Dark", or "System").
 
@@ -201,6 +207,7 @@ def apply_source_style_scheme(
     If the specified scheme is not found, it attempts to fall back to "Adwaita".
 
     Args:
+    ----
         scheme_manager: The GtkSource.StyleSchemeManager.
         buffer: The GtkSource.Buffer to apply the scheme to.
         source_style_scheme: The name of the style scheme to apply.
@@ -232,6 +239,7 @@ def set_widget_visibility(visible: bool, *widgets: Gtk.Widget):
     """Set the visibility of one or more Gtk.Widgets.
 
     Args:
+    ----
         visible: True to make widgets visible, False to hide them.
         *widgets: The Gtk.Widget(s) to modify. None values are logged and skipped.
 
@@ -247,9 +255,11 @@ def create_listbox_row(item_text: str) -> Gtk.ListBoxRow:
     """Create a simple Gtk.ListBoxRow containing a Gtk.Label.
 
     Args:
+    ----
         item_text: The text to display in the label of the list box row.
 
     Returns:
+    -------
         A Gtk.ListBoxRow with the specified label.
 
     """
@@ -263,10 +273,12 @@ def init_source_buffer(language: str = "yaml") -> GtkSource.Buffer:
     """Initialize a GtkSource.Buffer with syntax highlighting for a given language.
 
     Args:
+    ----
         language: The language ID for syntax highlighting (e.g., "yaml", "python").
                   Defaults to "yaml".
 
     Returns:
+    -------
         A GtkSource.Buffer configured for the specified language.
 
     """

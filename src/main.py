@@ -92,6 +92,7 @@ class WoesApplication(Adw.Application):
         """Initialize the WoesApplication.
 
         Args:
+        ----
             version (str): The application version.
             **kwargs: Additional keyword arguments for Adw.Application.
 
@@ -129,9 +130,11 @@ class WoesApplication(Adw.Application):
         Currently supports a '--debug' option to enable debug logging.
 
         Args:
+        ----
             options: A GLib.VariantDict containing the command-line options.
 
         Returns:
+        -------
             -1 to indicate that command line processing is not finished, allowing
             further processing (like `do_command_line`) to occur.
 
@@ -153,9 +156,11 @@ class WoesApplication(Adw.Application):
         This method processes options passed to the application and then activates the application.
 
         Args:
+        ----
             command_line: The Gio.ApplicationCommandLine object.
 
         Returns:
+        -------
             The exit status of the command line processing. 0 for success.
 
         """
@@ -229,6 +234,7 @@ class WoesApplication(Adw.Application):
         Displays the application's About dialog.
 
         Args:
+        ----
             _widget: The Gio.SimpleAction that was activated.
             _param: Optional GLib.Variant parameter (unused).
 
@@ -250,6 +256,7 @@ class WoesApplication(Adw.Application):
         Displays the application's Preferences dialog.
 
         Args:
+        ----
             _widget: The Gio.SimpleAction that was activated.
             _param: Optional GLib.Variant parameter (unused).
 
@@ -264,6 +271,7 @@ class WoesApplication(Adw.Application):
         """Create and add a Gio.SimpleAction to the application.
 
         Args:
+        ----
             name: The name of the action (e.g., "quit", "about").
             callback: The function to call when the action is activated.
             shortcuts: An optional list of keyboard shortcuts for the action
@@ -284,9 +292,11 @@ def main(version: str = VERSION) -> int:
     creates the WoesApplication instance, and runs it.
 
     Args:
+    ----
         version: The version string of the application.
 
     Returns:
+    -------
         The exit status of the application.
 
     """

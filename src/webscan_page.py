@@ -10,8 +10,6 @@ import re
 This page provides a simple interface to run Nikto scans against a target URL
 and display the results.
 """
-import subprocess
-import re
 import logging
 from typing import Optional # Added for type hinting
 
@@ -43,6 +41,7 @@ class WebScanPage(Adw.PreferencesPage):
         the scan.
 
         Args:
+        ----
             _widget: The Gtk.Button that was clicked.
 
         """
@@ -96,6 +95,7 @@ class WebScanPage(Adw.PreferencesPage):
         though here it returns specific error types as strings in a tuple).
 
         Args:
+        ----
             gio_task: The `Gio.Task` associated with this asynchronous operation.
             _source_object: The source GObject that initiated the task (unused).
             task_data: The target URL string passed via `task.set_task_data()`.
@@ -132,6 +132,7 @@ class WebScanPage(Adw.PreferencesPage):
         (TextView for results, error banner for errors). Re-enables the scan button.
 
         Args:
+        ----
             task: The `Gio.Task` that has completed.
             result: The `Gio.AsyncResult` associated with the task's completion.
             _user_data: User data passed to the callback (unused).
@@ -172,6 +173,7 @@ class WebScanPage(Adw.PreferencesPage):
         to the end to show the latest results.
 
         Args:
+        ----
             stdout: The standard output from the Nikto command, or None.
             stderr: The standard error from the Nikto command, or None.
 
@@ -190,6 +192,7 @@ class WebScanPage(Adw.PreferencesPage):
         """Display an error message in the page's Adw.Banner.
 
         Args:
+        ----
             message: The error message to display.
 
         """
@@ -201,6 +204,7 @@ class WebScanPage(Adw.PreferencesPage):
         """Handle the dismissal of the error banner.
 
         Args:
+        ----
             _widget: The Adw.Banner or its dismiss button.
             *_args: Additional arguments (unused).
 

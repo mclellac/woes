@@ -50,6 +50,7 @@ class Preferences(Adw.PreferencesWindow):
         """Initialize the Preferences window.
 
         Args:
+        ----
             main_window: The parent Gtk.Window for this dialog.
 
         """
@@ -112,6 +113,7 @@ class Preferences(Adw.PreferencesWindow):
         """Handle the click event for dismissing the error banner.
 
         Args:
+        ----
             _banner: The Adw.Banner that was clicked (or its dismiss button).
             *_args: Additional arguments (unused).
 
@@ -125,6 +127,7 @@ class Preferences(Adw.PreferencesWindow):
         If invalid, displays an error banner and clears the entry after a delay.
 
         Args:
+        ----
             _widget: The widget that triggered the change (Adw.EntryRow or Gtk.Button).
 
         """
@@ -159,10 +162,12 @@ class Preferences(Adw.PreferencesWindow):
         in which case it must return GLib.SOURCE_REMOVE.
 
         Args:
+        ----
             entry_row_widget: The Adw.EntryRow to clear the error state from.
                               If None, defaults to `self.dns_server_entryrow`.
 
         Returns:
+        -------
             GLib.SOURCE_REMOVE if called as a timeout, indicating the timer should not repeat.
             Implicitly returns None otherwise.
 
@@ -178,9 +183,11 @@ class Preferences(Adw.PreferencesWindow):
         """Validate if the input string is a syntactically valid IPv4 address.
 
         Args:
+        ----
             ip_address: The string to validate.
 
         Returns:
+        -------
             True if the string is a valid IPv4 address, False otherwise.
 
         """
@@ -202,6 +209,7 @@ class Preferences(Adw.PreferencesWindow):
         Saves the selected font scaling percentage string to GSettings.
 
         Args:
+        ----
             combo_row: The Adw.ComboRow whose selection changed.
             _gparam: The GLib.ParamSpec of the property that changed (unused).
 
@@ -218,6 +226,7 @@ class Preferences(Adw.PreferencesWindow):
         Saves the selected theme name string (e.g., "Light", "Dark") to GSettings.
 
         Args:
+        ----
             combo_row: The Adw.ComboRow whose selection changed.
             _gparam: The GLib.ParamSpec of the property that changed (unused).
 
@@ -237,6 +246,7 @@ class Preferences(Adw.PreferencesWindow):
         Saves the selected style scheme name string to GSettings.
 
         Args:
+        ----
             combo_row: The Adw.ComboRow whose selection changed.
             _gparam: The GLib.ParamSpec of the property that changed (unused).
 
@@ -255,11 +265,13 @@ class Preferences(Adw.PreferencesWindow):
         If a match is found (case-sensitive or insensitive), the item is selected.
 
         Args:
+        ----
             combo_row: The Adw.ComboRow to operate on.
             setting_value: The string value of the item to select.
             case_sensitive: Whether the string comparison should be case-sensitive.
 
         Returns:
+        -------
             True if an item was successfully found and selected, False otherwise.
 
         """

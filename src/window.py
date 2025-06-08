@@ -48,6 +48,7 @@ class WoesWindow(Adw.ApplicationWindow):
         font and theme preference changes, and initializes the UI.
 
         Args:
+        ----
             **kwargs: Keyword arguments for Adw.ApplicationWindow.
 
         """
@@ -137,6 +138,7 @@ class WoesWindow(Adw.ApplicationWindow):
         Applies the new theme and reloads CSS.
 
         Args:
+        ----
             settings: The Gio.Settings object that changed.
             key: The name of the GSettings key that changed (should be "theme-preference").
 
@@ -152,6 +154,7 @@ class WoesWindow(Adw.ApplicationWindow):
         by `apply_font_size` from settings.
 
         Args:
+        ----
             settings: The Gio.Settings object that changed (unused directly, but signals the change).
             key: The name of the GSettings key that changed (should be "font-scaling-percentage").
 
@@ -230,6 +233,7 @@ class WoesWindow(Adw.ApplicationWindow):
         Logs the name of the newly visible child in the Adw.ViewStack.
 
         Args:
+        ----
             _widget: The Adw.ViewSwitcherTitle that emitted the signal.
             _gparam: The GLib.ParamSpec of the property that changed (unused).
 

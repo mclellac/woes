@@ -40,9 +40,11 @@ def _is_scan_root_required(nmap_args_list: List[str]) -> bool: # Changed to typi
     """Check if the given Nmap arguments require root privileges.
 
     Args:
+    ----
         nmap_args_list: A list of Nmap command arguments.
 
     Returns:
+    -------
         True if root privileges are likely required, False otherwise.
 
     """
@@ -61,13 +63,16 @@ def get_escalated_command(command_parts: List[str]) -> List[str]: # Changed to t
     on macOS.
 
     Args:
+    ----
         command_parts: The original command and its arguments as a list of strings.
                        The first element must be the command to escalate (e.g., "nmap").
 
     Returns:
+    -------
         A list of strings representing the escalated command.
 
     Raises:
+    ------
         FileNotFoundError: If `nmap` or the required escalation tool (pkexec, osascript) is not found.
         NotImplementedError: If privilege escalation is not supported on the current platform.
 
@@ -136,9 +141,11 @@ class NmapScanner:
         or multiple targets separated by commas or spaces.
 
         Args:
+        ----
             target: The target string to validate.
 
         Returns:
+        -------
             True if the target string is valid, False otherwise.
 
         """
@@ -165,12 +172,14 @@ class NmapScanner:
         """Constructs the Nmap command-line options string based on boolean flags and a script name.
 
         Args:
+        ----
             os_fingerprinting: If True, adds OS detection options (-O -A).
             scan_all_ports: If True, adds all ports scan option (-p-).
             selected_script: The name of the Nmap script to run (e.g., "vuln").
                              If "None" or empty, no script option is added.
 
         Returns:
+        -------
             A string of Nmap command-line arguments.
 
         """
@@ -198,6 +207,7 @@ class NmapScanner:
         """Build the list of arguments for the Nmap command.
 
         Args:
+        ----
             target: The target string for Nmap.
             os_fingerprinting: Enable OS fingerprinting (-O).
             scan_all_ports: Scan all ports (-p-).
@@ -208,6 +218,7 @@ class NmapScanner:
             custom_dns_server: Optional custom DNS server IP.
 
         Returns:
+        -------
             A list of strings representing the Nmap command and its arguments.
 
         """
@@ -246,13 +257,16 @@ class NmapScanner:
         """Execute the Nmap command, handling privilege escalation if needed.
 
         Args:
+        ----
             nmap_args_list: The Nmap command and arguments.
             needs_escalation: True if the command requires root privileges.
 
         Returns:
+        -------
             A tuple containing (stdout, stderr, returncode) from the Nmap process.
 
         Raises:
+        ------
             FileNotFoundError: If nmap or a required escalation tool is not found.
             PortScannerError: For errors during command preparation or subprocess execution.
 
@@ -301,12 +315,14 @@ class NmapScanner:
         """Construct a detailed error message from Nmap's output when a scan fails.
 
         Args:
+        ----
             returncode: The exit code from the Nmap process.
             nmap_xml_output: The stdout (expected to be XML) from Nmap.
             nmap_stderr: The stderr output from Nmap.
             needs_escalation: Whether privilege escalation was attempted.
 
         Returns:
+        -------
             A string containing a formatted error message.
 
         """
@@ -355,6 +371,7 @@ class NmapScanner:
         (with privilege escalation if necessary), and parsing the XML output.
 
         Args:
+        ----
             target: The target host(s) for the scan.
             os_fingerprinting: Enable OS fingerprinting.
             scan_all_ports: Scan all 65535 ports.
@@ -365,9 +382,11 @@ class NmapScanner:
             custom_dns_server: Optional custom DNS server to use.
 
         Returns:
+        -------
             An `nmap.PortScanner` object populated with the scan results.
 
         Raises:
+        ------
             PortScannerError: If the scan fails due to Nmap errors, parsing issues,
                               missing prerequisites, or other unexpected problems.
 
@@ -450,9 +469,11 @@ class NmapScanner:
         """Converts Nmap scan results from an nmap.PortScanner object into a YAML formatted string for each host.
 
         Args:
+        ----
             nm: The nmap.PortScanner object containing the scan results.
 
         Returns:
+        -------
             A dictionary where keys are host IP addresses or names, and values are
             YAML strings representing the scan results for that host.
 
@@ -471,9 +492,11 @@ class NmapScanner:
         into plain Python dictionaries and lists, suitable for YAML serialization.
 
         Args:
+        ----
             data: The Nmap data to convert (can be PortScannerHostDict, dict, list, or other types).
 
         Returns:
+        -------
             A plain dictionary or list representation of the input data.
 
         """

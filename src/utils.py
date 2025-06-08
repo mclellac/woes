@@ -16,10 +16,12 @@ def create_source_view(language_name: str = "txt") -> Tuple[GtkSource.View, GtkS
     for the specified language.
 
     Args:
+    ----
         language_name: The language ID for syntax highlighting (e.g., "yaml", "python", "txt").
                        Defaults to "txt".
 
     Returns:
+    -------
         A tuple containing the configured GtkSource.View and GtkSource.Buffer.
 
     """

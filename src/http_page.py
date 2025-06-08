@@ -10,7 +10,7 @@ import re
 import ssl
 import socket  # Added for getaddrinfo patching
 from enum import Enum  # Added for HttpErrorType
-from typing import Optional, List, Any # Removed Tuple, Added Any
+from typing import Optional, Any # Removed Tuple, Added Any
 
 import requests
 import requests.utils  # For urlparse
@@ -67,6 +67,7 @@ class CustomSNIAdapter(HTTPAdapter):
         """Initialize the CustomSNIAdapter.
 
         Args:
+        ----
             *args: Positional arguments to pass to the parent HTTPAdapter.
             sni_hostname (Optional[str]): The hostname to use for SNI. If None, behaves like a normal adapter.
             **kwargs: Keyword arguments to pass to the parent HTTPAdapter.
@@ -82,6 +83,7 @@ class CustomSNIAdapter(HTTPAdapter):
         if an `sni_hostname` was provided.
 
         Args:
+        ----
             connections: The number of urllib3 connection pools to cache.
             maxsize: The maximum number of connections to save in the pool.
             block: Whether to block when no free connections are available.
@@ -126,7 +128,8 @@ class HttpErrorType(int, Enum):
 class HeaderItem(GObject.Object):
     """GObject representing a single header key-value pair for the Gtk.ColumnView.
 
-    Attributes:
+    Attributes
+    ----------
         key (str): The header name or special row key.
         value (str): The header value or special row value.
         is_special_row (bool): True if this item represents a special informational row
@@ -142,6 +145,7 @@ class HeaderItem(GObject.Object):
         """Initialize a HeaderItem.
 
         Args:
+        ----
             key: The header name or special row key.
             value: The header value or special row value.
             is_special_row: True if this is a special informational row.
@@ -245,6 +249,7 @@ class HttpPage(Adw.PreferencesPage):
         and copies them to the clipboard.
 
         Args:
+        ----
             _button: The Gtk.Button that was clicked.
 
         """
@@ -285,6 +290,7 @@ class HttpPage(Adw.PreferencesPage):
         and starts an asynchronous task to perform the HTTP request.
 
         Args:
+        ----
             _widget: The widget that triggered the activation (Adw.EntryRow or Gtk.Button).
 
         """
@@ -342,6 +348,7 @@ class HttpPage(Adw.PreferencesPage):
         of dictionaries. Errors during the process are returned via `task.return_new_error_literal`.
 
         Args:
+        ----
             task: The `Gio.Task` associated with this asynchronous operation.
             source_object: The source object that initiated the task (unused).
             task_data_arg: Task-specific data (unused, uses `self._http_task_data_for_thread`).
@@ -670,10 +677,12 @@ class HttpPage(Adw.PreferencesPage):
         (e.g., trying HTTP for an HTTPS site or vice-versa).
 
         Args:
+        ----
             exc: The connection-related exception caught.
             url: The URL that was being accessed.
 
         Returns:
+        -------
             A more specific error message string if a known pattern is matched, otherwise None.
 
         """
@@ -792,6 +801,7 @@ class HttpPage(Adw.PreferencesPage):
         Re-enables UI elements that were disabled during the fetch.
 
         Args:
+        ----
             _source_object: The object that initiated the task (unused).
             result: A `Gio.AsyncResult` containing the task's outcome.
             _user_data: User data passed to the callback (unused).
@@ -937,9 +947,11 @@ class HttpPage(Adw.PreferencesPage):
         """Ensure the URL has a scheme (defaults to https if missing).
 
         Args:
+        ----
             url: The input URL string.
 
         Returns:
+        -------
             The URL string with a scheme.
 
         """
@@ -953,9 +965,11 @@ class HttpPage(Adw.PreferencesPage):
         """Validate if a string is a well-formed HTTP/HTTPS URL.
 
         Args:
+        ----
             url: The URL string to validate.
 
         Returns:
+        -------
             True if the URL is valid, False otherwise.
 
         """
@@ -976,9 +990,11 @@ class HttpPage(Adw.PreferencesPage):
         """Format an HTTPError from the `requests` library into a user-friendly message.
 
         Args:
+        ----
             e: The `requests.exceptions.HTTPError` instance.
 
         Returns:
+        -------
             A user-friendly error message string.
 
         """
@@ -1001,6 +1017,7 @@ class HttpPage(Adw.PreferencesPage):
         If the URL entry is not empty, it re-triggers the header fetch.
 
         Args:
+        ----
             widget: The Gtk.Switch that was toggled.
             _gparam: The GObject.ParamSpec of the 'active' property (unused).
 
@@ -1016,6 +1033,7 @@ class HttpPage(Adw.PreferencesPage):
         Shows or hides the results group based on whether items are present.
 
         Args:
+        ----
             header_items: A list of `HeaderItem` objects, or None to clear.
 
         """
@@ -1043,6 +1061,7 @@ class HttpPage(Adw.PreferencesPage):
         to the entry row, and hides the results section.
 
         Args:
+        ----
             message: The error message to display.
 
         """
@@ -1084,6 +1103,7 @@ class HttpPage(Adw.PreferencesPage):
         if results are currently displayed to apply new colors.
 
         Args:
+        ----
             settings: The Gio.Settings object that changed.
             key: The name of the setting key that changed.
 
@@ -1109,10 +1129,12 @@ class HttpPage(Adw.PreferencesPage):
         and whether the row is a special informational row.
 
         Args:
+        ----
             attr_name: The attribute name of `HeaderItem` to display (e.g., "key", "value").
             wrap_text: Whether the text in the label should be wrapped.
 
         Returns:
+        -------
             A configured Gtk.SignalListItemFactory.
 
         """
