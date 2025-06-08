@@ -150,7 +150,6 @@
             <child>
               <object class="AdwEntryRow" id="new_custom_ua_entry">
                 <property name="title" translatable="yes">New User Agent</property>
-                <property name="placeholder-text" translatable="yes">Enter new User-Agent string here</property>
                 <child type="suffix">
                   <object class="GtkButton" id="add_custom_ua_button">
                     <property name="icon-name">list-add-symbolic</property>
