@@ -4,6 +4,7 @@ This page allows users to fetch and inspect HTTP headers for a given URL,
 with options for custom Host headers, User-Agent strings, and Akamai Pragma headers.
 It also supports using a custom DNS server for domain resolution.
 """
+
 # pylint: disable=too-many-lines
 import logging
 import re
@@ -37,20 +38,18 @@ try:
 except ImportError:
     # If urllib3 is not available at all (should not happen with requests installed)
     # Define dummy classes for isinstance checks to not fail, or handle differently.
-        class _DummyUrllib3Exception(Exception):
-            pass
+    class _DummyUrllib3Exception(Exception):
+        pass
 
-        urllib3_exceptions = type(
-            "urllib3_exceptions",
-            (),
-            {
-                "MaxRetryError": _DummyUrllib3Exception,
-                "NewConnectionError": _DummyUrllib3Exception,
-            },
-        )
-        logging.warning(
-            "Could not import urllib3.exceptions. Connection refused detection might be limited."
-        )
+    urllib3_exceptions = type(
+        "urllib3_exceptions",
+        (),
+        {
+            "MaxRetryError": _DummyUrllib3Exception,
+            "NewConnectionError": _DummyUrllib3Exception,
+        },
+    )
+    logging.warning("Could not import urllib3.exceptions. Connection refused detection might be limited.")
 
 
 class CustomSNIAdapter(HTTPAdapter):
@@ -113,11 +112,11 @@ class HttpErrorType(int, Enum):
     """Enumeration of HTTP error types for Gio.Task error reporting."""
 
     TIMEOUT = 0
-    HTTP_ERROR = 1 # Covers HTTP status codes >= 400
-    CONNECTION_ERROR = 2 # Covers network issues like DNS failure, connection refused
-    REQUEST_EXCEPTION = 3 # Covers other requests.exceptions like InvalidURL
-    GENERIC_UNEXPECTED = 4 # Fallback for truly unexpected Python exceptions
-    CANCELLED = 5 # If the Gio.Task was cancelled
+    HTTP_ERROR = 1  # Covers HTTP status codes >= 400
+    CONNECTION_ERROR = 2  # Covers network issues like DNS failure, connection refused
+    REQUEST_EXCEPTION = 3  # Covers other requests.exceptions like InvalidURL
+    GENERIC_UNEXPECTED = 4  # Fallback for truly unexpected Python exceptions
+    CANCELLED = 5  # If the Gio.Task was cancelled
 
 
 class HeaderItem(GObject.Object):
@@ -192,15 +191,9 @@ class HttpPage(Adw.PreferencesPage):
         self._header_value_color = self.settings.get_string("http-output-header-value-color")
         self._special_row_color = self.settings.get_string("http-output-special-row-color")
 
-        self.settings.connect(
-            "changed::http-output-header-key-color", self._on_color_setting_changed
-        )
-        self.settings.connect(
-            "changed::http-output-header-value-color", self._on_color_setting_changed
-        )
-        self.settings.connect(
-            "changed::http-output-special-row-color", self._on_color_setting_changed
-        )
+        self.settings.connect("changed::http-output-header-key-color", self._on_color_setting_changed)
+        self.settings.connect("changed::http-output-header-value-color", self._on_color_setting_changed)
+        self.settings.connect("changed::http-output-special-row-color", self._on_color_setting_changed)
 
         self.header_list_store = Gio.ListStore.new(HeaderItem)
         selection_model = Gtk.MultiSelection.new(self.header_list_store)
@@ -364,7 +357,7 @@ class HttpPage(Adw.PreferencesPage):
         initial_request_specific_headers = {}
         session_headers = {}
         original_hostname = None
-        captured_original_hostname = "" # Initialize to ensure it's always bound
+        captured_original_hostname = ""  # Initialize to ensure it's always bound
 
         original_getaddrinfo = None
         resolved_addresses_for_host = None
@@ -374,9 +367,7 @@ class HttpPage(Adw.PreferencesPage):
             original_hostname = parsed_url_obj.hostname
 
             if not original_hostname:
-                logger.warning(
-                    "Could not parse hostname from URL for custom DNS: %s", original_url_with_scheme
-                )
+                logger.warning("Could not parse hostname from URL for custom DNS: %s", original_url_with_scheme)
             else:
                 logger.info(
                     "Attempting to resolve '%s' using custom DNS server %s",
@@ -462,8 +453,7 @@ class HttpPage(Adw.PreferencesPage):
 
                     if not results and family:
                         logger.warning(
-                            "Custom getaddrinfo: No addresses for '%s' "
-                            "matched requested family %s. Falling back.",
+                            "Custom getaddrinfo: No addresses for '%s' matched requested family %s. Falling back.",
                             host,
                             family,
                         )
@@ -478,13 +468,9 @@ class HttpPage(Adw.PreferencesPage):
                 return original_getaddrinfo(host, port, family, addr_type, proto, flags)
 
             socket.getaddrinfo = custom_getaddrinfo
-            logger.info(
-                "socket.getaddrinfo patched to use custom DNS results for '%s'.", original_hostname
-            )
+            logger.info("socket.getaddrinfo patched to use custom DNS results for '%s'.", original_hostname)
         else:
-            logger.debug(
-                "Not patching socket.getaddrinfo, custom DNS not used or resolution failed/yielded no IPs."
-            )
+            logger.debug("Not patching socket.getaddrinfo, custom DNS not used or resolution failed/yielded no IPs.")
 
         use_custom_sni_adapter = False
         parsed_url_for_sni_check = requests.utils.urlparse(url_to_fetch)
@@ -513,13 +499,9 @@ class HttpPage(Adw.PreferencesPage):
         if use_custom_sni_adapter and host_header_from_input:
             adapter = CustomSNIAdapter(sni_hostname=host_header_from_input)
             session.mount("https://", adapter)
-            logger.debug(
-                "Mounted CustomSNIAdapter for https:// with SNI: %s", host_header_from_input
-            )
+            logger.debug("Mounted CustomSNIAdapter for https:// with SNI: %s", host_header_from_input)
         elif use_custom_sni_adapter and not host_header_from_input:
-            logger.warning(
-                "CustomSNIAdapter was considered but no host_header_from_input was available for SNI name."
-            )
+            logger.warning("CustomSNIAdapter was considered but no host_header_from_input was available for SNI name.")
 
         if host_header_from_input:
             initial_request_specific_headers["Host"] = host_header_from_input
@@ -559,9 +541,7 @@ class HttpPage(Adw.PreferencesPage):
 
             response = session.get(
                 url_to_fetch,
-                headers=(
-                    initial_request_specific_headers if initial_request_specific_headers else None
-                ),
+                headers=(initial_request_specific_headers if initial_request_specific_headers else None),
                 allow_redirects=True,
                 timeout=5,
             )
@@ -648,8 +628,7 @@ class HttpPage(Adw.PreferencesPage):
                 exc_info=True,
             )
             error_message = (
-                "An unexpected internal error occurred while processing your request. "
-                "Please try again later."
+                "An unexpected internal error occurred while processing your request. Please try again later."
             )
             task.return_new_error_literal(
                 GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
@@ -719,10 +698,7 @@ class HttpPage(Adw.PreferencesPage):
                     reason_exc = current_exc.reason
                     reason_exc_str = str(reason_exc)
                     if isinstance(reason_exc, urllib3_exceptions.NewConnectionError):
-                        if (
-                            "connection refused" in reason_exc_str.lower()
-                            or "errno 111" in reason_exc_str.lower()
-                        ):
+                        if "connection refused" in reason_exc_str.lower() or "errno 111" in reason_exc_str.lower():
                             found_connection_refused = True
                             break
                         if hasattr(reason_exc, "original_error") and isinstance(
@@ -739,21 +715,13 @@ class HttpPage(Adw.PreferencesPage):
                             break
 
             if (
-                any(
-                    "connection refused" in str(arg).lower()
-                    for arg in current_exc.args
-                    if isinstance(arg, str)
-                )
+                any("connection refused" in str(arg).lower() for arg in current_exc.args if isinstance(arg, str))
                 or "connection refused" in exc_str.lower()
             ):
                 found_connection_refused = True
 
             if (
-                any(
-                    "errno 111" in str(arg).lower()
-                    for arg in current_exc.args
-                    if isinstance(arg, str)
-                )
+                any("errno 111" in str(arg).lower() for arg in current_exc.args if isinstance(arg, str))
                 or "errno 111" in exc_str.lower()
             ):
                 found_connection_refused = True
@@ -784,9 +752,7 @@ class HttpPage(Adw.PreferencesPage):
                     "The HTTP request failed. The server might only support HTTPS for this resource. "
                     "Please try with 'https://'."
                 )
-            return (
-                "Connection Error: The server at the specified URL actively refused the connection."
-            )
+            return "Connection Error: The server at the specified URL actively refused the connection."
 
         return None
 
@@ -808,14 +774,9 @@ class HttpPage(Adw.PreferencesPage):
 
         if task_being_processed is None:
             logger.warning(
-                "_fetch_headers_task_done_cb: current_http_task is None. "
-                "UI might have been re-enabled prematurely."
+                "_fetch_headers_task_done_cb: current_http_task is None. UI might have been re-enabled prematurely."
             )
-            if (
-                hasattr(self, "http_entry_row")
-                and self.http_entry_row
-                and not self.http_entry_row.get_sensitive()
-            ):
+            if hasattr(self, "http_entry_row") and self.http_entry_row and not self.http_entry_row.get_sensitive():
                 self.http_entry_row.set_sensitive(True)
             if (
                 hasattr(self, "http_apply_button")
@@ -831,16 +792,10 @@ class HttpPage(Adw.PreferencesPage):
         try:
             actual_list_of_responses = task_being_processed.propagate_value()
 
-            if not isinstance(actual_list_of_responses, list) and isinstance(
-                actual_list_of_responses, tuple
-            ):
-                if len(actual_list_of_responses) > 0 and isinstance(
-                    actual_list_of_responses[0], list
-                ):
+            if not isinstance(actual_list_of_responses, list) and isinstance(actual_list_of_responses, tuple):
+                if len(actual_list_of_responses) > 0 and isinstance(actual_list_of_responses[0], list):
                     actual_list_of_responses = actual_list_of_responses[0]
-                elif hasattr(actual_list_of_responses, "value") and isinstance(
-                    actual_list_of_responses.value, list
-                ):
+                elif hasattr(actual_list_of_responses, "value") and isinstance(actual_list_of_responses.value, list):
                     actual_list_of_responses = actual_list_of_responses.value
 
             if isinstance(actual_list_of_responses, list):
@@ -889,9 +844,7 @@ class HttpPage(Adw.PreferencesPage):
                             )
 
                         if i < len(actual_list_of_responses) - 1:
-                            processed_headers_for_store.append(
-                                HeaderItem(key="---", value="---", is_special_row=True)
-                            )
+                            processed_headers_for_store.append(HeaderItem(key="---", value="---", is_special_row=True))
 
                     self._current_header_items = processed_headers_for_store
                     self._update_column_view_model(processed_headers_for_store)
@@ -927,9 +880,7 @@ class HttpPage(Adw.PreferencesPage):
                 e,
                 exc_info=True,
             )
-            self._display_error(
-                "An unexpected application error occurred while displaying the results."
-            )
+            self._display_error("An unexpected application error occurred while displaying the results.")
             if hasattr(self, "http_entry_row") and self.http_entry_row:
                 self.http_entry_row.add_css_class("error")
             self._update_column_view_model(None)
@@ -1128,11 +1079,14 @@ class HttpPage(Adw.PreferencesPage):
         if not self.http_user_agent_row:
             return
 
-        self._ua_title_to_value_map.clear() # Clear map at the beginning
+        self._ua_title_to_value_map.clear()  # Clear map at the beginning
 
         current_selection_text = None
         # Preserve current selection
-        if self.http_user_agent_row.get_model() and self.http_user_agent_row.get_selected() != Gtk.INVALID_LIST_POSITION:
+        if (
+            self.http_user_agent_row.get_model()
+            and self.http_user_agent_row.get_selected() != Gtk.INVALID_LIST_POSITION
+        ):
             selected_item = self.http_user_agent_row.get_selected_item()
             if isinstance(selected_item, Gtk.StringObject):
                 current_selection_text = selected_item.get_string()
@@ -1141,7 +1095,7 @@ class HttpPage(Adw.PreferencesPage):
 
         # 1. Custom UAs from GSettings
         variant = self.settings.get_value("custom-user-agents")
-        custom_ua_pairs = list(variant.unpack() if variant and variant.get_type_string() == 'a(ss)' else [])
+        custom_ua_pairs = list(variant.unpack() if variant and variant.get_type_string() == "a(ss)" else [])
 
         for title, value in custom_ua_pairs:
             # Custom UAs are added first, so their titles are definitely new to the map in this loop
@@ -1152,7 +1106,7 @@ class HttpPage(Adw.PreferencesPage):
         none_title = "None"
         # Ensure "None" title is unique if a custom UA is named "None"
         if none_title not in self._ua_title_to_value_map:
-             display_titles.append(none_title)
+            display_titles.append(none_title)
         # Always ensure "None" maps to None for sending no header,
         # even if a custom UA is named "None" (its custom value would be in the map for selection purposes).
         self._ua_title_to_value_map[none_title] = None
@@ -1162,7 +1116,7 @@ class HttpPage(Adw.PreferencesPage):
             title = ua_dict.get("title")
             value = ua_dict.get("value")
             if title and value:
-                if title not in self._ua_title_to_value_map: # Add if title not used by custom or "None"
+                if title not in self._ua_title_to_value_map:  # Add if title not used by custom or "None"
                     display_titles.append(title)
                     self._ua_title_to_value_map[title] = value
                 # If title was used by custom, map already has custom value.
@@ -1178,11 +1132,14 @@ class HttpPage(Adw.PreferencesPage):
             except ValueError:
                 # If current_selection_text is in map but not display_titles (e.g. a default overridden by custom and not re-added)
                 # or simply not found, default to the first available item.
-                if display_titles: self.http_user_agent_row.set_selected(0)
+                if display_titles:
+                    self.http_user_agent_row.set_selected(0)
         elif display_titles:
             self.http_user_agent_row.set_selected(0)
 
-        logging.info(f"User-Agent dropdown model updated with {len(display_titles)} titles in custom->None->default order.")
+        logging.info(
+            f"User-Agent dropdown model updated with {len(display_titles)} titles in custom->None->default order."
+        )
 
     def _create_factory(self, attr_name: str, wrap_text: bool = False) -> Gtk.SignalListItemFactory:
         """Create a Gtk.SignalListItemFactory for a column in the Gtk.ColumnView.
@@ -1218,9 +1175,7 @@ class HttpPage(Adw.PreferencesPage):
             label = list_item.get_child()
             item = list_item.get_item()
 
-            if not (
-                label and isinstance(label, Gtk.Label) and item and isinstance(item, HeaderItem)
-            ):
+            if not (label and isinstance(label, Gtk.Label) and item and isinstance(item, HeaderItem)):
                 if label and isinstance(label, Gtk.Label):
                     label.set_text("Error: Invalid item or label.")
                 return
@@ -1234,15 +1189,11 @@ class HttpPage(Adw.PreferencesPage):
                     full_text = key_text
                     if value_text.strip():
                         full_text += f" {value_text}"
-                    label.set_markup(
-                        f"<b><span foreground='{self._special_row_color}'>{full_text}</span></b>"
-                    )
+                    label.set_markup(f"<b><span foreground='{self._special_row_color}'>{full_text}</span></b>")
                 else:
                     label.set_markup("")
             else:
-                color_to_use = (
-                    self._header_key_color if attr_name == "key" else self._header_value_color
-                )
+                color_to_use = self._header_key_color if attr_name == "key" else self._header_value_color
                 escaped_text = GLib.markup_escape_text(text_to_display)
                 label.set_markup(f"<b><span foreground='{color_to_use}'>{escaped_text}</span></b>")
 
@@ -1250,5 +1201,3 @@ class HttpPage(Adw.PreferencesPage):
         factory.connect("bind", bind_func_internal)
 
         return factory
-
-[end of src/http_page.py]
