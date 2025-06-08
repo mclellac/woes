@@ -47,7 +47,8 @@ class Preferences(Adw.PreferencesWindow):
     http_special_row_color_button = Gtk.Template.Child("http_special_row_color_button")
 
     # Custom User Agent UI
-    new_custom_ua_entry = Gtk.Template.Child("new_custom_ua_entry")
+    new_custom_ua_title_entry = Gtk.Template.Child("new_custom_ua_title_entry")
+    new_custom_ua_value_entry = Gtk.Template.Child("new_custom_ua_value_entry")
     add_custom_ua_button = Gtk.Template.Child("add_custom_ua_button")
     custom_ua_list_container = Gtk.Template.Child("custom_ua_list_container")
 
@@ -97,8 +98,10 @@ class Preferences(Adw.PreferencesWindow):
         # Custom User Agent Signals
         if self.add_custom_ua_button:
             self.add_custom_ua_button.connect("clicked", self._on_add_custom_ua_clicked)
-        if self.new_custom_ua_entry:
-            self.new_custom_ua_entry.connect("entry-activated", self._on_add_custom_ua_clicked)
+        if self.new_custom_ua_title_entry:
+            self.new_custom_ua_title_entry.connect("entry-activated", self._on_add_custom_ua_clicked)
+        if self.new_custom_ua_value_entry:
+            self.new_custom_ua_value_entry.connect("entry-activated", self._on_add_custom_ua_clicked)
 
         self.settings.connect("changed::custom-user-agents", lambda _s, _k: self._render_custom_ua_list())
 
@@ -299,59 +302,82 @@ class Preferences(Adw.PreferencesWindow):
             self.custom_ua_list_container.remove(child)
             child = self.custom_ua_list_container.get_first_child()
 
-        custom_uas = self.settings.get_strv("custom-user-agents")
-        if not custom_uas: # Should be an empty list by default, not None
-            custom_uas = []
+        variant = self.settings.get_value("custom-user-agents")
+        custom_ua_pairs = list(variant.unpack() if variant and variant.get_type_string() == 'a(ss)' else [])
 
-        for ua_string in custom_uas:
-            row = Adw.ActionRow(title=ua_string)
-            row.set_activatable(False) # Don't want the row itself to be activatable
+        for title, value in custom_ua_pairs:
+            row = Adw.ActionRow(title=title, subtitle=value) # Display title and value
+            row.set_activatable(False)
             remove_button = Gtk.Button(icon_name="edit-delete-symbolic", valign=Gtk.Align.CENTER)
             remove_button.add_css_class("flat")
-            remove_button.set_tooltip_text(f"Remove '{ua_string}'")
-            # Use a lambda that captures the ua_string for this iteration
-            remove_button.connect("clicked", lambda _btn, s=ua_string: self._on_remove_custom_ua_clicked(s))
+            remove_button.set_tooltip_text(f"Remove '{title}'")
+            # Pass the title (assuming titles are unique for removal)
+            remove_button.connect("clicked", lambda _btn, t=title: self._on_remove_custom_ua_clicked(t))
             row.add_suffix(remove_button)
-            row.set_activatable_widget(remove_button) # Makes the button part of row activation focus
+            row.set_activatable_widget(remove_button)
             self.custom_ua_list_container.append(row)
 
     def _on_add_custom_ua_clicked(self, _widget):
-        if not self.new_custom_ua_entry:
-            return
-        ua_text = self.new_custom_ua_entry.get_text().strip()
-        if not ua_text:
-            # Optionally show a small error/toast or just ignore
-            logging.info("Attempted to add empty custom User-Agent.")
+        if not self.new_custom_ua_title_entry or not self.new_custom_ua_value_entry:
             return
 
-        current_uas = list(self.settings.get_strv("custom-user-agents")) # Get a mutable copy
-        if ua_text in current_uas:
-            logging.info(f"Custom User-Agent '{ua_text}' already exists.")
-            # Optionally show a small error/toast
-            self.new_custom_ua_entry.set_text("") # Clear entry even if duplicate
+        title_text = self.new_custom_ua_title_entry.get_text().strip()
+        value_text = self.new_custom_ua_value_entry.get_text().strip()
+
+        if not title_text or not value_text:
+            logging.info("Attempted to add custom User-Agent with empty title or value.")
+            if not title_text and self.new_custom_ua_title_entry:
+                self.new_custom_ua_title_entry.add_css_class("error")
+            elif self.new_custom_ua_title_entry: # Check existence before removing class
+                 self.new_custom_ua_title_entry.remove_css_class("error")
+            if not value_text and self.new_custom_ua_value_entry:
+                self.new_custom_ua_value_entry.add_css_class("error")
+            elif self.new_custom_ua_value_entry: # Check existence before removing class
+                self.new_custom_ua_value_entry.remove_css_class("error")
             return
 
-        current_uas.append(ua_text)
-        if self.settings.set_strv("custom-user-agents", current_uas):
-            logging.info(f"Added custom User-Agent: {ua_text}")
-            self.new_custom_ua_entry.set_text("")
-            self._render_custom_ua_list() # Re-render the list
+        if self.new_custom_ua_title_entry: self.new_custom_ua_title_entry.remove_css_class("error")
+        if self.new_custom_ua_value_entry: self.new_custom_ua_value_entry.remove_css_class("error")
+
+        variant = self.settings.get_value("custom-user-agents")
+        current_ua_pairs = list(variant.unpack() if variant and variant.get_type_string() == 'a(ss)' else [])
+
+        existing_titles = [pair[0] for pair in current_ua_pairs]
+        if title_text in existing_titles:
+            logging.info(f"Custom User-Agent title '{title_text}' already exists.")
+            if self.new_custom_ua_title_entry:
+                 self.new_custom_ua_title_entry.add_css_class("error")
+            return
+        elif self.new_custom_ua_title_entry: # Check existence before removing class
+            self.new_custom_ua_title_entry.remove_css_class("error")
+
+        current_ua_pairs.append((title_text, value_text))
+        new_variant = GLib.Variant("a(ss)", current_ua_pairs)
+
+        if self.settings.set_value("custom-user-agents", new_variant):
+            logging.info(f"Added custom User-Agent: '{title_text}' -> '{value_text}'")
+            if self.new_custom_ua_title_entry: self.new_custom_ua_title_entry.set_text("")
+            if self.new_custom_ua_value_entry: self.new_custom_ua_value_entry.set_text("")
+            self._render_custom_ua_list()
         else:
-            logging.error(f"Failed to save custom User-Agent list to GSettings with new UA: {ua_text}")
-            # Optionally show an error to the user
+            logging.error(f"Failed to save custom User-Agent list to GSettings with new UA: {title_text}")
 
-    def _on_remove_custom_ua_clicked(self, ua_to_remove: str):
-        current_uas = list(self.settings.get_strv("custom-user-agents"))
-        if ua_to_remove in current_uas:
-            current_uas.remove(ua_to_remove)
-            if self.settings.set_strv("custom-user-agents", current_uas):
-                logging.info(f"Removed custom User-Agent: {ua_to_remove}")
-                self._render_custom_ua_list() # Re-render the list
+    def _on_remove_custom_ua_clicked(self, title_to_remove: str):
+        variant = self.settings.get_value("custom-user-agents")
+        current_ua_pairs = list(variant.unpack() if variant and variant.get_type_string() == 'a(ss)' else [])
+
+        original_length = len(current_ua_pairs)
+        updated_ua_pairs = [pair for pair in current_ua_pairs if pair[0] != title_to_remove]
+
+        if len(updated_ua_pairs) < original_length:
+            new_variant = GLib.Variant("a(ss)", updated_ua_pairs)
+            if self.settings.set_value("custom-user-agents", new_variant):
+                logging.info(f"Removed custom User-Agent with title: {title_to_remove}")
+                self._render_custom_ua_list()
             else:
-                logging.error(f"Failed to save custom User-Agent list to GSettings after removing: {ua_to_remove}")
-                # Optionally show an error
+                logging.error(f"Failed to save custom User-Agent list after removing title: {title_to_remove}")
         else:
-            logging.warning(f"Attempted to remove non-existent User-Agent: {ua_to_remove}")
+            logging.warning(f"Attempted to remove non-existent User-Agent with title: {title_to_remove}")
 
     def _select_combo_row_item(
         self, combo_row: Adw.ComboRow, setting_value: str, case_sensitive: bool = True

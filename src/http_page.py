@@ -190,6 +190,7 @@ class HttpPage(Adw.PreferencesPage):
         self.current_http_task = None
         self._current_header_items = []
         self._http_task_data_for_thread = {}
+        self._ua_title_to_value_map = {} # Initialize the map
 
         self.settings = Gio.Settings(schema_id=APP_ID)
         self._header_key_color = self.settings.get_string("http-output-header-key-color")
@@ -310,11 +311,13 @@ class HttpPage(Adw.PreferencesPage):
             self.http_apply_button.set_sensitive(False)
 
         host_header = self.http_host_header_row.get_text().strip()
-        selected_ua_index = self.http_user_agent_row.get_selected()
-        user_agent = None
-        if selected_ua_index > 0:
-            user_agent_model = self.http_user_agent_row.get_model()
-            user_agent = user_agent_model.get_string(selected_ua_index)
+
+        user_agent_to_send = None
+        selected_title_obj = self.http_user_agent_row.get_selected_item()
+        if isinstance(selected_title_obj, Gtk.StringObject):
+            selected_title = selected_title_obj.get_string()
+            # .get will return None if selected_title is not found, or if its mapped value is None
+            user_agent_to_send = self._ua_title_to_value_map.get(selected_title)
 
         custom_dns_server = self.settings.get_string("custom-dns-server")
 
@@ -531,7 +534,7 @@ class HttpPage(Adw.PreferencesPage):
                 host_header_from_input,
             )
 
-        if user_agent and user_agent != "None":
+        if user_agent: # user_agent is now the actual string or None
             session_headers["User-Agent"] = user_agent
         if use_akamai_pragma:
             akamai_pragma_directives = [
@@ -1121,43 +1124,57 @@ class HttpPage(Adw.PreferencesPage):
             self._update_column_view_model(self._current_header_items)
 
     def _update_user_agent_model(self):
-        if not self.http_user_agent_row: # Check if UI element exists
+        if not self.http_user_agent_row:
             return
 
+        # Ensure the map is initialized (e.g., in __init__)
+        # self._ua_title_to_value_map is already initialized in __init__
+        self._ua_title_to_value_map.clear()
+
         current_selection_text = None
-        # Try to preserve current selection if the model is being rebuilt
         if self.http_user_agent_row.get_model() and self.http_user_agent_row.get_selected() != Gtk.INVALID_LIST_POSITION:
             selected_item = self.http_user_agent_row.get_selected_item()
             if isinstance(selected_item, Gtk.StringObject):
                 current_selection_text = selected_item.get_string()
 
-        default_uas = ["None"] + USER_AGENTS # USER_AGENTS from .constants
-        custom_uas = list(self.settings.get_strv("custom-user-agents"))
+        display_titles = []
 
-        combined_uas = default_uas[:] # Start with a copy of defaults
+        # "None" option
+        none_title = "None"
+        display_titles.append(none_title)
+        self._ua_title_to_value_map[none_title] = None # Represents no UA header override
 
-        # Add custom UAs, avoiding duplicates with default_uas (case-sensitive)
-        for custom_ua in custom_uas:
-            if custom_ua not in combined_uas:
-                combined_uas.append(custom_ua)
+        # Default UAs from constants.py
+        for ua_dict in USER_AGENTS: # USER_AGENTS is now list of {"title": ..., "value": ...}
+            title = ua_dict.get("title")
+            value = ua_dict.get("value")
+            if title and value:
+                if title not in self._ua_title_to_value_map:
+                    display_titles.append(title)
+                self._ua_title_to_value_map[title] = value
 
-        self.http_user_agent_row.set_model(Gtk.StringList.new(combined_uas))
+        # Custom UAs from GSettings
+        variant = self.settings.get_value("custom-user-agents")
+        # Ensure variant is not None and is of the correct type 'a(ss)' before unpacking
+        custom_ua_pairs = list(variant.unpack() if variant and variant.get_type_string() == 'a(ss)' else [])
 
-        # Restore selection if possible
-        if current_selection_text:
-            model = self.http_user_agent_row.get_model()
-            if isinstance(model, Gtk.StringList): # Gtk.StringList model
-                for i in range(model.get_n_items()):
-                    if model.get_string(i) == current_selection_text:
-                        self.http_user_agent_row.set_selected(i)
-                        break
-                else: # If not found, default to "None" (index 0)
-                    if model.get_n_items() > 0:
-                         self.http_user_agent_row.set_selected(0)
-        elif self.http_user_agent_row.get_model().get_n_items() > 0: # Default to "None" if no prior selection
-            self.http_user_agent_row.set_selected(0)
+        for title, value in custom_ua_pairs:
+            if title not in self._ua_title_to_value_map:
+                display_titles.append(title)
+            self._ua_title_to_value_map[title] = value
 
-        logging.info(f"User-Agent dropdown model updated with {len(combined_uas)} items.")
+        self.http_user_agent_row.set_model(Gtk.StringList.new(display_titles))
+
+        if current_selection_text and current_selection_text in self._ua_title_to_value_map: # Check map instead of display_titles for selection
+            try:
+                idx = display_titles.index(current_selection_text) # Find in current display titles
+                self.http_user_agent_row.set_selected(idx)
+            except ValueError:
+                if display_titles: self.http_user_agent_row.set_selected(0)
+        elif display_titles:
+            self.http_user_agent_row.set_selected(0) # Default to "None" (index 0)
+
+        logging.info(f"User-Agent dropdown model updated with {len(display_titles)} titles.")
 
     # Note: Removed @staticmethod decorator
     def _create_factory(self, attr_name: str, wrap_text: bool = False) -> Gtk.SignalListItemFactory:
