@@ -722,19 +722,35 @@ class NmapPage(Adw.PreferencesPage):
 
         """
         self.status_row.set_subtitle(message)
+
+        # CSS classes for status text color
+        status_css_classes = ["success-color", "warning-color", "error-color", "accent-color"] # Include accent just in case
+        style_context = self.status_row.get_style_context()
+
+        # Remove any existing status color classes
+        for css_class in status_css_classes:
+            style_context.remove_class(css_class)
+
         if status_type == ScanStatus.IN_PROGRESS:
             self.scan_spinner.set_visible(True)
             self.scan_spinner.start()
             self.status_row.set_title("Scanning...")
-        else:  # COMPLETE, FAILED, or other
+            style_context.add_class("error-color") # Red for scanning
+        else:  # COMPLETE, FAILED, IDLE or other
             self.scan_spinner.stop()
             self.scan_spinner.set_visible(False)
             if status_type == ScanStatus.COMPLETE:
                 self.status_row.set_title("Scan Complete")
+                style_context.add_class("success-color") # Green for complete
             elif status_type == ScanStatus.FAILED:
                 self.status_row.set_title("Scan Failed")
-            else:
+                style_context.add_class("error-color") # Red for failed
+            elif status_type == ScanStatus.IDLE:
+                self.status_row.set_title("Idle")
+                # No specific color for Idle, default will be used
+            else: # Generic fallback
                 self.status_row.set_title("Scan Status")
+                # No specific color for other statuses, default will be used
 
     def _clear_results(self):
         """Clear all Nmap scan results from the UI.
@@ -832,6 +848,18 @@ class NmapPage(Adw.PreferencesPage):
                 hn_name = hn_entry.get("name", "N/A")
                 summary_lines.append(f"  {hn_name} ({hn_type})")
 
+        # Host-level script output
+        host_scripts = host_data_dict.get("hostscript")
+        if host_scripts and isinstance(host_scripts, list):
+            summary_lines.append("\nHost script output:")
+            for script_item in host_scripts:
+                if isinstance(script_item, dict):
+                    script_id = script_item.get("id", "N/A")
+                    script_output = script_item.get("output", "N/A")
+                    # Indent script output for readability if it's multiline
+                    formatted_output = "\n".join([f"    {line.strip()}" for line in script_output.strip().split('\n')])
+                    summary_lines.append(f"  Script: {script_id}\n{formatted_output}")
+
         # Ports
         # Nmap console output often shows a summary of closed ports, e.g., "Not shown: 995 closed tcp ports (conn-refused)"
         # This dict structure doesn't directly provide that summary, so we'll list open/filtered ports.
@@ -857,6 +885,18 @@ class NmapPage(Adw.PreferencesPage):
                             if p_reason:
                                 port_str += f" (reason: {p_reason})"
                             ports_data.append(port_str)
+
+                        # Port-level script output
+                        if port_scripts := port_info.get("script"):
+                            if isinstance(port_scripts, dict):
+                                for script_id, script_output in port_scripts.items():
+                                    if script_output and isinstance(script_output, str):
+                                        # Indent script output lines, prefix with |_
+                                        formatted_script_output = "\n".join(
+                                            [f"  |_{script_id}: {line.strip()}" if i == 0 else f"  | {line.strip()}"
+                                             for i, line in enumerate(script_output.strip().split('\n'))]
+                                        )
+                                        ports_data.append(formatted_script_output)
 
         if ports_data:
             summary_lines.append("\nPORT      STATE SERVICE      VERSION") # Header similar to Nmap
