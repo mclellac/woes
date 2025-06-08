@@ -77,15 +77,15 @@ class Preferences(Adw.PreferencesWindow):
         self.prefs_dns_apply_button.connect("clicked", self.on_dns_server_changed)
 
         if self.http_header_key_color_button:
-            dialog_hk = Gtk.ColorDialog(title="Select Header Key Color", modal=True, with_alpha=True)
+            dialog_hk = Gtk.ColorDialog(title="Select Header Key Colour", modal=True, with_alpha=True)
             self.http_header_key_color_button.set_dialog(dialog_hk)
             self.http_header_key_color_button.connect("notify::rgba", self.on_http_color_changed, "http-output-header-key-color")
         if self.http_header_value_color_button:
-            dialog_hv = Gtk.ColorDialog(title="Select Header Value Color", modal=True, with_alpha=True)
+            dialog_hv = Gtk.ColorDialog(title="Select Header Value Colour", modal=True, with_alpha=True)
             self.http_header_value_color_button.set_dialog(dialog_hv)
             self.http_header_value_color_button.connect("notify::rgba", self.on_http_color_changed, "http-output-header-value-color")
         if self.http_special_row_color_button:
-            dialog_sr = Gtk.ColorDialog(title="Select Special Row Color", modal=True, with_alpha=True)
+            dialog_sr = Gtk.ColorDialog(title="Select Special Row Colour", modal=True, with_alpha=True)
             self.http_special_row_color_button.set_dialog(dialog_sr)
             self.http_special_row_color_button.connect("notify::rgba", self.on_http_color_changed, "http-output-special-row-color")
 

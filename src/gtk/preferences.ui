@@ -110,10 +110,10 @@
         </child>
         <child>
           <object class="AdwPreferencesGroup" id="http_colors_group">
-            <property name="title">HTTP Output Colors</property>
+            <property name="title">HTTP Output Colours</property>
             <child>
               <object class="AdwActionRow">
-                <property name="title">Header Key Color</property>
+                <property name="title">Header Key Colour</property>
                 <child type="suffix">
                   <object class="GtkColorDialogButton" id="http_header_key_color_button">
                     <property name="valign">center</property>
@@ -123,7 +123,7 @@
             </child>
             <child>
               <object class="AdwActionRow">
-                <property name="title">Header Value Color</property>
+                <property name="title">Header Value Colour</property>
                 <child type="suffix">
                   <object class="GtkColorDialogButton" id="http_header_value_color_button">
                     <property name="valign">center</property>
@@ -133,7 +133,7 @@
             </child>
             <child>
               <object class="AdwActionRow">
-                <property name="title">Special Row Color</property>
+                <property name="title">Special Row Colour</property>
                 <child type="suffix">
                   <object class="GtkColorDialogButton" id="http_special_row_color_button">
                     <property name="valign">center</property>
