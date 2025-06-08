@@ -66,5 +66,10 @@
       <summary>Color for special rows in HTTP output</summary>
       <description>Defines the color used for special informational rows in the HTTP output, like URL or Status lines.</description>
     </key>
+    <key name="custom-user-agents" type="as">
+      <default>[]</default>
+      <summary>A list of custom User-Agent strings.</summary>
+      <description>Users can add their own User-Agent strings to this list, which will be available in the HTTP Page.</description>
+    </key>
   </schema>
 </schemalist>

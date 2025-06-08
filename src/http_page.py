@@ -225,9 +225,9 @@ class HttpPage(Adw.PreferencesPage):
         self._clear_error()
         self._hide_results()
 
-        user_agent_options = ["None"] + USER_AGENTS
-        self.http_user_agent_row.set_model(Gtk.StringList.new(user_agent_options))
-        self.http_user_agent_row.set_selected(0)
+        self._update_user_agent_model() # Initial population
+        self.settings.connect("changed::custom-user-agents", lambda _s, _k: self._update_user_agent_model())
+
         if self.http_apply_button:
             self.http_apply_button.set_use_underline(True)
 
@@ -1119,6 +1119,45 @@ class HttpPage(Adw.PreferencesPage):
         if self._current_header_items:
             logger.debug("Re-populating view to apply color changes.")
             self._update_column_view_model(self._current_header_items)
+
+    def _update_user_agent_model(self):
+        if not self.http_user_agent_row: # Check if UI element exists
+            return
+
+        current_selection_text = None
+        # Try to preserve current selection if the model is being rebuilt
+        if self.http_user_agent_row.get_model() and self.http_user_agent_row.get_selected() != Gtk.INVALID_LIST_POSITION:
+            selected_item = self.http_user_agent_row.get_selected_item()
+            if isinstance(selected_item, Gtk.StringObject):
+                current_selection_text = selected_item.get_string()
+
+        default_uas = ["None"] + USER_AGENTS # USER_AGENTS from .constants
+        custom_uas = list(self.settings.get_strv("custom-user-agents"))
+
+        combined_uas = default_uas[:] # Start with a copy of defaults
+
+        # Add custom UAs, avoiding duplicates with default_uas (case-sensitive)
+        for custom_ua in custom_uas:
+            if custom_ua not in combined_uas:
+                combined_uas.append(custom_ua)
+
+        self.http_user_agent_row.set_model(Gtk.StringList.new(combined_uas))
+
+        # Restore selection if possible
+        if current_selection_text:
+            model = self.http_user_agent_row.get_model()
+            if isinstance(model, Gtk.StringList): # Gtk.StringList model
+                for i in range(model.get_n_items()):
+                    if model.get_string(i) == current_selection_text:
+                        self.http_user_agent_row.set_selected(i)
+                        break
+                else: # If not found, default to "None" (index 0)
+                    if model.get_n_items() > 0:
+                         self.http_user_agent_row.set_selected(0)
+        elif self.http_user_agent_row.get_model().get_n_items() > 0: # Default to "None" if no prior selection
+            self.http_user_agent_row.set_selected(0)
+
+        logging.info(f"User-Agent dropdown model updated with {len(combined_uas)} items.")
 
     # Note: Removed @staticmethod decorator
     def _create_factory(self, attr_name: str, wrap_text: bool = False) -> Gtk.SignalListItemFactory:
