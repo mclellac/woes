@@ -468,21 +468,23 @@ class NmapPage(Adw.PreferencesPage):
                 self.nmap_detail_box.append(self.nmap_detail_placeholder)
             self.nmap_detail_placeholder.set_visible(True)
 
-    def _add_raw_output_expander(self, yaml_string: str, host_key: str):
-        """Add an Adw.ExpanderRow to display the raw Nmap YAML output for a host.
+    def _add_raw_output_expander(self, host_data_dict: dict, host_key: str):
+        """Add an Adw.ExpanderRow to display the human-readable text summary for a host.
 
         Args:
         ----
-            yaml_string: The Nmap scan result for the host, formatted as a YAML string.
+            host_data_dict: The dictionary containing scan data for the host.
             host_key: The identifier for the host (IP or name).
 
         """
-        logging.debug("Adding raw output expander for %s", host_key)
-        expander = Adw.ExpanderRow(title=f"Raw Nmap Output (YAML) - {host_key}")
+        logging.debug("Adding text scan summary expander for %s", host_key)
+        expander = Adw.ExpanderRow(title=f"Text Scan Summary - {host_key}")
         expander.set_expanded(False)
 
-        source_view, source_buffer = create_source_view(language_name="yaml")
-        source_buffer.set_text(yaml_string, -1)
+        human_readable_summary = self._generate_human_readable_host_summary(host_data_dict)
+
+        source_view, source_buffer = create_source_view(language_name="txt")
+        source_buffer.set_text(human_readable_summary, -1)
         self._apply_source_view_style_to_buffer(source_buffer)
         source_view.set_editable(False)
 
@@ -791,3 +793,99 @@ class NmapPage(Adw.PreferencesPage):
 
         """
         return NmapTargetRow(nmap_item=item)
+
+    def _generate_human_readable_host_summary(self, host_data_dict: dict) -> str:
+        """Generate a human-readable summary of host scan data.
+
+        Args:
+            host_data_dict: A dictionary containing the scan data for a single host.
+
+        Returns:
+            A string summarizing the host's scan data.
+        """
+        summary_lines = []
+
+        # Host status
+        status_info = host_data_dict.get("status", {})
+        state = status_info.get("state", "N/A")
+        reason = status_info.get("reason", "N/A")
+        summary_lines.append(f"Host is {state} (reason: {reason}).")
+
+        # Addresses
+        addresses_info = host_data_dict.get("addresses", {})
+        if ipv4 := addresses_info.get("ipv4"):
+            summary_lines.append(f"IPv4 Address: {ipv4}")
+        if ipv6 := addresses_info.get("ipv6"):
+            summary_lines.append(f"IPv6 Address: {ipv6}")
+        if mac := addresses_info.get("mac"):
+            # Vendor information is often part of the MAC address string in Nmap output,
+            # but not explicitly separated in the typical dict structure.
+            # We'll display MAC as is.
+            summary_lines.append(f"MAC Address: {mac}")
+
+        # Hostnames
+        hostnames_list = host_data_dict.get("hostnames", [])
+        if hostnames_list:
+            summary_lines.append("Hostnames:")
+            for hn_entry in hostnames_list:
+                hn_type = hn_entry.get("type", "N/A")
+                hn_name = hn_entry.get("name", "N/A")
+                summary_lines.append(f"  {hn_name} ({hn_type})")
+
+        # Ports
+        # Nmap console output often shows a summary of closed ports, e.g., "Not shown: 995 closed tcp ports (conn-refused)"
+        # This dict structure doesn't directly provide that summary, so we'll list open/filtered ports.
+
+        ports_data = []
+        for proto in ["tcp", "udp", "sctp", "ip"]:
+            if proto_data := host_data_dict.get(proto):
+                if isinstance(proto_data, dict):
+                    for port_id, port_info in proto_data.items():
+                        p_state = port_info.get("state", "N/A")
+                        # Only include open or otherwise interesting ports, not typically 'closed' ones unless explicitly detailed
+                        if p_state not in ["closed", "filtered out"]: # Example filtering
+                            p_name = port_info.get("name", "")
+                            p_product = port_info.get("product", "")
+                            p_version = port_info.get("version", "")
+                            p_reason = port_info.get("reason", "") # Nmap reason for the port state
+
+                            port_str = f"{port_id}/{proto.upper():<4} {p_state:<10} {p_name}"
+                            if p_product:
+                                port_str += f" {p_product}"
+                            if p_version:
+                                port_str += f" {p_version}"
+                            if p_reason:
+                                port_str += f" (reason: {p_reason})"
+                            ports_data.append(port_str)
+
+        if ports_data:
+            summary_lines.append("\nPORT      STATE SERVICE      VERSION") # Header similar to Nmap
+            summary_lines.extend(ports_data)
+        else:
+            summary_lines.append("No open ports reported or port data available.")
+
+        # OS Matches
+        osmatch_data = host_data_dict.get("osmatch", [])
+        if osmatch_data:
+            summary_lines.append("\nOS details:")
+            for match in osmatch_data:
+                name = match.get("name", "N/A")
+                accuracy = match.get("accuracy", "N/A")
+                summary_lines.append(f"  Name: {name}")
+                summary_lines.append(f"  Accuracy: {accuracy}%")
+
+                if "osclass" in match:
+                    # Ensure osclass is a list, as it can sometimes be a single dict
+                    osclasses = match["osclass"] if isinstance(match["osclass"], list) else [match["osclass"]]
+                    for os_class in osclasses:
+                        if isinstance(os_class, dict):
+                            oc_type = os_class.get("type", "N/A")
+                            oc_vendor = os_class.get("vendor", "N/A")
+                            oc_family = os_class.get("osfamily", "N/A")
+                            oc_gen = os_class.get("osgen", "N/A")
+                            summary_lines.append("  OS Class:")
+                            summary_lines.append(f"    Type: {oc_type}, Vendor: {oc_vendor}, Family: {oc_family}, Gen: {oc_gen}")
+        else:
+            summary_lines.append("No OS data available.")
+
+        return "\n".join(summary_lines)
