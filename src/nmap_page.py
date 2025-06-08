@@ -4,18 +4,6 @@ This page allows users to configure and run Nmap scans against specified targets
 Results are displayed in a structured way, with hosts listed and detailed
 information (ports, OS, etc.) shown in expandable sections.
 """
-"""Defines the Nmap scanning page for the Woes application.
-
-This page allows users to configure and run Nmap scans against specified targets.
-Results are displayed in a structured way, with hosts listed and detailed
-information (ports, OS, etc.) shown in expandable sections.
-"""
-"""Defines the Nmap scanning page for the Woes application.
-
-This page allows users to configure and run Nmap scans against specified targets.
-Results are displayed in a structured way, with hosts listed and detailed
-information (ports, OS, etc.) shown in expandable sections.
-"""
 import logging
 import re
 from typing import Optional # Removed List as it's not used
@@ -88,7 +76,6 @@ class NmapPage(Gtk.Box):
 
     __gtype_name__ = "NmapPage"
 
-    # Scan Parameters Group
     nmap_target_entryrow = Gtk.Template.Child("nmap_target_entryrow")
     nmap_apply_button = Gtk.Template.Child("nmap_apply_button")
     nmap_fingerprint_switchrow = Gtk.Template.Child("nmap_fingerprint_switchrow")
@@ -100,13 +87,10 @@ class NmapPage(Gtk.Box):
     status_row = Gtk.Template.Child("status_row")
     scan_spinner = Gtk.Template.Child("scan_spinner")
 
-    # Error Banner
     error_banner = Gtk.Template.Child("error_banner")
 
-    # Left pane content box
     left_vbox_content = Gtk.Template.Child("left_vbox_content")
 
-    # AdwOverlaySplitView and its children (nmap_split_view removed)
     nmap_host_listbox = Gtk.Template.Child("nmap_host_listbox") # nmap_host_listbox is inside left_vbox_content
     nmap_detail_box = Gtk.Template.Child("nmap_detail_box")
     nmap_detail_placeholder = Gtk.Template.Child("nmap_detail_placeholder")
@@ -178,7 +162,6 @@ class NmapPage(Gtk.Box):
             self.nmap_target_listbox_store, self._create_target_listbox_row
         )
 
-        # self.nmap_split_view.set_show_sidebar(True) # Removed as nmap_split_view is gone
         self.nmap_detail_placeholder.set_visible(True)
 
         child = self.nmap_detail_box.get_first_child()
@@ -218,7 +201,6 @@ class NmapPage(Gtk.Box):
                 "Invalid target format. Please enter a valid IP, CIDR, or hostname."
             )
             return
-        # R1705: Unnecessary "else" after "return", remove the "else" and de-indent the code inside it
         self.nmap_target_entryrow.remove_css_class("error")
 
         if not target:
@@ -907,7 +889,6 @@ class NmapPage(Gtk.Box):
                                 port_str += f" (reason: {p_reason})"
                             ports_data.append(port_str)
 
-                        # Port-level script output
                         if port_scripts := port_info.get("script"):
                             if isinstance(port_scripts, dict):
                                 for script_id, script_output in port_scripts.items():

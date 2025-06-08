@@ -3,11 +3,6 @@
 Handles application initialization, GResource loading, command-line option parsing,
 and launching the main application window and services.
 """
-"""Main application module for Woes.
-
-Handles application initialization, GResource loading, command-line option parsing,
-and launching the main application window and services.
-"""
 import sys
 import os
 import logging
@@ -100,7 +95,7 @@ class WoesApplication(Adw.Application):
         logging.info("WoesApplication.__init__ entered")
         self.version = version
         self.debug_enabled = False
-        self.win = None  # Initialized here
+        self.win = None
 
         # Configure basic logging. If --debug is passed, it will be reconfigured.
         logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")

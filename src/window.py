@@ -212,7 +212,6 @@ class WoesWindow(Adw.ApplicationWindow):
         to apply them.
         """
         try:
-            # font_scale_pref_str = self.settings.get_string("font-scaling-percentage") # No longer needed here
             theme_pref = self.settings.get_string("theme-preference")
 
             apply_font_size(self.settings)
