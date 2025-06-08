@@ -6,7 +6,7 @@ from datetime import datetime
 import dns.resolver
 import dns.reversename
 import gi
-from gi.repository import Adw, Gio, Gtk, GtkSource, Pango, GLib
+from gi.repository import Adw, Gio, Gtk, GtkSource, Pango, GLib, GObject # Added GObject
 from typing import Tuple, Sequence, Any # Removed Optional as it's not explicitly used
 
 from .constants import APP_ID, RESOURCE_PREFIX
@@ -139,7 +139,7 @@ class DNSPage(Adw.PreferencesPage):
         """
         self._perform_lookup()
 
-    def _on_record_type_changed(self, _dropdown: Gtk.DropDown, _param_spec: GLib.ParamSpec):
+    def _on_record_type_changed(self, _dropdown: Gtk.DropDown, _param_spec: GObject.ParamSpec): # Changed GLib.ParamSpec to GObject.ParamSpec
         """Handle the record type dropdown change event.
 
         Args:

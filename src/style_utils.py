@@ -17,11 +17,10 @@ import platform
 from typing import Optional, Tuple # Added Tuple
 
 import gi
-from gi.repository import Adw, Gdk, Gio, Gtk, GtkSource, GLib
-
 gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
 gi.require_version("GtkSource", "5")
+from gi.repository import Adw, Gdk, Gio, Gtk, GtkSource, GLib
 
 BASE_FONT_SIZE_PT = 10.0
 
