@@ -24,7 +24,8 @@ class DNSPage(Adw.PreferencesPage):
 
     __gtype_name__ = "DNSPage"
 
-    dns_ip_entryrow = Gtk.Template.Child("dns_ip_entryrow")
+    domain_entry = Gtk.Template.Child("domain_entry") # Changed from dns_ip_entryrow
+    dns_lookup_spinner = Gtk.Template.Child("dns_lookup_spinner") # Added spinner
     dns_apply_button = Gtk.Template.Child("dns_apply_button")
     dns_record_type_dropdown = Gtk.Template.Child("dns_record_type_dropdown")
     dns_results_scrolled_window = Gtk.Template.Child("dns_results_scrolled_window")
@@ -44,6 +45,11 @@ class DNSPage(Adw.PreferencesPage):
         )
         if self.dns_apply_button:
             self.dns_apply_button.set_use_underline(True)
+
+        # Initialize spinner state
+        if self.dns_lookup_spinner:
+            self.dns_lookup_spinner.set_spinning(False)
+            self.dns_lookup_spinner.set_visible(False)
 
         try:
             self.bold_tag = self.source_buffer.create_tag("bold", weight=Pango.Weight.BOLD)
@@ -67,7 +73,7 @@ class DNSPage(Adw.PreferencesPage):
 
     def _connect_signals(self) -> None:
         """Connect signals for UI elements to their respective handlers."""
-        self.dns_ip_entryrow.connect("entry-activated", self._on_entry_activated)
+        self.domain_entry.connect("entry-activated", self._on_entry_activated) # Changed from dns_ip_entryrow
         self.dns_apply_button.connect("clicked", self._on_entry_activated)
         self.dns_record_type_dropdown.connect("notify::selected", self._on_record_type_changed)
         if self.error_banner:
@@ -215,15 +221,25 @@ class DNSPage(Adw.PreferencesPage):
         Handles input validation, prepares the resolver, fetches records,
         and updates the UI with results or error messages.
         """
-        user_input = self.dns_ip_entryrow.get_text().strip()
+        if self.dns_lookup_spinner:
+            self.dns_lookup_spinner.set_visible(True)
+            self.dns_lookup_spinner.start()
+
+        user_input = self.domain_entry.get_text().strip() # Changed from dns_ip_entryrow
         if not user_input:
             self._show_error("Input cannot be empty.")
+            if self.dns_lookup_spinner:
+                self.dns_lookup_spinner.stop()
+                self.dns_lookup_spinner.set_visible(False)
             return
 
         self._clear_error()
 
         if not self._is_valid_ip_or_domain(user_input):
             self._show_error("Invalid IP address or domain name.")
+            if self.dns_lookup_spinner:
+                self.dns_lookup_spinner.stop()
+                self.dns_lookup_spinner.set_visible(False)
             return
 
         requested_record_type = self._get_selected_record_type()
@@ -267,6 +283,10 @@ class DNSPage(Adw.PreferencesPage):
                 exc_info=True,
             )
             self._show_error(f"An unexpected error occurred: {str(e)}")
+        finally:
+            if self.dns_lookup_spinner:
+                self.dns_lookup_spinner.stop()
+                self.dns_lookup_spinner.set_visible(False)
 
     def _get_selected_record_type(self) -> str:
         """Get the currently selected DNS record type from the dropdown.
@@ -288,13 +308,13 @@ class DNSPage(Adw.PreferencesPage):
             message: The error message to display.
 
         """
-        self.dns_ip_entryrow.add_css_class("error")
+        self.domain_entry.add_css_class("error") # Changed from dns_ip_entryrow
         self.error_banner.set_title(message)
         self.error_banner.set_revealed(True)
 
     def _clear_error(self):
         """Clear any existing error messages from the UI banner and entry row styling."""
-        self.dns_ip_entryrow.remove_css_class("error")
+        self.domain_entry.remove_css_class("error") # Changed from dns_ip_entryrow
         self.error_banner.set_revealed(False)
         self.error_banner.set_title("")
 
