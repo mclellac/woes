@@ -103,8 +103,7 @@ class NmapPage(Adw.PreferencesPage):
     # Error Banner
     error_banner = Gtk.Template.Child("error_banner")
 
-    # AdwOverlaySplitView and its children
-    nmap_split_view = Gtk.Template.Child("nmap_split_view")
+    # AdwOverlaySplitView and its children (nmap_split_view removed)
     nmap_host_listbox = Gtk.Template.Child("nmap_host_listbox")
     nmap_detail_box = Gtk.Template.Child("nmap_detail_box")
     nmap_detail_placeholder = Gtk.Template.Child("nmap_detail_placeholder")
@@ -175,7 +174,7 @@ class NmapPage(Adw.PreferencesPage):
             self.nmap_target_listbox_store, self._create_target_listbox_row
         )
 
-        self.nmap_split_view.set_show_sidebar(True)
+        # self.nmap_split_view.set_show_sidebar(True) # Removed as nmap_split_view is gone
         self.nmap_detail_placeholder.set_visible(True)
 
         child = self.nmap_detail_box.get_first_child()
