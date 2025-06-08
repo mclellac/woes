@@ -659,85 +659,117 @@ class HttpPage(Adw.PreferencesPage):
         return None
 
     def _fetch_headers_task_done_cb(self, source_object, result: Gio.AsyncResult, user_data):
-        local_task_ref = self.current_http_task
-        # url_for_error_reporting = "" # F841
-        # if hasattr(self, '_http_task_data_for_thread') and self._http_task_data_for_thread:
-        #     url_for_error_reporting = self._http_task_data_for_thread.get('url', '') # F841
+        task_being_processed = self.current_http_task
+
+        if task_being_processed is None:
+            logger.warning("_fetch_headers_task_done_cb: current_http_task is None. Callback may have been invoked too late or redundantly.")
+            # Safeguard UI re-enablement
+            if hasattr(self, 'http_entry_row') and self.http_entry_row: # Check if UI element exists
+                self.http_entry_row.set_sensitive(True)
+            if hasattr(self, 'http_apply_button') and self.http_apply_button: # Check if UI element exists
+                self.http_apply_button.set_sensitive(True)
+            return
+
+        # Clear the main task reference *now* that we have captured the task instance
+        # for this specific callback invocation.
+        self.current_http_task = None
+        logger.debug(f"Processing task completion in _fetch_headers_task_done_cb for task: {id(task_being_processed)}")
 
         try:
-            actual_list_of_responses = local_task_ref.propagate_value()
+            # This is where propagate_value is called.
+            actual_list_of_responses = task_being_processed.propagate_value()
 
+            # This check was moved from the old code, seems useful if propagate_value could return non-list/tuple for success
             if not isinstance(actual_list_of_responses, list) and isinstance(actual_list_of_responses, tuple):
                 logger.warning((
-                    f"Received a tuple {type(actual_list_of_responses)} instead of a list for "
+                    f"Task {id(task_being_processed)}: Received a tuple {type(actual_list_of_responses)} instead of a list for "
                     f"success value. Trying to extract from it."
                 ))
                 if len(actual_list_of_responses) > 0 and isinstance(actual_list_of_responses[0], list):
                     actual_list_of_responses = actual_list_of_responses[0]
+                # This case seems less likely if return_value always wraps in a list
                 elif hasattr(actual_list_of_responses, 'value') and isinstance(actual_list_of_responses.value, list):
                     actual_list_of_responses = actual_list_of_responses.value
 
+
             if isinstance(actual_list_of_responses, list):
-                logger.info("Successfully processed task result as list.")
+                logger.info(f"Task {id(task_being_processed)}: Successfully processed task result as list.")
                 processed_headers_for_store = []
-                if not actual_list_of_responses:
-                    logger.warning("Received empty list for actual_list_of_responses.")
-                    self._update_column_view_model(None)
+                if not actual_list_of_responses: # Check if the list itself is empty
+                    logger.warning(f"Task {id(task_being_processed)}: Received empty list for actual_list_of_responses.")
+                    self._update_column_view_model(None) # Clear view if empty results
                 else:
                     for i, response_data in enumerate(actual_list_of_responses):
+                        # Ensure response_data is a dict, as expected from _fetch_headers_task_thread_func
+                        if not isinstance(response_data, dict):
+                            logger.error(f"Task {id(task_being_processed)}: Expected dict item in response list, got {type(response_data)}. Data: {response_data}")
+                            # Handle this gracefully, e.g., by skipping or erroring out
+                            # For now, let's assume it will be a dict or raise an error that gets caught below.
+                            # If this becomes a common issue, specific error handling for malformed response_data here.
+                            pass # Or raise an error to be caught by the generic Exception handler
+
                         url_display = f"URL: {response_data.get('url', 'N/A')}"
                         status_display = f"Status: {response_data.get('status_code', 'N/A')}"
 
                         if response_data.get('type') == 'redirect':
                             status_display += " (Redirect)"
-                        elif response_data.get('type') == 'final':
+                        elif response_data.get('type') == 'final': # Assuming 'final' or similar for the last one
                             status_display += " (Final)"
 
                         processed_headers_for_store.append(
                             HeaderItem(key=url_display, value=status_display, is_special_row=True)
-                            )
+                        )
 
                         headers_for_this_response = response_data.get('headers', {})
                         for header_key, header_value in headers_for_this_response.items():
                             processed_headers_for_store.append(
                                 HeaderItem(key=str(header_key), value=str(header_value), is_special_row=False)
-                                )
+                            )
 
+                        # Add separator if not the last response item
                         if i < len(actual_list_of_responses) - 1:
-                            processed_headers_for_store.append(HeaderItem(key="", value="", is_special_row=True))
+                            processed_headers_for_store.append(HeaderItem(key="", value="", is_special_row=True)) # Separator
+
                     self._current_header_items = processed_headers_for_store # Store for refresh
                     self._update_column_view_model(processed_headers_for_store)
-                self.http_entry_row.remove_css_class("error")
+                if hasattr(self, 'http_entry_row') and self.http_entry_row:
+                    self.http_entry_row.remove_css_class("error") # Clear error style on success
             else:
+                # This case should ideally not be reached if propagate_value raises GLib.Error for errors,
+                # or if successful results are always lists.
                 logger.error(
-                    f"Task result data of unexpected type {type(actual_list_of_responses)}. Expected list."
-                    )
+                    f"Task {id(task_being_processed)}: Result data of unexpected type {type(actual_list_of_responses)}. Expected list."
+                )
                 self._display_error((
                     f"Failed to process task result data (unexpected data structure: "
                     f"{type(actual_list_of_responses).__name__})."
                 ))
-                self.http_entry_row.add_css_class("error")
+                if hasattr(self, 'http_entry_row') and self.http_entry_row:
+                    self.http_entry_row.add_css_class("error")
                 self._update_column_view_model(None)
 
-        except GLib.Error as e:
-            logger.error("Task failed with GLib.Error: Domain=%s, Code=%s, Message=%s", e.domain, e.code, e.message)
-            self._display_error(e.message.replace("<b>", "").replace("</b>", ""))
-            self.http_entry_row.add_css_class("error")
-            self._update_column_view_model(None)
-        except Exception as e:
-            logger.error("Unexpected Python error in _fetch_headers_task_done_cb: %s", e, exc_info=True)
+        except GLib.Error as e: # This catches errors from task.return_new_error_literal() or Gio-level task issues
+            logger.error(f"Task {id(task_being_processed)} failed with GLib.Error: Domain=%s, Code=%s, Message=%s", e.domain, e.code, e.message)
+            self._display_error(e.message.replace("<b>", "").replace("</b>", "")) # Basic sanitization
+            if hasattr(self, 'http_entry_row') and self.http_entry_row:
+                self.http_entry_row.add_css_class("error")
+            self._update_column_view_model(None) # Clear previous results on error
+        except Exception as e: # Catch-all for other Python exceptions during result processing
+            logger.error(f"Task {id(task_being_processed)}: Unexpected Python error in _fetch_headers_task_done_cb: %s", e, exc_info=True)
             self._display_error((
                 "An unexpected application error occurred while trying to display the results. "
                 "Please try the operation again."
             ))
-            self.http_entry_row.add_css_class("error")
-            self._update_column_view_model(None)
+            if hasattr(self, 'http_entry_row') and self.http_entry_row:
+                self.http_entry_row.add_css_class("error")
+            self._update_column_view_model(None) # Clear previous results
         finally:
-            self.http_entry_row.set_sensitive(True)
-            if hasattr(self, 'http_apply_button'):
+            logger.debug(f"Re-enabling UI elements after task {id(task_being_processed)} completion.")
+            if hasattr(self, 'http_entry_row') and self.http_entry_row:
+                self.http_entry_row.set_sensitive(True)
+            if hasattr(self, 'http_apply_button') and self.http_apply_button:
                 self.http_apply_button.set_sensitive(True)
-            if self.current_http_task is local_task_ref:
-                self.current_http_task = None
+            # self.current_http_task is already None due to the change at the beginning of the function.
 
     @staticmethod
     def _ensure_scheme(url: str) -> str:
