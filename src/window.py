@@ -7,7 +7,7 @@ and integrates system font settings.
 import logging
 import platform
 import gi
-from gi.repository import Adw, Gdk, Gio, Gtk, GLib
+from gi.repository import Adw, Gdk, Gio, Gtk, GLib, GObject # Added GObject
 
 from .constants import (
     APP_ID,
@@ -227,7 +227,7 @@ class WoesWindow(Adw.ApplicationWindow):
                 _e,
             )
 
-    def on_page_switched(self, _widget: Adw.ViewSwitcherTitle, _gparam: GLib.ParamSpec):
+    def on_page_switched(self, _widget: Adw.ViewSwitcherTitle, _gparam: GObject.ParamSpec): # Changed GLib.ParamSpec to GObject.ParamSpec
         """Handle the page switch event from the Adw.ViewSwitcherTitle.
 
         Logs the name of the newly visible child in the Adw.ViewStack.
