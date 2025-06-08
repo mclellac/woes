@@ -5,17 +5,20 @@ from datetime import datetime
 
 import dns.resolver
 import dns.reversename
+import dns.rdatatype # Added
+import dns.rdataclass # Added
 import gi
-from gi.repository import Adw, Gio, Gtk, GtkSource, Pango, GLib, GObject # Added GObject
-from typing import Tuple, Sequence, Any # Removed Optional as it's not explicitly used
+from gi.repository import Adw, Gio, Gtk, Pango, GLib, GObject # Removed GtkSource
+from typing import Tuple, Sequence, Any, List, Dict # Added List, Dict, changed from typing.Tuple
 
 from .constants import APP_ID, RESOURCE_PREFIX
-from .style_utils import apply_source_style_scheme
-from .utils import create_source_view
+# Removed GtkSource specific imports:
+# from .style_utils import apply_source_style_scheme
+# from .utils import create_source_view
 
 gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
-gi.require_version("GtkSource", "5")
+# gi.require_version("GtkSource", "5") # Removed GtkSource requirement
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/dns_page.ui")
@@ -28,21 +31,23 @@ class DNSPage(Adw.PreferencesPage):
     dns_lookup_spinner = Gtk.Template.Child("dns_lookup_spinner") # Added spinner
     dns_apply_button = Gtk.Template.Child("dns_apply_button")
     dns_record_type_dropdown = Gtk.Template.Child("dns_record_type_dropdown")
-    dns_results_scrolled_window = Gtk.Template.Child("dns_results_scrolled_window")
+    dns_results_box_container = Gtk.Template.Child("dns_results_box_container") # Changed from dns_results_scrolled_window
     error_banner = Gtk.Template.Child("error_banner")
 
     def __init__(self, **kwargs):
         """Initialize the DNSPage."""
         super().__init__(**kwargs)
-        self.header_tag = None
+        # self.header_tag = None # Removed Pango tag
         self._connect_signals()
-        self.source_view, self.source_buffer = create_source_view() # Rely on default "txt"
-        self.dns_results_scrolled_window.set_child(self.source_view)
+        # Removed GtkSourceView related initializations
+        # self.source_view, self.source_buffer = create_source_view()
+        # self.dns_results_scrolled_window.set_child(self.source_view)
         self.settings = Gio.Settings.new(APP_ID)
-        self._apply_source_view_style()
-        self.settings.connect(
-            "changed::source-style-scheme", self._on_source_style_scheme_setting_changed
-        )
+        # self._apply_source_view_style() # Removed
+        # Removed GSettings connection for source-style-scheme
+        # self.settings.connect(
+        # "changed::source-style-scheme", self._on_source_style_scheme_setting_changed
+        # )
         if self.dns_apply_button:
             self.dns_apply_button.set_use_underline(True)
 
@@ -51,25 +56,26 @@ class DNSPage(Adw.PreferencesPage):
             self.dns_lookup_spinner.set_spinning(False)
             self.dns_lookup_spinner.set_visible(False)
 
-        try:
-            self.bold_tag = self.source_buffer.create_tag("bold", weight=Pango.Weight.BOLD)
-            self.domain_color_tag = self.source_buffer.create_tag(
-                "domain_color", foreground="#3465a4"
-            )
-            self.record_type_color_tag = self.source_buffer.create_tag(
-                "record_type_color", foreground="#cc0000"
-            )
-            self.value_color_tag = self.source_buffer.create_tag(
-                "value_color", foreground="#73d216"
-            )
-            self.ttl_color_tag = self.source_buffer.create_tag("ttl_color", foreground="#fce94f")
-            self.class_color_tag = self.source_buffer.create_tag(
-                "class_color", foreground="#75507b"
-            )
-        except GLib.Error as e:
-            logging.error("Error creating Pango text tags: %s", e)
-        except Exception as e:  # pylint: disable=broad-except
-            logging.error("Unexpected error creating text tags (%s): %s", type(e).__name__, e)
+        # Removed Pango tag creation
+        # try:
+        #     self.bold_tag = self.source_buffer.create_tag("bold", weight=Pango.Weight.BOLD)
+        #     self.domain_color_tag = self.source_buffer.create_tag(
+        #         "domain_color", foreground="#3465a4"
+        #     )
+        #     self.record_type_color_tag = self.source_buffer.create_tag(
+        #         "record_type_color", foreground="#cc0000"
+        #     )
+        #     self.value_color_tag = self.source_buffer.create_tag(
+        #         "value_color", foreground="#73d216"
+        #     )
+        #     self.ttl_color_tag = self.source_buffer.create_tag("ttl_color", foreground="#fce94f")
+        #     self.class_color_tag = self.source_buffer.create_tag(
+        #         "class_color", foreground="#75507b"
+        #     )
+        # except GLib.Error as e:
+        #     logging.error("Error creating Pango text tags: %s", e)
+        # except Exception as e:  # pylint: disable=broad-except
+        #     logging.error("Unexpected error creating text tags (%s): %s", type(e).__name__, e)
 
     def _connect_signals(self) -> None:
         """Connect signals for UI elements to their respective handlers."""
@@ -79,27 +85,8 @@ class DNSPage(Adw.PreferencesPage):
         if self.error_banner:
             self.error_banner.connect("button-clicked", self._on_error_banner_dismiss)
 
-    def _on_source_style_scheme_setting_changed(self, _settings: Gio.Settings, key: str):
-        """Handle changes to the 'source-style-scheme' GSettings key.
-
-        Args:
-        ----
-            _settings: The Gio.Settings object that changed.
-            key: The name of the GSettings key that changed.
-
-        """
-        logging.debug("DNSPage: '%s' setting changed, applying new source view style.", key)
-        self._apply_source_view_style()
-
-    def _apply_source_view_style(self):
-        """Apply the current style scheme (from GSettings) to the GtkSourceView."""
-        source_style_scheme = self.settings.get_string("source-style-scheme")
-        apply_source_style_scheme(
-            GtkSource.StyleSchemeManager.get_default(),
-            self.source_buffer,
-            source_style_scheme,
-        )
-        self.source_view.set_editable(False)
+    # Removed _on_source_style_scheme_setting_changed
+    # Removed _apply_source_view_style
 
     def _is_ip_address(self, input_str: str) -> bool:
         """Check if the input string is a valid IP address (IPv4 or IPv6).
@@ -187,7 +174,7 @@ class DNSPage(Adw.PreferencesPage):
         user_input: str,
         requested_record_type: str,
         resolver: dns.resolver.Resolver,
-    ) -> Tuple[str, str]: # Changed to typing.Tuple
+    ) -> Tuple[List[Dict[str, Any]], str]: # Changed return type
         """Fetch DNS records for the given input.
 
         Args:
@@ -198,7 +185,7 @@ class DNSPage(Adw.PreferencesPage):
 
         Returns:
         -------
-            A tuple containing the result string and the actual record type used for the query.
+            A tuple containing the list of parsed DNS record dictionaries and the actual record type used.
 
         Raises:
         ------
@@ -212,8 +199,8 @@ class DNSPage(Adw.PreferencesPage):
             actual_record_type = "PTR"  # Override to PTR for IP addresses
 
         # _lookup_record will call resolver.resolve() which can raise the exceptions
-        result_str = self._lookup_record(user_input, actual_record_type, resolver)
-        return result_str, actual_record_type
+        parsed_records = self._lookup_record(user_input, actual_record_type, resolver) # Changed variable name
+        return parsed_records, actual_record_type
 
     def _perform_lookup(self):  # noqa: C901 # Function complexity is high, consider refactoring.
         """Perform the DNS lookup based on user input and selected record type.
@@ -319,18 +306,18 @@ class DNSPage(Adw.PreferencesPage):
         self.error_banner.set_title("")
 
     @staticmethod
-    def _lookup_record(domain_or_ip: str, record_type: str, resolver: dns.resolver.Resolver) -> str:
-        """Look up DNS records using the provided resolver.
+    def _lookup_record(domain_or_ip: str, record_type_str: str, resolver: dns.resolver.Resolver) -> List[Dict[str, Any]]:
+        """Look up DNS records using the provided resolver and parse them.
 
         Args:
         ----
             domain_or_ip: The domain name or IP address to query.
-            record_type: The DNS record type (e.g., "A", "MX", "PTR").
+            record_type_str: The DNS record type string (e.g., "A", "MX", "PTR").
             resolver: The DNS resolver instance.
 
         Returns:
         -------
-            A string containing the formatted DNS records.
+            A list of dictionaries, where each dictionary represents a parsed DNS record.
 
         Raises:
         ------
@@ -338,104 +325,180 @@ class DNSPage(Adw.PreferencesPage):
             dns.resolver.NoAnswer: If no records of the requested type exist.
             dns.resolver.Timeout: If the query times out.
             dns.exception.DNSException: For other DNS-related errors.
-
         """
         # Let DNSExceptions propagate
-        if record_type == "PTR":
-            rev_name = dns.reversename.from_address(domain_or_ip)
-            result = resolver.resolve(rev_name, record_type)
+        if record_type_str == "PTR":
+            query_name = dns.reversename.from_address(domain_or_ip)
         else:
-            result = resolver.resolve(domain_or_ip, record_type)
+            query_name = domain_or_ip
 
-        return "\n".join([f"{domain_or_ip}. IN {record_type} {r.to_text()}" for r in result])
+        answer = resolver.resolve(query_name, record_type_str)
 
-    def _display_result(self, result: str, domain_or_ip: str, record_type: str, dns_servers: Sequence[Any]): # Changed to Sequence[Any]
-        """Display the DNS lookup results in the GtkSourceView.
+        parsed_records: List[Dict[str, Any]] = []
+        for rdata in answer:
+            record: Dict[str, Any] = {
+                'name': answer.qname.to_text(), # The name that was queried
+                'ttl': rdata.ttl if hasattr(rdata, 'ttl') else answer.response.answer[0].ttl, # SOA might not have ttl on rdata itself
+                'class': dns.rdataclass.to_text(rdata.rdclass),
+                'type': dns.rdatatype.to_text(rdata.rdtype)
+            }
 
-        Formats the output with headers, timestamps, and the DNS server used.
+            if rdata.rdtype == dns.rdatatype.A:
+                record['address'] = rdata.address
+            elif rdata.rdtype == dns.rdatatype.AAAA:
+                record['address'] = rdata.address
+            elif rdata.rdtype == dns.rdatatype.CNAME:
+                record['target'] = rdata.target.to_text()
+            elif rdata.rdtype == dns.rdatatype.MX:
+                record['preference'] = rdata.preference
+                record['exchange'] = rdata.exchange.to_text()
+            elif rdata.rdtype == dns.rdatatype.TXT:
+                # Assuming strings are UTF-8 encoded, adjust if needed
+                record['texts'] = [s.decode('utf-8', 'replace') for s in rdata.strings]
+            elif rdata.rdtype == dns.rdatatype.NS:
+                record['target'] = rdata.target.to_text()
+            elif rdata.rdtype == dns.rdatatype.PTR:
+                record['target'] = rdata.target.to_text()
+            elif rdata.rdtype == dns.rdatatype.SOA:
+                record['mname'] = rdata.mname.to_text()
+                record['rname'] = rdata.rname.to_text()
+                record['serial'] = rdata.serial
+                record['refresh'] = rdata.refresh
+                record['retry'] = rdata.retry
+                record['expire'] = rdata.expire
+                record['minimum'] = rdata.minimum
+            else:
+                # For unhandled types, store the raw to_text() representation
+                record['data'] = rdata.to_text()
+
+            parsed_records.append(record)
+        return parsed_records
+
+    def _display_result(self, result_records: List[Dict[str, Any]], domain_or_ip: str, record_type: str, dns_servers: Sequence[Any]):
+        """Display the DNS lookup results. (Currently logs, will populate UI later)
 
         Args:
         ----
-            result: The raw DNS result string.
+            result_records: The list of parsed DNS record dictionaries.
             domain_or_ip: The domain or IP that was queried.
             record_type: The record type used for the query.
             dns_servers: A list of DNS servers that were used.
-
         """
-        self.source_buffer.set_text("")
-
-        self.header_tag = self.source_buffer.get_tag_table().lookup("header")
-        if not self.header_tag:
-            try:
-                self.header_tag = self.source_buffer.create_tag(
-                    "header", weight=Pango.Weight.BOLD, size_points=12
-                )
-            except GLib.Error as e:
-                logging.error("Error creating Pango header tag: %s", e)
-            except Exception as e:  # pylint: disable=broad-except
-                logging.error("Unexpected error creating header tag (%s): %s", type(e).__name__, e)
-
-        # Ensure all elements in dns_servers are strings before joining
-        dns_server_info = f"DNS server used: {', '.join(map(str, dns_servers))}\n"
-
-        header = (
-            f"DNS Lookup Results - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
-            f"{dns_server_info}\n"
+        # Clear previous results (if any) - UI part will be handled in next step
+        # For now, just log the structured data
+        logging.info(
+            "Query for %s, type %s, using servers %s, returned %d records.",
+            domain_or_ip,
+            record_type,
+            dns_servers,
+            len(result_records)
         )
-        self.source_buffer.insert_with_tags(
-            self.source_buffer.get_end_iter(), header, self.header_tag
+        for rec in result_records:
+            logging.debug("Record: %s", rec)
+
+        # Clear previous results
+        while (child := self.dns_results_box_container.get_first_child()):
+            self.dns_results_box_container.remove(child)
+
+        # Header Info
+        query_info_row = Adw.ActionRow(
+            title=f"Query: {domain_or_ip}",
+            subtitle=f"Record type queried: {record_type}"
         )
+        query_info_row.set_selectable(False)
+        self.dns_results_box_container.append(query_info_row)
 
-        self.source_buffer.insert_with_tags(
-            self.source_buffer.get_end_iter(), domain_or_ip, self.bold_tag
+        servers_info_row = Adw.ActionRow(
+            title="DNS Servers Used",
+            subtitle=", ".join(map(str, dns_servers)) if dns_servers else "System default"
         )
-        self.source_buffer.insert(self.source_buffer.get_end_iter(), "\t")
-        self.source_buffer.insert_with_tags(
-            self.source_buffer.get_end_iter(), record_type, self.bold_tag
-        )
-        self.source_buffer.insert(self.source_buffer.get_end_iter(), "\n\n")
+        servers_info_row.set_selectable(False)
+        self.dns_results_box_container.append(servers_info_row)
 
-        self._format_result_in_buffer(result)
+        self.dns_results_box_container.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
 
-    def _format_result_in_buffer(self, result: str):
-        """Format and insert the raw DNS result string into the GtkSourceBuffer.
+        if not result_records:
+            no_records_row = Adw.ActionRow(title="No records found for this query.")
+            no_records_row.set_selectable(False)
+            self.dns_results_box_container.append(no_records_row)
+            return
 
-        Applies Pango tags for syntax highlighting of different parts of the DNS records.
+        for record_data in result_records:
+            row = self._create_record_row(record_data)
+            if row: # _create_record_row might return None if a type is somehow unhandled
+                self.dns_results_box_container.append(row)
 
-        Args:
-        ----
-            result: The raw DNS result string, with each record typically on a new line.
+    def _create_record_row(self, record_data: Dict[str, Any]) -> Gtk.Widget | None:
+        """Create a UI row for a single DNS record dictionary."""
+        record_type = record_data.get('type', '').upper()
+        name = record_data.get('name', 'N/A')
+        ttl = record_data.get('ttl', '')
+        rd_class_str = record_data.get('class', '')
 
-        """
-        lines = result.splitlines()
+        base_subtitle = f"Class: {rd_class_str}, TTL: {ttl}"
 
-        for line in lines:
-            match = re.match(r"^(.*?)\s+(IN)\s+([A-Z]+)\s+(.+)$", line)
-            if match:
-                domain = match.group(1)
-                record_class = match.group(2)
-                record_type = match.group(3)
-                value = match.group(4)
+        if record_type in ("A", "AAAA"):
+            row = Adw.ActionRow(title=name, subtitle=f"Type: {record_type}, {base_subtitle}")
+            row.add_prefix(Gtk.Image(icon_name="network-wired-symbolic"))
+            address_label = Gtk.Label(label=str(record_data.get('address', 'N/A')), halign=Gtk.Align.START, selectable=True)
+            row.add_suffix(address_label)
+            row.set_activatable_widget(address_label) # Allows text selection on suffix
+        elif record_type in ("CNAME", "NS", "PTR"):
+            row = Adw.ActionRow(title=name, subtitle=f"Type: {record_type}, {base_subtitle}")
+            icon_name = "emblem-shared-symbolic" # General purpose, adjust if specific icons are better
+            if record_type == "NS":
+                icon_name = "network-server-symbolic"
+            elif record_type == "PTR":
+                icon_name = "system-search-symbolic" # Or similar for reverse lookup
+            row.add_prefix(Gtk.Image(icon_name=icon_name))
+            target_label = Gtk.Label(label=str(record_data.get('target', 'N/A')), halign=Gtk.Align.START, selectable=True)
+            row.add_suffix(target_label)
+            row.set_activatable_widget(target_label)
+        elif record_type == "MX":
+            row = Adw.ExpanderRow(title=name, subtitle=f"MX Record ({base_subtitle})")
+            row.add_prefix(Gtk.Image(icon_name="mail-send-receive-symbolic"))
 
-                self.source_buffer.insert_with_tags(
-                    self.source_buffer.get_end_iter(),
-                    domain + "\t",
-                    self.domain_color_tag,
-                )
-                self.source_buffer.insert_with_tags(
-                    self.source_buffer.get_end_iter(),
-                    record_class + "\t",
-                    self.class_color_tag,
-                )
-                self.source_buffer.insert_with_tags(
-                    self.source_buffer.get_end_iter(),
-                    record_type + "\t",
-                    self.record_type_color_tag,
-                )
-                self.source_buffer.insert_with_tags(
-                    self.source_buffer.get_end_iter(),
-                    value + "\n",
-                    self.value_color_tag,
-                )
-            else:
-                self.source_buffer.insert(self.source_buffer.get_end_iter(), line + "\n")
+            mx_detail_row = Adw.ActionRow(
+                title=str(record_data.get('exchange', 'N/A')),
+                subtitle=f"Preference: {record_data.get('preference', 'N/A')}"
+            )
+            mx_detail_row.set_selectable(True) # Allow selection of exchange/preference
+            row.add_row(mx_detail_row)
+            row.set_expanded(True) # Usually good to see MX details by default
+        elif record_type == "TXT":
+            row = Adw.ExpanderRow(title=name, subtitle=f"TXT Records ({base_subtitle})")
+            row.add_prefix(Gtk.Image(icon_name="document-properties-symbolic"))
+            texts = record_data.get('texts', [])
+            if not texts:
+                 row.add_row(Adw.ActionRow(title="No text data.", selectable=False))
+            for text_string in texts:
+                text_row = Adw.ActionRow(title=text_string, selectable=True, subtitle="Text Segment")
+                # For very long TXT strings, could add a Gtk.Label with wrapping
+                row.add_row(text_row)
+            row.set_expanded(True) if texts else row.set_expanded(False)
+        elif record_type == "SOA":
+            row = Adw.ExpanderRow(title=name, subtitle=f"SOA Record ({base_subtitle})")
+            row.add_prefix(Gtk.Image(icon_name="document-settings-symbolic"))
+            row.add_row(Adw.ActionRow(title="MNAME", subtitle=str(record_data.get('mname', 'N/A')), selectable=True))
+            row.add_row(Adw.ActionRow(title="RNAME", subtitle=str(record_data.get('rname', 'N/A')), selectable=True))
+            row.add_row(Adw.ActionRow(title="Serial", subtitle=str(record_data.get('serial', 'N/A')), selectable=True))
+            row.add_row(Adw.ActionRow(title="Refresh", subtitle=str(record_data.get('refresh', 'N/A')), selectable=True))
+            row.add_row(Adw.ActionRow(title="Retry", subtitle=str(record_data.get('retry', 'N/A')), selectable=True))
+            row.add_row(Adw.ActionRow(title="Expire", subtitle=str(record_data.get('expire', 'N/A')), selectable=True))
+            row.add_row(Adw.ActionRow(title="Minimum TTL", subtitle=str(record_data.get('minimum', 'N/A')), selectable=True))
+            row.set_expanded(True)
+        elif record_data.get('data'): # Fallback for unhandled but parsed types
+            row = Adw.ActionRow(title=name, subtitle=f"Type: {record_type}, {base_subtitle}")
+            row.add_prefix(Gtk.Image(icon_name="help-question-symbolic")) # Generic icon
+            data_label = Gtk.Label(label=str(record_data.get('data', 'N/A')), halign=Gtk.Align.START, selectable=True, wrap=True)
+            row.add_suffix(data_label)
+            row.set_activatable_widget(data_label)
+        else: # Should not happen if parsing is robust
+            logging.warning("Could not create row for unknown record_data: %s", record_data)
+            return None
+
+        if not isinstance(row, Adw.ExpanderRow): # ExpanderRow itself is not selectable in this way
+             row.set_selectable(False) # Make rows non-interactive for now.
+        return row
+
+    # Removed _format_result_in_buffer
