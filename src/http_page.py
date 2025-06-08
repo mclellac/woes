@@ -13,14 +13,14 @@ from enum import Enum
 from typing import Optional, Any
 
 import requests
-import requests.utils  # For urlparse
+import requests.utils
 from requests.adapters import HTTPAdapter
 
 try:
     import dns.resolver
     import dns.exception
 except ImportError:
-    dns = None  # type: ignore # pylint: disable=invalid-name
+    dns = None
     logging.warning("dnspython library not found. Custom DNS functionality will be disabled.")
 
 import gi
@@ -89,7 +89,7 @@ class CustomSNIAdapter(HTTPAdapter):
         if self.sni_hostname:
             # These kwargs are for urllib3.PoolManager and its ConnectionPools
             pool_kwargs["assert_hostname"] = self.sni_hostname
-            pool_kwargs["cert_reqs"] = ssl.CERT_REQUIRED # Ensure certificate validation
+            pool_kwargs["cert_reqs"] = ssl.CERT_REQUIRED
 
             # Urllib3's PoolManager passes `server_hostname` to individual ConnectionPools.
             # We get the existing connection_pool_kw, add our server_hostname,
@@ -426,7 +426,7 @@ class HttpPage(Adw.PreferencesPage):
                             original_hostname,
                         )
                 except Exception as e:  # pylint: disable=broad-exception-caught
-                    logger.error( # pylint: disable=broad-except
+                    logger.error(
                         "Unexpected error during custom DNS processing for %s: %s",
                         original_hostname,
                         e,
@@ -449,7 +449,7 @@ class HttpPage(Adw.PreferencesPage):
                     results = []
                     for ip_addr in captured_resolved_ips:
                         addr_family = socket.AF_INET6 if ":" in ip_addr else socket.AF_INET
-                        if family in (0, addr_family):  # C1805, R1714
+                        if family in (0, addr_family):
                             results.append(
                                 (
                                     addr_family,
@@ -460,7 +460,7 @@ class HttpPage(Adw.PreferencesPage):
                                 )
                             )
 
-                    if not results and family:  # C1805
+                    if not results and family:
                         logger.warning(
                             "Custom getaddrinfo: No addresses for '%s' "
                             "matched requested family %s. Falling back.",
@@ -528,7 +528,7 @@ class HttpPage(Adw.PreferencesPage):
                 host_header_from_input,
             )
 
-        if user_agent: # user_agent is now the actual string or None
+        if user_agent:
             session_headers["User-Agent"] = user_agent
         if use_akamai_pragma:
             akamai_pragma_directives = [
@@ -954,7 +954,7 @@ class HttpPage(Adw.PreferencesPage):
         """
         parsed_url = requests.utils.urlparse(url)
         if not parsed_url.scheme:
-            url = "https://" + url # Default to HTTPS
+            url = "https://" + url
         return url
 
     @staticmethod
@@ -971,7 +971,7 @@ class HttpPage(Adw.PreferencesPage):
 
         """
         url_regex = re.compile(
-            r"^(?:http|https)://"  # Scheme
+            r"^(?:http|https)://"
             r"(?:\S+(?::\S*)?@)?"
             r"(?:[A-Za-z0-9.-]+\.[A-Za-z]{2,}|localhost|"
             r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|"
@@ -1250,3 +1250,5 @@ class HttpPage(Adw.PreferencesPage):
         factory.connect("bind", bind_func_internal)
 
         return factory
+
+[end of src/http_page.py]
