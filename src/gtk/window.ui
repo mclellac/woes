@@ -175,7 +175,7 @@
     <property name="default-width">1000</property>
     <property name="height-request">500</property>
     <property name="overflow">hidden</property>
-    <property name="title" translatable="yes">WebOps Evaluation Suite</property>
+    <property name="title" translatable="yes">Woes</property>
     <property name="width-request">800</property>
     <child>
       <object class="AdwBreakpoint">
@@ -198,7 +198,7 @@
       </item>
       <item>
         <attribute name="action">app.about</attribute>
-        <attribute name="label" translatable="yes">_About WebOps Evaluation Suite</attribute>
+        <attribute name="label" translatable="yes">_About Woes</attribute>
       </item>
     </section>
   </menu>
