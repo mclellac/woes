@@ -639,9 +639,3 @@ class HttpPage(Adw.PreferencesPage):
         factory.connect("bind", bind_func)
 
         return factory
-
-[end of src/http_page.py]
-
-[end of src/http_page.py]
-
-[end of src/http_page.py]

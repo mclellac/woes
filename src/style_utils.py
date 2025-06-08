@@ -56,7 +56,7 @@ def apply_system_font_preferences(app_settings: Gio.Settings):
         try:
             gnome_a11y_settings = Gio.Settings.new(GNOME_A11Y_SCHEMA)
             # is_high_contrast = gnome_a11y_settings.get_boolean(HIGH_CONTRAST_KEY) # F841
-            gnome_a11y_settings.get_boolean(HIGH_CONTRAST_KEY) # Keep call if getter has side-effects
+            gnome_a11y_settings.get_boolean(HIGH_CONTRAST_KEY)  # Keep call if getter has side-effects
             # logging.debug for GNOME accessibility high-contrast removed previously
         except GLib.Error:  # e removed as it's unused after debug log removal
             # logging.debug for GNOME accessibility settings retrieval removed previously
@@ -134,7 +134,7 @@ def apply_source_style_scheme(
     if scheme:
         buffer.set_style_scheme(scheme)
         applied_scheme = buffer.get_style_scheme()
-        if not applied_scheme: # logging.debug for successful application removed
+        if not applied_scheme:  # logging.debug for successful application removed
             logging.error(
                 "apply_source_style_scheme: Failed to apply the style scheme."
                 )
