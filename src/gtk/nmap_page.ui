@@ -16,8 +16,7 @@
             <property name="title" translatable="yes">Target (IP/CIDR/Hostname)</property>
             <child type="suffix">
               <object class="GtkButton" id="nmap_apply_button">
-                <property name="icon-name">media-playback-start-symbolic</property>
-                <property name="tooltip-text" translatable="yes">Start Scan</property>
+                <property name="label" translatable="yes">_Scan</property>
                 <property name="valign">center</property>
                 <style>
                   <class name="flat"/>

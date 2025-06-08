@@ -17,8 +17,7 @@
             <property name="activates-default">True</property>
             <child type="suffix">
               <object class="GtkButton" id="dns_apply_button">
-                <property name="icon-name">system-search-symbolic</property>
-                <property name="tooltip-text" translatable="yes">Lookup</property>
+                <property name="label" translatable="yes">_Lookup</property>
                 <property name="valign">center</property>
                 <style>
                   <class name="flat"/>

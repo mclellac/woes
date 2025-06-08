@@ -37,6 +37,8 @@ class DNSPage(Adw.PreferencesPage):
             "changed::source-style-scheme",
             self._on_source_style_scheme_setting_changed
             )
+        if self.dns_apply_button:
+            self.dns_apply_button.set_use_underline(True)
 
         try:
             self.bold_tag = self.source_buffer.create_tag(
