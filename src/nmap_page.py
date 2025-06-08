@@ -103,10 +103,14 @@ class NmapPage(Gtk.Box):
     # Error Banner
     error_banner = Gtk.Template.Child("error_banner")
 
+    # Left pane content box
+    left_vbox_content = Gtk.Template.Child("left_vbox_content")
+
     # AdwOverlaySplitView and its children (nmap_split_view removed)
-    nmap_host_listbox = Gtk.Template.Child("nmap_host_listbox")
+    nmap_host_listbox = Gtk.Template.Child("nmap_host_listbox") # nmap_host_listbox is inside left_vbox_content
     nmap_detail_box = Gtk.Template.Child("nmap_detail_box")
     nmap_detail_placeholder = Gtk.Template.Child("nmap_detail_placeholder")
+
 
     def __init__(self, **kwargs):
         """Initialize the NmapPage.
