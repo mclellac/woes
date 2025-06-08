@@ -641,3 +641,5 @@ class HttpPage(Adw.PreferencesPage):
         return factory
 
 [end of src/http_page.py]
+
+[end of src/http_page.py]
