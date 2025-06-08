@@ -1,173 +1,190 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<!-- Created with Cambalache 0.91.3 -->
 <interface>
   <requires lib="gtk" version="4.10"/>
   <requires lib="libadwaita" version="1.4"/>
   <template class="NmapPage" parent="AdwPreferencesPage">
     <property name="title" translatable="yes">Nmap Scanner</property>
-    <property name="icon-name">face-devilish-symbolic</property> <!-- Or an appropriate network scanning icon -->
-    <child>
-      <object class="AdwPreferencesGroup" id="nmap_scan_parameters_group">
-        <property name="title" translatable="yes">Scan Parameters</property>
+    <property name="icon-name">face-devilish-symbolic</property>
+    <child> <!-- page_main_vbox -->
+      <object class="GtkBox">
+        <property name="orientation">vertical</property>
         <child>
-          <object class="AdwEntryRow" id="nmap_target_entryrow">
-            <property name="activates-default">True</property>
-            <property name="input-purpose">url</property> <!-- Changed from generic to url-like -->
-            <property name="title" translatable="yes">Target (IP/CIDR/Hostname)</property>
-            <child type="suffix">
-              <object class="GtkButton" id="nmap_apply_button">
-                <property name="label" translatable="yes">_Scan</property>
-                <property name="valign">center</property>
-                <style>
-                  <class name="suggested-action"/>
-                </style>
-              </object>
-            </child>
+          <object class="AdwBanner" id="error_banner">
+            <property name="button-label" translatable="yes">Dismiss</property>
+            <property name="revealed">False</property> <!-- Initially hidden -->
+            <property name="title"></property> <!-- Title will be set from code -->
+            <signal name="button-clicked" handler="_on_error_banner_dismiss"/>
           </object>
         </child>
-        <child>
-          <object class="AdwExpanderRow" id="nmap_advanced_options_expander">
-            <property name="title" translatable="yes">Advanced Scan Options</property>
-            <child>
-              <object class="AdwSwitchRow" id="nmap_fingerprint_switchrow">
-                <property name="subtitle" translatable="yes">Enable this to attempt OS detection (often requires root/administrator privileges)</property>
-                <property name="title" translatable="yes">OS Fingerprinting</property>
-              </object>
-            </child>
-            <child>
-              <object class="AdwSwitchRow" id="nmap_all_ports_switchrow">
-                <property name="subtitle" translatable="yes">Scan all 65535 TCP ports (default is top ~1000)</property>
-                <property name="title" translatable="yes">Scan All Ports</property>
-              </object>
-            </child>
-            <child>
-              <object class="AdwComboRow" id="nmap_scripts_dropdown">
-                <property name="icon-name">emblem-documents-symbolic</property>
-                <property name="model">
-                  <object class="GtkStringList" id="nmap_scripts_list_store">
-                    <property name="strings">None</property>
-                    <items>
-                      <item>default</item>
-                      <item>vuln</item>
-                      <item>discovery</item>
-                      <item>broadcast</item>
-                      <item>exploit</item>
-                      <item>http-grep</item>
-                      <item>http-enum</item>
-                      <item>http-config-backup</item>
-                      <item>http-wordpress-enum</item>
-                      <item>http-cors</item>
-                      <item>http-csrf</item>
-                      <item>http-cross-domain-policy</item>
-                      <item>mysql-users</item>
-                      <item>vulscan/vulscan</item>
-                      <item>firewalk</item>
-                    </items>
-                  </object>
-                </property>
-                <property name="selected">0</property>
-                <property name="title" translatable="yes">Nmap Scripting Engine (NSE)</property>
-                <property name="subtitle" translatable="yes">Select a script or script category</property>
-              </object>
-            </child>
-            <child>
-              <object class="AdwSwitchRow" id="nmap_service_version_switchrow">
-                <property name="title" translatable="yes">Service Version Detection (-sV)</property>
-                <property name="subtitle" translatable="yes">Attempt to determine the version of the service running on port</property>
-              </object>
-            </child>
-            <child>
-              <object class="AdwSwitchRow" id="nmap_no_ping_switchrow">
-                <property name="title" translatable="yes">No Ping Scan (-Pn)</property>
-                <property name="subtitle" translatable="yes">Skip host discovery, scan all targets</property>
-              </object>
-            </child>
-            <child>
-              <object class="AdwComboRow" id="nmap_timing_template_comborow">
-                <property name="title" translatable="yes">Timing Template (-T)</property>
-                <property name="model">
-                  <object class="GtkStringList">
-                    <items>
-                      <item translatable="yes">Polite (T0)</item>
-                      <item translatable="yes">Sneaky (T1)</item>
-                      <item translatable="yes">Paranoid (T2)</item>
-                      <item translatable="yes">Normal (T3)</item>
-                      <item translatable="yes">Aggressive (T4)</item>
-                      <item translatable="yes">Insane (T5)</item>
-                    </items>
-                  </object>
-                </property>
-                <property name="selected">3</property> <!-- Default to Normal (T3) -->
-              </object>
-            </child>
-          </object>
-        </child>
-        <child>
-          <object class="AdwActionRow" id="status_row">
-            <property name="title" translatable="yes">Scan Status</property>
-            <property name="subtitle" translatable="yes">Idle</property> <!-- Initial status message -->
-            <property name="activatable">False</property>
-            <property name="visible">true</property> <!-- Always visible, content changes -->
-            <child>
-              <object class="GtkSpinner" id="scan_spinner">
-                <property name="spinning">False</property>
-                <property name="visible">False</property> <!-- Initially hidden -->
-              </object>
-            </child>
-          </object>
-        </child>
-      </object>
-    </child>
-    <child>
-      <object class="AdwBanner" id="error_banner">
-        <property name="button-label" translatable="yes">Dismiss</property>
-        <property name="revealed">False</property> <!-- Initially hidden -->
-        <property name="title"></property> <!-- Title will be set from code -->
-        <signal name="button-clicked" handler="_on_error_banner_dismiss"/>
-      </object>
-    </child>
-    <child>
-      <object class="AdwOverlaySplitView" id="nmap_split_view">
-        <property name="vexpand">true</property>
-        <property name="sidebar-position">start</property>
-        <property name="show-sidebar">true</property>
-        <property name="min-sidebar-width">280</property>
-        <property name="collapsed">false</property>
-        <child type="sidebar">
-          <object class="GtkScrolledWindow">
-            <property name="hscrollbar-policy">never</property>
-            <!-- <property name="min-content-width">280</property> Removed, handled by AdwOverlaySplitView -->
+        <child> <!-- main_content_hbox -->
+          <object class="GtkBox">
+            <property name="orientation">horizontal</property>
             <property name="vexpand">true</property>
-            <child>
-              <object class="GtkListBox" id="nmap_host_listbox">
-                <property name="selection-mode">single</property>
-                <!-- Consider adding css-classes like 'boxed-list' if desired -->
-              </object>
-            </child>
-          </object>
-        </child>
-        <child type="content">
-          <object class="GtkScrolledWindow" id="nmap_detail_scrolled_window">
             <property name="hexpand">true</property>
-            <property name="vexpand">true</property>
-            <child>
-              <object class="GtkBox" id="nmap_detail_box">
-                <property name="orientation">vertical</property>
-                <property name="margin-top">12</property>
-                <property name="margin-bottom">12</property>
-                <property name="margin-start">12</property>
-                <property name="margin-end">12</property>
-                <property name="spacing">12</property>
+            <child> <!-- Left Pane ScrolledWindow -->
+              <object class="GtkScrolledWindow" id="left_pane_scrolled_window">
+                <property name="hscrollbar-policy">never</property>
+                <property name="min-content-width">380</property>
+                <property name="vexpand">true</property>
                 <child>
-                  <object class="AdwStatusPage" id="nmap_detail_placeholder">
-                    <property name="title" translatable="yes">No Host Selected</property>
-                    <property name="description" translatable="yes">Select a host from the list on the left to view details.</property>
-                    <property name="icon-name">network-workgroup-symbolic</property> <!-- Example icon -->
-                    <property name="vexpand">true</property>
-                    <property name="visible">true</property>
+                  <object class="AdwPreferencesGroup" id="nmap_scan_parameters_group">
+                    <property name="title" translatable="yes">Scan Parameters</property>
+                    <child>
+                      <object class="AdwEntryRow" id="nmap_target_entryrow">
+                        <property name="activates-default">True</property>
+                        <property name="input-purpose">url</property>
+                        <property name="title" translatable="yes">Target (IP/CIDR/Hostname)</property>
+                        <child type="suffix">
+                          <object class="GtkButton" id="nmap_apply_button">
+                            <property name="label" translatable="yes">_Scan</property>
+                            <property name="valign">center</property>
+                            <style>
+                              <class name="suggested-action"/>
+                            </style>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="AdwExpanderRow" id="nmap_advanced_options_expander">
+                        <property name="title" translatable="yes">Advanced Scan Options</property>
+                        <child>
+                          <object class="AdwSwitchRow" id="nmap_fingerprint_switchrow">
+                            <property name="subtitle" translatable="yes">Enable this to attempt OS detection (often requires root/administrator privileges)</property>
+                            <property name="title" translatable="yes">OS Fingerprinting</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="AdwSwitchRow" id="nmap_all_ports_switchrow">
+                            <property name="subtitle" translatable="yes">Scan all 65535 TCP ports (default is top ~1000)</property>
+                            <property name="title" translatable="yes">Scan All Ports</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="AdwComboRow" id="nmap_scripts_dropdown">
+                            <property name="icon-name">emblem-documents-symbolic</property>
+                            <property name="model">
+                              <object class="GtkStringList" id="nmap_scripts_list_store">
+                                <property name="strings">None</property>
+                                <items>
+                                  <item>default</item>
+                                  <item>vuln</item>
+                                  <item>discovery</item>
+                                  <item>broadcast</item>
+                                  <item>exploit</item>
+                                  <item>http-grep</item>
+                                  <item>http-enum</item>
+                                  <item>http-config-backup</item>
+                                  <item>http-wordpress-enum</item>
+                                  <item>http-cors</item>
+                                  <item>http-csrf</item>
+                                  <item>http-cross-domain-policy</item>
+                                  <item>mysql-users</item>
+                                  <item>vulscan/vulscan</item>
+                                  <item>firewalk</item>
+                                </items>
+                              </object>
+                            </property>
+                            <property name="selected">0</property>
+                            <property name="title" translatable="yes">Nmap Scripting Engine (NSE)</property>
+                            <property name="subtitle" translatable="yes">Select a script or script category</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="AdwSwitchRow" id="nmap_service_version_switchrow">
+                            <property name="title" translatable="yes">Service Version Detection (-sV)</property>
+                            <property name="subtitle" translatable="yes">Attempt to determine the version of the service running on port</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="AdwSwitchRow" id="nmap_no_ping_switchrow">
+                            <property name="title" translatable="yes">No Ping Scan (-Pn)</property>
+                            <property name="subtitle" translatable="yes">Skip host discovery, scan all targets</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="AdwComboRow" id="nmap_timing_template_comborow">
+                            <property name="title" translatable="yes">Timing Template (-T)</property>
+                            <property name="model">
+                              <object class="GtkStringList">
+                                <items>
+                                  <item translatable="yes">Polite (T0)</item>
+                                  <item translatable="yes">Sneaky (T1)</item>
+                                  <item translatable="yes">Paranoid (T2)</item>
+                                  <item translatable="yes">Normal (T3)</item>
+                                  <item translatable="yes">Aggressive (T4)</item>
+                                  <item translatable="yes">Insane (T5)</item>
+                                </items>
+                              </object>
+                            </property>
+                            <property name="selected">3</property> <!-- Default to Normal (T3) -->
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="AdwActionRow" id="status_row">
+                        <property name="title" translatable="yes">Scan Status</property>
+                        <property name="subtitle" translatable="yes">Idle</property> <!-- Initial status message -->
+                        <property name="activatable">False</property>
+                        <property name="visible">true</property> <!-- Always visible, content changes -->
+                        <child>
+                          <object class="GtkSpinner" id="scan_spinner">
+                            <property name="spinning">False</property>
+                            <property name="visible">False</property> <!-- Initially hidden -->
+                          </object>
+                        </child>
+                      </object>
+                    </child>
                   </object>
                 </child>
-                <!-- Detailed host information will be dynamically added here -->
+              </object>
+            </child>
+            <child> <!-- Right Pane -->
+              <object class="AdwOverlaySplitView" id="nmap_split_view">
+                <property name="vexpand">true</property>
+                <property name="hexpand">true</property>
+                <property name="sidebar-position">start</property>
+                <property name="show-sidebar">true</property>
+                <property name="min-sidebar-width">280</property>
+                <property name="collapsed">false</property>
+                <child type="sidebar">
+                  <object class="GtkScrolledWindow">
+                    <property name="hscrollbar-policy">never</property>
+                    <property name="vexpand">true</property>
+                    <child>
+                      <object class="GtkListBox" id="nmap_host_listbox">
+                        <property name="selection-mode">single</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child type="content">
+                  <object class="GtkScrolledWindow" id="nmap_detail_scrolled_window">
+                    <property name="hexpand">true</property>
+                    <property name="vexpand">true</property>
+                    <child>
+                      <object class="GtkBox" id="nmap_detail_box">
+                        <property name="orientation">vertical</property>
+                        <property name="margin-top">12</property>
+                        <property name="margin-bottom">12</property>
+                        <property name="margin-start">12</property>
+                        <property name="margin-end">12</property>
+                        <property name="spacing">12</property>
+                        <child>
+                          <object class="AdwStatusPage" id="nmap_detail_placeholder">
+                            <property name="title" translatable="yes">No Host Selected</property>
+                            <property name="description" translatable="yes">Select a host from the list on the left to view details.</property>
+                            <property name="icon-name">network-workgroup-symbolic</property>
+                            <property name="vexpand">true</property>
+                            <property name="visible">true</property>
+                          </object>
+                        </child>
+                        <!-- Detailed host information will be dynamically added here -->
+                      </object>
+                    </child>
+                  </object>
+                </child>
               </object>
             </child>
           </object>
