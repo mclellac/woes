@@ -224,8 +224,7 @@ class HttpPage(Adw.PreferencesPage):
         session = requests.Session()
         # Apply verify=False to the whole session for this task, as the entire operation
         # is under this "insecure" context (typically for specific self-signed certs or test IPs)
-        session.verify = False
-        logger.warning("Disabling SSL certificate verification for session. This is insecure and applies to URL: %s and its redirects.", url_to_fetch)
+        # session.verify = False # SSL Verification is now ON by default
 
         initial_request_specific_headers = {} # For Host header mainly
         session_headers = {} # For User-Agent, Pragma
