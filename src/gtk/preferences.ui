@@ -114,19 +114,19 @@
             <child>
               <object class="AdwEntryRow" id="http_header_key_color_row">
                 <property name="title">Header Key Color</property>
-                <binding name="text" type="string" key="http-output-header-key-color" schema="com.github.mclellac.woes"/>
+                <binding name="text" key="http-output-header-key-color" schema="com.github.mclellac.woes"/>
               </object>
             </child>
             <child>
               <object class="AdwEntryRow" id="http_header_value_color_row">
                 <property name="title">Header Value Color</property>
-                <binding name="text" type="string" key="http-output-header-value-color" schema="com.github.mclellac.woes"/>
+                <binding name="text" key="http-output-header-value-color" schema="com.github.mclellac.woes"/>
               </object>
             </child>
             <child>
               <object class="AdwEntryRow" id="http_special_row_color_row">
                 <property name="title">Special Row Color</property>
-                <binding name="text" type="string" key="http-output-special-row-color" schema="com.github.mclellac.woes"/>
+                <binding name="text" key="http-output-special-row-color" schema="com.github.mclellac.woes"/>
               </object>
             </child>
           </object>
