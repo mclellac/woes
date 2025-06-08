@@ -20,7 +20,7 @@
                 <property name="label" translatable="yes">_Lookup</property>
                 <property name="valign">center</property>
                 <style>
-                  <class name="flat"/>
+                  <class name="suggested-action"/>
                 </style>
               </object>
             </child>
