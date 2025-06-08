@@ -1244,7 +1244,7 @@ class HttpPage(Adw.PreferencesPage):
                     self._header_key_color if attr_name == "key" else self._header_value_color
                 )
                 escaped_text = GLib.markup_escape_text(text_to_display)
-                label.set_markup(f"<span foreground='{color_to_use}'>{escaped_text}</span>")
+                label.set_markup(f"<b><span foreground='{color_to_use}'>{escaped_text}</span></b>")
 
         factory.connect("setup", setup_func)
         factory.connect("bind", bind_func_internal)
