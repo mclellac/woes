@@ -8,14 +8,14 @@
     <property name="width-request">700</property>
     <child>
       <object class="GtkBox" id="page_vbox">
-        <property name="hexpand">True</property>
-        <property name="hexpand-set">True</property>
+        <property name="hexpand">true</property>
+        <property name="hexpand-set">true</property>
         <property name="orientation">vertical</property>
         <child>
           <object class="AdwBanner" id="error_banner">
             <property name="button-label" translatable="yes">Dismiss</property>
-            <property name="hexpand">True</property>
-            <property name="hexpand-set">True</property>
+            <property name="hexpand">true</property>
+            <property name="hexpand-set">true</property>
             <property name="revealed">False</property>
             <property name="title"/>
             <signal name="button-clicked" handler="_on_error_banner_dismiss"/>
@@ -30,16 +30,16 @@
             <child>
               <!-- Pane 1 (Left) -->
               <object class="GtkScrolledWindow" id="left_scrolled_pane">
-                <property name="hexpand">True</property>
-                <property name="hexpand-set">True</property>
+                <property name="hexpand">true</property>
+                <property name="hexpand-set">true</property>
                 <property name="hscrollbar-policy">never</property>
                 <property name="min-content-width">300</property>
                 <property name="vexpand">true</property>
                 <property name="width-request">400</property>
                 <child>
                   <object class="GtkBox" id="left_vbox_content">
-                    <property name="hexpand">True</property>
-                    <property name="hexpand-set">True</property>
+                    <property name="hexpand">true</property>
+                    <property name="hexpand-set">true</property>
                     <property name="margin-bottom">6</property>
                     <property name="margin-end">6</property>
                     <property name="margin-start">6</property>
@@ -48,16 +48,16 @@
                     <property name="spacing">12</property>
                     <child>
                       <object class="AdwPreferencesGroup" id="nmap_scan_parameters_group">
-                        <property name="hexpand">True</property>
-                        <property name="hexpand-set">True</property>
+                        <property name="hexpand">true</property>
+                        <property name="hexpand-set">true</property>
                         <property name="margin-end">10</property>
                         <property name="margin-start">10</property>
                         <property name="title" translatable="yes">Scan Parameters</property>
                         <child>
                           <object class="AdwEntryRow" id="nmap_target_entryrow">
-                            <property name="activates-default">True</property>
-                            <property name="hexpand">True</property>
-                            <property name="hexpand-set">True</property>
+                            <property name="activates-default">true</property>
+                            <property name="hexpand">true</property>
+                            <property name="hexpand-set">true</property>
                             <property name="input-purpose">url</property>
                             <property name="title" translatable="yes">Target (IP/CIDR/Hostname)</property>
                             <child type="suffix">
@@ -73,8 +73,8 @@
                         </child>
                         <child>
                           <object class="AdwExpanderRow" id="nmap_advanced_options_expander">
-                            <property name="hexpand">True</property>
-                            <property name="hexpand-set">True</property>
+                            <property name="hexpand">true</property>
+                            <property name="hexpand-set">true</property>
                             <property name="title" translatable="yes">Advanced Scan Options</property>
                             <child>
                               <object class="AdwSwitchRow" id="nmap_fingerprint_switchrow">
@@ -153,8 +153,8 @@
                         <child>
                           <object class="AdwActionRow" id="status_row">
                             <property name="activatable">False</property>
-                            <property name="hexpand">True</property>
-                            <property name="hexpand-set">True</property>
+                            <property name="hexpand">true</property>
+                            <property name="hexpand-set">true</property>
                             <property name="subtitle" translatable="yes">Idle</property>
                             <property name="title" translatable="yes">Scan Status</property>
                             <property name="visible">true</property>
@@ -170,8 +170,8 @@
                     </child>
                     <child>
                       <object class="GtkListBox" id="nmap_host_listbox">
-                        <property name="hexpand">True</property>
-                        <property name="hexpand-set">True</property>
+                        <property name="hexpand">true</property>
+                        <property name="hexpand-set">true</property>
                         <property name="selection-mode">single</property>
                         <property name="vexpand">true</property>
                       </object>
@@ -184,6 +184,7 @@
               <!-- Pane 2 (Right) -->
               <object class="GtkScrolledWindow" id="nmap_detail_scrolled_window">
                 <property name="hexpand">true</property>
+                <property name="hexpand-set">true</property>
                 <property name="vexpand">true</property>
                 <child>
                   <object class="GtkBox" id="nmap_detail_box">
@@ -198,8 +199,8 @@
                     <child>
                       <object class="AdwStatusPage" id="nmap_detail_placeholder">
                         <property name="description" translatable="yes">Select a host from the list on the left to view details.</property>
-                        <property name="hexpand">True</property>
-                        <property name="hexpand-set">True</property>
+                        <property name="hexpand">true</property>
+                        <property name="hexpand-set">true</property>
                         <property name="icon-name">network-workgroup-symbolic</property>
                         <property name="title" translatable="yes">No Host Selected</property>
                         <property name="vexpand">true</property>
