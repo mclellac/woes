@@ -112,18 +112,33 @@
           <object class="AdwPreferencesGroup" id="http_colors_group">
             <property name="title">HTTP Output Colors</property>
             <child>
-              <object class="AdwEntryRow" id="http_header_key_color_row">
+              <object class="AdwActionRow">
                 <property name="title">Header Key Color</property>
+                <child type="suffix">
+                  <object class="GtkColorDialogButton" id="http_header_key_color_button">
+                    <property name="valign">center</property>
+                  </object>
+                </child>
               </object>
             </child>
             <child>
-              <object class="AdwEntryRow" id="http_header_value_color_row">
+              <object class="AdwActionRow">
                 <property name="title">Header Value Color</property>
+                <child type="suffix">
+                  <object class="GtkColorDialogButton" id="http_header_value_color_button">
+                    <property name="valign">center</property>
+                  </object>
+                </child>
               </object>
             </child>
             <child>
-              <object class="AdwEntryRow" id="http_special_row_color_row">
+              <object class="AdwActionRow">
                 <property name="title">Special Row Color</property>
+                <child type="suffix">
+                  <object class="GtkColorDialogButton" id="http_special_row_color_button">
+                    <property name="valign">center</property>
+                  </object>
+                </child>
               </object>
             </child>
           </object>
