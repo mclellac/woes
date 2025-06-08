@@ -58,11 +58,26 @@
         <property name="title" translatable="yes">Response Headers</property>
         <property name="description" translatable="yes">HTTP response headers will appear below.</property>
         <property name="header-suffix">
-          <object class="GtkButton" id="clear_results_button">
-            <property name="icon-name">edit-clear-all-symbolic</property>
-            <property name="tooltip-text" translatable="yes">Clear Results</property>
-            <property name="valign">center</property>
-            <signal name="clicked" handler="_on_clear_results_clicked"/>
+          <object class="GtkBox">
+            <property name="orientation">horizontal</property>
+            <property name="spacing">6</property>
+            <child>
+              <object class="GtkButton" id="clear_results_button">
+                <property name="icon-name">edit-clear-all-symbolic</property>
+                <property name="tooltip-text" translatable="yes">Clear Results</property>
+                <property name="valign">center</property>
+                <signal name="clicked" handler="_on_clear_results_clicked"/>
+                <style><class name="flat"/></style>
+              </object>
+            </child>
+            <child>
+              <object class="GtkButton" id="copy_results_button">
+                <property name="icon-name">edit-copy-symbolic</property>
+                <property name="tooltip-text" translatable="yes">Copy All Headers</property>
+                <property name="valign">center</property>
+                <style><class name="flat"/></style>
+              </object>
+            </child>
           </object>
         </property>
         <property name="visible">False</property> <!-- Initially hidden, shown when there are results -->

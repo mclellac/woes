@@ -5,3 +5,12 @@
     margin-left: 10px;
     margin-right: 10px;
 }
+
+/* HTTP Page Specific Styles */
+.header-key {
+    color: #3584e4; /* Adwaita Blue */
+    /* font-weight: bold; */
+}
+.header-value {
+    color: @theme_fg_color;
+}

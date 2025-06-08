@@ -1,5 +1,5 @@
 from .constants import RESOURCE_PREFIX, USER_AGENTS
-from gi.repository import Adw, Gio, GObject, Gtk, GLib
+from gi.repository import Adw, Gio, GObject, Gtk, GLib, Gdk
 import logging
 import re
 from typing import Optional
@@ -71,6 +71,7 @@ class HttpPage(Adw.PreferencesPage):
     error_banner = Gtk.Template.Child("error_banner")
     http_results_group = Gtk.Template.Child("http_results_group")
     clear_results_button = Gtk.Template.Child("clear_results_button")
+    copy_results_button = Gtk.Template.Child() # Added
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -111,8 +112,44 @@ class HttpPage(Adw.PreferencesPage):
             "notify::active", self._on_pragma_toggled
             )
         self.clear_results_button.connect("clicked", self._on_clear_results_clicked)
+        if self.copy_results_button: # Added
+            self.copy_results_button.connect("clicked", self._on_copy_results_clicked)
         if self.error_banner:
             self.error_banner.connect("button-clicked", self._on_error_banner_dismiss)
+
+    def _on_copy_results_clicked(self, _button: Gtk.Button) -> None:
+        logger.info("Copying all headers to clipboard.")
+        lines = []
+        if self.header_list_store:
+            for i in range(self.header_list_store.get_n_items()):
+                item = self.header_list_store.get_item(i)
+                if isinstance(item, HeaderItem): # Make sure it's the correct type
+                    if item.is_special_row:
+                        # For special rows like URL/Status, just join key and value if value exists
+                        if item.value and item.value.strip():
+                            lines.append(f"{item.key} {item.value}")
+                        else:
+                            lines.append(item.key)
+                    else:
+                        lines.append(f"{item.key}: {item.value}")
+
+        if lines:
+            text_to_copy = "\n".join(lines)
+            try:
+                # Gtk.Clipboard.get_default() requires a Gdk.Display argument.
+                # self.get_display() should provide it.
+                clipboard = Gdk.Display.get_default().get_clipboard() # Corrected way to get clipboard
+                if clipboard:
+                    clipboard.set_text(text_to_copy) # Corrected: set_text does not take -1
+                    logger.info("Headers copied to clipboard successfully.")
+                    # Optional: Show a toast notification here
+                    # Example: self.show_toast(Adw.Toast(title="Headers copied to clipboard"))
+                else:
+                    logger.warning("Failed to get default clipboard.")
+            except Exception as e:
+                logger.error(f"Error copying to clipboard: {e}", exc_info=True)
+        else:
+            logger.info("No headers to copy.")
 
     def _on_entry_row_activated(self, _widget: Gtk.Widget) -> None:
         original_url = self.http_entry_row.get_text().strip()
@@ -572,14 +609,35 @@ class HttpPage(Adw.PreferencesPage):
             label = list_item.get_child()
             item = list_item.get_item()
             text_to_display = getattr(item, attr_name, "")
-            if label:
+            if label and isinstance(label, Gtk.Label):  # Ensure it's a label
+                # First, remove any existing custom style classes to avoid accumulation
+                label.remove_css_class('header-key')
+                label.remove_css_class('header-value')
+                # label.remove_css_class('special-row-text') # If we add one for special rows
+
                 if item and item.is_special_row:
+                    # Current logic uses Pango markup for bolding special rows.
+                    # We can add a specific class if we want to style special rows differently via CSS too.
+                    # For now, rely on Pango for special rows, and CSS for key/value.
                     escaped_text = GLib.markup_escape_text(text_to_display)
-                    label.set_markup(f"<b>{escaped_text}</b>")
+                    # Ensure value is also escaped if appended directly
+                    value_text = getattr(item, 'value', '') # Assuming 'value' attribute exists for special rows if needed
+                    if item.key and value_text and item.key.startswith("URL:"): # crude check for URL/Status special row
+                        full_special_text = f"{text_to_display} {GLib.markup_escape_text(value_text)}"
+                        label.set_markup(f"<b>{full_special_text}</b>")
+                    else:
+                        label.set_markup(f"<b>{escaped_text}</b>")
                 else:
-                    label.set_text(text_to_display)
+                    label.set_text(text_to_display)  # Set text normally first
+                    # Now, apply specific class based on which attribute this factory is for
+                    if attr_name == 'key':
+                        label.add_css_class('header-key')
+                    elif attr_name == 'value':
+                        label.add_css_class('header-value')
 
         factory.connect("setup", setup_func)
         factory.connect("bind", bind_func)
 
         return factory
+
+[end of src/http_page.py]
