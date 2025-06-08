@@ -2,11 +2,9 @@
 <interface>
   <requires lib="gtk" version="4.10"/>
   <requires lib="libadwaita" version="1.4"/>
-  <template class="NmapPage" parent="AdwPreferencesPage">
-    <property name="title" translatable="yes">Nmap Scanner</property>
-    <property name="icon-name">face-devilish-symbolic</property>
+  <template class="NmapPage" parent="GtkBox">
     <child>
-      <object class="GtkBox" id="page_vbox"> <!-- Renamed from page_main_vbox for clarity -->
+      <object class="GtkBox" id="page_vbox">
         <property name="orientation">vertical</property>
         <child>
           <object class="AdwBanner" id="error_banner">
@@ -26,8 +24,7 @@
               <object class="GtkScrolledWindow" id="left_scrolled_pane">
                 <property name="hscrollbar-policy">never</property>
                 <property name="min-content-width">380</property>
-                <property name="vexpand">true</property> <!-- Ensure left pane can expand vertically if needed -->
-                <!-- Paned child properties -->
+                <property name="vexpand">true</property>
                 <property name="shrink">false</property>
                 <property name="resize">true</property>
                 <child>
@@ -154,7 +151,6 @@
                       <object class="GtkListBox" id="nmap_host_listbox">
                         <property name="selection-mode">single</property>
                         <property name="vexpand">true</property>
-                        <!-- Removed GtkFrame wrapper for now, can be added later if needed -->
                       </object>
                     </child>
                   </object>
@@ -165,19 +161,18 @@
               <object class="GtkScrolledWindow" id="nmap_detail_scrolled_window">
                 <property name="hexpand">true</property>
                 <property name="vexpand">true</property>
-                <!-- Paned child properties -->
                 <property name="shrink">false</property>
                 <property name="resize">true</property>
                 <child>
                   <object class="GtkBox" id="nmap_detail_box">
                     <property name="orientation">vertical</property>
-                    <property name="margin-top">6</property> <!-- Changed from 12 -->
-                    <property name="margin-bottom">6</property> <!-- Changed from 12 -->
-                    <property name="margin-start">6</property> <!-- Changed from 12 -->
-                    <property name="margin-end">6</property> <!-- Changed from 12 -->
+                    <property name="margin-top">6</property>
+                    <property name="margin-bottom">6</property>
+                    <property name="margin-start">6</property>
+                    <property name="margin-end">6</property>
                     <property name="spacing">12</property>
-                    <property name="hexpand">true</property> <!-- Ensure box expands -->
-                    <property name="vexpand">true</property> <!-- Ensure box expands -->
+                    <property name="hexpand">true</property>
+                    <property name="vexpand">true</property>
                     <child>
                       <object class="AdwStatusPage" id="nmap_detail_placeholder">
                         <property name="title" translatable="yes">No Host Selected</property>
@@ -187,7 +182,6 @@
                         <property name="visible">true</property>
                       </object>
                     </child>
-                    <!-- Detailed host information will be dynamically added here -->
                   </object>
                 </child>
               </object>

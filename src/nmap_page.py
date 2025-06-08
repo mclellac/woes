@@ -78,7 +78,7 @@ class NmapTargetRow(Gtk.ListBoxRow):
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/nmap_page.ui")
-class NmapPage(Adw.PreferencesPage):
+class NmapPage(Gtk.Box):
     """Activity page for performing Nmap scans and viewing results.
 
     Provides UI for setting Nmap scan parameters (target, options like OS detection,
