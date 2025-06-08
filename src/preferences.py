@@ -15,7 +15,7 @@ import re
 from typing import Optional # Added for type hinting
 
 import gi
-from gi.repository import Adw, Gio, Gtk, GLib  # pylint: disable=wrong-import-position
+from gi.repository import Adw, Gio, Gtk, GLib, GObject  # pylint: disable=wrong-import-position # Added GObject
 
 from .constants import APP_ID, RESOURCE_PREFIX  # pylint: disable=wrong-import-position
 
@@ -203,7 +203,7 @@ class Preferences(Adw.PreferencesWindow):
                 return False
         return True
 
-    def on_font_scale_changed(self, combo_row: Adw.ComboRow, _gparam: GLib.ParamSpec):
+    def on_font_scale_changed(self, combo_row: Adw.ComboRow, _gparam: GObject.ParamSpec): # Changed GLib.ParamSpec to GObject.ParamSpec
         """Handle changes in the font scale preference ComboRow.
 
         Saves the selected font scaling percentage string to GSettings.
@@ -220,7 +220,7 @@ class Preferences(Adw.PreferencesWindow):
             self.settings.set_string("font-scaling-percentage", selected_scale_str)
             logging.debug("Font scaling preference set to %s.", selected_scale_str)
 
-    def on_theme_preference_changed(self, combo_row: Adw.ComboRow, _gparam: GLib.ParamSpec):
+    def on_theme_preference_changed(self, combo_row: Adw.ComboRow, _gparam: GObject.ParamSpec): # Corrected to GObject.ParamSpec
         """Handle changes in the theme preference ComboRow.
 
         Saves the selected theme name string (e.g., "Light", "Dark") to GSettings.
@@ -240,7 +240,7 @@ class Preferences(Adw.PreferencesWindow):
                 selected_theme_str,
             )
 
-    def on_source_style_scheme_changed(self, combo_row: Adw.ComboRow, _gparam: GLib.ParamSpec):
+    def on_source_style_scheme_changed(self, combo_row: Adw.ComboRow, _gparam: GObject.ParamSpec): # Ensure this is GObject.ParamSpec and distinct
         """Handle changes in the source style scheme preference ComboRow.
 
         Saves the selected style scheme name string to GSettings.
