@@ -67,11 +67,12 @@
             <property name="title" translatable="yes">Results</property>
             <property name="description" translatable="yes">DNS lookup results will appear below.</property>
             <child>
-              <object class="GtkScrolledWindow" id="dns_results_scrolled_window">
-                <property name="min-content-height">300</property> <!-- Ensure it has some minimum height -->
-                <property name="vexpand">True</property> <!-- Allow it to expand vertically -->
-                <property name="hexpand">True</property> <!-- Allow it to expand horizontally -->
-                <!-- GtkSourceView will be added here from code -->
+              <object class="GtkBox" id="dns_results_box_container">
+                <property name="orientation">vertical</property>
+                <property name="vexpand">True</property>
+                <property name="hexpand">True</property>
+                <property name="spacing">6</property> <!-- Optional: add some spacing between dynamic rows -->
+                <!-- Dynamically populated DNS result rows will be added here -->
               </object>
             </child>
           </object>
