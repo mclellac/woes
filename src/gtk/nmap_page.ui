@@ -1,7 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<!-- Created with Cambalache 0.91.3 -->
 <interface>
-  <!-- interface-name nmap_page.ui -->
   <requires lib="gtk" version="4.10"/>
   <requires lib="libadwaita" version="1.4"/>
   <template class="NmapPage" parent="GtkBox">
@@ -28,7 +26,6 @@
             <property name="vexpand">true</property>
             <property name="wide-handle">true</property>
             <child>
-              <!-- Pane 1 (Left) -->
               <object class="GtkScrolledWindow" id="left_scrolled_pane">
                 <property name="hexpand">true</property>
                 <property name="hexpand-set">true</property>
@@ -181,7 +178,6 @@
               </object>
             </child>
             <child>
-              <!-- Pane 2 (Right) -->
               <object class="GtkScrolledWindow" id="nmap_detail_scrolled_window">
                 <property name="hexpand">true</property>
                 <property name="hexpand-set">true</property>
