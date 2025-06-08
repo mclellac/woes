@@ -1,4 +1,6 @@
+"""General utility functions for the Woes application."""
 import logging
+from typing import Tuple # Added Tuple
 import gi
 from gi.repository import Gtk, GtkSource
 
@@ -6,20 +8,23 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("GtkSource", "5")
 
 
-def create_source_view(language_name="txt"):
-    """
-    Creates and configures a GtkSource.View and GtkSource.Buffer.
+def create_source_view(language_name: str = "txt") -> Tuple[GtkSource.View, GtkSource.Buffer]: # Changed to typing.Tuple
+    """Create and configure a GtkSource.View and its associated GtkSource.Buffer.
+
+    Sets up common properties for the source view like line numbers, monospace font,
+    wrap mode, auto-indent, and tab behavior. Configures syntax highlighting
+    for the specified language.
 
     Args:
-        language_name (str, optional): The language for syntax highlighting.
-                                      Defaults to 'txt'.
+        language_name: The language ID for syntax highlighting (e.g., "yaml", "python", "txt").
+                       Defaults to "txt".
 
     Returns:
-        tuple: A tuple containing the configured GtkSource.View and
-               GtkSource.Buffer.
+        A tuple containing the configured GtkSource.View and GtkSource.Buffer.
+
     """
     language_manager = GtkSource.LanguageManager.get_default()
-    if language_name is None:
+    if language_name is None:  # Ensure fallback even if None is explicitly passed
         language_name = "txt"
     language = language_manager.get_language(language_name)
 
@@ -27,7 +32,7 @@ def create_source_view(language_name="txt"):
         logging.warning(
             "GtkSourceView language '%s' not found. Falling back to a plain buffer.",
             language_name,
-            )
+        )
         source_buffer = GtkSource.Buffer()
     else:
         source_buffer = GtkSource.Buffer.new_with_language(language)

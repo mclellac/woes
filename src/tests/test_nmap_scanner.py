@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import patch, MagicMock
 import subprocess
 from src.nmap_scanner import NmapScanner
-import nmap # For nmap.PortScannerError
+import nmap  # For nmap.PortScannerError
 
 # Minimal valid Nmap XML for a host up, no open ports
 MOCK_NMAP_XML_OUTPUT = """<?xml version="1.0" encoding="UTF-8"?>
@@ -23,8 +23,8 @@ MOCK_NMAP_XML_OUTPUT = """<?xml version="1.0" encoding="UTF-8"?>
 </nmaprun>
 """
 
-class TestNmapScanner(unittest.TestCase):
 
+class TestNmapScanner(unittest.TestCase):
     def _get_mock_subprocess_run(self, stdout_xml=MOCK_NMAP_XML_OUTPUT, stderr="", returncode=0):
         mock_proc = MagicMock(spec=subprocess.CompletedProcess)
         mock_proc.stdout = stdout_xml
@@ -32,10 +32,10 @@ class TestNmapScanner(unittest.TestCase):
         mock_proc.returncode = returncode
         return mock_proc
 
-    @patch('src.nmap_scanner.subprocess.run')
-    @patch('src.nmap_scanner.shutil.which')
+    @patch("src.nmap_scanner.subprocess.run")
+    @patch("src.nmap_scanner.shutil.which")
     def test_run_nmap_scan_service_version(self, mock_shutil_which, mock_subprocess_run):
-        mock_shutil_which.return_value = "/usr/bin/nmap" # Mock nmap path
+        mock_shutil_which.return_value = "/usr/bin/nmap"  # Mock nmap path
         mock_subprocess_run.return_value = self._get_mock_subprocess_run()
 
         scanner = NmapScanner()
@@ -49,7 +49,7 @@ class TestNmapScanner(unittest.TestCase):
             service_version=True,
             no_ping=False,
             timing_template="T3",
-            )
+        )
 
         # Check that subprocess.run was called
         mock_subprocess_run.assert_called_once()
@@ -58,10 +58,10 @@ class TestNmapScanner(unittest.TestCase):
 
         self.assertIn("-sV", actual_command_list)
         self.assertNotIn("-O", actual_command_list)
-        self.assertIsNotNone(nm) # Check if parsing the mock XML produced a result
+        self.assertIsNotNone(nm)  # Check if parsing the mock XML produced a result
 
-    @patch('src.nmap_scanner.subprocess.run')
-    @patch('src.nmap_scanner.shutil.which')
+    @patch("src.nmap_scanner.subprocess.run")
+    @patch("src.nmap_scanner.shutil.which")
     def test_run_nmap_scan_no_ping(self, mock_shutil_which, mock_subprocess_run):
         mock_shutil_which.return_value = "/usr/bin/nmap"
         mock_subprocess_run.return_value = self._get_mock_subprocess_run()
@@ -75,13 +75,13 @@ class TestNmapScanner(unittest.TestCase):
             service_version=False,
             no_ping=True,
             timing_template="T3",
-            )
+        )
 
         actual_command_list = mock_subprocess_run.call_args[0][0]
         self.assertIn("-Pn", actual_command_list)
 
-    @patch('src.nmap_scanner.subprocess.run')
-    @patch('src.nmap_scanner.shutil.which')
+    @patch("src.nmap_scanner.subprocess.run")
+    @patch("src.nmap_scanner.shutil.which")
     def test_run_nmap_scan_timing_template(self, mock_shutil_which, mock_subprocess_run):
         mock_shutil_which.return_value = "/usr/bin/nmap"
         mock_subprocess_run.return_value = self._get_mock_subprocess_run()
@@ -95,13 +95,13 @@ class TestNmapScanner(unittest.TestCase):
             service_version=False,
             no_ping=False,
             timing_template="T4",
-            )
+        )
 
         actual_command_list = mock_subprocess_run.call_args[0][0]
         self.assertIn("-T4", actual_command_list)
 
-    @patch('src.nmap_scanner.subprocess.run')
-    @patch('src.nmap_scanner.shutil.which')
+    @patch("src.nmap_scanner.subprocess.run")
+    @patch("src.nmap_scanner.shutil.which")
     def test_run_nmap_scan_os_and_service_version(self, mock_shutil_which, mock_subprocess_run):
         mock_shutil_which.return_value = "/usr/bin/nmap"
         mock_subprocess_run.return_value = self._get_mock_subprocess_run()
@@ -115,16 +115,16 @@ class TestNmapScanner(unittest.TestCase):
             service_version=True,
             no_ping=False,
             timing_template="T3",
-            )
+        )
 
         actual_command_list = mock_subprocess_run.call_args[0][0]
         self.assertIn("-O", actual_command_list)
         self.assertIn("-sV", actual_command_list)
 
-    @patch('src.nmap_scanner.subprocess.run')
-    @patch('src.nmap_scanner.shutil.which')
+    @patch("src.nmap_scanner.subprocess.run")
+    @patch("src.nmap_scanner.shutil.which")
     def test_run_nmap_scan_defaults(self, mock_shutil_which, mock_subprocess_run):
-        mock_shutil_which.return_value = "/usr/bin/nmap" # Mock nmap path
+        mock_shutil_which.return_value = "/usr/bin/nmap"  # Mock nmap path
         mock_subprocess_run.return_value = self._get_mock_subprocess_run()
 
         scanner = NmapScanner()
@@ -136,10 +136,10 @@ class TestNmapScanner(unittest.TestCase):
             service_version=False,
             no_ping=False,
             timing_template="T3",
-            )
+        )
 
         actual_command_list = mock_subprocess_run.call_args[0][0]
-        self.assertIn("-sS", actual_command_list) # Default scan type
+        self.assertIn("-sS", actual_command_list)  # Default scan type
         self.assertIn("-T3", actual_command_list)
         self.assertNotIn("-O", actual_command_list)
         self.assertNotIn("-sV", actual_command_list)
@@ -147,8 +147,7 @@ class TestNmapScanner(unittest.TestCase):
         self.assertNotIn("-Pn", actual_command_list)
         self.assertNotIn("--script", "".join(actual_command_list))
 
-
-    @patch('src.nmap_scanner.shutil.which')
+    @patch("src.nmap_scanner.shutil.which")
     def test_pkexec_not_found(self, mock_shutil_which):
         # Mock which to simulate pkexec not being found, but nmap is.
         def side_effect(cmd):
@@ -157,18 +156,19 @@ class TestNmapScanner(unittest.TestCase):
             if cmd == "pkexec":
                 return None
             return None
+
         mock_shutil_which.side_effect = side_effect
 
         scanner = NmapScanner()
         with self.assertRaises(nmap.nmap.PortScannerError) as cm:
             scanner.run_nmap_scan(
                 target="127.0.0.1",
-                os_fingerprinting=True, # -O requires root
-                scan_all_ports=False,   # Provide missing argument
+                os_fingerprinting=True,  # -O requires root
+                scan_all_ports=False,  # Provide missing argument
                 selected_script=None,
                 service_version=False,
                 no_ping=False,
-                timing_template="T3"
+                timing_template="T3",
             )
 
         self.assertIn("pkexec not found", str(cm.exception))

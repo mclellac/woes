@@ -1,13 +1,19 @@
+"""Defines the HTTP Headers page for the Woes application.
+
+This page allows users to fetch and inspect HTTP headers for a given URL,
+with options for custom Host headers, User-Agent strings, and Akamai Pragma headers.
+It also supports using a custom DNS server for domain resolution.
+"""
 # pylint: disable=too-many-lines
 import logging
 import re
 import ssl
-import socket # Added for getaddrinfo patching
-from enum import Enum # Added for HttpErrorType
-from typing import Optional
+import socket  # Added for getaddrinfo patching
+from enum import Enum  # Added for HttpErrorType
+from typing import Optional, List # Removed Tuple as it's not explicitly used
 
 import requests
-import requests.utils # For urlparse
+import requests.utils  # For urlparse
 from requests.adapters import HTTPAdapter
 
 try:
@@ -15,9 +21,7 @@ try:
     import dns.exception
 except ImportError:
     dns = None  # type: ignore # pylint: disable=invalid-name
-    logging.warning(
-        "dnspython library not found. Custom DNS functionality will be disabled."
-        )
+    logging.warning("dnspython library not found. Custom DNS functionality will be disabled.")
 
 import gi
 from gi.repository import Adw, Gio, GObject, Gtk, GLib, Gdk
@@ -31,16 +35,12 @@ from .constants import RESOURCE_PREFIX, USER_AGENTS, APP_ID
 gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
 
-# Attempt to import urllib3 exceptions from requests, which vendors it.
+# Use direct import for urllib3.exceptions
 try:
-    from requests.packages.urllib3 import exceptions as urllib3_exceptions
+    import urllib3.exceptions as urllib3_exceptions
 except ImportError:
-    # Fallback if requests changes its vendoring structure or for older versions
-    try:
-        import urllib3.exceptions as urllib3_exceptions
-    except ImportError:
-        # If urllib3 is not available at all (should not happen with requests installed)
-        # Define dummy classes for isinstance checks to not fail, or handle differently.
+    # If urllib3 is not available at all (should not happen with requests installed)
+    # Define dummy classes for isinstance checks to not fail, or handle differently.
         class _DummyUrllib3Exception(Exception):
             pass
 
@@ -50,60 +50,60 @@ except ImportError:
             {
                 "MaxRetryError": _DummyUrllib3Exception,
                 "NewConnectionError": _DummyUrllib3Exception,
-                },
-            )
+            },
+        )
         logging.warning(
             "Could not import urllib3.exceptions. Connection refused detection might be limited."
-            )
+        )
 
 
 class CustomSNIAdapter(HTTPAdapter):
+    """A custom HTTPAdapter for `requests` that allows specifying a Server Name Indication (SNI)
+    hostname different from the URL's hostname. This is useful for HTTPS requests to an IP address
+    when the server expects a specific hostname for TLS handshake.
+    """
+
     def __init__(self, *args, sni_hostname=None, **kwargs):
+        """Initialize the CustomSNIAdapter.
+
+        Args:
+            *args: Positional arguments to pass to the parent HTTPAdapter.
+            sni_hostname (Optional[str]): The hostname to use for SNI. If None, behaves like a normal adapter.
+            **kwargs: Keyword arguments to pass to the parent HTTPAdapter.
+
+        """
         self.sni_hostname = sni_hostname
         super().__init__(*args, **kwargs)
 
     def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
-        # The **pool_kwargs received here are from HTTPAdapter's own __init__ (e.g. self.pool_connections)
-        # or from calls like session.close() which might re-init.
-        # We are adding our SNI-specific configurations to this dictionary.
+        """Initialize the connection pool manager.
 
+        Overrides the parent method to inject SNI-specific SSL context options
+        if an `sni_hostname` was provided.
+
+        Args:
+            connections: The number of urllib3 connection pools to cache.
+            maxsize: The maximum number of connections to save in the pool.
+            block: Whether to block when no free connections are available.
+            **pool_kwargs: Additional keyword arguments to pass to the PoolManager.
+
+        """
         if self.sni_hostname:
-            # Configure the PoolManager instance itself.
-            # These are direct arguments for PoolManager or will be passed via **connection_pool_kw
-            # if they are not explicit PoolManager constructor args.
+            # These kwargs are for urllib3.PoolManager and its ConnectionPools
             pool_kwargs["assert_hostname"] = self.sni_hostname
-            # Ensure cert_reqs is set for validation.
-            # ssl.CERT_REQUIRED is the typical value when verification is enabled.
-            pool_kwargs["cert_reqs"] = ssl.CERT_REQUIRED
+            pool_kwargs["cert_reqs"] = ssl.CERT_REQUIRED # Ensure certificate validation
 
-            # Retrieve existing connection_pool_kw if any, or an empty dict.
-            # These are kwargs intended for the ConnectionPool instances that PoolManager will create.
+            # Urllib3's PoolManager passes `server_hostname` to individual ConnectionPools.
+            # We get the existing connection_pool_kw, add our server_hostname,
+            # and then update pool_kwargs to include these for the PoolManager.
             conn_pool_specific_kwargs = pool_kwargs.pop("connection_pool_kw", {}).copy()
-
-            # Add our SNI-specific server_hostname to these ConnectionPool kwargs.
             conn_pool_specific_kwargs["server_hostname"] = self.sni_hostname
-
-            # 'assert_hostname' can also be set per-pool, but setting it on PoolManager
-            # (as done above) is generally sufficient if SNI matches the asserted hostname.
-            # If needed, it could be added here too:
-            # conn_pool_specific_kwargs['assert_hostname'] = self.sni_hostname
-
-            # Merge these ConnectionPool-specific kwargs back into the main pool_kwargs.
-            # They will be passed flatly to the PoolManager constructor.
-            # PoolManager will then use them when creating new ConnectionPools.
             pool_kwargs.update(conn_pool_specific_kwargs)
 
-        # Call the superclass's init_poolmanager.
-        # requests.HTTPAdapter.init_poolmanager will call:
-        # self.poolmanager = urllib3.PoolManager(num_pools=connections, maxsize=maxsize, block=block, **pool_kwargs)
-        # Our modified pool_kwargs (with 'server_hostname', 'assert_hostname', 'cert_reqs' as top-level keys)
-        # will be passed. urllib3.PoolManager's constructor accepts 'cert_reqs' directly, and
-        # 'server_hostname'/'assert_hostname' via its **connection_pool_kw parameter, storing them
-        # in its self.connection_pool_kw attribute for later use by ConnectionPools.
         super().init_poolmanager(connections, maxsize, block=block, **pool_kwargs)
 
-    # If proxies are a concern, proxy_manager_for might also need overriding.
-    # For now, focusing on direct connections.
+    # Note: If proxies are a concern, proxy_manager_for might also need overriding.
+    # This implementation focuses on direct connections.
 
 
 logger = logging.getLogger(__name__)
@@ -113,20 +113,40 @@ WOES_HTTP_ERROR_DOMAIN = "woes-http-error-domain"
 
 
 class HttpErrorType(int, Enum):
+    """Enumeration of HTTP error types for Gio.Task error reporting."""
+
     TIMEOUT = 0
-    HTTP_ERROR = 1
-    CONNECTION_ERROR = 2
-    REQUEST_EXCEPTION = 3
-    GENERIC_UNEXPECTED = 4
-    CANCELLED = 5
+    HTTP_ERROR = 1 # Covers HTTP status codes >= 400
+    CONNECTION_ERROR = 2 # Covers network issues like DNS failure, connection refused
+    REQUEST_EXCEPTION = 3 # Covers other requests.exceptions like InvalidURL
+    GENERIC_UNEXPECTED = 4 # Fallback for truly unexpected Python exceptions
+    CANCELLED = 5 # If the Gio.Task was cancelled
 
 
-class HeaderItem(GObject.Object): # pylint: disable=too-few-public-methods
+class HeaderItem(GObject.Object):
+    """GObject representing a single header key-value pair for the Gtk.ColumnView.
+
+    Attributes:
+        key (str): The header name or special row key.
+        value (str): The header value or special row value.
+        is_special_row (bool): True if this item represents a special informational row
+                               (e.g., URL, status) rather than a standard HTTP header.
+
+    """
+
     key: str
     value: str
     is_special_row: bool
 
     def __init__(self, key: str, value: str, is_special_row: bool = False):
+        """Initialize a HeaderItem.
+
+        Args:
+            key: The header name or special row key.
+            value: The header value or special row value.
+            is_special_row: True if this is a special informational row.
+
+        """
         super().__init__()
         self.key = key
         self.value = value
@@ -134,7 +154,14 @@ class HeaderItem(GObject.Object): # pylint: disable=too-few-public-methods
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/http_page.ui")
-class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
+class HttpPage(Adw.PreferencesPage):
+    """Activity page for fetching and inspecting HTTP headers.
+
+    Provides UI elements for URL input, Host header, User-Agent selection,
+    Akamai Pragma toggles, and displays results in a Gtk.ColumnView.
+    Handles asynchronous fetching of headers and error display.
+    """
+
     __gtype_name__ = "HttpPage"
     http_entry_row = Gtk.Template.Child("http_entry_row")
     http_apply_button = Gtk.Template.Child("http_apply_button")
@@ -148,6 +175,12 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
     copy_results_button = Gtk.Template.Child()
 
     def __init__(self, **kwargs):
+        """Initialize the HttpPage.
+
+        Sets up UI elements from the template, initializes GSettings,
+        configures the Gtk.ColumnView for displaying headers,
+        connects signal handlers, and sets initial UI state.
+        """
         super().__init__(**kwargs)
         logger.debug("HttpPage initialized.")
         self.current_http_task = None
@@ -155,25 +188,19 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
         self._http_task_data_for_thread = {}
 
         self.settings = Gio.Settings(schema_id=APP_ID)
-        self._header_key_color = self.settings.get_string(
-            "http-output-header-key-color"
-            )
-        self._header_value_color = self.settings.get_string(
-            "http-output-header-value-color"
-            )
-        self._special_row_color = self.settings.get_string(
-            "http-output-special-row-color"
-            )
+        self._header_key_color = self.settings.get_string("http-output-header-key-color")
+        self._header_value_color = self.settings.get_string("http-output-header-value-color")
+        self._special_row_color = self.settings.get_string("http-output-special-row-color")
 
         self.settings.connect(
             "changed::http-output-header-key-color", self._on_color_setting_changed
-            )
+        )
         self.settings.connect(
             "changed::http-output-header-value-color", self._on_color_setting_changed
-            )
+        )
         self.settings.connect(
             "changed::http-output-special-row-color", self._on_color_setting_changed
-            )
+        )
 
         self.header_list_store = Gio.ListStore.new(HeaderItem)
         selection_model = Gtk.MultiSelection.new(self.header_list_store)
@@ -201,6 +228,7 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
             self.http_apply_button.set_use_underline(True)
 
     def _connect_signals(self) -> None:
+        """Connect signals for UI elements to their respective handlers."""
         self.http_entry_row.connect("entry-activated", self._on_entry_row_activated)
         self.http_apply_button.connect("clicked", self._on_entry_row_activated)
         self.http_pragma_switch_row.connect("notify::active", self._on_pragma_toggled)
@@ -211,6 +239,15 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
             self.error_banner.connect("button-clicked", self._on_error_banner_dismiss)
 
     def _on_copy_results_clicked(self, _button: Gtk.Button) -> None:
+        """Handle click event for the 'Copy Results' button.
+
+        Collects all displayed header items, formats them as text,
+        and copies them to the clipboard.
+
+        Args:
+            _button: The Gtk.Button that was clicked.
+
+        """
         logger.info("Copying all headers to clipboard.")
         lines = []
         if self.header_list_store:
@@ -228,29 +265,35 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
         if lines:
             text_to_copy = "\n".join(lines)
             try:
-                clipboard = (
-                    Gdk.Display.get_default().get_clipboard()
-                    )
+                clipboard = Gdk.Display.get_default().get_clipboard()
                 if clipboard:
                     clipboard.set_text(text_to_copy)
                     logger.info("Headers copied to clipboard successfully.")
                     # Example: self.show_toast(Adw.Toast(title="Headers copied to clipboard")) # type: ignore
                 else:
                     logger.warning("Failed to get default clipboard.")
-            except Exception as e: # pylint: disable=broad-exception-caught
+            except Exception as e:  # pylint: disable=broad-except
                 logger.error("Error copying to clipboard: %s", e, exc_info=True)
         else:
             logger.info("No headers to copy.")
 
     def _on_entry_row_activated(self, _widget: Gtk.Widget) -> None:
+        """Handle activation of the URL entry row or click of the 'Apply' button.
+
+        Initiates the process of fetching HTTP headers for the entered URL.
+        Validates the URL, gathers configuration from UI elements (Host header, User-Agent, etc.),
+        and starts an asynchronous task to perform the HTTP request.
+
+        Args:
+            _widget: The widget that triggered the activation (Adw.EntryRow or Gtk.Button).
+
+        """
         original_url = self.http_entry_row.get_text().strip()
         url = self._ensure_scheme(original_url)
         logger.info("Fetching headers for URL: %s (original: %s)", url, original_url)
 
         if not self._is_valid_url(url):
-            logger.warning(
-                "Invalid URL provided: %s (processed as: %s)", original_url, url
-                )
+            logger.warning("Invalid URL provided: %s (processed as: %s)", original_url, url)
             self._display_error("Invalid URL format: Please enter a valid URL.")
             self._update_column_view_model(None)
             return
@@ -275,18 +318,36 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
             "host_header": host_header,
             "user_agent": user_agent,
             "custom_dns_server": custom_dns_server,
-            }
+        }
         task = Gio.Task.new(self, None, self._fetch_headers_task_done_cb, None)
         self.current_http_task = task
         task.run_in_thread(self._fetch_headers_task_thread_func)
 
     def _fetch_headers_task_thread_func(  # pylint: disable=too-many-locals,too-many-branches,too-many-statements,too-many-nested-blocks # noqa: C901
-            self,
-            task: Gio.Task, # pylint: disable=unused-argument
-            source_object, # pylint: disable=unused-argument
-            task_data_arg: dict, # pylint: disable=unused-argument
-            cancellable: Optional[Gio.Cancellable],
-            ):
+        self,
+        task: Gio.Task,
+        source_object,  # pylint: disable=unused-argument
+        task_data_arg: dict,  # pylint: disable=unused-argument
+        cancellable: Optional[Gio.Cancellable],
+    ):
+        """Perform the HTTP GET request in a separate thread.
+
+        This method is executed by `Gio.Task.run_in_thread`. It constructs the request
+        based on `_http_task_data_for_thread`, handles custom DNS resolution via
+        `socket.getaddrinfo` patching if configured, mounts a `CustomSNIAdapter`
+        if necessary (for HTTPS to IP with Host header), and makes the request
+        using the `requests` library.
+
+        It captures all responses (redirects and final) and returns them as a list
+        of dictionaries. Errors during the process are returned via `task.return_new_error_literal`.
+
+        Args:
+            task: The `Gio.Task` associated with this asynchronous operation.
+            source_object: The source object that initiated the task (unused).
+            task_data_arg: Task-specific data (unused, uses `self._http_task_data_for_thread`).
+            cancellable: A `Gio.Cancellable` object to monitor for cancellation requests.
+
+        """
         current_task_data = self._http_task_data_for_thread
 
         url_to_fetch = current_task_data["url"]
@@ -299,6 +360,7 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
         initial_request_specific_headers = {}
         session_headers = {}
         original_hostname = None
+        captured_original_hostname = "" # Initialize to ensure it's always bound
 
         original_getaddrinfo = None
         resolved_addresses_for_host = None
@@ -310,11 +372,13 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
             if not original_hostname:
                 logger.warning(
                     "Could not parse hostname from URL for custom DNS: %s", original_url_with_scheme
-                    )
+                )
             else:
                 logger.info(
-                    "Attempting to resolve '%s' using custom DNS server %s", original_hostname, custom_dns_server
-                    )
+                    "Attempting to resolve '%s' using custom DNS server %s",
+                    original_hostname,
+                    custom_dns_server,
+                )
                 resolver = dns.resolver.Resolver()
                 resolver.nameservers = [custom_dns_server]
                 resolver.timeout = 2.0
@@ -329,31 +393,41 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
                                 all_ips.append(rdata.address)
                         except dns.resolver.NoAnswer:
                             logger.debug(
-                                "No %s records found for %s using %s.", rdtype, original_hostname, custom_dns_server
+                                "No %s records found for %s using %s.",
+                                rdtype,
+                                original_hostname,
+                                custom_dns_server,
                             )
-                        except (
-                                dns.exception.DNSException
-                                ) as e:
+                        except dns.exception.DNSException as e:
                             logger.warning(
-                                "DNS resolution for %s records of %s failed: %s", rdtype, original_hostname, e
-                                )
+                                "DNS resolution for %s records of %s failed: %s",
+                                rdtype,
+                                original_hostname,
+                                e,
+                            )
 
                     if all_ips:
                         resolved_addresses_for_host = all_ips
                         logger.info(
                             "Resolved '%s' to %s via %s.",
-                            original_hostname, resolved_addresses_for_host, custom_dns_server
+                            original_hostname,
+                            resolved_addresses_for_host,
+                            custom_dns_server,
                         )
                     else:
                         logger.warning(
                             "Custom DNS %s provided no A or AAAA records for %s. "
-                            "Falling back to system DNS for this request.", custom_dns_server, original_hostname
-                            )
-                except Exception as e:  # pylint: disable=broad-exception-caught
-                    logger.error(
-                        "Unexpected error during custom DNS processing for %s: %s", original_hostname, e,
-                        exc_info=True,
+                            "Falling back to system DNS for this request.",
+                            custom_dns_server,
+                            original_hostname,
                         )
+                except Exception as e:  # pylint: disable=broad-exception-caught
+                    logger.error( # pylint: disable=broad-except
+                        "Unexpected error during custom DNS processing for %s: %s",
+                        original_hostname,
+                        e,
+                        exc_info=True,
+                    )
 
         if resolved_addresses_for_host and original_hostname:
             original_getaddrinfo = socket.getaddrinfo
@@ -361,17 +435,17 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
             captured_original_hostname = original_hostname
             captured_resolved_ips = resolved_addresses_for_host
 
-            def custom_getaddrinfo(host, port, family=0, addr_type=0, proto=0, flags=0): # pylint: disable=too-many-arguments,redefined-builtin,too-many-positional-arguments
+            def custom_getaddrinfo(host, port, family=0, addr_type=0, proto=0, flags=0):  # pylint: disable=too-many-arguments,redefined-builtin,too-many-positional-arguments
                 if host == captured_original_hostname:
                     logger.debug(
-                        "Custom getaddrinfo: Intercepting '%s', returning %s", host, captured_resolved_ips
-                        )
+                        "Custom getaddrinfo: Intercepting '%s', returning %s",
+                        host,
+                        captured_resolved_ips,
+                    )
                     results = []
                     for ip_addr in captured_resolved_ips:
-                        addr_family = (
-                            socket.AF_INET6 if ":" in ip_addr else socket.AF_INET
-                            )
-                        if family in (0, addr_family): # C1805, R1714
+                        addr_family = socket.AF_INET6 if ":" in ip_addr else socket.AF_INET
+                        if family in (0, addr_family):  # C1805, R1714
                             results.append(
                                 (
                                     addr_family,
@@ -379,35 +453,34 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
                                     socket.IPPROTO_TCP,
                                     "",
                                     (ip_addr, port),
-                                    )
                                 )
+                            )
 
-                    if not results and family: # C1805
+                    if not results and family:  # C1805
                         logger.warning(
                             "Custom getaddrinfo: No addresses for '%s' "
-                            "matched requested family %s. Falling back.", host, family
+                            "matched requested family %s. Falling back.",
+                            host,
+                            family,
                         )
-                        return original_getaddrinfo(
-                            host, port, family, addr_type, proto, flags
-                            )
+                        return original_getaddrinfo(host, port, family, addr_type, proto, flags)
                     if not results:
                         logger.warning(
-                            "Custom getaddrinfo: No addresses for '%s' after filtering. Falling back.", host
-                            )
-                        return original_getaddrinfo(
-                            host, port, family, addr_type, proto, flags
-                            )
+                            "Custom getaddrinfo: No addresses for '%s' after filtering. Falling back.",
+                            host,
+                        )
+                        return original_getaddrinfo(host, port, family, addr_type, proto, flags)
                     return results
                 return original_getaddrinfo(host, port, family, addr_type, proto, flags)
 
             socket.getaddrinfo = custom_getaddrinfo
             logger.info(
                 "socket.getaddrinfo patched to use custom DNS results for '%s'.", original_hostname
-                )
+            )
         else:
             logger.debug(
                 "Not patching socket.getaddrinfo, custom DNS not used or resolution failed/yielded no IPs."
-                )
+            )
 
         use_custom_sni_adapter = False
         parsed_url_for_sni_check = requests.utils.urlparse(url_to_fetch)
@@ -416,22 +489,20 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
             for c in parsed_url_for_sni_check.netloc.split(":", 1)[0]
         )
 
-        if (
-                url_to_fetch.startswith("https://")
-                and is_url_ip_address
-                and host_header_from_input
-                ):
+        if url_to_fetch.startswith("https://") and is_url_ip_address and host_header_from_input:
             use_custom_sni_adapter = True
             logger.info(
                 "URL '%s' is IP-based. User-provided Host header '%s' will be used for SNI via CustomSNIAdapter.",
-                url_to_fetch, host_header_from_input
+                url_to_fetch,
+                host_header_from_input,
             )
         elif custom_dns_server and original_hostname and not is_url_ip_address:
             logger.info(
                 "Custom DNS resolved %s, but URL '%s' is a hostname. "
                 "Requests will handle SNI; CustomSNIAdapter not mounted for this reason.",
-                original_hostname, url_to_fetch
-                )
+                original_hostname,
+                url_to_fetch,
+            )
 
         session = requests.Session()
 
@@ -440,17 +511,18 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
             session.mount("https://", adapter)
             logger.debug(
                 "Mounted CustomSNIAdapter for https:// with SNI: %s", host_header_from_input
-                )
+            )
         elif use_custom_sni_adapter and not host_header_from_input:
             logger.warning(
                 "CustomSNIAdapter was considered but no host_header_from_input was available for SNI name."
-                )
+            )
 
         if host_header_from_input:
             initial_request_specific_headers["Host"] = host_header_from_input
             logger.info(
-                "User-provided Host header '%s' will be used for the request.", host_header_from_input
-                )
+                "User-provided Host header '%s' will be used for the request.",
+                host_header_from_input,
+            )
 
         if user_agent and user_agent != "None":
             session_headers["User-Agent"] = user_agent
@@ -465,7 +537,7 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
                 "akamai-x-get-extracted-values",
                 "akamai-x-feo-trace",
                 "x-akamai-logging-mode: verbose",
-                ]
+            ]
             session_headers["Pragma"] = ", ".join(akamai_pragma_directives)
         if session_headers:
             session.headers.update(session_headers)
@@ -478,19 +550,17 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
                     GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
                     HttpErrorType.CANCELLED.value,
                     "Task was cancelled.",
-                    )
+                )
                 return
 
             response = session.get(
                 url_to_fetch,
                 headers=(
-                    initial_request_specific_headers
-                    if initial_request_specific_headers
-                    else None
-                    ),
+                    initial_request_specific_headers if initial_request_specific_headers else None
+                ),
                 allow_redirects=True,
                 timeout=5,
-                )
+            )
 
             all_responses_data = []
 
@@ -499,25 +569,21 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
                     "type": "redirect",
                     "url": str(hist_resp.url),
                     "status_code": hist_resp.status_code,
-                    "headers": {
-                        str(k): str(v) for k, v in dict(hist_resp.headers).items()
-                        },
-                    }
+                    "headers": {str(k): str(v) for k, v in dict(hist_resp.headers).items()},
+                }
                 all_responses_data.append(hist_data)
 
             try:
                 response.raise_for_status()
                 final_data_type = "final"
             except requests.exceptions.HTTPError as http_err:
-                logger.warning(
-                    "Task thread: HTTPError for %s: %s", url_to_fetch, http_err
-                    )
+                logger.warning("Task thread: HTTPError for %s: %s", url_to_fetch, http_err)
                 error_message = self._format_http_error(http_err)
                 task.return_new_error_literal(
                     GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
                     HttpErrorType.HTTP_ERROR.value,
                     error_message,
-                    )
+                )
                 return
 
             final_data = {
@@ -525,7 +591,7 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
                 "url": str(response.url),
                 "status_code": response.status_code,
                 "headers": {str(k): str(v) for k, v in dict(response.headers).items()},
-                }
+            }
             all_responses_data.append(final_data)
 
             task.return_value(all_responses_data)
@@ -536,12 +602,12 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
                 "Request timed out. This could be due to a slow network, server issues, "
                 "or a Web Application Firewall (WAF) interfering. "
                 "Please check the URL or try again later."
-                )
+            )
             task.return_new_error_literal(
                 GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
                 HttpErrorType.TIMEOUT.value,
                 error_message,
-                )
+            )
             return
         except requests.exceptions.ConnectionError as e:
             logger.warning("Task thread: ConnectionError for %s: %s", url_to_fetch, e)
@@ -552,14 +618,14 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
                 error_message = (
                     "A network connection error occurred. Please check your internet connection "
                     "and the entered URL, then try again."
-                    )
+                )
             if not error_message:
                 error_message = "Connection Error: Failed to establish a connection."
             task.return_new_error_literal(
                 GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
                 HttpErrorType.CONNECTION_ERROR.value,
                 error_message,
-                )
+            )
             return
         except requests.exceptions.RequestException as e:
             logger.warning("Task thread: RequestException for %s: %s", url_to_fetch, e)
@@ -568,38 +634,48 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
                 GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
                 HttpErrorType.REQUEST_EXCEPTION.value,
                 error_message,
-                )
+            )
             return
-        except Exception as e: # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-except
             logger.error(
                 "Task thread: Truly unexpected error for %s: %s",
                 url_to_fetch,
                 e,
                 exc_info=True,
-                )
+            )
             error_message = (
                 "An unexpected internal error occurred while processing your request. "
                 "Please try again later."
-                )
+            )
             task.return_new_error_literal(
                 GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
                 HttpErrorType.GENERIC_UNEXPECTED.value,
                 error_message,
-                )
+            )
             return
         finally:
             if original_getaddrinfo:
                 socket.getaddrinfo = original_getaddrinfo
+                # Use captured_original_hostname directly as it's now guaranteed to be bound
                 logger.info(
                     "socket.getaddrinfo restored for '%s'.",
-                    (captured_original_hostname if resolved_addresses_for_host and original_hostname else '')
+                    captured_original_hostname,
                 )
 
-    def _get_detailed_connection_error_message(self, exc: Exception, url: str) -> Optional[str]: # pylint: disable=too-many-branches,too-many-statements # noqa: C901
-        """
-        Traverses an exception chain to find a "Connection refused" error
-        and returns a specific message if it's for an HTTPS URL.
-        Otherwise, returns None.
+    def _get_detailed_connection_error_message(self, exc: Exception, url: str) -> Optional[str]:  # pylint: disable=too-many-branches,too-many-statements # noqa: C901
+        """Attempt to provide a more specific error message for connection errors.
+
+        Inspects the given exception (and its causes) to identify common patterns
+        like 'Connection refused'. If found, it suggests potential causes based on the URL scheme
+        (e.g., trying HTTP for an HTTPS site or vice-versa).
+
+        Args:
+            exc: The connection-related exception caught.
+            url: The URL that was being accessed.
+
+        Returns:
+            A more specific error message string if a known pattern is matched, otherwise None.
+
         """
         current_exc = exc
         found_connection_refused = False
@@ -616,22 +692,19 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
                 break
 
             if isinstance(current_exc, urllib3_exceptions.NewConnectionError):
-                if (
-                        "connection refused" in exc_str.lower()
-                        or "errno 111" in exc_str.lower()
-                        ):
+                if "connection refused" in exc_str.lower() or "errno 111" in exc_str.lower():
                     found_connection_refused = True
                     break
                 if hasattr(current_exc, "original_error") and isinstance(
-                        current_exc.original_error, ConnectionRefusedError
-                        ):
+                    current_exc.original_error, ConnectionRefusedError
+                ):
                     found_connection_refused = True
                     break
                 if (
-                        hasattr(current_exc, "original_error")
-                        and hasattr(current_exc.original_error, "errno")
-                        and current_exc.original_error.errno == 111
-                        ):
+                    hasattr(current_exc, "original_error")
+                    and hasattr(current_exc.original_error, "errno")
+                    and current_exc.original_error.errno == 111
+                ):
                     found_connection_refused = True
                     break
 
@@ -641,52 +714,52 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
                     reason_exc_str = str(reason_exc)
                     if isinstance(reason_exc, urllib3_exceptions.NewConnectionError):
                         if (
-                                "connection refused" in reason_exc_str.lower()
-                                or "errno 111" in reason_exc_str.lower()
-                                ):
+                            "connection refused" in reason_exc_str.lower()
+                            or "errno 111" in reason_exc_str.lower()
+                        ):
                             found_connection_refused = True
                             break
                         if hasattr(reason_exc, "original_error") and isinstance(
-                                reason_exc.original_error, ConnectionRefusedError
-                                ):
+                            reason_exc.original_error, ConnectionRefusedError
+                        ):
                             found_connection_refused = True
                             break
                         if (
-                                hasattr(reason_exc, "original_error")
-                                and hasattr(reason_exc.original_error, "errno")
-                                and reason_exc.original_error.errno == 111
-                                ):
+                            hasattr(reason_exc, "original_error")
+                            and hasattr(reason_exc.original_error, "errno")
+                            and reason_exc.original_error.errno == 111
+                        ):
                             found_connection_refused = True
                             break
 
             if (
-                    any(
-                        "connection refused" in str(arg).lower()
-                        for arg in current_exc.args
-                        if isinstance(arg, str)
-                        )
-                    or "connection refused" in exc_str.lower()
-                    ):
+                any(
+                    "connection refused" in str(arg).lower()
+                    for arg in current_exc.args
+                    if isinstance(arg, str)
+                )
+                or "connection refused" in exc_str.lower()
+            ):
                 found_connection_refused = True
 
             if (
-                    any(
-                        "errno 111" in str(arg).lower()
-                        for arg in current_exc.args
-                        if isinstance(arg, str)
-                        )
-                    or "errno 111" in exc_str.lower()
-                    ):
+                any(
+                    "errno 111" in str(arg).lower()
+                    for arg in current_exc.args
+                    if isinstance(arg, str)
+                )
+                or "errno 111" in exc_str.lower()
+            ):
                 found_connection_refused = True
 
             next_exc = None
             if hasattr(current_exc, "__cause__") and current_exc.__cause__ is not None:
                 next_exc = current_exc.__cause__
             elif (
-                    hasattr(current_exc, "__context__")
-                    and current_exc.__context__ is not None
-                    and not current_exc.__suppress_context__
-                    ):
+                hasattr(current_exc, "__context__")
+                and current_exc.__context__ is not None
+                and not current_exc.__suppress_context__
+            ):
                 next_exc = current_exc.__context__
 
             if current_exc is next_exc:  # Avoid infinite loops
@@ -699,17 +772,31 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
                 return (
                     "The URL targetted via HTTPS is refusing the connection. "
                     "It might be an HTTP-only service. Please try with 'http://'."
-                    )
+                )
             if requests.utils.urlparse(url).scheme == "http":
                 return (
                     "The HTTP request failed. The server might only support HTTPS for this resource. "
                     "Please try with 'https://'."
-                    )
-            return "Connection Error: The server at the specified URL actively refused the connection."
+                )
+            return (
+                "Connection Error: The server at the specified URL actively refused the connection."
+            )
 
         return None
 
-    def _fetch_headers_task_done_cb(self, source_object, result: Gio.AsyncResult, user_data): # pylint: disable=too-many-branches,too-many-statements,unused-argument # noqa: C901
+    def _fetch_headers_task_done_cb(self, _source_object, result: Gio.AsyncResult, _user_data):  # pylint: disable=too-many-branches,too-many-statements,unused-argument # noqa: C901
+        """Callback executed in the main thread when `_fetch_headers_task_thread_func` completes.
+
+        Processes the results (list of response data dictionaries) or errors returned
+        by the background task. Updates the UI (ColumnView, error banners) accordingly.
+        Re-enables UI elements that were disabled during the fetch.
+
+        Args:
+            _source_object: The object that initiated the task (unused).
+            result: A `Gio.AsyncResult` containing the task's outcome.
+            _user_data: User data passed to the callback (unused).
+
+        """
         task_being_processed = self.current_http_task
 
         if task_being_processed is None:
@@ -718,10 +805,10 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
                 "UI might have been re-enabled prematurely."
             )
             if (
-                    hasattr(self, "http_entry_row")
-                    and self.http_entry_row
-                    and not self.http_entry_row.get_sensitive()
-                    ):
+                hasattr(self, "http_entry_row")
+                and self.http_entry_row
+                and not self.http_entry_row.get_sensitive()
+            ):
                 self.http_entry_row.set_sensitive(True)
             if (
                 hasattr(self, "http_apply_button")
@@ -738,15 +825,15 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
             actual_list_of_responses = task_being_processed.propagate_value()
 
             if not isinstance(actual_list_of_responses, list) and isinstance(
-                    actual_list_of_responses, tuple
-                    ):
+                actual_list_of_responses, tuple
+            ):
                 if len(actual_list_of_responses) > 0 and isinstance(
-                        actual_list_of_responses[0], list
-                        ):
+                    actual_list_of_responses[0], list
+                ):
                     actual_list_of_responses = actual_list_of_responses[0]
                 elif hasattr(actual_list_of_responses, "value") and isinstance(
-                        actual_list_of_responses.value, list
-                        ):
+                    actual_list_of_responses.value, list
+                ):
                     actual_list_of_responses = actual_list_of_responses.value
 
             if isinstance(actual_list_of_responses, list):
@@ -760,14 +847,13 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
                         if not isinstance(response_data, dict):
                             logger.error(
                                 "Expected dict item in response list, got %s. Data: %s",
-                                type(response_data), response_data
+                                type(response_data),
+                                response_data,
                             )
                             continue
 
                         url_display = f"URL: {response_data.get('url', 'N/A')}"
-                        status_display = (
-                            f"Status: {response_data.get('status_code', 'N/A')}"
-                            )
+                        status_display = f"Status: {response_data.get('status_code', 'N/A')}"
 
                         if response_data.get("type") == "redirect":
                             status_display += " (Redirect)"
@@ -779,21 +865,21 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
                                 key=url_display,
                                 value=status_display,
                                 is_special_row=True,
-                                )
                             )
+                        )
 
                         headers_for_this_response = response_data.get("headers", {})
                         for (
-                                header_key,
-                                header_value,
-                                ) in headers_for_this_response.items():
+                            header_key,
+                            header_value,
+                        ) in headers_for_this_response.items():
                             processed_headers_for_store.append(
                                 HeaderItem(
                                     key=str(header_key),
                                     value=str(header_value),
                                     is_special_row=False,
-                                    )
                                 )
+                            )
 
                         if i < len(actual_list_of_responses) - 1:
                             processed_headers_for_store.append(
@@ -806,8 +892,9 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
                     self.http_entry_row.remove_css_class("error")
             else:
                 logger.error(
-                    "Result data of unexpected type %s. Expected list.", type(actual_list_of_responses)
-                    )
+                    "Result data of unexpected type %s. Expected list.",
+                    type(actual_list_of_responses),
+                )
                 self._display_error(
                     f"Failed to process task result (unexpected data structure: "
                     f"{type(actual_list_of_responses).__name__})."
@@ -818,20 +905,24 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
 
         except GLib.Error as e:
             logger.error(
-                "Task failed with GLib.Error: Domain=%s, Code=%s, Message='%s'", e.domain, e.code, e.message
-                )
+                "Task failed with GLib.Error: Domain=%s, Code=%s, Message='%s'",
+                e.domain,
+                e.code,
+                e.message,
+            )
             self._display_error(e.message.replace("<b>", "").replace("</b>", ""))
             if hasattr(self, "http_entry_row") and self.http_entry_row:
                 self.http_entry_row.add_css_class("error")
             self._update_column_view_model(None)
-        except Exception as e: # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-except
             logger.error(
-                "Unexpected Python error in _fetch_headers_task_done_cb: %s", e,
+                "Unexpected Python error in _fetch_headers_task_done_cb: %s",
+                e,
                 exc_info=True,
-                )
+            )
             self._display_error(
                 "An unexpected application error occurred while displaying the results."
-                )
+            )
             if hasattr(self, "http_entry_row") and self.http_entry_row:
                 self.http_entry_row.add_css_class("error")
             self._update_column_view_model(None)
@@ -843,15 +934,33 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
 
     @staticmethod
     def _ensure_scheme(url: str) -> str:
+        """Ensure the URL has a scheme (defaults to https if missing).
+
+        Args:
+            url: The input URL string.
+
+        Returns:
+            The URL string with a scheme.
+
+        """
         parsed_url = requests.utils.urlparse(url)
         if not parsed_url.scheme:
-            url = "https://" + url
+            url = "https://" + url # Default to HTTPS
         return url
 
     @staticmethod
     def _is_valid_url(url: str) -> bool:
+        """Validate if a string is a well-formed HTTP/HTTPS URL.
+
+        Args:
+            url: The URL string to validate.
+
+        Returns:
+            True if the URL is valid, False otherwise.
+
+        """
         url_regex = re.compile(
-            r"^(?:http|https)://"
+            r"^(?:http|https)://"  # Scheme
             r"(?:\S+(?::\S*)?@)?"
             r"(?:[A-Za-z0-9.-]+\.[A-Za-z]{2,}|localhost|"
             r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|"
@@ -859,34 +968,57 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
             r"(?::\d+)?"
             r"(?:/?|[/?]\S+)$",
             re.IGNORECASE,
-            )
+        )
 
-        return re.match(url_regex, url) is not None and bool(
-            requests.utils.urlparse(url).netloc
-            )
+        return re.match(url_regex, url) is not None and bool(requests.utils.urlparse(url).netloc)
 
     def _format_http_error(self, e: requests.exceptions.HTTPError) -> str:
+        """Format an HTTPError from the `requests` library into a user-friendly message.
+
+        Args:
+            e: The `requests.exceptions.HTTPError` instance.
+
+        Returns:
+            A user-friendly error message string.
+
+        """
         status_code = e.response.status_code
         if status_code == 404:
             return "404 Not Found: The requested URL was not found on this server."
         if status_code == 403:
             return "403 Forbidden: You don't have permission to access this URL."
         if status_code == 500:
-            return (
-                "500 Internal Server Error: The server encountered an internal error."
-                )
+            return "500 Internal Server Error: The server encountered an internal error."
         return f"HTTP Error {status_code}: {e.response.reason}."
 
     def _on_pragma_toggled(
-            self, widget: Gtk.Switch, _gparam: GObject.ParamSpec # pylint: disable=unused-argument
-            ) -> None:
+        self,
+        widget: Gtk.Switch,
+        _gparam: GObject.ParamSpec,
+    ) -> None:
+        """Handle the toggle event for the Akamai Pragma switch.
+
+        If the URL entry is not empty, it re-triggers the header fetch.
+
+        Args:
+            widget: The Gtk.Switch that was toggled.
+            _gparam: The GObject.ParamSpec of the 'active' property (unused).
+
+        """
         logger.debug("Akamai Pragma toggled to: %s", widget.get_active())
         if self.http_entry_row.get_text().strip():
             self._on_entry_row_activated(self.http_entry_row)
 
-    def _update_column_view_model(
-            self, header_items: Optional[list[HeaderItem]]
-            ) -> None:
+    def _update_column_view_model(self, header_items: Optional[List[HeaderItem]]) -> None: # Changed to typing.List
+        """Update the Gtk.ColumnView's model with new header items.
+
+        Clears existing items and populates the ListStore with the provided list.
+        Shows or hides the results group based on whether items are present.
+
+        Args:
+            header_items: A list of `HeaderItem` objects, or None to clear.
+
+        """
         self.header_list_store.remove_all()
 
         if header_items:
@@ -897,35 +1029,65 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
             self._hide_results()
 
     def _show_results(self):
-        """Show the results group."""
+        """Make the HTTP results group visible."""
         self.http_results_group.set_visible(True)
 
     def _hide_results(self):
-        """Hide the results group."""
+        """Make the HTTP results group invisible."""
         self.http_results_group.set_visible(False)
 
     def _display_error(self, message: str) -> None:
+        """Display an error message in the UI.
+
+        Sets the error banner title, reveals it, adds 'error' CSS class
+        to the entry row, and hides the results section.
+
+        Args:
+            message: The error message to display.
+
+        """
         self.error_banner.set_title(message)
         self.error_banner.set_revealed(True)
         self.http_entry_row.add_css_class("error")
         self._hide_results()
 
     def _clear_error(self) -> None:
+        """Clear any displayed error messages from the UI.
+
+        Hides the error banner, clears its title, and removes 'error'
+        CSS class from the entry row.
+        """
         self.error_banner.set_revealed(False)
         self.error_banner.set_title("")
         self.http_entry_row.remove_css_class("error")
 
     def _on_error_banner_dismiss(self, _banner: Adw.Banner, *_args):
+        """Handle dismissal of the error banner by clearing the error state."""
         self._clear_error()
 
     def _on_clear_results_clicked(self, _button: Gtk.Button, *_args):
+        """Handle click of the 'Clear Results' button.
+
+        Clears current header items, updates the view model, clears errors,
+        and resets the URL entry row.
+        """
         logger.info("Results cleared by user.")
         self._current_header_items = []
         self._update_column_view_model(None)
         self._clear_error()
         self.http_entry_row.set_text("")
 
-    def _on_color_setting_changed(self, settings, key):
+    def _on_color_setting_changed(self, settings: Gio.Settings, key: str):
+        """Handle changes to color-related GSettings.
+
+        Updates internal color attributes and re-populates the ColumnView
+        if results are currently displayed to apply new colors.
+
+        Args:
+            settings: The Gio.Settings object that changed.
+            key: The name of the setting key that changed.
+
+        """
         logger.debug("Color setting changed for key: %s", key)
         if key == "http-output-header-key-color":
             self._header_key_color = settings.get_string(key)
@@ -939,12 +1101,25 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
             self._update_column_view_model(self._current_header_items)
 
     # Note: Removed @staticmethod decorator
-    def _create_factory(
-            self, attr_name: str, wrap_text: bool = False
-            ) -> Gtk.SignalListItemFactory:
+    def _create_factory(self, attr_name: str, wrap_text: bool = False) -> Gtk.SignalListItemFactory:
+        """Create a Gtk.SignalListItemFactory for a column in the Gtk.ColumnView.
+
+        This factory is responsible for setting up and binding Gtk.Label widgets
+        to display `HeaderItem` data. It applies custom colors based on settings
+        and whether the row is a special informational row.
+
+        Args:
+            attr_name: The attribute name of `HeaderItem` to display (e.g., "key", "value").
+            wrap_text: Whether the text in the label should be wrapped.
+
+        Returns:
+            A configured Gtk.SignalListItemFactory.
+
+        """
         factory = Gtk.SignalListItemFactory()
 
-        def setup_func(_, list_item: Gtk.ListItem) -> None:
+        def setup_func(_factory: Gtk.SignalListItemFactory, list_item: Gtk.ListItem) -> None:
+            """Setup function for the list item factory. Creates and sets a Gtk.Label as child."""
             label = Gtk.Label(xalign=0)
             label.set_hexpand(True)
             if wrap_text:
@@ -953,20 +1128,16 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
             list_item.set_child(label)
 
         # This nested function can capture 'self' from the outer _create_factory method
-        def bind_func_internal(_, list_item: Gtk.ListItem) -> None:
+        def bind_func_internal(_factory: Gtk.SignalListItemFactory, list_item: Gtk.ListItem) -> None:
+            """Bind function for the list item factory. Sets label text and markup."""
             label = list_item.get_child()
             item = list_item.get_item()
 
             if not (
-                    label
-                    and isinstance(label, Gtk.Label)
-                    and item
-                    and isinstance(item, HeaderItem)
-                    ):
+                label and isinstance(label, Gtk.Label) and item and isinstance(item, HeaderItem)
+            ):
                 if label and isinstance(label, Gtk.Label):
-                    label.set_text(
-                        "Error: Invalid item or label."
-                        )
+                    label.set_text("Error: Invalid item or label.")
                 return
 
             text_to_display = getattr(item, attr_name, "")
@@ -974,27 +1145,21 @@ class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
             if item.is_special_row:
                 if attr_name == "key":
                     key_text = GLib.markup_escape_text(item.key if item.key else "")
-                    value_text = GLib.markup_escape_text(
-                        item.value if item.value else ""
-                        )
+                    value_text = GLib.markup_escape_text(item.value if item.value else "")
                     full_text = key_text
                     if value_text.strip():
                         full_text += f" {value_text}"
                     label.set_markup(
                         f"<b><span foreground='{self._special_row_color}'>{full_text}</span></b>"
-                        )
+                    )
                 else:
                     label.set_markup("")
             else:
                 color_to_use = (
-                    self._header_key_color
-                    if attr_name == "key"
-                    else self._header_value_color
-                    )
+                    self._header_key_color if attr_name == "key" else self._header_value_color
+                )
                 escaped_text = GLib.markup_escape_text(text_to_display)
-                label.set_markup(
-                    f"<span foreground='{color_to_use}'>{escaped_text}</span>"
-                    )
+                label.set_markup(f"<span foreground='{color_to_use}'>{escaped_text}</span>")
 
         factory.connect("setup", setup_func)
         factory.connect("bind", bind_func_internal)

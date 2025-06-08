@@ -1,9 +1,22 @@
+"""Defines the WebScan page for the Woes application.
+
+This page provides a simple interface to run Nikto scans against a target URL
+and display the results.
+"""
+import subprocess
+import re
+"""Defines the WebScan page for the Woes application.
+
+This page provides a simple interface to run Nikto scans against a target URL
+and display the results.
+"""
 import subprocess
 import re
 import logging
+from typing import Optional # Added for type hinting
 
 import gi
-from gi.repository import Gtk, Adw, Gio, GLib
+from gi.repository import Gtk, Adw, Gio, GLib, GObject # Added GObject
 
 from .constants import RESOURCE_PREFIX
 
@@ -22,7 +35,17 @@ class WebScanPage(Adw.PreferencesPage):
     results_textview = Gtk.Template.Child()
     error_banner_webscan = Gtk.Template.Child()
 
-    def on_scan_button_clicked(self, _widget):
+    def on_scan_button_clicked(self, _widget: Gtk.Button):
+        """Handle the 'Scan' button click event.
+
+        Validates the URL entered by the user, then initiates an asynchronous
+        Nikto scan task if the URL is valid. Disables the scan button during
+        the scan.
+
+        Args:
+            _widget: The Gtk.Button that was clicked.
+
+        """
         target_url = self.url_entry.get_text()
 
         # URL validation
@@ -37,7 +60,7 @@ class WebScanPage(Adw.PreferencesPage):
             r"(?::\d{2,5})?"  # Optional port
             r"(?:[/?#]\S*)?$",  # Optional path, query, fragment
             re.IGNORECASE,
-            )
+        )
         if not url_pattern.match(target_url):
             self.show_error_toast("Invalid URL format. Please enter a valid URL.")
             return
@@ -57,10 +80,28 @@ class WebScanPage(Adw.PreferencesPage):
         task.set_task_data(target_url)
         task.run_in_thread(self._run_scan_task_thread_func)
 
-    def _run_scan_task_thread_func(
-            self, gio_task, _source_object, task_data, _cancellable
-            ):
-        """Worker function for Gio.Task that runs Nikto scan in a separate thread."""
+    def _run_scan_task_thread_func(self,
+                                   gio_task: Gio.Task,
+                                   _source_object: GObject.Object,
+                                   task_data: str,
+                                   _cancellable: Gio.Cancellable):
+        """Execute the Nikto scan in a separate thread.
+
+        This method is run by `Gio.Task.run_in_thread`. It takes the target URL,
+        prepends 'http://' if no scheme is present, and runs the Nikto command
+        using `subprocess.Popen`. It captures stdout and stderr.
+
+        Returns results or error information via `gio_task.return_value` or
+        `gio_task.return_error` (implicitly, by raising GLib.Error for task failures,
+        though here it returns specific error types as strings in a tuple).
+
+        Args:
+            gio_task: The `Gio.Task` associated with this asynchronous operation.
+            _source_object: The source GObject that initiated the task (unused).
+            task_data: The target URL string passed via `task.set_task_data()`.
+            _cancellable: A `Gio.Cancellable` (unused in this implementation).
+
+        """
         target_url = task_data
 
         try:
@@ -68,11 +109,11 @@ class WebScanPage(Adw.PreferencesPage):
                 target_url = "http://" + target_url
 
             with subprocess.Popen(
-                    ["nikto", "-h", target_url, "-Tuning", "xCGIVulnerable"],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    ) as process:
+                ["nikto", "-h", target_url, "-Tuning", "xCGIVulnerable"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            ) as process:
                 stdout, stderr = process.communicate(timeout=300)
             gio_task.return_value((stdout, stderr, None))
 
@@ -80,11 +121,22 @@ class WebScanPage(Adw.PreferencesPage):
             gio_task.return_value((None, None, "FileNotFoundError"))
         except subprocess.TimeoutExpired:
             gio_task.return_value((None, None, "TimeoutExpired"))
-        except Exception as e: # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-except
             gio_task.return_value((None, str(e), "Exception"))
 
-    def _on_scan_task_done(self, task, result, _user_data):
-        """Callback for when the Gio.Task is complete. Runs in the main thread."""
+    def _on_scan_task_done(self, task: Gio.Task, result: Gio.AsyncResult, _user_data: object):
+        """Handle completion of the Nikto scan task.
+
+        This callback is executed in the main thread. It retrieves the results
+        (or error information) from the completed `Gio.Task` and updates the UI
+        (TextView for results, error banner for errors). Re-enables the scan button.
+
+        Args:
+            task: The `Gio.Task` that has completed.
+            result: The `Gio.AsyncResult` associated with the task's completion.
+            _user_data: User data passed to the callback (unused).
+
+        """
         target_url = task.get_task_data()
 
         try:
@@ -93,13 +145,13 @@ class WebScanPage(Adw.PreferencesPage):
             if error_type == "FileNotFoundError":
                 self.show_error_toast(
                     "Nikto command not found. Please ensure it is installed and in your PATH."
-                    )
+                )
                 self._update_textview("", "Error: Nikto not found.")
             elif error_type == "TimeoutExpired":
                 self.show_error_toast(f"Scan for {target_url} timed out.")
                 self._update_textview(
                     "", f"Error: Scan for {target_url} timed out after 5 minutes."
-                    )
+                )
             elif error_type == "Exception":
                 self.show_error_toast(f"An error occurred: {stderr_or_error_msg}")
                 self._update_textview("", f"An error occurred: {stderr_or_error_msg}")
@@ -113,7 +165,17 @@ class WebScanPage(Adw.PreferencesPage):
         finally:
             self.scan_button.set_sensitive(True)
 
-    def _update_textview(self, stdout, stderr):
+    def _update_textview(self, stdout: Optional[str], stderr: Optional[str]):
+        """Update the results TextView with Nikto's stdout and stderr.
+
+        Appends stdout first, then stderr if present. Scrolls the TextView
+        to the end to show the latest results.
+
+        Args:
+            stdout: The standard output from the Nikto command, or None.
+            stderr: The standard error from the Nikto command, or None.
+
+        """
         buffer = self.results_textview.get_buffer()
         if stdout:
             buffer.insert(buffer.get_end_iter(), stdout)
@@ -124,10 +186,23 @@ class WebScanPage(Adw.PreferencesPage):
         if scroll_adj:
             scroll_adj.set_value(scroll_adj.get_upper() - scroll_adj.get_page_size())
 
-    def show_error_toast(self, message):
+    def show_error_toast(self, message: str):
+        """Display an error message in the page's Adw.Banner.
+
+        Args:
+            message: The error message to display.
+
+        """
         logging.error("Displaying error: %s", message)
         self.error_banner_webscan.set_title(message)
         self.error_banner_webscan.set_revealed(True)
 
-    def on_error_banner_dismiss_clicked(self, _widget, *_args):
+    def on_error_banner_dismiss_clicked(self, _widget: Adw.Banner, *_args):
+        """Handle the dismissal of the error banner.
+
+        Args:
+            _widget: The Adw.Banner or its dismiss button.
+            *_args: Additional arguments (unused).
+
+        """
         self.error_banner_webscan.set_revealed(False)
