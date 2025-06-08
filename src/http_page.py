@@ -1,29 +1,35 @@
-from .constants import RESOURCE_PREFIX, USER_AGENTS, APP_ID
-from gi.repository import Adw, Gio, GObject, Gtk, GLib, Gdk
+# pylint: disable=too-many-lines
 import logging
 import re
+import ssl
+import socket # Added for getaddrinfo patching
+from enum import Enum # Added for HttpErrorType
 from typing import Optional
 
 import requests
-import requests.utils  # For urlparse
-from enum import Enum  # Added for HttpErrorType
-import ssl
-import socket # Added for getaddrinfo patching
+import requests.utils # For urlparse
 from requests.adapters import HTTPAdapter
-# We might need urllib3.util.ssl_ later if ssl.CERT_REQUIRED needs resolving, but requests usually handles this.
-# from urllib3.util.ssl_ import resolve_cert_reqs
-import gi
-
-gi.require_version('Adw', '1')
-gi.require_version('Gtk', '4.0')
 
 try:
     import dns.resolver
     import dns.exception
 except ImportError:
-    dns = None # type: ignore
-    logging.warning("dnspython library not found. Custom DNS functionality will be disabled.")
+    dns = None  # type: ignore # pylint: disable=invalid-name
+    logging.warning(
+        "dnspython library not found. Custom DNS functionality will be disabled."
+        )
 
+import gi
+from gi.repository import Adw, Gio, GObject, Gtk, GLib, Gdk
+
+from .constants import RESOURCE_PREFIX, USER_AGENTS, APP_ID
+
+# We might need urllib3.util.ssl_ later if ssl.CERT_REQUIRED needs resolving, but requests usually handles this.
+# from urllib3.util.ssl_ import resolve_cert_reqs
+
+
+gi.require_version("Adw", "1")
+gi.require_version("Gtk", "4.0")
 
 # Attempt to import urllib3 exceptions from requests, which vendors it.
 try:
@@ -37,15 +43,22 @@ except ImportError:
         # Define dummy classes for isinstance checks to not fail, or handle differently.
         class _DummyUrllib3Exception(Exception):
             pass
-        urllib3_exceptions = type('urllib3_exceptions', (), {
-            'MaxRetryError': _DummyUrllib3Exception,
-            'NewConnectionError': _DummyUrllib3Exception,
-            })
-        logging.warning("Could not import urllib3.exceptions. Connection refused detection might be limited.")
+
+        urllib3_exceptions = type(
+            "urllib3_exceptions",
+            (),
+            {
+                "MaxRetryError": _DummyUrllib3Exception,
+                "NewConnectionError": _DummyUrllib3Exception,
+                },
+            )
+        logging.warning(
+            "Could not import urllib3.exceptions. Connection refused detection might be limited."
+            )
 
 
 class CustomSNIAdapter(HTTPAdapter):
-    def __init__(self, sni_hostname=None, *args, **kwargs):
+    def __init__(self, *args, sni_hostname=None, **kwargs):
         self.sni_hostname = sni_hostname
         super().__init__(*args, **kwargs)
 
@@ -58,17 +71,17 @@ class CustomSNIAdapter(HTTPAdapter):
             # Configure the PoolManager instance itself.
             # These are direct arguments for PoolManager or will be passed via **connection_pool_kw
             # if they are not explicit PoolManager constructor args.
-            pool_kwargs['assert_hostname'] = self.sni_hostname
+            pool_kwargs["assert_hostname"] = self.sni_hostname
             # Ensure cert_reqs is set for validation.
             # ssl.CERT_REQUIRED is the typical value when verification is enabled.
-            pool_kwargs['cert_reqs'] = ssl.CERT_REQUIRED
+            pool_kwargs["cert_reqs"] = ssl.CERT_REQUIRED
 
             # Retrieve existing connection_pool_kw if any, or an empty dict.
             # These are kwargs intended for the ConnectionPool instances that PoolManager will create.
-            conn_pool_specific_kwargs = pool_kwargs.pop('connection_pool_kw', {}).copy()
+            conn_pool_specific_kwargs = pool_kwargs.pop("connection_pool_kw", {}).copy()
 
             # Add our SNI-specific server_hostname to these ConnectionPool kwargs.
-            conn_pool_specific_kwargs['server_hostname'] = self.sni_hostname
+            conn_pool_specific_kwargs["server_hostname"] = self.sni_hostname
 
             # 'assert_hostname' can also be set per-pool, but setting it on PoolManager
             # (as done above) is generally sufficient if SNI matches the asserted hostname.
@@ -92,10 +105,10 @@ class CustomSNIAdapter(HTTPAdapter):
     # If proxies are a concern, proxy_manager_for might also need overriding.
     # For now, focusing on direct connections.
 
-# Configure logger for the module
+
 logger = logging.getLogger(__name__)
 
-# Define error domain and codes for HTTP operations
+
 WOES_HTTP_ERROR_DOMAIN = "woes-http-error-domain"
 
 
@@ -108,7 +121,7 @@ class HttpErrorType(int, Enum):
     CANCELLED = 5
 
 
-class HeaderItem(GObject.Object):
+class HeaderItem(GObject.Object): # pylint: disable=too-few-public-methods
     key: str
     value: str
     is_special_row: bool
@@ -121,7 +134,7 @@ class HeaderItem(GObject.Object):
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/http_page.ui")
-class HttpPage(Adw.PreferencesPage):
+class HttpPage(Adw.PreferencesPage): # pylint: disable=too-few-public-methods
     __gtype_name__ = "HttpPage"
     http_entry_row = Gtk.Template.Child("http_entry_row")
     http_apply_button = Gtk.Template.Child("http_apply_button")
@@ -132,22 +145,35 @@ class HttpPage(Adw.PreferencesPage):
     error_banner = Gtk.Template.Child("error_banner")
     http_results_group = Gtk.Template.Child("http_results_group")
     clear_results_button = Gtk.Template.Child("clear_results_button")
-    copy_results_button = Gtk.Template.Child() # Added
+    copy_results_button = Gtk.Template.Child()
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         logger.debug("HttpPage initialized.")
         self.current_http_task = None
-        self._current_header_items = [] # For refreshing view on color change
+        self._current_header_items = []
+        self._http_task_data_for_thread = {}
 
         self.settings = Gio.Settings(schema_id=APP_ID)
-        self._header_key_color = self.settings.get_string("http-output-header-key-color")
-        self._header_value_color = self.settings.get_string("http-output-header-value-color")
-        self._special_row_color = self.settings.get_string("http-output-special-row-color")
+        self._header_key_color = self.settings.get_string(
+            "http-output-header-key-color"
+            )
+        self._header_value_color = self.settings.get_string(
+            "http-output-header-value-color"
+            )
+        self._special_row_color = self.settings.get_string(
+            "http-output-special-row-color"
+            )
 
-        self.settings.connect(f"changed::http-output-header-key-color", self._on_color_setting_changed)
-        self.settings.connect(f"changed::http-output-header-value-color", self._on_color_setting_changed)
-        self.settings.connect(f"changed::http-output-special-row-color", self._on_color_setting_changed)
+        self.settings.connect(
+            "changed::http-output-header-key-color", self._on_color_setting_changed
+            )
+        self.settings.connect(
+            "changed::http-output-header-value-color", self._on_color_setting_changed
+            )
+        self.settings.connect(
+            "changed::http-output-special-row-color", self._on_color_setting_changed
+            )
 
         self.header_list_store = Gio.ListStore.new(HeaderItem)
         selection_model = Gtk.MultiSelection.new(self.header_list_store)
@@ -175,15 +201,11 @@ class HttpPage(Adw.PreferencesPage):
             self.http_apply_button.set_use_underline(True)
 
     def _connect_signals(self) -> None:
-        self.http_entry_row.connect(
-            "entry-activated", self._on_entry_row_activated
-            )
+        self.http_entry_row.connect("entry-activated", self._on_entry_row_activated)
         self.http_apply_button.connect("clicked", self._on_entry_row_activated)
-        self.http_pragma_switch_row.connect(
-            "notify::active", self._on_pragma_toggled
-            )
+        self.http_pragma_switch_row.connect("notify::active", self._on_pragma_toggled)
         self.clear_results_button.connect("clicked", self._on_clear_results_clicked)
-        if self.copy_results_button: # Added
+        if self.copy_results_button:
             self.copy_results_button.connect("clicked", self._on_copy_results_clicked)
         if self.error_banner:
             self.error_banner.connect("button-clicked", self._on_error_banner_dismiss)
@@ -194,9 +216,8 @@ class HttpPage(Adw.PreferencesPage):
         if self.header_list_store:
             for i in range(self.header_list_store.get_n_items()):
                 item = self.header_list_store.get_item(i)
-                if isinstance(item, HeaderItem): # Make sure it's the correct type
+                if isinstance(item, HeaderItem):
                     if item.is_special_row:
-                        # For special rows like URL/Status, just join key and value if value exists
                         if item.value and item.value.strip():
                             lines.append(f"{item.key} {item.value}")
                         else:
@@ -207,18 +228,17 @@ class HttpPage(Adw.PreferencesPage):
         if lines:
             text_to_copy = "\n".join(lines)
             try:
-                # Gtk.Clipboard.get_default() requires a Gdk.Display argument.
-                # self.get_display() should provide it.
-                clipboard = Gdk.Display.get_default().get_clipboard() # Corrected way to get clipboard
+                clipboard = (
+                    Gdk.Display.get_default().get_clipboard()
+                    )
                 if clipboard:
-                    clipboard.set_text(text_to_copy) # Corrected: set_text does not take -1
+                    clipboard.set_text(text_to_copy)
                     logger.info("Headers copied to clipboard successfully.")
-                    # Optional: Show a toast notification here
-                    # Example: self.show_toast(Adw.Toast(title="Headers copied to clipboard"))
+                    # Example: self.show_toast(Adw.Toast(title="Headers copied to clipboard")) # type: ignore
                 else:
                     logger.warning("Failed to get default clipboard.")
-            except Exception as e:
-                logger.error(f"Error copying to clipboard: {e}", exc_info=True)
+            except Exception as e: # pylint: disable=broad-exception-caught
+                logger.error("Error copying to clipboard: %s", e, exc_info=True)
         else:
             logger.info("No headers to copy.")
 
@@ -228,16 +248,16 @@ class HttpPage(Adw.PreferencesPage):
         logger.info("Fetching headers for URL: %s (original: %s)", url, original_url)
 
         if not self._is_valid_url(url):
-            logger.warning("Invalid URL provided: %s (processed as: %s)", original_url, url)
-            self._display_error(
-                "Invalid URL format: Please enter a valid URL."
+            logger.warning(
+                "Invalid URL provided: %s (processed as: %s)", original_url, url
                 )
+            self._display_error("Invalid URL format: Please enter a valid URL.")
             self._update_column_view_model(None)
             return
 
         self._clear_error()
         self.http_entry_row.set_sensitive(False)
-        if hasattr(self, 'http_apply_button'):
+        if hasattr(self, "http_apply_button"):
             self.http_apply_button.set_sensitive(False)
 
         host_header = self.http_host_header_row.get_text().strip()
@@ -260,35 +280,41 @@ class HttpPage(Adw.PreferencesPage):
         self.current_http_task = task
         task.run_in_thread(self._fetch_headers_task_thread_func)
 
-    def _fetch_headers_task_thread_func(self,
-                                        task: Gio.Task,
-                                        source_object,
-                                        task_data: dict,
-                                        cancellable: Optional[Gio.Cancellable]):
-        current_task_data = source_object._http_task_data_for_thread
+    def _fetch_headers_task_thread_func(  # pylint: disable=too-many-locals,too-many-branches,too-many-statements,too-many-nested-blocks # noqa: C901
+            self,
+            task: Gio.Task, # pylint: disable=unused-argument
+            source_object, # pylint: disable=unused-argument
+            task_data_arg: dict, # pylint: disable=unused-argument
+            cancellable: Optional[Gio.Cancellable],
+            ):
+        current_task_data = self._http_task_data_for_thread
 
-        url_to_fetch = current_task_data["url"] # Initially, this is what we aim for
-        original_url_with_scheme = current_task_data["url"] # Keep original for Host header if IP is resolved
+        url_to_fetch = current_task_data["url"]
+        original_url_with_scheme = current_task_data["url"]
         use_akamai_pragma = current_task_data["use_akamai_pragma"]
-        host_header_from_input = current_task_data.get("host_header") # User-defined host header
+        host_header_from_input = current_task_data.get("host_header")
         user_agent = current_task_data.get("user_agent")
         custom_dns_server = current_task_data.get("custom_dns_server")
 
-        initial_request_specific_headers = {} # For Host header mainly
-        session_headers = {} # For User-Agent, Pragma
-        original_hostname = None # Will be populated if custom DNS is used
+        initial_request_specific_headers = {}
+        session_headers = {}
+        original_hostname = None
 
         original_getaddrinfo = None
         resolved_addresses_for_host = None
 
-        if custom_dns_server and dns: # Check if dnspython was imported
+        if custom_dns_server and dns:
             parsed_url_obj = requests.utils.urlparse(original_url_with_scheme)
-            original_hostname = parsed_url_obj.hostname # This is the hostname we want to resolve
+            original_hostname = parsed_url_obj.hostname
 
             if not original_hostname:
-                logger.warning(f"Could not parse hostname from URL for custom DNS: {original_url_with_scheme}")
+                logger.warning(
+                    "Could not parse hostname from URL for custom DNS: %s", original_url_with_scheme
+                    )
             else:
-                logger.info(f"Attempting to resolve '{original_hostname}' using custom DNS server {custom_dns_server}")
+                logger.info(
+                    "Attempting to resolve '%s' using custom DNS server %s", original_hostname, custom_dns_server
+                    )
                 resolver = dns.resolver.Resolver()
                 resolver.nameservers = [custom_dns_server]
                 resolver.timeout = 2.0
@@ -296,193 +322,209 @@ class HttpPage(Adw.PreferencesPage):
 
                 all_ips = []
                 try:
-                    for rdtype in ('A', 'AAAA'):
+                    for rdtype in ("A", "AAAA"):
                         try:
                             answers = resolver.resolve(original_hostname, rdtype)
                             for rdata in answers:
                                 all_ips.append(rdata.address)
                         except dns.resolver.NoAnswer:
-                            logger.debug(f"No {rdtype} records found for {original_hostname} using {custom_dns_server}.")
-                            pass # Continue to next record type
-                        except dns.exception.DNSException as e: # More specific exceptions
-                            logger.warning(f"DNS resolution for {rdtype} records of {original_hostname} failed: {e}")
-                            pass # Continue to next record type if one fails
+                            logger.debug(
+                                "No %s records found for %s using %s.", rdtype, original_hostname, custom_dns_server
+                            )
+                        except (
+                                dns.exception.DNSException
+                                ) as e:
+                            logger.warning(
+                                "DNS resolution for %s records of %s failed: %s", rdtype, original_hostname, e
+                                )
 
                     if all_ips:
                         resolved_addresses_for_host = all_ips
-                        logger.info(f"Resolved '{original_hostname}' to {resolved_addresses_for_host} via {custom_dns_server}.")
+                        logger.info(
+                            "Resolved '%s' to %s via %s.",
+                            original_hostname, resolved_addresses_for_host, custom_dns_server
+                        )
                     else:
                         logger.warning(
-                            f"Custom DNS {custom_dns_server} provided no A or AAAA records for {original_hostname}. "
-                            "Falling back to system DNS for this request."
-                        )
-                except Exception as e: # Catch any other unexpected errors during resolution
+                            "Custom DNS %s provided no A or AAAA records for %s. "
+                            "Falling back to system DNS for this request.", custom_dns_server, original_hostname
+                            )
+                except Exception as e:  # pylint: disable=broad-exception-caught
                     logger.error(
-                        f"Unexpected error during custom DNS processing for {original_hostname}: {e}", exc_info=True
-                    )
-                    # original_hostname remains set, but resolved_addresses_for_host is None, so no patching.
+                        "Unexpected error during custom DNS processing for %s: %s", original_hostname, e,
+                        exc_info=True,
+                        )
 
-        if resolved_addresses_for_host and original_hostname: # Ensure original_hostname is also valid
+        if resolved_addresses_for_host and original_hostname:
             original_getaddrinfo = socket.getaddrinfo
 
-            # Need to capture original_hostname_for_patch and resolved_ips_for_patch
-            # to avoid issues with these variables changing in the outer scope if this function
-            # were ever to be reused in a loop or more complex scenario.
-            # For current single-use, direct capture is fine but good practice.
             captured_original_hostname = original_hostname
             captured_resolved_ips = resolved_addresses_for_host
 
-            def custom_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+            def custom_getaddrinfo(host, port, family=0, addr_type=0, proto=0, flags=0): # pylint: disable=too-many-arguments,redefined-builtin,too-many-positional-arguments
                 if host == captured_original_hostname:
-                    logger.debug(f"Custom getaddrinfo: Intercepting '{host}', returning {captured_resolved_ips}")
+                    logger.debug(
+                        "Custom getaddrinfo: Intercepting '%s', returning %s", host, captured_resolved_ips
+                        )
                     results = []
                     for ip_addr in captured_resolved_ips:
-                        addr_family = socket.AF_INET6 if ':' in ip_addr else socket.AF_INET
-                        if family == 0 or family == addr_family: # Respect family hint if provided
-                            # Using common values for type and proto (TCP stream)
-                            # canonname can be an empty string if not available/requested.
-                            results.append((addr_family, socket.SOCK_STREAM, socket.IPPROTO_TCP, '', (ip_addr, port)))
+                        addr_family = (
+                            socket.AF_INET6 if ":" in ip_addr else socket.AF_INET
+                            )
+                        if family in (0, addr_family): # C1805, R1714
+                            results.append(
+                                (
+                                    addr_family,
+                                    socket.SOCK_STREAM,
+                                    socket.IPPROTO_TCP,
+                                    "",
+                                    (ip_addr, port),
+                                    )
+                                )
 
-                    if not results and family != 0: # If a specific family was requested but we didn't match any
-                        logger.warning(f"Custom getaddrinfo: No addresses for '{host}' matched requested family {family}. Falling back.")
-                        return original_getaddrinfo(host, port, family, type, proto, flags)
-                    elif not results: # No IPs resolved or none matched default family behavior
-                         logger.warning(f"Custom getaddrinfo: No addresses for '{host}' after filtering. Falling back.")
-                         return original_getaddrinfo(host, port, family, type, proto, flags)
+                    if not results and family: # C1805
+                        logger.warning(
+                            "Custom getaddrinfo: No addresses for '%s' "
+                            "matched requested family %s. Falling back.", host, family
+                        )
+                        return original_getaddrinfo(
+                            host, port, family, addr_type, proto, flags
+                            )
+                    if not results:
+                        logger.warning(
+                            "Custom getaddrinfo: No addresses for '%s' after filtering. Falling back.", host
+                            )
+                        return original_getaddrinfo(
+                            host, port, family, addr_type, proto, flags
+                            )
                     return results
-                else:
-                    # Fallback for any other hostname
-                    return original_getaddrinfo(host, port, family, type, proto, flags)
+                return original_getaddrinfo(host, port, family, addr_type, proto, flags)
 
             socket.getaddrinfo = custom_getaddrinfo
-            logger.info(f"socket.getaddrinfo patched to use custom DNS results for '{original_hostname}'.")
+            logger.info(
+                "socket.getaddrinfo patched to use custom DNS results for '%s'.", original_hostname
+                )
         else:
-            # This will be logged if custom_dns_server is not set, dns module not available,
-            # original_hostname could not be parsed, or resolution failed to yield any IPs.
-            # It's a normal path if custom DNS is not configured or fails.
-            logger.debug("Not patching socket.getaddrinfo, custom DNS not used or resolution failed/yielded no IPs.")
+            logger.debug(
+                "Not patching socket.getaddrinfo, custom DNS not used or resolution failed/yielded no IPs."
+                )
 
-        # Determine if SNI override is needed.
-        # This adapter is for when the URL itself is an IP address, and SNI (via Host header) is needed.
-        # If custom DNS resolved a hostname, url_to_fetch is still the hostname, and requests handles SNI.
         use_custom_sni_adapter = False
         parsed_url_for_sni_check = requests.utils.urlparse(url_to_fetch)
-        # Check if the netloc of the URL we are about to fetch is an IP address.
-        # A simple check: consists of digits, dots, and possibly colons/brackets for IPv6.
-        # This isn't a perfect IP regex but covers common cases.
-        is_url_ip_address = all(c.isdigit() or c == '.' or c == ':' or c == '[' or c == ']' for c in parsed_url_for_sni_check.netloc.split(':', 1)[0])
+        is_url_ip_address = all(
+            c.isdigit() or c == "." or c == ":" or c == "[" or c == "]"
+            for c in parsed_url_for_sni_check.netloc.split(":", 1)[0]
+        )
 
-        if url_to_fetch.startswith("https://") and is_url_ip_address and host_header_from_input:
-            # If URL is an IP and user provides a Host header, that Host header implies the SNI name.
+        if (
+                url_to_fetch.startswith("https://")
+                and is_url_ip_address
+                and host_header_from_input
+                ):
             use_custom_sni_adapter = True
-            # The sni_hostname for the adapter should be the user-provided Host header.
-            # 'original_hostname' might be from custom DNS, but host_header_from_input is what user specified for THIS IP request.
             logger.info(
-                f"URL '{url_to_fetch}' is IP-based. User-provided Host header '{host_header_from_input}' will be used for SNI via CustomSNIAdapter."
+                "URL '%s' is IP-based. User-provided Host header '%s' will be used for SNI via CustomSNIAdapter.",
+                url_to_fetch, host_header_from_input
             )
         elif custom_dns_server and original_hostname and not is_url_ip_address:
-             logger.info(
-                f"Custom DNS resolved {original_hostname}, but URL '{url_to_fetch}' is a hostname. "
-                "Requests will handle SNI; CustomSNIAdapter not mounted for this reason."
-            )
-
+            logger.info(
+                "Custom DNS resolved %s, but URL '%s' is a hostname. "
+                "Requests will handle SNI; CustomSNIAdapter not mounted for this reason.",
+                original_hostname, url_to_fetch
+                )
 
         session = requests.Session()
-        # session.verify = True by default (SSL Verification ON)
 
-        if use_custom_sni_adapter and host_header_from_input: # SNI hostname must be from user's Host input for IP URL
+        if use_custom_sni_adapter and host_header_from_input:
             adapter = CustomSNIAdapter(sni_hostname=host_header_from_input)
-            session.mount('https://', adapter)
-            logger.debug(f"Mounted CustomSNIAdapter for https:// with SNI: {host_header_from_input}")
+            session.mount("https://", adapter)
+            logger.debug(
+                "Mounted CustomSNIAdapter for https:// with SNI: %s", host_header_from_input
+                )
         elif use_custom_sni_adapter and not host_header_from_input:
-            logger.warning("CustomSNIAdapter was considered but no host_header_from_input was available for SNI name.")
+            logger.warning(
+                "CustomSNIAdapter was considered but no host_header_from_input was available for SNI name."
+                )
 
-
-        # Host header from user input.
-        # If custom DNS was used to resolve an IP but we are still fetching by hostname, this logic is fine.
-        # If url_to_fetch IS an IP, this host_header_from_input is critical (and used for SNI above).
         if host_header_from_input:
             initial_request_specific_headers["Host"] = host_header_from_input
-            logger.info(f"User-provided Host header '{host_header_from_input}' will be used for the request.")
-        # No 'elif' needed here to set Host from original_hostname because if custom DNS was used
-        # for a hostname, url_to_fetch is still that hostname, and requests will set the Host header.
-        # If custom DNS resolved an IP and url_to_fetch became that IP (which is now NOT the case),
-        # then host_header_from_input (or original_hostname if user didn't specify) would be needed.
-        # Since url_to_fetch is not rewritten to IP, the Host header is derived from it by requests,
-        # unless overridden by host_header_from_input.
+            logger.info(
+                "User-provided Host header '%s' will be used for the request.", host_header_from_input
+                )
 
-        # Prepare and set session-level headers (User-Agent, Pragma)
         if user_agent and user_agent != "None":
             session_headers["User-Agent"] = user_agent
         if use_akamai_pragma:
             akamai_pragma_directives = [
-                "akamai-x-get-request-id", "akamai-x-get-cache-key", "akamai-x-cache-on",
-                "akamai-x-cache-remote-on", "akamai-x-get-true-cache-key", "akamai-x-check-cacheable",
-                "akamai-x-get-extracted-values", "akamai-x-feo-trace", "x-akamai-logging-mode: verbose",
-            ]
+                "akamai-x-get-request-id",
+                "akamai-x-get-cache-key",
+                "akamai-x-cache-on",
+                "akamai-x-cache-remote-on",
+                "akamai-x-get-true-cache-key",
+                "akamai-x-check-cacheable",
+                "akamai-x-get-extracted-values",
+                "akamai-x-feo-trace",
+                "x-akamai-logging-mode: verbose",
+                ]
             session_headers["Pragma"] = ", ".join(akamai_pragma_directives)
         if session_headers:
             session.headers.update(session_headers)
 
-        logger.debug(
-            "Task thread: Making GET request via session to %s. SNI Adapter in use: %s. Akamai Pragma (on session): %s, User-Agent (on session): %s, Initial Specific Headers (Host): %s. Socket patched: %s",
-            url_to_fetch,
-            use_custom_sni_adapter,
-            "Yes" if use_akamai_pragma else "No",
-            session.headers.get("User-Agent", "Default"),
-            initial_request_specific_headers.get("Host", "Default"),
-            "Yes" if original_getaddrinfo else "No" # Log if socket.getaddrinfo was patched
-        )
+        logger.info("Task thread: Making GET request to %s.", url_to_fetch)
 
         try:
-            # This is the main block where the HTTP request happens.
-            # socket.getaddrinfo will be our custom version if patching occurred.
             if cancellable and cancellable.is_cancelled():
                 task.return_new_error_literal(
                     GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
                     HttpErrorType.CANCELLED.value,
-                    "Task was cancelled."
-                )
+                    "Task was cancelled.",
+                    )
                 return
 
             response = session.get(
                 url_to_fetch,
-                headers=initial_request_specific_headers if initial_request_specific_headers else None,
+                headers=(
+                    initial_request_specific_headers
+                    if initial_request_specific_headers
+                    else None
+                    ),
                 allow_redirects=True,
-                timeout=5
-                # verify=True is implied by session default (session.verify is not False)
-            )
+                timeout=5,
+                )
 
             all_responses_data = []
 
-            # Process history (redirects)
             for hist_resp in response.history:
                 hist_data = {
-                    'type': 'redirect',
-                    'url': str(hist_resp.url),
-                    'status_code': hist_resp.status_code,
-                    'headers': {str(k): str(v) for k, v in dict(hist_resp.headers).items()}
+                    "type": "redirect",
+                    "url": str(hist_resp.url),
+                    "status_code": hist_resp.status_code,
+                    "headers": {
+                        str(k): str(v) for k, v in dict(hist_resp.headers).items()
+                        },
                     }
                 all_responses_data.append(hist_data)
 
             try:
                 response.raise_for_status()
-                final_data_type = 'final'
+                final_data_type = "final"
             except requests.exceptions.HTTPError as http_err:
-                logger.warning("Task thread: HTTPError for %s: %s", url_to_fetch, http_err)
+                logger.warning(
+                    "Task thread: HTTPError for %s: %s", url_to_fetch, http_err
+                    )
                 error_message = self._format_http_error(http_err)
                 task.return_new_error_literal(
                     GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
                     HttpErrorType.HTTP_ERROR.value,
-                    error_message
+                    error_message,
                     )
                 return
 
             final_data = {
-                'type': final_data_type,
-                'url': str(response.url),
-                'status_code': response.status_code,
-                'headers': {str(k): str(v) for k, v in dict(response.headers).items()}
+                "type": final_data_type,
+                "url": str(response.url),
+                "status_code": response.status_code,
+                "headers": {str(k): str(v) for k, v in dict(response.headers).items()},
                 }
             all_responses_data.append(final_data)
 
@@ -494,29 +536,29 @@ class HttpPage(Adw.PreferencesPage):
                 "Request timed out. This could be due to a slow network, server issues, "
                 "or a Web Application Firewall (WAF) interfering. "
                 "Please check the URL or try again later."
-            )
+                )
             task.return_new_error_literal(
                 GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
                 HttpErrorType.TIMEOUT.value,
-                error_message
+                error_message,
                 )
             return
         except requests.exceptions.ConnectionError as e:
             logger.warning("Task thread: ConnectionError for %s: %s", url_to_fetch, e)
-            custom_msg = self._get_detailed_connection_error_message(e, url_to_fetch) # Pass the URL that was actually used
+            custom_msg = self._get_detailed_connection_error_message(e, url_to_fetch)
             if custom_msg:
                 error_message = custom_msg
             else:
                 error_message = (
                     "A network connection error occurred. Please check your internet connection "
                     "and the entered URL, then try again."
-                )
+                    )
             if not error_message:
                 error_message = "Connection Error: Failed to establish a connection."
             task.return_new_error_literal(
                 GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
                 HttpErrorType.CONNECTION_ERROR.value,
-                error_message
+                error_message,
                 )
             return
         except requests.exceptions.RequestException as e:
@@ -525,27 +567,35 @@ class HttpPage(Adw.PreferencesPage):
             task.return_new_error_literal(
                 GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
                 HttpErrorType.REQUEST_EXCEPTION.value,
-                error_message
+                error_message,
                 )
             return
-        except Exception as e:
-            logger.error("Task thread: Truly unexpected error for %s: %s", url_to_fetch, e, exc_info=True)
+        except Exception as e: # pylint: disable=broad-exception-caught
+            logger.error(
+                "Task thread: Truly unexpected error for %s: %s",
+                url_to_fetch,
+                e,
+                exc_info=True,
+                )
             error_message = (
                 "An unexpected internal error occurred while processing your request. "
                 "Please try again later."
-            )
+                )
             task.return_new_error_literal(
                 GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
                 HttpErrorType.GENERIC_UNEXPECTED.value,
-                error_message
+                error_message,
                 )
             return
         finally:
             if original_getaddrinfo:
                 socket.getaddrinfo = original_getaddrinfo
-                logger.info(f"socket.getaddrinfo restored for '{captured_original_hostname if resolved_addresses_for_host and original_hostname else ''}'.")
+                logger.info(
+                    "socket.getaddrinfo restored for '%s'.",
+                    (captured_original_hostname if resolved_addresses_for_host and original_hostname else '')
+                )
 
-    def _get_detailed_connection_error_message(self, exc: Exception, url: str) -> Optional[str]:
+    def _get_detailed_connection_error_message(self, exc: Exception, url: str) -> Optional[str]: # pylint: disable=too-many-branches,too-many-statements # noqa: C901
         """
         Traverses an exception chain to find a "Connection refused" error
         and returns a specific message if it's for an HTTPS URL.
@@ -555,221 +605,241 @@ class HttpPage(Adw.PreferencesPage):
         found_connection_refused = False
         max_depth = 5
 
-        logger.debug("Starting connection error analysis for URL: %s", url)
-
-        for depth in range(max_depth):
+        for _depth in range(max_depth):
             if current_exc is None:
-                logger.debug("Reached end of exception chain (current_exc is None) at depth %d.", depth)
                 break
 
             exc_str = str(current_exc)
 
-            logger.debug("Inspecting exception at depth %d: Type=%s, Args=%s, Str=%s",
-                         depth, type(current_exc).__name__, str(current_exc.args) if hasattr(current_exc, 'args') else "N/A", exc_str)
-
             if isinstance(current_exc, ConnectionRefusedError):
-                logger.debug("Direct ConnectionRefusedError found: %s", current_exc)
                 found_connection_refused = True
                 break
 
             if isinstance(current_exc, urllib3_exceptions.NewConnectionError):
-                logger.debug("urllib3.exceptions.NewConnectionError found: %s", current_exc)
-                if "connection refused" in exc_str.lower() or "errno 111" in exc_str.lower():
+                if (
+                        "connection refused" in exc_str.lower()
+                        or "errno 111" in exc_str.lower()
+                        ):
                     found_connection_refused = True
                     break
-                if hasattr(current_exc, 'original_error') and \
-                   isinstance(current_exc.original_error, ConnectionRefusedError):
-                    logger.debug("Nested ConnectionRefusedError found in NewConnectionError.original_error")
+                if hasattr(current_exc, "original_error") and isinstance(
+                        current_exc.original_error, ConnectionRefusedError
+                        ):
                     found_connection_refused = True
                     break
-                if hasattr(current_exc, 'original_error') and \
-                   hasattr(current_exc.original_error, 'errno') and \
-                   current_exc.original_error.errno == 111:
-                    logger.debug("Nested ConnectionRefusedError (errno 111) found in NewConnectionError.original_error")
+                if (
+                        hasattr(current_exc, "original_error")
+                        and hasattr(current_exc.original_error, "errno")
+                        and current_exc.original_error.errno == 111
+                        ):
                     found_connection_refused = True
                     break
 
             if isinstance(current_exc, urllib3_exceptions.MaxRetryError):
-                logger.debug("urllib3.exceptions.MaxRetryError found. Will inspect its reason.")
-                if hasattr(current_exc, 'reason') and current_exc.reason is not None:
+                if hasattr(current_exc, "reason") and current_exc.reason is not None:
                     reason_exc = current_exc.reason
                     reason_exc_str = str(reason_exc)
-                    logger.debug(
-                        "Inspecting MaxRetryError.reason: Type=%s, Str=%s", type(reason_exc).__name__, reason_exc_str
-                        )
                     if isinstance(reason_exc, urllib3_exceptions.NewConnectionError):
-                        if "connection refused" in reason_exc_str.lower() or \
-                           "errno 111" in reason_exc_str.lower():
+                        if (
+                                "connection refused" in reason_exc_str.lower()
+                                or "errno 111" in reason_exc_str.lower()
+                                ):
                             found_connection_refused = True
                             break
-                        if hasattr(reason_exc, 'original_error') and \
-                           isinstance(reason_exc.original_error, ConnectionRefusedError):
+                        if hasattr(reason_exc, "original_error") and isinstance(
+                                reason_exc.original_error, ConnectionRefusedError
+                                ):
                             found_connection_refused = True
                             break
-                        if hasattr(reason_exc, 'original_error') and \
-                           hasattr(reason_exc.original_error, 'errno') and \
-                           reason_exc.original_error.errno == 111:
+                        if (
+                                hasattr(reason_exc, "original_error")
+                                and hasattr(reason_exc.original_error, "errno")
+                                and reason_exc.original_error.errno == 111
+                                ):
                             found_connection_refused = True
                             break
 
-            if any("connection refused" in str(arg).lower() for arg in current_exc.args if isinstance(arg, str)) or \
-               "connection refused" in exc_str.lower():
-                logger.debug("Found 'connection refused' in string representation of current exception or its args.")
+            if (
+                    any(
+                        "connection refused" in str(arg).lower()
+                        for arg in current_exc.args
+                        if isinstance(arg, str)
+                        )
+                    or "connection refused" in exc_str.lower()
+                    ):
                 found_connection_refused = True
 
-            if any("errno 111" in str(arg).lower() for arg in current_exc.args if isinstance(arg, str)) or \
-               "errno 111" in exc_str.lower():
-                logger.debug("Found 'errno 111' in string representation of current exception or its args.")
+            if (
+                    any(
+                        "errno 111" in str(arg).lower()
+                        for arg in current_exc.args
+                        if isinstance(arg, str)
+                        )
+                    or "errno 111" in exc_str.lower()
+                    ):
                 found_connection_refused = True
 
             next_exc = None
-            if hasattr(current_exc, '__cause__') and current_exc.__cause__ is not None:
-                logger.debug("Moving to __cause__: %s", type(current_exc.__cause__).__name__)
+            if hasattr(current_exc, "__cause__") and current_exc.__cause__ is not None:
                 next_exc = current_exc.__cause__
-            elif hasattr(current_exc, '__context__') and \
-                    current_exc.__context__ is not None and \
-                    not current_exc.__suppress_context__:
-                logger.debug("Moving to __context__: %s", type(current_exc.__context__).__name__)
+            elif (
+                    hasattr(current_exc, "__context__")
+                    and current_exc.__context__ is not None
+                    and not current_exc.__suppress_context__
+                    ):
                 next_exc = current_exc.__context__
 
-            if current_exc is next_exc:
-                logger.debug("Next exception is same as current, stopping traversal.")
+            if current_exc is next_exc:  # Avoid infinite loops
                 break
             current_exc = next_exc
 
         if found_connection_refused:
             logger.info("Connection refused condition identified for URL: %s", url)
-            if requests.utils.urlparse(url).scheme == 'https':
-                logger.info("URL is HTTPS and connection was refused. Suggesting HTTP.")
+            if requests.utils.urlparse(url).scheme == "https":
                 return (
                     "The URL targetted via HTTPS is refusing the connection. "
                     "It might be an HTTP-only service. Please try with 'http://'."
                     )
-            elif requests.utils.urlparse(url).scheme == 'http':
-                logger.info("URL is HTTP and connection was refused. Suggesting HTTPS.")
+            if requests.utils.urlparse(url).scheme == "http":
                 return (
                     "The HTTP request failed. The server might only support HTTPS for this resource. "
                     "Please try with 'https://'."
                     )
-            else:
-                logger.info("URL is non-HTTP/HTTPS (or scheme missing) and connection was refused.")
-                return "Connection Error: The server at the specified URL actively refused the connection."
+            return "Connection Error: The server at the specified URL actively refused the connection."
 
-        logger.debug("No specific 'Connection refused' condition found that warrants a custom message.")
         return None
 
-    def _fetch_headers_task_done_cb(self, source_object, result: Gio.AsyncResult, user_data):
+    def _fetch_headers_task_done_cb(self, source_object, result: Gio.AsyncResult, user_data): # pylint: disable=too-many-branches,too-many-statements,unused-argument # noqa: C901
         task_being_processed = self.current_http_task
 
         if task_being_processed is None:
-            logger.warning("_fetch_headers_task_done_cb: current_http_task is None. Callback may have been invoked too late or redundantly.")
-            # Safeguard UI re-enablement
-            if hasattr(self, 'http_entry_row') and self.http_entry_row: # Check if UI element exists
+            logger.warning(
+                "_fetch_headers_task_done_cb: current_http_task is None. "
+                "UI might have been re-enabled prematurely."
+            )
+            if (
+                    hasattr(self, "http_entry_row")
+                    and self.http_entry_row
+                    and not self.http_entry_row.get_sensitive()
+                    ):
                 self.http_entry_row.set_sensitive(True)
-            if hasattr(self, 'http_apply_button') and self.http_apply_button: # Check if UI element exists
+            if (
+                hasattr(self, "http_apply_button")
+                and self.http_apply_button
+                and not self.http_apply_button.get_sensitive()
+            ):
                 self.http_apply_button.set_sensitive(True)
             return
 
-        # Clear the main task reference *now* that we have captured the task instance
-        # for this specific callback invocation.
         self.current_http_task = None
-        logger.debug(f"Processing task completion in _fetch_headers_task_done_cb for task: {id(task_being_processed)}")
+        logger.info("Processing task completion in _fetch_headers_task_done_cb.")
 
         try:
-            # This is where propagate_value is called.
             actual_list_of_responses = task_being_processed.propagate_value()
 
-            # This check was moved from the old code, seems useful if propagate_value could return non-list/tuple for success
-            if not isinstance(actual_list_of_responses, list) and isinstance(actual_list_of_responses, tuple):
-                logger.warning((
-                    f"Task {id(task_being_processed)}: Received a tuple {type(actual_list_of_responses)} instead of a list for "
-                    f"success value. Trying to extract from it."
-                ))
-                if len(actual_list_of_responses) > 0 and isinstance(actual_list_of_responses[0], list):
+            if not isinstance(actual_list_of_responses, list) and isinstance(
+                    actual_list_of_responses, tuple
+                    ):
+                if len(actual_list_of_responses) > 0 and isinstance(
+                        actual_list_of_responses[0], list
+                        ):
                     actual_list_of_responses = actual_list_of_responses[0]
-                # This case seems less likely if return_value always wraps in a list
-                elif hasattr(actual_list_of_responses, 'value') and isinstance(actual_list_of_responses.value, list):
+                elif hasattr(actual_list_of_responses, "value") and isinstance(
+                        actual_list_of_responses.value, list
+                        ):
                     actual_list_of_responses = actual_list_of_responses.value
 
-
             if isinstance(actual_list_of_responses, list):
-                logger.info(f"Task {id(task_being_processed)}: Successfully processed task result as list.")
+                logger.info("Successfully processed task result as list.")
                 processed_headers_for_store = []
-                if not actual_list_of_responses: # Check if the list itself is empty
-                    logger.warning(f"Task {id(task_being_processed)}: Received empty list for actual_list_of_responses.")
-                    self._update_column_view_model(None) # Clear view if empty results
+                if not actual_list_of_responses:
+                    logger.info("Received empty list for results.")
+                    self._update_column_view_model(None)
                 else:
                     for i, response_data in enumerate(actual_list_of_responses):
-                        # Ensure response_data is a dict, as expected from _fetch_headers_task_thread_func
                         if not isinstance(response_data, dict):
-                            logger.error(f"Task {id(task_being_processed)}: Expected dict item in response list, got {type(response_data)}. Data: {response_data}")
-                            # Handle this gracefully, e.g., by skipping or erroring out
-                            # For now, let's assume it will be a dict or raise an error that gets caught below.
-                            # If this becomes a common issue, specific error handling for malformed response_data here.
-                            pass # Or raise an error to be caught by the generic Exception handler
+                            logger.error(
+                                "Expected dict item in response list, got %s. Data: %s",
+                                type(response_data), response_data
+                            )
+                            continue
 
                         url_display = f"URL: {response_data.get('url', 'N/A')}"
-                        status_display = f"Status: {response_data.get('status_code', 'N/A')}"
+                        status_display = (
+                            f"Status: {response_data.get('status_code', 'N/A')}"
+                            )
 
-                        if response_data.get('type') == 'redirect':
+                        if response_data.get("type") == "redirect":
                             status_display += " (Redirect)"
-                        elif response_data.get('type') == 'final': # Assuming 'final' or similar for the last one
+                        elif response_data.get("type") == "final":
                             status_display += " (Final)"
 
                         processed_headers_for_store.append(
-                            HeaderItem(key=url_display, value=status_display, is_special_row=True)
-                        )
-
-                        headers_for_this_response = response_data.get('headers', {})
-                        for header_key, header_value in headers_for_this_response.items():
-                            processed_headers_for_store.append(
-                                HeaderItem(key=str(header_key), value=str(header_value), is_special_row=False)
+                            HeaderItem(
+                                key=url_display,
+                                value=status_display,
+                                is_special_row=True,
+                                )
                             )
 
-                        # Add separator if not the last response item
-                        if i < len(actual_list_of_responses) - 1:
-                            processed_headers_for_store.append(HeaderItem(key="", value="", is_special_row=True)) # Separator
+                        headers_for_this_response = response_data.get("headers", {})
+                        for (
+                                header_key,
+                                header_value,
+                                ) in headers_for_this_response.items():
+                            processed_headers_for_store.append(
+                                HeaderItem(
+                                    key=str(header_key),
+                                    value=str(header_value),
+                                    is_special_row=False,
+                                    )
+                                )
 
-                    self._current_header_items = processed_headers_for_store # Store for refresh
+                        if i < len(actual_list_of_responses) - 1:
+                            processed_headers_for_store.append(
+                                HeaderItem(key="---", value="---", is_special_row=True)
+                            )
+
+                    self._current_header_items = processed_headers_for_store
                     self._update_column_view_model(processed_headers_for_store)
-                if hasattr(self, 'http_entry_row') and self.http_entry_row:
-                    self.http_entry_row.remove_css_class("error") # Clear error style on success
+                if hasattr(self, "http_entry_row") and self.http_entry_row:
+                    self.http_entry_row.remove_css_class("error")
             else:
-                # This case should ideally not be reached if propagate_value raises GLib.Error for errors,
-                # or if successful results are always lists.
                 logger.error(
-                    f"Task {id(task_being_processed)}: Result data of unexpected type {type(actual_list_of_responses)}. Expected list."
-                )
-                self._display_error((
-                    f"Failed to process task result data (unexpected data structure: "
+                    "Result data of unexpected type %s. Expected list.", type(actual_list_of_responses)
+                    )
+                self._display_error(
+                    f"Failed to process task result (unexpected data structure: "
                     f"{type(actual_list_of_responses).__name__})."
-                ))
-                if hasattr(self, 'http_entry_row') and self.http_entry_row:
+                )
+                if hasattr(self, "http_entry_row") and self.http_entry_row:
                     self.http_entry_row.add_css_class("error")
                 self._update_column_view_model(None)
 
-        except GLib.Error as e: # This catches errors from task.return_new_error_literal() or Gio-level task issues
-            logger.error(f"Task {id(task_being_processed)} failed with GLib.Error: Domain=%s, Code=%s, Message=%s", e.domain, e.code, e.message)
-            self._display_error(e.message.replace("<b>", "").replace("</b>", "")) # Basic sanitization
-            if hasattr(self, 'http_entry_row') and self.http_entry_row:
+        except GLib.Error as e:
+            logger.error(
+                "Task failed with GLib.Error: Domain=%s, Code=%s, Message='%s'", e.domain, e.code, e.message
+                )
+            self._display_error(e.message.replace("<b>", "").replace("</b>", ""))
+            if hasattr(self, "http_entry_row") and self.http_entry_row:
                 self.http_entry_row.add_css_class("error")
-            self._update_column_view_model(None) # Clear previous results on error
-        except Exception as e: # Catch-all for other Python exceptions during result processing
-            logger.error(f"Task {id(task_being_processed)}: Unexpected Python error in _fetch_headers_task_done_cb: %s", e, exc_info=True)
-            self._display_error((
-                "An unexpected application error occurred while trying to display the results. "
-                "Please try the operation again."
-            ))
-            if hasattr(self, 'http_entry_row') and self.http_entry_row:
+            self._update_column_view_model(None)
+        except Exception as e: # pylint: disable=broad-exception-caught
+            logger.error(
+                "Unexpected Python error in _fetch_headers_task_done_cb: %s", e,
+                exc_info=True,
+                )
+            self._display_error(
+                "An unexpected application error occurred while displaying the results."
+                )
+            if hasattr(self, "http_entry_row") and self.http_entry_row:
                 self.http_entry_row.add_css_class("error")
-            self._update_column_view_model(None) # Clear previous results
+            self._update_column_view_model(None)
         finally:
-            logger.debug(f"Re-enabling UI elements after task {id(task_being_processed)} completion.")
-            if hasattr(self, 'http_entry_row') and self.http_entry_row:
+            if hasattr(self, "http_entry_row") and self.http_entry_row:
                 self.http_entry_row.set_sensitive(True)
-            if hasattr(self, 'http_apply_button') and self.http_apply_button:
+            if hasattr(self, "http_apply_button") and self.http_apply_button:
                 self.http_apply_button.set_sensitive(True)
-            # self.current_http_task is already None due to the change at the beginning of the function.
 
     @staticmethod
     def _ensure_scheme(url: str) -> str:
@@ -791,7 +861,9 @@ class HttpPage(Adw.PreferencesPage):
             re.IGNORECASE,
             )
 
-        return re.match(url_regex, url) is not None and bool(requests.utils.urlparse(url).netloc)
+        return re.match(url_regex, url) is not None and bool(
+            requests.utils.urlparse(url).netloc
+            )
 
     def _format_http_error(self, e: requests.exceptions.HTTPError) -> str:
         status_code = e.response.status_code
@@ -800,17 +872,21 @@ class HttpPage(Adw.PreferencesPage):
         if status_code == 403:
             return "403 Forbidden: You don't have permission to access this URL."
         if status_code == 500:
-            return "500 Internal Server Error: The server encountered an internal error."
+            return (
+                "500 Internal Server Error: The server encountered an internal error."
+                )
         return f"HTTP Error {status_code}: {e.response.reason}."
 
     def _on_pragma_toggled(
-            self, widget: Gtk.Switch, _gparam: GObject.ParamSpec
+            self, widget: Gtk.Switch, _gparam: GObject.ParamSpec # pylint: disable=unused-argument
             ) -> None:
         logger.debug("Akamai Pragma toggled to: %s", widget.get_active())
         if self.http_entry_row.get_text().strip():
             self._on_entry_row_activated(self.http_entry_row)
 
-    def _update_column_view_model(self, header_items: Optional[list[HeaderItem]]) -> None:
+    def _update_column_view_model(
+            self, header_items: Optional[list[HeaderItem]]
+            ) -> None:
         self.header_list_store.remove_all()
 
         if header_items:
@@ -844,13 +920,13 @@ class HttpPage(Adw.PreferencesPage):
 
     def _on_clear_results_clicked(self, _button: Gtk.Button, *_args):
         logger.info("Results cleared by user.")
-        self._current_header_items = [] # Clear stored items
+        self._current_header_items = []
         self._update_column_view_model(None)
         self._clear_error()
         self.http_entry_row.set_text("")
 
     def _on_color_setting_changed(self, settings, key):
-        logger.debug(f"Color setting changed for key: {key}")
+        logger.debug("Color setting changed for key: %s", key)
         if key == "http-output-header-key-color":
             self._header_key_color = settings.get_string(key)
         elif key == "http-output-header-value-color":
@@ -863,7 +939,9 @@ class HttpPage(Adw.PreferencesPage):
             self._update_column_view_model(self._current_header_items)
 
     # Note: Removed @staticmethod decorator
-    def _create_factory(self, attr_name: str, wrap_text: bool = False) -> Gtk.SignalListItemFactory:
+    def _create_factory(
+            self, attr_name: str, wrap_text: bool = False
+            ) -> Gtk.SignalListItemFactory:
         factory = Gtk.SignalListItemFactory()
 
         def setup_func(_, list_item: Gtk.ListItem) -> None:
@@ -879,27 +957,44 @@ class HttpPage(Adw.PreferencesPage):
             label = list_item.get_child()
             item = list_item.get_item()
 
-            if not (label and isinstance(label, Gtk.Label) and item and isinstance(item, HeaderItem)):
+            if not (
+                    label
+                    and isinstance(label, Gtk.Label)
+                    and item
+                    and isinstance(item, HeaderItem)
+                    ):
                 if label and isinstance(label, Gtk.Label):
-                    label.set_text("Error: Invalid item or label.") # Basic error display
+                    label.set_text(
+                        "Error: Invalid item or label."
+                        )
                 return
 
             text_to_display = getattr(item, attr_name, "")
 
             if item.is_special_row:
-                if attr_name == 'key':
+                if attr_name == "key":
                     key_text = GLib.markup_escape_text(item.key if item.key else "")
-                    value_text = GLib.markup_escape_text(item.value if item.value else "")
+                    value_text = GLib.markup_escape_text(
+                        item.value if item.value else ""
+                        )
                     full_text = key_text
                     if value_text.strip():
                         full_text += f" {value_text}"
-                    label.set_markup(f"<b><span foreground='{self._special_row_color}'>{full_text}</span></b>")
+                    label.set_markup(
+                        f"<b><span foreground='{self._special_row_color}'>{full_text}</span></b>"
+                        )
                 else:
                     label.set_markup("")
             else:
-                color_to_use = self._header_key_color if attr_name == 'key' else self._header_value_color
+                color_to_use = (
+                    self._header_key_color
+                    if attr_name == "key"
+                    else self._header_value_color
+                    )
                 escaped_text = GLib.markup_escape_text(text_to_display)
-                label.set_markup(f"<span foreground='{color_to_use}'>{escaped_text}</span>")
+                label.set_markup(
+                    f"<span foreground='{color_to_use}'>{escaped_text}</span>"
+                    )
 
         factory.connect("setup", setup_func)
         factory.connect("bind", bind_func_internal)

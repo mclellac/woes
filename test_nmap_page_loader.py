@@ -1,8 +1,8 @@
 import gi
-gi.require_version('Gtk', '4.0')
+gi.require_version('Gtk', '4.0')  # Gtk might still be needed by Adw or other implicit parts
 gi.require_version('Adw', '1')
-from gi.repository import Gtk, Adw, Gio, GLib
-import os # For manipulating paths if needed
+from gi.repository import Adw, Gio, GLib  # Removed Gtk as it's directly unused
+import os  # For manipulating paths if needed
 import sys
 
 # This is important: Gtk.Application needs to be able to find the .gresource file.
@@ -19,7 +19,8 @@ try:
 
     if not os.path.exists(gresource_path):
         print(f"Error: Compiled GResource file not found at {gresource_path}")
-        print("Please ensure 'glib-compile-resources --target=src/woes.gresources src/woes.gresource.xml --sourcedir=src/' has been run.")
+        print("Please ensure 'glib-compile-resources --target=src/woes.gresources "
+              "src/woes.gresource.xml --sourcedir=src/' has been run.")
         exit(1)
 
     resource = Gio.Resource.load(gresource_path)
@@ -36,7 +37,7 @@ except Exception as e:
 
 
 # Mock necessary Gtk Application and Window if needed for instantiation
-class MockApplication(Adw.Application): # Changed to Adw.Application as Adw.PreferencesPage might need it
+class MockApplication(Adw.Application):  # Changed to Adw.Application as Adw.PreferencesPage might need it
     def __init__(self, **kwargs):
         # We need to ensure the application_id matches what's used by Gio.Settings (APP_ID from constants)
         # or that settings are not strictly required for basic instantiation.
@@ -48,8 +49,8 @@ class MockApplication(Adw.Application): # Changed to Adw.Application as Adw.Pref
         # self.props.resource_base_path = "/app/src" # Path to directory containing gresource file
 
     def do_activate(self):
-        # win = Gtk.Window(application=self) # Adw.ApplicationWindow might be better
-        win = Adw.ApplicationWindow(application=self)
+        # _win = Gtk.Window(application=self) # Adw.ApplicationWindow might be better
+        _win = Adw.ApplicationWindow(application=self)
 
         print("MockApplication activated. Attempting to import and instantiate NmapPage...")
         try:
@@ -65,13 +66,13 @@ class MockApplication(Adw.Application): # Changed to Adw.Application as Adw.Pref
             # To avoid issues with Gio.Settings requiring compiled schemas for this test,
             # we can try to bypass the part of __init__ that uses it, if possible,
             # or ensure schema is available. For now, let's see if it blows up.
-            nmap_page_instance = NmapPage()
+            _nmap_page_instance = NmapPage()
             print("NmapPage instantiated successfully.")
-            # win.set_child(nmap_page_instance) # Optional: realize the widget
+            # _win.set_child(_nmap_page_instance) # Optional: realize the widget
 
         except Exception as e:
             print(f"Error during NmapPage class import or instantiation: {e}")
-            sys.exit(1) # Use sys.exit for cleaner exit status handling
+            sys.exit(1)  # Use sys.exit for cleaner exit status handling
 
         # If we reach here, it's good. We can exit the app.
         self.quit()
@@ -79,7 +80,7 @@ class MockApplication(Adw.Application): # Changed to Adw.Application as Adw.Pref
 
 print("Starting direct instantiation test via MockApplication...")
 app = MockApplication()
-exit_status = app.run([]) # sys.exit(app.run(sys.argv)) is typical, but [] is fine for no args.
+exit_status = app.run([])  # sys.exit(app.run(sys.argv)) is typical, but [] is fine for no args.
 sys.exit(exit_status)
 
 # The original script's direct test without app.run() is less robust for Gtk.Template

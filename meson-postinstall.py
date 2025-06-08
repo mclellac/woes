@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 import compileall
-import sys # Import sys
-import os # os can still be used if DESTDIR logic is desired for other purposes, but not for compileall path here.
+import sys  # Import sys
+# import os  # os can still be used if DESTDIR logic is desired for other purposes, but not for compileall path here.
 
 # The directory to compile is passed by Meson as an argument.
 # sys.argv[0] is the script name

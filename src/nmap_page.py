@@ -1,21 +1,27 @@
-from .utils import create_source_view
-from .style_utils import apply_source_style_scheme
-from .nmap_scanner import NmapScanner, ScanStatus
-from .constants import APP_ID, RESOURCE_PREFIX
-from gi.repository import Adw, Gio, GLib, GObject, Gtk, GtkSource
+# pylint: disable=too-few-public-methods
 import logging
-import nmap
 import re
 import yaml
-import gi
 
-gi.require_version('Adw', '1')
-gi.require_version('Gtk', '4.0')
-gi.require_version('GtkSource', '5')
+import gi
+from gi.repository import Adw, Gio, GLib, GObject, Gtk, GtkSource
+
+import nmap
+
+from .constants import APP_ID, RESOURCE_PREFIX
+from .nmap_scanner import NmapScanner, ScanStatus
+from .style_utils import apply_source_style_scheme
+from .utils import create_source_view
+
+
+gi.require_version("Adw", "1")
+gi.require_version("Gtk", "4.0")
+gi.require_version("GtkSource", "5")
 
 
 class NmapItem(GObject.Object):
     """A simple GObject to hold key-value pairs for Nmap results display."""
+
     key = GObject.Property(type=str)
     value = GObject.Property(type=str)
 
@@ -31,7 +37,9 @@ class NmapTargetRow(Gtk.ListBoxRow):
     def __init__(self, nmap_item: NmapItem, **kwargs):
         super().__init__(**kwargs)
         self.nmap_item = nmap_item
-        label = Gtk.Label(label=nmap_item.key, halign=Gtk.Align.START, margin_start=6, margin_end=6)
+        label = Gtk.Label(
+            label=nmap_item.key, halign=Gtk.Align.START, margin_start=6, margin_end=6
+            )
         self.set_child(label)
 
 
@@ -45,7 +53,9 @@ class NmapPage(Adw.PreferencesPage):
     nmap_fingerprint_switchrow = Gtk.Template.Child("nmap_fingerprint_switchrow")
     nmap_all_ports_switchrow = Gtk.Template.Child("nmap_all_ports_switchrow")
     nmap_scripts_dropdown = Gtk.Template.Child("nmap_scripts_dropdown")
-    nmap_service_version_switchrow = Gtk.Template.Child("nmap_service_version_switchrow")
+    nmap_service_version_switchrow = Gtk.Template.Child(
+        "nmap_service_version_switchrow"
+        )
     nmap_no_ping_switchrow = Gtk.Template.Child("nmap_no_ping_switchrow")
     nmap_timing_template_comborow = Gtk.Template.Child("nmap_timing_template_comborow")
     status_row = Gtk.Template.Child("status_row")
@@ -77,17 +87,21 @@ class NmapPage(Adw.PreferencesPage):
         logging.debug("NmapPage __init__ completed.")
 
     def __del__(self):
-        if hasattr(self, 'scanner') and self.scanner:
+        if hasattr(self, "scanner") and self.scanner:
             del self.scanner
 
     def _on_source_style_scheme_setting_changed(self, _settings, key):
         """Handle changes to the source-style-scheme setting."""
-        logging.debug("NmapPage: '%s' setting changed, applying new source view style.", key)
+        logging.debug(
+            "NmapPage: '%s' setting changed, applying new source view style.", key
+            )
         self._apply_source_view_style()
 
     def _apply_source_view_style_to_buffer(self, buffer):
         source_style_scheme = self.settings.get_string("source-style-scheme")
-        logging.debug("Applying style scheme to GtkSource.Buffer: %s", source_style_scheme)
+        logging.debug(
+            "Applying style scheme to GtkSource.Buffer: %s", source_style_scheme
+            )
         apply_source_style_scheme(
             GtkSource.StyleSchemeManager.get_default(),
             buffer,
@@ -136,17 +150,19 @@ class NmapPage(Adw.PreferencesPage):
 
         if not self.scanner.validate_target_input(target):
             entry_row.add_css_class("error")
-            self._display_error("Invalid target format. Please enter a valid IP, CIDR, or hostname.")
+            self._display_error(
+                "Invalid target format. Please enter a valid IP, CIDR, or hostname."
+                )
             return
-        else:
-            entry_row.remove_css_class("error")
+        # R1705: Unnecessary "else" after "return", remove the "else" and de-indent the code inside it
+        entry_row.remove_css_class("error")
 
         if not target:
             self._clear_results()
             return
 
         self.nmap_target_entryrow.set_sensitive(False)
-        self._set_scan_status(ScanStatus.IN_PROGRESS, "Scanning %s..." % target)
+        self._set_scan_status(ScanStatus.IN_PROGRESS, f"Scanning {target}...")
 
         os_fingerprinting = self.nmap_fingerprint_switchrow.get_active()
         all_ports = self.nmap_all_ports_switchrow.get_active()
@@ -154,7 +170,8 @@ class NmapPage(Adw.PreferencesPage):
         selected_script_item = self.nmap_scripts_dropdown.get_selected_item()
         script_name = (
             selected_script_item.get_string()
-            if isinstance(selected_script_item, Gtk.StringObject) and selected_script_item.get_string() != "None"
+            if isinstance(selected_script_item, Gtk.StringObject)
+            and selected_script_item.get_string() != "None"
             else None
             )
 
@@ -169,9 +186,14 @@ class NmapPage(Adw.PreferencesPage):
 
         logging.info(
             "Nmap scan for target: %s (OSScan:%s, AllPorts:%s, Script:%s, Ver:%s, NoPing:%s, Time:%s, CustomDNS:%s)",
-            target, os_fingerprinting, all_ports, script_name,
-            service_version_detection, no_ping_scan, timing_template,
-            custom_dns_server if custom_dns_server else "None"
+            target,
+            os_fingerprinting,
+            all_ports,
+            script_name,
+            service_version_detection,
+            no_ping_scan,
+            timing_template,
+            custom_dns_server if custom_dns_server else "None",
             )
         self.scanner.executor.submit(
             self._run_nmap_scan_task,
@@ -182,16 +204,16 @@ class NmapPage(Adw.PreferencesPage):
             service_version_detection,
             no_ping_scan,
             timing_template,
-            custom_dns_server # New argument
+            custom_dns_server,
             )
         logging.debug(
-            f"Scan task params: target={target}, os_fingerprint={os_fingerprinting}, "
-            f"all_ports={all_ports}, script_name={script_name}, "
-            f"service_version_detection={service_version_detection}, "
-            f"no_ping_scan={no_ping_scan}, timing_template={timing_template}"
+            "Scan task params: target=%s, os_fingerprint=%s, all_ports=%s, script_name=%s, "
+            "service_version_detection=%s, no_ping_scan=%s, timing_template=%s",
+            target, os_fingerprinting, all_ports, script_name,
+            service_version_detection, no_ping_scan, timing_template
             )
 
-    def _run_nmap_scan_task(
+    def _run_nmap_scan_task( # pylint: disable=too-many-arguments,too-many-positional-arguments
             self,
             target,
             os_fingerprinting,
@@ -200,74 +222,98 @@ class NmapPage(Adw.PreferencesPage):
             service_version_detection,
             no_ping_scan,
             timing_template,
-            custom_dns_server): # New parameter
+            custom_dns_server,
+            ):
         logging.info("Nmap scan task started for %s in executor thread.", target)
         try:
-            nm = self.scanner.run_nmap_scan(target, os_fingerprinting, all_ports,
-                                            script_name, service_version_detection,
-                                            no_ping_scan, timing_template,
-                                            custom_dns_server=custom_dns_server) # Pass to scanner
+            nm = self.scanner.run_nmap_scan(
+                target,
+                os_fingerprinting,
+                all_ports,
+                script_name,
+                service_version_detection,
+                no_ping_scan,
+                timing_template,
+                custom_dns_server=custom_dns_server,
+                )
             GLib.idle_add(self._process_scan_results, nm, target)
         except nmap.PortScannerError as e:
             logging.error("Nmap PortScannerError for %s: %s", target, e, exc_info=True)
-            GLib.idle_add(self._handle_scan_error, target, "Nmap scan error: %s" % str(e))
-        except Exception as e:
+            GLib.idle_add(
+                self._handle_scan_error, target, f"Nmap scan error: {e}"
+                )
+        except Exception as e: # pylint: disable=broad-exception-caught
             logging.error(
                 "Unexpected exception in Nmap scan task for %s (%s): %s",
-                target, type(e).__name__, e, exc_info=True
+                target,
+                type(e).__name__,
+                e,
+                exc_info=True,
                 )
-            GLib.idle_add(self._handle_scan_error, target, "Scan failed unexpectedly: %s" % str(e))
+            GLib.idle_add(
+                self._handle_scan_error, target, f"Scan failed unexpectedly: {e}"
+                )
         finally:
             GLib.idle_add(self.nmap_target_entryrow.set_sensitive, True)
             logging.info("Nmap scan task finished for %s.", target)
 
     def _process_scan_results(self, nm: nmap.PortScanner, original_target: str):
         hosts_found = nm.all_hosts()
-        logging.debug(f"Processing results for {original_target}. nm.all_hosts(): {hosts_found}")
+        logging.debug(
+            "Processing results for %s. nm.all_hosts(): %s", original_target, hosts_found
+            )
         if not hosts_found:
-            logging.warning("No hosts found in Nmap results for target %s.", original_target)
+            logging.warning(
+                "No hosts found in Nmap results for target %s.", original_target
+                )
             self._set_scan_status(
                 ScanStatus.COMPLETE,
-                "Scan complete for %s. No hosts found or responsive." % original_target
+                f"Scan complete for {original_target}. No hosts found or responsive."
                 )
-            self._display_error("No hosts found or responsive for target: %s" % original_target)
+            self._display_error(
+                f"No hosts found or responsive for target: {original_target}"
+                )
             self._clear_dynamic_details()
             self.nmap_detail_placeholder.set_title("No Responsive Hosts")
-            self.nmap_detail_placeholder.set_description((
-                f"The Nmap scan for '{original_target}' "
-                "did not find any responsive hosts."
-            ))
+            self.nmap_detail_placeholder.set_description(
+                (
+                    f"The Nmap scan for '{original_target}' "
+                    "did not find any responsive hosts."
+                    )
+                )
             self.nmap_detail_placeholder.set_visible(True)
             return
 
         results_yaml_map = self.scanner.convert_results_to_yaml(nm)
         if results_yaml_map:
-            logging.debug(f"results_yaml_map keys: {list(results_yaml_map.keys())}")
+            logging.debug("results_yaml_map keys: %s", list(results_yaml_map.keys()))
         else:
             logging.debug("results_yaml_map is empty.")
         GLib.idle_add(self._update_results_view, hosts_found, results_yaml_map)
         self._set_scan_status(
             ScanStatus.COMPLETE,
-            "Scan complete for %s. %d host(s) found." % (original_target, len(hosts_found))
+            f"Scan complete for {original_target}. {len(hosts_found)} host(s) found."
             )
 
     def _handle_scan_error(self, target: str, error_message: str):
         logging.error("Handling scan error for target %s: %s", target, error_message)
-        self._display_error("Error scanning %s: %s" % (target, error_message))
-        self._set_scan_status(ScanStatus.FAILED, "Scan failed for %s" % target)
+        self._display_error(f"Error scanning {target}: {error_message}")
+        self._set_scan_status(ScanStatus.FAILED, f"Scan failed for {target}")
 
     def _on_target_selected(self, _listbox: Gtk.ListBox, row: Gtk.ListBoxRow):
-        self._clear_dynamic_details()  # Clear previous host's details
+        self._clear_dynamic_details()
 
         if row is None:
             self.nmap_detail_placeholder.set_title("No Host Selected")
-            self.nmap_detail_placeholder.set_description("Select a host from the list to view details.")
-            if not self.nmap_detail_placeholder.get_parent():  # Ensure placeholder is in the box
+            self.nmap_detail_placeholder.set_description(
+                "Select a host from the list to view details."
+                )
+            if not self.nmap_detail_placeholder.get_parent():
                 self.nmap_detail_box.append(self.nmap_detail_placeholder)
             self.nmap_detail_placeholder.set_visible(True)
             return
 
-        self.nmap_detail_placeholder.set_visible(False)  # Hide placeholder when a row is selected
+        self.nmap_detail_placeholder.set_visible(False)
 
         if isinstance(row, NmapTargetRow):
             item_obj = row.nmap_item
@@ -277,23 +323,28 @@ class NmapPage(Adw.PreferencesPage):
 
         if item_obj and isinstance(item_obj, NmapItem):
             selected_target_key = item_obj.key
-            logging.debug(f"Target selected: {selected_target_key}")
+            logging.debug("Target selected: %s", selected_target_key)
 
             try:
                 host_data_dict = yaml.safe_load(item_obj.value)
                 if not isinstance(host_data_dict, dict):
                     logging.warning(
-                        f"Parsed YAML for host {selected_target_key} is not a dictionary. "
-                        f"Value: {item_obj.value[:100]}"
-                    )
+                        "Parsed YAML for host %s is not a dictionary. Value: %s",
+                        selected_target_key,
+                        item_obj.value[:100]
+                        )
                     host_data_dict = {}
                 logging.debug(
-                    f"Successfully parsed YAML for {selected_target_key}. "
-                    f"Data keys: {list(host_data_dict.keys()) if host_data_dict else 'None'}")
+                    "Successfully parsed YAML for %s. Data keys: %s",
+                    selected_target_key,
+                    list(host_data_dict.keys()) if host_data_dict else 'None'
+                    )
             except yaml.YAMLError as e:
-                logging.debug(f"YAML parsing failed for {selected_target_key}: {e}")
-                logging.error(f"Error parsing YAML for host {selected_target_key}: {e}")
-                error_label = Gtk.Label(label=f"Error: Could not parse scan results for {selected_target_key}.\n{e}")
+                logging.debug("YAML parsing failed for %s: %s", selected_target_key, e)
+                logging.error("Error parsing YAML for host %s: %s",selected_target_key, e)
+                error_label = Gtk.Label(
+                    label=f"Error: Could not parse scan results for {selected_target_key}.\n{e}"
+                    )
                 error_label.set_wrap(True)
                 error_label.set_halign(Gtk.Align.START)
                 self.nmap_detail_box.append(error_label)
@@ -305,20 +356,23 @@ class NmapPage(Adw.PreferencesPage):
             self._add_raw_output_expander(item_obj.value, selected_target_key)
 
         else:
-            logging.warning("Could not retrieve NmapItem from selected row or item_obj is None.")
+            logging.warning(
+                "Could not retrieve NmapItem from selected row or item_obj is None."
+                )
             self.nmap_detail_placeholder.set_title("Error")
-            self.nmap_detail_placeholder.set_description("Could not load details for the selected host.")
+            self.nmap_detail_placeholder.set_description(
+                "Could not load details for the selected host."
+                )
             if not self.nmap_detail_placeholder.get_parent():
                 self.nmap_detail_box.append(self.nmap_detail_placeholder)
             self.nmap_detail_placeholder.set_visible(True)
 
-    # def _refresh_source_view(self): # Removed, not using a single source_view anymore
     def _add_raw_output_expander(self, yaml_string: str, host_key: str):
-        logging.debug(f"Adding raw output expander for {host_key}")
+        logging.debug("Adding raw output expander for %s", host_key)
         expander = Adw.ExpanderRow(title=f"Raw Nmap Output (YAML) - {host_key}")
         expander.set_expanded(False)
 
-        source_view, source_buffer = create_source_view(language_name='yaml')
+        source_view, source_buffer = create_source_view(language_name="yaml")
         source_buffer.set_text(yaml_string, -1)
         self._apply_source_view_style_to_buffer(source_buffer)
         source_view.set_editable(False)
@@ -332,61 +386,70 @@ class NmapPage(Adw.PreferencesPage):
         expander.add_row(scrolled_window)
         self.nmap_detail_box.append(expander)
 
-    def _add_host_details_expander(self, host_data: dict, host_key: str):
-        logging.debug(f"Adding host details expander for {host_key}")
+    def _add_host_details_expander(self, host_data: dict, host_key: str): # pylint: disable=too-many-locals
+        logging.debug("Adding host details expander for %s", host_key)
         expander = Adw.ExpanderRow(title=f"Host Information - {host_key}")
         expander.set_expanded(True)
 
-        status_info = host_data.get('status', {})
+        status_info = host_data.get("status", {})
         status_subtitle = (
             f"{status_info.get('state', 'N/A')} "
             f"(Reason: {status_info.get('reason', 'N/A')})"
-        )
+            )
         status_row = Adw.ActionRow(title="Status", subtitle=status_subtitle)
         expander.add_row(status_row)
 
-        addresses_info = host_data.get('addresses', {})
-        if addresses_info.get('ipv4'):
-            ipv4_row = Adw.ActionRow(title="IPv4 Address", subtitle=addresses_info['ipv4'])
+        addresses_info = host_data.get("addresses", {})
+        if addresses_info.get("ipv4"):
+            ipv4_row = Adw.ActionRow(
+                title="IPv4 Address", subtitle=addresses_info["ipv4"]
+                )
             expander.add_row(ipv4_row)
-        if addresses_info.get('ipv6'):
-            ipv6_row = Adw.ActionRow(title="IPv6 Address", subtitle=addresses_info['ipv6'])
+        if addresses_info.get("ipv6"):
+            ipv6_row = Adw.ActionRow(
+                title="IPv6 Address", subtitle=addresses_info["ipv6"]
+                )
             expander.add_row(ipv6_row)
-        if addresses_info.get('mac'):
-            mac_row = Adw.ActionRow(title="MAC Address", subtitle=addresses_info['mac'])
+        if addresses_info.get("mac"):
+            mac_row = Adw.ActionRow(title="MAC Address", subtitle=addresses_info["mac"])
             expander.add_row(mac_row)
 
-        hostnames_list = host_data.get('hostnames', [])
+        hostnames_list = host_data.get("hostnames", [])
         if hostnames_list:
             for hn_entry in hostnames_list:
                 hn_title = f"Hostname ({hn_entry.get('type', 'N/A')})"
-                hn_subtitle = hn_entry.get('name', 'N/A')
+                hn_subtitle = hn_entry.get("name", "N/A")
                 hn_row = Adw.ActionRow(title=hn_title, subtitle=hn_subtitle)
                 expander.add_row(hn_row)
         else:
-            no_hn_row = Adw.ActionRow(title="Hostnames", subtitle="No hostnames reported")
+            no_hn_row = Adw.ActionRow(
+                title="Hostnames", subtitle="No hostnames reported"
+                )
             expander.add_row(no_hn_row)
 
         self.nmap_detail_box.append(expander)
 
-    def _add_ports_expander(self, host_data: dict, host_key: str):
-        logging.debug(f"Adding ports expander for {host_key}")
+    def _add_ports_expander(self, host_data: dict, host_key: str): # pylint: disable=too-many-locals
+        logging.debug("Adding ports expander for %s", host_key)
         expander = Adw.ExpanderRow(title=f"Network Ports - {host_key}")
         expander.set_expanded(True)
 
         ports_found = False
-        for proto in ['tcp', 'udp', 'sctp', 'ip']:
+        for proto in ["tcp", "udp", "sctp", "ip"]:
             if proto_data := host_data.get(proto):
-                logging.debug(
-                    f"Processing ports for proto {proto} in host {host_key}, data: {list(proto_data.keys()) if isinstance(proto_data, dict) else 'Not a dict'}")
+                port_data_log_msg = (
+                    f"Processing ports for proto {proto} in host {host_key}, data: "
+                    f"{list(proto_data.keys()) if isinstance(proto_data, dict) else 'Not a dict'}"
+                )
+                logging.debug(port_data_log_msg)
                 if isinstance(proto_data, dict):
                     for port_id, port_info in proto_data.items():
                         ports_found = True
-                        state = port_info.get('state', 'N/A')
-                        name = port_info.get('name', '')
-                        product = port_info.get('product', '')
-                        version = port_info.get('version', '')
-                        reason = port_info.get('reason', '')
+                        state = port_info.get("state", "N/A")
+                        name = port_info.get("name", "")
+                        product = port_info.get("product", "")
+                        version = port_info.get("version", "")
+                        reason = port_info.get("reason", "")
 
                         title = f"Port {port_id}/{proto.upper()} ({state})"
                         subtitle_parts = [name, product, version]
@@ -400,45 +463,57 @@ class NmapPage(Adw.PreferencesPage):
                         expander.add_row(row)
 
         if not ports_found:
-            no_ports_row = Adw.ActionRow(title="Ports", subtitle="No open ports reported or port data available.")
+            no_ports_row = Adw.ActionRow(
+                title="Ports", subtitle="No open ports reported or port data available."
+                )
             expander.add_row(no_ports_row)
 
         self.nmap_detail_box.append(expander)
 
-    def _add_os_expander(self, host_data: dict, host_key: str):
-        osmatch_data = host_data.get('osmatch', [])
+    def _add_os_expander(self, host_data: dict, host_key: str): # pylint: disable=too-many-locals
+        osmatch_data = host_data.get("osmatch", [])
         if not osmatch_data:
-            logging.debug(f"No OS data for host {host_key}, skipping OS expander.")
+            logging.debug("No OS data for host %s, skipping OS expander.", host_key)
             return
 
-        logging.debug(f"Adding OS expander for {host_key}. OS match data: {osmatch_data}")
+        logging.debug(
+            "Adding OS expander for %s. OS match data: %s", host_key, osmatch_data
+            )
         expander = Adw.ExpanderRow(title=f"Operating System Detection - {host_key}")
         expander.set_expanded(True)
 
         os_details_added = False
         for match in osmatch_data:
-            name = match.get('name', 'N/A')
-            accuracy = match.get('accuracy', 'N/A')
+            name = match.get("name", "N/A")
+            accuracy = match.get("accuracy", "N/A")
             title = f"{name} (Accuracy: {accuracy}%)"
 
             osclass_details = []
-            if 'osclass' in match and isinstance(match['osclass'], list):
-                for os_class in match['osclass']:
+            if "osclass" in match and isinstance(match["osclass"], list):
+                for os_class in match["osclass"]:
                     if isinstance(os_class, dict):
-                        vendor = os_class.get('vendor', 'N/A')
-                        osfamily = os_class.get('osfamily', 'N/A')
-                        osgen = os_class.get('osgen', 'N/A')
-                        osclass_details.append(f"Type: {os_class.get('type', 'N/A')}, "
-                                               f"Vendor: {vendor}, Family: {osfamily}, Gen: {osgen}")
-            elif 'osclass' in match and isinstance(match['osclass'], dict):
-                os_class = match['osclass']
-                vendor = os_class.get('vendor', 'N/A')
-                osfamily = os_class.get('osfamily', 'N/A')
-                osgen = os_class.get('osgen', 'N/A')
-                osclass_details.append(f"Type: {os_class.get('type', 'N/A')}, "
-                                       f"Vendor: {vendor}, Family: {osfamily}, Gen: {osgen}")
+                        vendor = os_class.get("vendor", "N/A")
+                        osfamily = os_class.get("osfamily", "N/A")
+                        osgen = os_class.get("osgen", "N/A")
+                        osclass_details.append(
+                            f"Type: {os_class.get('type', 'N/A')}, "
+                            f"Vendor: {vendor}, Family: {osfamily}, Gen: {osgen}"
+                            )
+            elif "osclass" in match and isinstance(match["osclass"], dict):
+                os_class = match["osclass"]
+                vendor = os_class.get("vendor", "N/A")
+                osfamily = os_class.get("osfamily", "N/A")
+                osgen = os_class.get("osgen", "N/A")
+                osclass_details.append(
+                    f"Type: {os_class.get('type', 'N/A')}, "
+                    f"Vendor: {vendor}, Family: {osfamily}, Gen: {osgen}"
+                    )
 
-            subtitle = "\n".join(osclass_details) if osclass_details else "No OS class details."
+            subtitle = (
+                "\n".join(osclass_details)
+                if osclass_details
+                else "No OS class details."
+                )
 
             row = Adw.ActionRow(title=title, subtitle=subtitle)
             if subtitle == "No OS class details.":
@@ -447,7 +522,9 @@ class NmapPage(Adw.PreferencesPage):
             os_details_added = True
 
         if not os_details_added:
-            no_data_row = Adw.ActionRow(title="OS Detection", subtitle="No specific OS matches found.")
+            no_data_row = Adw.ActionRow(
+                title="OS Detection", subtitle="No specific OS matches found."
+                )
             expander.add_row(no_data_row)
 
         self.nmap_detail_box.append(expander)
@@ -460,7 +537,9 @@ class NmapPage(Adw.PreferencesPage):
         if not hosts:
             self._clear_dynamic_details()
             self.nmap_detail_placeholder.set_title("No Hosts Found")
-            self.nmap_detail_placeholder.set_description("The scan did not find any responsive hosts.")
+            self.nmap_detail_placeholder.set_description(
+                "The scan did not find any responsive hosts."
+                )
             if not self.nmap_detail_placeholder.get_parent():
                 self.nmap_detail_box.append(self.nmap_detail_placeholder)
             self.nmap_detail_placeholder.set_visible(True)
@@ -473,7 +552,9 @@ class NmapPage(Adw.PreferencesPage):
             self.results_by_host[host_key] = yaml_data
 
         if self.nmap_target_listbox_store.get_n_items() > 0:
-            self.nmap_host_listbox.select_row(self.nmap_host_listbox.get_row_at_index(0))
+            self.nmap_host_listbox.select_row(
+                self.nmap_host_listbox.get_row_at_index(0)
+                )
         else:
             self._clear_dynamic_details()
             self.nmap_detail_placeholder.set_title("No Hosts Available")
@@ -510,10 +591,10 @@ class NmapPage(Adw.PreferencesPage):
         self._clear_dynamic_details()
 
         self.nmap_detail_placeholder.set_title("No Host Selected")
-        self.nmap_detail_placeholder.set_description((
-            "Select a host from the list to view details, "
+        self.nmap_detail_placeholder.set_description(
+            "Select a host from the list to view details, " +
             "or start a new scan."
-        ))
+            )
         if not self.nmap_detail_placeholder.get_parent():
             self.nmap_detail_box.append(self.nmap_detail_placeholder)
         self.nmap_detail_placeholder.set_visible(True)
