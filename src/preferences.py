@@ -19,6 +19,11 @@ class Preferences(Adw.PreferencesWindow):
     prefs_dns_apply_button = Gtk.Template.Child("prefs_dns_apply_button")
     preferences_error_banner = Gtk.Template.Child("preferences_error_banner")
 
+    # HTTP Output Color Rows
+    http_header_key_color_row = Gtk.Template.Child("http_header_key_color_row")
+    http_header_value_color_row = Gtk.Template.Child("http_header_value_color_row")
+    http_special_row_color_row = Gtk.Template.Child("http_special_row_color_row")
+
     def __init__(self, main_window=None):
         super().__init__(modal=True)
         self.main_window = main_window

@@ -6,7 +6,7 @@ import shlex
 import shutil
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
-from typing import Any, Dict, Union, List
+from typing import Any, Dict, Union, List, Optional
 
 import nmap
 from nmap import PortScannerError
@@ -150,9 +150,10 @@ class NmapScanner:
             os_fingerprinting: bool,
             scan_all_ports: bool,
             selected_script: str = None,
-            service_version: bool = False,
+            service_version: bool = False, # Keep existing params
             no_ping: bool = False,
-            timing_template: str = "T3"
+            timing_template: str = "T3",
+            custom_dns_server: Optional[str] = None # New parameter
             ) -> nmap.PortScanner:
         """
         Executes an Nmap scan against the specified target with the given options,
@@ -192,12 +193,21 @@ class NmapScanner:
         if timing_template and re.match(r"^T[0-5]$", timing_template):
             nmap_args_list.append(f"-{timing_template}")
         else:
-            nmap_args_list.append("-T3")
+            nmap_args_list.append("-T3") # Default if timing_template is invalid or not provided
+
+        # Add custom DNS server if specified
+        if custom_dns_server and custom_dns_server.strip():
+            nmap_args_list.append(f"--dns-servers={custom_dns_server.strip()}")
+            logging.info(f"Using custom DNS server for Nmap scan: {custom_dns_server.strip()}")
 
         nmap_args_list.append("-oX")
         nmap_args_list.append("-")
 
-        logging.debug(f"Initial Nmap arguments before processing (pre-target, pre-oX): {nmap_args_list[:-3]}")
+        # Target is added after all options
+        # logging.debug(f"Initial Nmap arguments before processing (pre-target, pre-oX): {nmap_args_list[:-3]}")
+        # The above logging line needs adjustment due to dynamic arg list size.
+        # For now, we can log before adding the target.
+        logging.debug(f"Nmap arguments before adding target: {nmap_args_list}")
 
         nmap_args_list.append(target)
 

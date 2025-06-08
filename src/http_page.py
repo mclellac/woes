@@ -1,4 +1,4 @@
-from .constants import RESOURCE_PREFIX, USER_AGENTS
+from .constants import RESOURCE_PREFIX, USER_AGENTS, APP_ID
 from gi.repository import Adw, Gio, GObject, Gtk, GLib, Gdk
 import logging
 import re
@@ -11,6 +11,14 @@ import gi
 
 gi.require_version('Adw', '1')
 gi.require_version('Gtk', '4.0')
+
+try:
+    import dns.resolver
+    import dns.exception
+except ImportError:
+    dns = None # type: ignore
+    logging.warning("dnspython library not found. Custom DNS functionality will be disabled.")
+
 
 # Attempt to import urllib3 exceptions from requests, which vendors it.
 try:
@@ -77,6 +85,16 @@ class HttpPage(Adw.PreferencesPage):
         super().__init__(**kwargs)
         logger.debug("HttpPage initialized.")
         self.current_http_task = None
+        self._current_header_items = [] # For refreshing view on color change
+
+        self.settings = Gio.Settings(schema_id=APP_ID)
+        self._header_key_color = self.settings.get_string("http-output-header-key-color")
+        self._header_value_color = self.settings.get_string("http-output-header-value-color")
+        self._special_row_color = self.settings.get_string("http-output-special-row-color")
+
+        self.settings.connect(f"changed::http-output-header-key-color", self._on_color_setting_changed)
+        self.settings.connect(f"changed::http-output-header-value-color", self._on_color_setting_changed)
+        self.settings.connect(f"changed::http-output-special-row-color", self._on_color_setting_changed)
 
         self.header_list_store = Gio.ListStore.new(HeaderItem)
         selection_model = Gtk.MultiSelection.new(self.header_list_store)
@@ -176,11 +194,14 @@ class HttpPage(Adw.PreferencesPage):
             user_agent_model = self.http_user_agent_row.get_model()
             user_agent = user_agent_model.get_string(selected_ua_index)
 
+        custom_dns_server = self.settings.get_string("custom-dns-server")
+
         self._http_task_data_for_thread = {
             "url": url,
             "use_akamai_pragma": self.http_pragma_switch_row.get_active(),
             "host_header": host_header,
             "user_agent": user_agent,
+            "custom_dns_server": custom_dns_server,
             }
         task = Gio.Task.new(self, None, self._fetch_headers_task_done_cb, None)
         self.current_http_task = task
@@ -193,19 +214,77 @@ class HttpPage(Adw.PreferencesPage):
                                         cancellable: Optional[Gio.Cancellable]):
         current_task_data = source_object._http_task_data_for_thread
 
-        url = current_task_data["url"]
+        url_to_fetch = current_task_data["url"] # Initially, this is what we aim for
+        original_url_with_scheme = current_task_data["url"] # Keep original for Host header if IP is resolved
         use_akamai_pragma = current_task_data["use_akamai_pragma"]
-        host_header = current_task_data.get("host_header")
+        host_header_from_input = current_task_data.get("host_header") # User-defined host header
         user_agent = current_task_data.get("user_agent")
-
-        logger.debug(
-            "Task thread: Making GET request to %s with Akamai headers: %s, Host: %s, UA: %s",
-            url, use_akamai_pragma, host_header, user_agent
-            )
+        custom_dns_server = current_task_data.get("custom_dns_server")
 
         request_headers = {}
-        if host_header:
-            request_headers["Host"] = host_header
+        original_hostname = None
+
+        if custom_dns_server and dns: # Check if dnspython was imported
+            try:
+                parsed_url_obj = requests.utils.urlparse(original_url_with_scheme)
+                original_hostname = parsed_url_obj.hostname
+                if not original_hostname:
+                    logger.warning(f"Could not parse hostname from URL: {original_url_with_scheme}")
+                else:
+                    logger.info(f"Attempting to resolve {original_hostname} using custom DNS server {custom_dns_server}")
+                    resolver = dns.resolver.Resolver()
+                    resolver.nameservers = [custom_dns_server]
+                    # Add short timeouts for DNS resolution to prevent long hangs
+                    resolver.timeout = 2.0  # Total time for query
+                    resolver.lifetime = 2.0 # Time to wait for response from a nameserver
+
+                    answers = resolver.resolve(original_hostname, 'A')
+                    if answers:
+                        resolved_ip = answers[0].address
+                        # Reconstruct URL with IP, keeping original scheme, path, query etc.
+                        url_to_fetch = parsed_url_obj._replace(netloc=resolved_ip).geturl()
+                        # Crucially, set the Host header to the original hostname
+                        request_headers["Host"] = original_hostname
+                        logger.info(
+                            f"Resolved {original_hostname} to {resolved_ip} via {custom_dns_server}. "
+                            f"New URL for request: {url_to_fetch}. Host header set to: {original_hostname}"
+                        )
+                    else:
+                        logger.warning(
+                            f"Custom DNS {custom_dns_server} provided no A records for {original_hostname}. "
+                            "Falling back to system DNS / original URL."
+                        )
+            except dns.exception.DNSException as e:
+                logger.warning(
+                    f"Custom DNS resolution for {original_hostname} via {custom_dns_server} failed: {e}. "
+                    "Falling back to system DNS / original URL."
+                )
+            except Exception as e: # Catch any other unexpected errors during DNS
+                logger.error(
+                    f"Unexpected error during custom DNS processing for {original_hostname}: {e}", exc_info=True
+                )
+
+        # If Host header was manually set by user, it takes precedence (unless custom DNS overrode it)
+        if host_header_from_input:
+            if "Host" in request_headers:
+                 logger.info(f"Custom DNS set Host to {request_headers['Host']}. User input Host '{host_header_from_input}' will be overridden for this IP-based request.")
+            else: # No custom DNS resolution that set Host, so use user's input
+                request_headers["Host"] = host_header_from_input
+        elif not "Host" in request_headers and original_hostname: # No user input, no custom DNS override, but we have a hostname
+             # This case is if custom DNS failed and we are using original URL,
+             # ensure Host header is not accidentally the IP if original_url_with_scheme was an IP.
+             # If url_to_fetch is still the original hostname-based URL, requests will set Host correctly.
+             # If original_url_with_scheme was IP-based, original_hostname would be that IP.
+             # This logic is mostly for clarity; requests handles Host header well for hostname URLs.
+             pass
+
+
+        logger.debug(
+            "Task thread: Making GET request to %s with Akamai headers: %s, User-Agent: %s, Full Headers: %s",
+            url_to_fetch, use_akamai_pragma, user_agent, request_headers
+            )
+
+        # User-Agent is set here, after Host header logic
         if user_agent and user_agent != "None":
             request_headers["User-Agent"] = user_agent
 
@@ -232,7 +311,7 @@ class HttpPage(Adw.PreferencesPage):
                     )
                 return
 
-            response = requests.get(url, headers=request_headers, allow_redirects=True, timeout=5)
+            response = requests.get(url_to_fetch, headers=request_headers, allow_redirects=True, timeout=5)
 
             all_responses_data = []
 
@@ -249,7 +328,7 @@ class HttpPage(Adw.PreferencesPage):
                 response.raise_for_status()
                 final_data_type = 'final'
             except requests.exceptions.HTTPError as http_err:
-                logger.warning("Task thread: HTTPError for %s: %s", url, http_err)
+                logger.warning("Task thread: HTTPError for %s: %s", url_to_fetch, http_err)
                 error_message = self._format_http_error(http_err)
                 task.return_new_error_literal(
                     GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
@@ -269,7 +348,7 @@ class HttpPage(Adw.PreferencesPage):
             task.return_value(all_responses_data)
 
         except requests.exceptions.Timeout as e:
-            logger.warning("Task thread: Timeout for %s: %s", url, e)
+            logger.warning("Task thread: Timeout for %s: %s", url_to_fetch, e)
             error_message = (
                 "Request timed out. This could be due to a slow network, server issues, "
                 "or a Web Application Firewall (WAF) interfering. "
@@ -282,8 +361,8 @@ class HttpPage(Adw.PreferencesPage):
                 )
             return
         except requests.exceptions.ConnectionError as e:
-            logger.warning("Task thread: ConnectionError for %s: %s", url, e)
-            custom_msg = self._get_detailed_connection_error_message(e, url)
+            logger.warning("Task thread: ConnectionError for %s: %s", url_to_fetch, e)
+            custom_msg = self._get_detailed_connection_error_message(e, url_to_fetch) # Pass the URL that was actually used
             if custom_msg:
                 error_message = custom_msg
             else:
@@ -300,7 +379,7 @@ class HttpPage(Adw.PreferencesPage):
                 )
             return
         except requests.exceptions.RequestException as e:
-            logger.warning("Task thread: RequestException for %s: %s", url, e)
+            logger.warning("Task thread: RequestException for %s: %s", url_to_fetch, e)
             error_message = "The request could not be completed. Please verify the URL and your network connection."
             task.return_new_error_literal(
                 GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
@@ -309,7 +388,7 @@ class HttpPage(Adw.PreferencesPage):
                 )
             return
         except Exception as e:
-            logger.error("Task thread: Truly unexpected error for %s: %s", url, e, exc_info=True)
+            logger.error("Task thread: Truly unexpected error for %s: %s", url_to_fetch, e, exc_info=True)
             error_message = (
                 "An unexpected internal error occurred while processing your request. "
                 "Please try again later."
@@ -481,6 +560,7 @@ class HttpPage(Adw.PreferencesPage):
 
                         if i < len(actual_list_of_responses) - 1:
                             processed_headers_for_store.append(HeaderItem(key="", value="", is_special_row=True))
+                    self._current_header_items = processed_headers_for_store # Store for refresh
                     self._update_column_view_model(processed_headers_for_store)
                 self.http_entry_row.remove_css_class("error")
             else:
@@ -587,14 +667,26 @@ class HttpPage(Adw.PreferencesPage):
 
     def _on_clear_results_clicked(self, _button: Gtk.Button, *_args):
         logger.info("Results cleared by user.")
+        self._current_header_items = [] # Clear stored items
         self._update_column_view_model(None)
         self._clear_error()
         self.http_entry_row.set_text("")
 
-    @staticmethod
-    def _create_factory(
-            attr_name: str, wrap_text: bool = False
-            ) -> Gtk.SignalListItemFactory:
+    def _on_color_setting_changed(self, settings, key):
+        logger.debug(f"Color setting changed for key: {key}")
+        if key == "http-output-header-key-color":
+            self._header_key_color = settings.get_string(key)
+        elif key == "http-output-header-value-color":
+            self._header_value_color = settings.get_string(key)
+        elif key == "http-output-special-row-color":
+            self._special_row_color = settings.get_string(key)
+
+        if self._current_header_items:
+            logger.debug("Re-populating view to apply color changes.")
+            self._update_column_view_model(self._current_header_items)
+
+    # Note: Removed @staticmethod decorator
+    def _create_factory(self, attr_name: str, wrap_text: bool = False) -> Gtk.SignalListItemFactory:
         factory = Gtk.SignalListItemFactory()
 
         def setup_func(_, list_item: Gtk.ListItem) -> None:
@@ -605,37 +697,34 @@ class HttpPage(Adw.PreferencesPage):
                 label.set_max_width_chars(80)
             list_item.set_child(label)
 
-        def bind_func(_, list_item: Gtk.ListItem) -> None:
+        # This nested function can capture 'self' from the outer _create_factory method
+        def bind_func_internal(_, list_item: Gtk.ListItem) -> None:
             label = list_item.get_child()
             item = list_item.get_item()
-            text_to_display = getattr(item, attr_name, "")
-            if label and isinstance(label, Gtk.Label):  # Ensure it's a label
-                # First, remove any existing custom style classes to avoid accumulation
-                label.remove_css_class('header-key')
-                label.remove_css_class('header-value')
-                # label.remove_css_class('special-row-text') # If we add one for special rows
 
-                if item and item.is_special_row:
-                    # Current logic uses Pango markup for bolding special rows.
-                    # We can add a specific class if we want to style special rows differently via CSS too.
-                    # For now, rely on Pango for special rows, and CSS for key/value.
-                    escaped_text = GLib.markup_escape_text(text_to_display)
-                    # Ensure value is also escaped if appended directly
-                    value_text = getattr(item, 'value', '') # Assuming 'value' attribute exists for special rows if needed
-                    if item.key and value_text and item.key.startswith("URL:"): # crude check for URL/Status special row
-                        full_special_text = f"{text_to_display} {GLib.markup_escape_text(value_text)}"
-                        label.set_markup(f"<b>{full_special_text}</b>")
-                    else:
-                        label.set_markup(f"<b>{escaped_text}</b>")
+            if not (label and isinstance(label, Gtk.Label) and item and isinstance(item, HeaderItem)):
+                if label and isinstance(label, Gtk.Label):
+                    label.set_text("Error: Invalid item or label.") # Basic error display
+                return
+
+            text_to_display = getattr(item, attr_name, "")
+
+            if item.is_special_row:
+                if attr_name == 'key':
+                    key_text = GLib.markup_escape_text(item.key if item.key else "")
+                    value_text = GLib.markup_escape_text(item.value if item.value else "")
+                    full_text = key_text
+                    if value_text.strip():
+                        full_text += f" {value_text}"
+                    label.set_markup(f"<b><span foreground='{self._special_row_color}'>{full_text}</span></b>")
                 else:
-                    label.set_text(text_to_display)  # Set text normally first
-                    # Now, apply specific class based on which attribute this factory is for
-                    if attr_name == 'key':
-                        label.add_css_class('header-key')
-                    elif attr_name == 'value':
-                        label.add_css_class('header-value')
+                    label.set_markup("")
+            else:
+                color_to_use = self._header_key_color if attr_name == 'key' else self._header_value_color
+                escaped_text = GLib.markup_escape_text(text_to_display)
+                label.set_markup(f"<span foreground='{color_to_use}'>{escaped_text}</span>")
 
         factory.connect("setup", setup_func)
-        factory.connect("bind", bind_func)
+        factory.connect("bind", bind_func_internal)
 
         return factory
