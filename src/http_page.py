@@ -49,26 +49,30 @@ class CustomSNIAdapter(HTTPAdapter):
         super().__init__(*args, **kwargs)
 
     def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
+        # The **pool_kwargs received here are from HTTPAdapter's own __init__ (e.g. self.pool_connections)
+        # or from calls like session.close() which might re-init.
+        # We are adding our SNI-specific configurations to this dictionary.
+
         if self.sni_hostname:
-            # Ensure connection_pool_kw exists
-            if 'connection_pool_kw' not in pool_kwargs:
-                pool_kwargs['connection_pool_kw'] = {}
-
-            # Set server_hostname for SNI in the connection arguments for the pool
-            pool_kwargs['connection_pool_kw']['server_hostname'] = self.sni_hostname
-
-            # Tell the PoolManager to assert the hostname against this SNI value during verification
+            # Configure the PoolManager instance itself
             pool_kwargs['assert_hostname'] = self.sni_hostname
+            # Ensure cert_reqs is set for validation.
+            # ssl.CERT_REQUIRED is the typical value when verification is enabled.
+            # requests.Session.verify = True should translate to this via urllib3's defaults,
+            # but being explicit when overriding assert_hostname is safer.
+            pool_kwargs['cert_reqs'] = ssl.CERT_REQUIRED
 
-            # Ensure certificate requirements are set to CERT_REQUIRED.
-            # This should be the default if session.verify is True, but being explicit is safer.
-            # Requests/urllib3 usually handle translating session.verify to cert_reqs.
-            # If session.verify is True (default), cert_reqs will be CERT_REQUIRED.
-            # We are just ensuring the assert_hostname matches our SNI.
-            if 'cert_reqs' not in pool_kwargs: # Only set if not already specified (e.g. by session.verify=False)
-                 pool_kwargs['cert_reqs'] = ssl.CERT_REQUIRED
+            # Configure arguments for the HTTPSConnectionPool instances
+            # that this PoolManager will create. This is done via 'connection_pool_kw'.
+            # Take a copy to avoid modifying a shared dict if pool_kwargs came from elsewhere.
+            current_conn_pool_kw = pool_kwargs.get('connection_pool_kw', {}).copy()
+            current_conn_pool_kw['server_hostname'] = self.sni_hostname
+            # 'assert_hostname' can also be set per-pool, but PoolManager's should cover it if SNI matches.
+            # current_conn_pool_kw['assert_hostname'] = self.sni_hostname
+            pool_kwargs['connection_pool_kw'] = current_conn_pool_kw
 
-
+        # Call the superclass's init_poolmanager, which will create
+        # self.poolmanager = urllib3.PoolManager(**pool_kwargs)
         super().init_poolmanager(connections, maxsize, block=block, **pool_kwargs)
 
     # If proxies are a concern, proxy_manager_for might also need overriding.
