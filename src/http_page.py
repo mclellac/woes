@@ -99,6 +99,8 @@ class HttpPage(Adw.PreferencesPage):
         user_agent_options = ["None"] + USER_AGENTS
         self.http_user_agent_row.set_model(Gtk.StringList.new(user_agent_options))
         self.http_user_agent_row.set_selected(0)
+        if self.http_apply_button:
+            self.http_apply_button.set_use_underline(True)
 
     def _connect_signals(self) -> None:
         self.http_entry_row.connect(

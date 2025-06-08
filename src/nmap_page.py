@@ -71,6 +71,8 @@ class NmapPage(Adw.PreferencesPage):
 
         self._init_page_ui()
         self._connect_signals()
+        if self.nmap_apply_button:
+            self.nmap_apply_button.set_use_underline(True)
         logging.info("NmapPage initialized.")
         logging.debug("NmapPage __init__ completed.")
 
