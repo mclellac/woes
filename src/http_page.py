@@ -311,7 +311,8 @@ class HttpPage(Adw.PreferencesPage):
                     )
                 return
 
-            response = requests.get(url_to_fetch, headers=request_headers, allow_redirects=True, timeout=5)
+            logger.warning("Disabling SSL certificate verification for URL: %s. This is insecure.", url_to_fetch)
+            response = requests.get(url_to_fetch, headers=request_headers, allow_redirects=True, timeout=5, verify=False)
 
             all_responses_data = []
 
