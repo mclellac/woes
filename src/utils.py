@@ -22,15 +22,12 @@ def create_source_view(language_name: str = "txt") -> Tuple[GtkSource.View, GtkS
     wrap mode, auto-indent, and tab behavior. Configures syntax highlighting
     for the specified language.
 
-    Args:
-    ----
-        language_name: The language ID for syntax highlighting (e.g., "yaml", "python", "txt").
-                       Defaults to "txt".
-
-    Returns:
-    -------
-        A tuple containing the configured GtkSource.View and GtkSource.Buffer.
-
+    :param language_name: The language ID for syntax highlighting
+                          (e.g., "yaml", "python", "txt"). Defaults to "txt".
+    :type language_name: str
+    :return: A tuple containing the configured :class:`GtkSource.View` and
+             :class:`GtkSource.Buffer`.
+    :rtype: Tuple[GtkSource.View, GtkSource.Buffer]
     """
     language_manager = GtkSource.LanguageManager.get_default()
     if language_name is None:  # Ensure fallback even if None is explicitly passed
@@ -65,13 +62,14 @@ def create_source_view(language_name: str = "txt") -> Tuple[GtkSource.View, GtkS
 def show_global_error(widget: Gtk.Widget, message: str):
     """Display a global error message using the main window's error banner.
 
-    Args:
-    ----
-        widget: A Gtk.Widget (typically 'self' from a page object) to get the native window.
-        message: The error message string to display.
+    :param widget: A :class:`Gtk.Widget` (typically 'self' from a page object)
+                   to get the native window.
+    :type widget: Gtk.Widget
+    :param message: The error message string to display.
+    :type message: str
     """
     try:
-        main_window = widget.get_native()
+        main_window = widget.get_native() # type: ignore
         if main_window and hasattr(main_window, 'show_error'):
             main_window.show_error(message)
             logger.error(f"Global error displayed via main window: {message}")
@@ -95,15 +93,20 @@ def show_global_toast(
 ):
     """Display a global toast message using the main window's toast overlay.
 
-    Args:
-    ----
-        widget: A Gtk.Widget (typically 'self' from a page object) to get the native window.
-        message: The toast message string to display.
-        timeout: Duration in seconds for the toast to be visible. Defaults to 2.
-        priority: The priority of the toast. Defaults to Adw.ToastPriority.NORMAL.
+    :param widget: A :class:`Gtk.Widget` (typically 'self' from a page object)
+                   to get the native window.
+    :type widget: Gtk.Widget
+    :param message: The toast message string to display.
+    :type message: str
+    :param timeout: Duration in seconds for the toast to be visible.
+                    Defaults to 2.
+    :type timeout: int
+    :param priority: The priority of the toast.
+                     Defaults to :attr:`Adw.ToastPriority.NORMAL`.
+    :type priority: Adw.ToastPriority
     """
     try:
-        main_window = widget.get_native()
+        main_window = widget.get_native() # type: ignore
         if main_window and hasattr(main_window, 'show_toast'):
             main_window.show_toast(message, priority=priority, timeout=timeout)
             logger.info(f"Global toast shown via main window: {message}")
@@ -122,13 +125,10 @@ def show_global_toast(
 def is_valid_ip(address: str) -> bool:
     """Check if the given string is a valid IPv4 or IPv6 address.
 
-    Args:
-    ----
-        address: The string to validate.
-
-    Returns:
-    -------
-        True if the string is a valid IP address, False otherwise.
+    :param address: The string to validate.
+    :type address: str
+    :return: ``True`` if the string is a valid IP address, ``False`` otherwise.
+    :rtype: bool
     """
     if not address or not isinstance(address, str):
         return False
@@ -141,13 +141,15 @@ def is_valid_ip(address: str) -> bool:
 def is_valid_domain(domain: str) -> bool:
     """Check if the given string is a syntactically valid domain name (ASCII).
 
-    Args:
-    ----
-        domain: The string to validate.
+    This validation is based on typical ASCII domain name rules (LDH labels).
+    It does not perform DNS resolution or check for IDN (Internationalized
+    Domain Names) specific rules beyond basic structure.
 
-    Returns:
-    -------
-        True if the string is a valid domain name, False otherwise.
+    :param domain: The string to validate.
+    :type domain: str
+    :return: ``True`` if the string is a syntactically valid domain name,
+             ``False`` otherwise.
+    :rtype: bool
     """
     if not domain or not isinstance(domain, str):
         return False
@@ -170,16 +172,16 @@ def is_valid_domain(domain: str) -> bool:
 def is_valid_url(url: str, schemes: List[str] = None) -> bool:
     """Check if the given string is a syntactically valid URL with specific schemes.
 
-    Args:
-    ----
-        url: The string to validate.
-        schemes: A list of allowed schemes (e.g., ['http', 'https']).
-                 If None or empty, any scheme is effectively allowed as long as one is present.
-                 Defaults to ['http', 'https'].
-
-    Returns:
-    -------
-        True if the string is a valid URL with an allowed scheme, False otherwise.
+    :param url: The string to validate.
+    :type url: str
+    :param schemes: A list of allowed schemes (e.g., ``['http', 'https']``).
+                    If ``None``, defaults to ``['http', 'https']``.
+                    If an empty list is provided, any scheme is effectively allowed
+                    as long as one is present in the URL.
+    :type schemes: list[str], optional
+    :return: ``True`` if the string is a valid URL with an allowed scheme
+             (or any scheme if ``schemes`` is empty), ``False`` otherwise.
+    :rtype: bool
     """
     if schemes is None: # Default to http and https if not provided
         schemes = ['http', 'https']
@@ -188,9 +190,11 @@ def is_valid_url(url: str, schemes: List[str] = None) -> bool:
         return False
     try:
         parsed_url = urlparse(url)
+        # A URL must have a scheme and a network location (netloc) to be valid.
         if not (parsed_url.scheme and parsed_url.netloc):
             return False
-        if schemes and parsed_url.scheme not in schemes: # Only check schemes if list is not empty
+        # If a non-empty list of schemes is provided, the URL's scheme must be in it.
+        if schemes and parsed_url.scheme not in schemes:
             return False
         return True
     except ValueError: # urlparse can raise ValueError for some malformed URLs, though it's rare
