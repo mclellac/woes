@@ -44,16 +44,7 @@ class WoesWindow(Adw.ApplicationWindow):
     toast_overlay = Gtk.Template.Child("toast_overlay")
 
     def __init__(self, **kwargs):
-        """Initialize the WoesWindow.
-
-        Sets up GSettings bindings for window state, connects to system
-        font and theme preference changes, and initializes the UI.
-
-        Args:
-        ----
-            **kwargs: Keyword arguments for Adw.ApplicationWindow.
-
-        """
+        """Initialize the WoesWindow."""
         super().__init__(**kwargs)
         self.settings = Gio.Settings(schema_id=APP_ID)
 
@@ -62,43 +53,27 @@ class WoesWindow(Adw.ApplicationWindow):
         self.settings.bind("window-width", self, "default-width", Gio.SettingsBindFlags.DEFAULT)
         self.settings.bind("window-height", self, "default-height", Gio.SettingsBindFlags.DEFAULT)
         self.settings.bind("window-is-maximized", self, "maximized", Gio.SettingsBindFlags.DEFAULT)
-        logging.info(
-            "Window state properties (default-width, default-height, maximized) bound to GSettings."
-        )
-        self.style_manager = Adw.StyleManager.get_default()
+        logging.info("Window state properties (default-width, default-height, maximized) bound to GSettings.")
 
+        self.style_manager = Adw.StyleManager.get_default()
         self.gnome_interface_settings = None
         # self.gnome_a11y_settings = None # Placeholder for if a11y settings are needed later
 
         if platform.system() == "Linux":
             try:
                 self.gnome_interface_settings = Gio.Settings.new(GNOME_INTERFACE_SCHEMA)
-                self.gnome_interface_settings.connect(
-                    f"changed::{FONT_NAME_KEY}", self._on_gnome_font_setting_changed
-                )
-                self.gnome_interface_settings.connect(
-                    f"changed::{TEXT_SCALING_FACTOR_KEY}",
-                    self._on_gnome_font_setting_changed,
-                )
-                logging.debug(
-                    "Successfully connected to GNOME interface settings schema: %s",
-                    GNOME_INTERFACE_SCHEMA,
-                )
+                self.gnome_interface_settings.connect(f"changed::{FONT_NAME_KEY}", self._on_gnome_font_setting_changed)
+                self.gnome_interface_settings.connect(f"changed::{TEXT_SCALING_FACTOR_KEY}", self._on_gnome_font_setting_changed)
+                logging.debug("Successfully connected to GNOME interface settings schema: %s", GNOME_INTERFACE_SCHEMA)
             except GLib.Error as e:
                 logging.warning(
-                    "Could not connect to GNOME interface settings (%s): %s. "
-                    "System font integration will be limited.",
-                    GNOME_INTERFACE_SCHEMA,
-                    e,
+                    "Could not connect to GNOME interface settings (%s): %s. System font integration will be limited.",
+                    GNOME_INTERFACE_SCHEMA, e
                 )
             # Optionally, initialize and connect to GNOME_A11Y_SCHEMA here if needed for high-contrast etc.
 
-        self.settings.connect(
-            "changed::theme-preference", self._on_theme_preference_setting_changed
-        )
-        self.settings.connect(
-            "changed::font-scaling-percentage", self._on_font_scaling_setting_changed
-        )
+        self.settings.connect("changed::theme-preference", self._on_theme_preference_setting_changed)
+        self.settings.connect("changed::font-scaling-percentage", self._on_font_scaling_setting_changed)
 
         try:
             self.setup_ui()
@@ -114,13 +89,7 @@ class WoesWindow(Adw.ApplicationWindow):
         self.hide_error()
 
     def show_error(self, message: str):
-        """Display a message in the main error banner.
-
-        Args:
-        ----
-            message: The error message to display.
-
-        """
+        """Display a message in the main error banner."""
         if self.main_error_banner:
             self.main_error_banner.set_title(message)
             self.main_error_banner.add_css_class("error")
@@ -141,15 +110,10 @@ class WoesWindow(Adw.ApplicationWindow):
 
     def _on_gnome_font_setting_changed(self, _gnome_settings_obj, key_name: str):
         logging.debug("GNOME font setting changed: %s. Re-applying font preferences.", key_name)
-        # Call apply_font_size, which now internally handles system font integration
         apply_font_size(self.settings)
 
     def setup_ui(self):
-        """Set up the main UI components.
-
-        Loads CSS, applies initial preferences, and connects signals for UI elements
-        like the page switcher.
-        """
+        """Set up the main UI components."""
         try:
             self.load_css()
         except Exception as e:  # pylint: disable=broad-except
@@ -169,46 +133,19 @@ class WoesWindow(Adw.ApplicationWindow):
             logging.warning("switcher_title or stack not found during setup_ui.")
 
     def _on_theme_preference_setting_changed(self, settings: Gio.Settings, key: str):
-        """Handle changes to the 'theme-preference' GSettings key.
-
-        Applies the new theme and reloads CSS.
-
-        Args:
-        ----
-            settings: The Gio.Settings object that changed.
-            key: The name of the GSettings key that changed (should be "theme-preference").
-
-        """
+        """Handle changes to the 'theme-preference' GSettings key."""
         theme_pref = settings.get_string(key)
         apply_theme(self.style_manager, theme_pref)
         self.load_css() # Reload CSS to ensure theme-specific styles are applied
 
     def _on_font_scaling_setting_changed(self, settings: Gio.Settings, key: str):  # pylint: disable=unused-argument
-        """Handle changes to the 'font-scaling-percentage' GSettings key.
-
-        Re-applies font preferences. The actual scaling value is read directly
-        by `apply_font_size` from settings.
-
-        Args:
-        ----
-            settings: The Gio.Settings object that changed (unused directly, but signals the change).
-            key: The name of the GSettings key that changed (should be "font-scaling-percentage").
-
-        """
-        # font_scale_pref_str is no longer needed from settings.get_string(key)
-        # as apply_font_size will now use apply_system_font_preferences
-        # which gets this value from app_settings directly.
-        # The key argument is still passed by the 'changed' signal.
-        logging.debug(
-            "App font scaling setting changed. Re-applying font preferences via apply_font_size."
-        )
+        """Handle changes to the 'font-scaling-percentage' GSettings key."""
+        # The actual scaling value is read directly by apply_font_size from app_settings.
+        logging.debug("App font scaling setting changed. Re-applying font preferences via apply_font_size.")
         apply_font_size(self.settings)
 
     def load_css(self):
-        """Load the appropriate CSS file (light or dark) based on the current theme.
-
-        Applies the CSS to the entire display using a Gtk.CssProvider.
-        """
+        """Load the appropriate CSS file (light or dark) based on the current theme."""
         if self.style_manager.get_dark():
             css_file = "style-dark.css"
         else:
@@ -228,75 +165,39 @@ class WoesWindow(Adw.ApplicationWindow):
         except Exception as e:  # pylint: disable=broad-except
             logging.error(
                 "An unexpected error of type %s occurred while loading CSS from %s: %s",
-                type(e).__name__,
-                css_path,
-                e,
+                type(e).__name__, css_path, e,
             )
 
     def reload_css(self):
-        """Reload CSS based on the current theme preference.
-
-        Convenience method that calls `load_css`.
-        """
+        """Reload CSS based on the current theme preference."""
         logging.debug("Reloading CSS based on theme preference.")
         self.load_css()
 
     def apply_preferences(self):
-        """Apply stored font and theme preferences to the application.
-
-        Retrieves settings from GSettings and calls appropriate utility functions
-        to apply them.
-        """
+        """Apply stored font and theme preferences to the application."""
         try:
             theme_pref = self.settings.get_string("theme-preference")
-
             apply_font_size(self.settings)
             apply_theme(self.style_manager, theme_pref)
-
         except GLib.Error as e:
             logging.error("Error applying preferences (GSettings): %s", e)
         except Exception as e:  # pylint: disable=broad-except
-            logging.error(
-                "An unexpected error of type %s occurred while applying preferences: %s",
-                type(e).__name__,
-                e,
-            )
+            logging.error("An unexpected error of type %s occurred while applying preferences: %s", type(e).__name__, e)
 
     def on_page_switched(self, _widget: Adw.ViewSwitcherTitle, _gparam: GObject.ParamSpec):
-        """Handle the page switch event from the Adw.ViewSwitcherTitle.
-
-        Logs the name of the newly visible child in the Adw.ViewStack.
-
-        Args:
-        ----
-            _widget: The Adw.ViewSwitcherTitle that emitted the signal.
-            _gparam: The GLib.ParamSpec of the property that changed (unused).
-
-        """
+        """Handle the page switch event from the Adw.ViewSwitcherTitle."""
         logging.debug("Switched to page: %s", self.stack.get_visible_child_name())
 
     def show_toast(self, title: str, priority: Adw.ToastPriority = Adw.ToastPriority.NORMAL, timeout: int = 2):
-        """Display an AdwToast message.
-
-        Args:
-        ----
-            title: The message to display in the toast.
-            priority: The priority of the toast (e.g., Adw.ToastPriority.NORMAL, Adw.ToastPriority.HIGH).
-            timeout: Duration in seconds for the toast to be visible. Default is 2 seconds.
-                     A value of 0 means it will stay until dismissed.
-
-        """
+        """Display an AdwToast message."""
         if not self.toast_overlay:
             logging.warning("ToastOverlay not found, cannot display toast: %s", title)
-            # Fallback to banner if toast system isn't available for some reason
-            # self.show_error(f"Toast (fallback): {title}") # Optional: consider if fallback is desired
             return
 
         toast = Adw.Toast.new(title)
         toast.set_priority(priority)
-        toast.set_timeout(timeout) # Set timeout in seconds
+        toast.set_timeout(timeout)
         # toast.set_action_name("app.example-action") # Optional: if toast needs an action button
         # toast.set_button_label("Example")         # Optional: label for the action button
-
         self.toast_overlay.add_toast(toast)
         logging.info("Toast shown: %s (Priority: %s, Timeout: %s)", title, priority, timeout)
