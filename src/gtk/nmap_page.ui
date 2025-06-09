@@ -1,27 +1,17 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<!-- Created with Cambalache 0.96.1 -->
+<!-- Created with Cambalache 0.91.3 -->
 <interface>
   <!-- interface-name nmap_page.ui -->
-  <requires lib="gtk" version="4.18"/>
-  <requires lib="libadwaita" version="1.7"/>
+  <requires lib="gtk" version="4.10"/>
+  <requires lib="libadwaita" version="1.4"/>
   <template class="NmapPage" parent="GtkBox">
-    <property name="height-request">600</property>
     <property name="width-request">700</property>
     <child>
       <object class="GtkBox" id="page_vbox">
         <property name="hexpand">true</property>
         <property name="hexpand-set">true</property>
         <property name="orientation">vertical</property>
-        <child>
-          <object class="AdwBanner" id="error_banner">
-            <property name="button-label" translatable="yes">Dismiss</property>
-            <property name="hexpand">true</property>
-            <property name="hexpand-set">true</property>
-            <property name="revealed">False</property>
-            <property name="title"/>
-            <signal name="button-clicked" handler="_on_error_banner_dismiss"/>
-          </object>
-        </child>
+        <!-- Removed AdwBanner with id="error_banner" from here -->
         <child>
           <object class="GtkPaned" id="main_paned_view">
             <property name="hexpand">true</property>
@@ -40,18 +30,18 @@
                   <object class="GtkBox" id="left_vbox_content">
                     <property name="hexpand">true</property>
                     <property name="hexpand-set">true</property>
-                    <property name="margin-bottom">20</property>
-                    <property name="margin-end">10</property>
-                    <property name="margin-start">10</property>
-                    <property name="margin-top">20</property>
+                    <property name="margin-bottom">6</property>
+                    <property name="margin-end">6</property>
+                    <property name="margin-start">6</property>
+                    <property name="margin-top">6</property>
                     <property name="orientation">vertical</property>
                     <property name="spacing">12</property>
                     <child>
                       <object class="AdwPreferencesGroup" id="nmap_scan_parameters_group">
                         <property name="hexpand">true</property>
                         <property name="hexpand-set">true</property>
-                        <property name="margin-end">20</property>
-                        <property name="margin-start">20</property>
+                        <property name="margin-end">10</property>
+                        <property name="margin-start">10</property>
                         <property name="title" translatable="yes">Scan Parameters</property>
                         <child>
                           <object class="AdwEntryRow" id="nmap_target_entryrow">
@@ -172,9 +162,6 @@
                       <object class="GtkListBox" id="nmap_host_listbox">
                         <property name="hexpand">true</property>
                         <property name="hexpand-set">true</property>
-                        <property name="margin-bottom">10</property>
-                        <property name="margin-end">20</property>
-                        <property name="margin-start">20</property>
                         <property name="selection-mode">single</property>
                         <property name="vexpand">true</property>
                       </object>
@@ -201,7 +188,7 @@
                     <property name="vexpand">true</property>
                     <child>
                       <object class="AdwStatusPage" id="nmap_detail_placeholder">
-                        <property name="description" translatable="yes">Select host from the list on the left to view details.</property>
+                        <property name="description" translatable="yes">Select host from the list on the left after the scan to view details.</property>
                         <property name="hexpand">true</property>
                         <property name="hexpand-set">true</property>
                         <property name="icon-name">network-workgroup-symbolic</property>
