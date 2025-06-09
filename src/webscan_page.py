@@ -220,7 +220,7 @@ class WebScanPage(Adw.PreferencesPage):
         if not target_url.startswith(("http://", "https://")):
             target_url = "http://" + target_url
 
-        nikto_command = ['nikto', '-h', target_url, '-Format', 'txt']
+        nikto_command = ['nikto', '-h', target_url]
 
         if force_ssl:
             nikto_command.append('-ssl')
