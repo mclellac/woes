@@ -83,36 +83,43 @@ class WebScanPage(Adw.PreferencesPage):
         self.scan_button.set_sensitive(False)
 
         cancellable = Gio.Cancellable()
-        task = Gio.Task.new(self, cancellable, self._on_scan_task_done)
-        # Wrap the string in a GLib.Variant
-        variant_target_url = GLib.Variant('s', target_url)
-        task.set_task_data(variant_target_url)
+        # Pass self (WebScanPage instance) as source_object, task_data will be None
+        task = Gio.Task.new(self, cancellable, self._on_scan_task_done, None)
+
+        self._temp_scan_data = {
+            "target_url": target_url,
+            "force_ssl": self.force_ssl_switch.get_active(),
+            "cgi_vulns": self.cgi_vulns_switch.get_active(),
+            "interesting_content": self.interesting_content_switch.get_active()
+        }
+        # task_data is not set on the task directly anymore.
         task.run_in_thread(self._run_scan_task_thread_func)
 
     def _run_scan_task_thread_func(self,
-                                   gio_task: Gio.Task,
-                                   _source_object: GObject.Object,
-                                   task_data_variant: GLib.Variant,
-                                   _cancellable: Gio.Cancellable):
+                                   task: Gio.Task, # Correct first parameter
+                                   source_object: GObject.Object, # This is 'self' (WebScanPage instance)
+                                   task_data: object, # This will be None (as passed to Gio.Task.new)
+                                   cancellable: Gio.Cancellable): # Corrected name
         """Execute the Nikto scan in a separate thread.
 
-        This method is run by `Gio.Task.run_in_thread`. It takes the target URL (from task_data_variant),
-        prepends 'http://' if no scheme is present, and runs the Nikto command
-        using `subprocess.Popen`. It captures stdout and stderr.
-
-        Returns results or error information via `gio_task.return_value` or
-        `gio_task.return_error` (implicitly, by raising GLib.Error for task failures,
-        though here it returns specific error types as strings in a tuple).
+        This method is run by `Gio.Task.run_in_thread`. It retrieves scan parameters
+        from the `source_object` (WebScanPage instance), constructs, and runs the Nikto command.
 
         Args:
         ----
-            gio_task: The `Gio.Task` associated with this asynchronous operation.
-            _source_object: The source GObject that initiated the task (unused).
-            task_data_variant: GLib.Variant containing the target URL string.
-            _cancellable: A `Gio.Cancellable` (unused in this implementation).
+            task: The `Gio.Task` associated with this asynchronous operation.
+            source_object: The source GObject that initiated the task (the WebScanPage instance).
+            task_data: Task-specific data (None in this implementation, parameters are on source_object).
+            cancellable: A `Gio.Cancellable` to monitor for cancellation requests.
 
         """
-        target_url = task_data_variant.get_string()
+        page_instance = source_object # source_object is the WebScanPage instance
+        scan_data = page_instance._temp_scan_data
+
+        target_url = scan_data["target_url"]
+        force_ssl = scan_data["force_ssl"]
+        cgi_vulns = scan_data["cgi_vulns"]
+        interesting_content = scan_data["interesting_content"]
 
         if not target_url.startswith(("http://", "https://")):
             target_url = "http://" + target_url
@@ -121,14 +128,14 @@ class WebScanPage(Adw.PreferencesPage):
         nikto_command = ['nikto', '-h', target_url, '-Format', 'txt']
 
         # Check SSL option
-        if self.force_ssl_switch.get_active():
+        if force_ssl:
             nikto_command.append('-ssl')
 
         # Check Tuning options
         tuning_options = []
-        if self.cgi_vulns_switch.get_active():
+        if cgi_vulns:
             tuning_options.append('2') # Misconfiguration / Default File
-        if self.interesting_content_switch.get_active():
+        if interesting_content:
             tuning_options.append('1') # Interesting File / Seen in logs
 
         # Nikto's -Tuning option takes a string of numbers, e.g., "12"
@@ -181,8 +188,10 @@ class WebScanPage(Adw.PreferencesPage):
             _user_data: User data passed to the callback (unused).
 
         """
-        variant_target_url_in_callback = task.get_task_data()
-        target_url = variant_target_url_in_callback.get_string()
+        # Retrieve target_url from the instance attribute for messages
+        target_url = "Unknown URL" # Default if _temp_scan_data is somehow missing
+        if hasattr(self, '_temp_scan_data') and self._temp_scan_data:
+            target_url = self._temp_scan_data.get("target_url", target_url)
 
         try:
             stdout, stderr_or_error_msg, error_type = task.run_in_thread_finish(result)
@@ -213,6 +222,8 @@ class WebScanPage(Adw.PreferencesPage):
             self._update_textview("", user_message)
         finally:
             self.scan_button.set_sensitive(True)
+            if hasattr(self, '_temp_scan_data'):
+                del self._temp_scan_data
 
     def _update_textview(self, stdout: Optional[str], stderr: Optional[str]):
         """Update the results TextView with Nikto's stdout and stderr.
