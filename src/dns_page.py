@@ -197,16 +197,26 @@ class DNSPage(Adw.PreferencesPage):
         logger.debug(f"Performing DNS lookup for: {user_input}, type: {requested_record_type}")
 
         if not user_input:
-            self._show_error("Input cannot be empty.")
+            main_window = self.get_native()
+            if main_window and hasattr(main_window, 'show_toast'):
+                main_window.show_toast("Input cannot be empty.")
+            else:
+                logger.warning("Could not find main window or show_toast method for empty DNS input toast.")
+                self._show_error("Input cannot be empty.") # Fallback
             if self.dns_lookup_spinner:
                 self.dns_lookup_spinner.stop()
                 self.dns_lookup_spinner.set_visible(False)
             return
 
-        self._clear_error()
+        self._clear_error() # Clears banner and CSS error class
 
         if not self._is_valid_ip_or_domain(user_input):
-            self._show_error("Invalid IP address or domain name.")
+            main_window = self.get_native()
+            if main_window and hasattr(main_window, 'show_toast'):
+                main_window.show_toast("Invalid IP address or domain name.")
+            else:
+                logger.warning("Could not find main window or show_toast method for invalid DNS input toast.")
+                self._show_error("Invalid IP address or domain name.") # Fallback
             if self.dns_lookup_spinner:
                 self.dns_lookup_spinner.stop()
                 self.dns_lookup_spinner.set_visible(False)
@@ -233,13 +243,11 @@ class DNSPage(Adw.PreferencesPage):
         except dns.resolver.NXDOMAIN:
             self._show_error(f"Domain not found: {user_input} (NXDOMAIN)")
         except dns.resolver.NoAnswer:
-            # Determine which record type was actually attempted for the error message
-            record_type_for_error = (
-                "PTR" if self._is_ip_address(user_input) else requested_record_type
-            )
-            self._show_error(
-                f"No {record_type_for_error} records found for {user_input} (NoAnswer)"
-            )
+            # For NoAnswer, we want to display this information in the results area, not as an error banner.
+            # _display_result will handle showing "No records found".
+            # We pass an empty list to _display_result.
+            logger.info("No %s records found for %s (NoAnswer).", requested_record_type, user_input)
+            self._display_result([], user_input, requested_record_type, resolver.nameservers if hasattr(resolver, 'nameservers') else ["System default"])
         except dns.resolver.Timeout:
             self._show_error(f"DNS query timed out for {user_input}")
         except dns.exception.DNSException as e:  # Catch other DNS-specific exceptions
@@ -409,7 +417,13 @@ class DNSPage(Adw.PreferencesPage):
         self.dns_results_box_container.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
 
         if not result_records:
-            no_records_row = Adw.ActionRow(title="No records found for this query.")
+            no_records_message = f"No {record_type} records found for {domain_or_ip}."
+            if record_type == "PTR" and self._is_ip_address(domain_or_ip): # More specific for reverse lookups
+                 no_records_message = f"No PTR records found for IP address {domain_or_ip}."
+            elif record_type == "PTR": # Generic PTR if input wasn't an IP for some reason
+                 no_records_message = f"No PTR records found for {domain_or_ip}."
+
+            no_records_row = Adw.ActionRow(title=no_records_message)
             no_records_row.set_selectable(False)
             self.dns_results_box_container.append(no_records_row)
             return

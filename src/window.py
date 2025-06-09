@@ -7,7 +7,7 @@ and integrates system font settings.
 import logging
 import platform
 import gi
-from gi.repository import Adw, Gdk, Gio, Gtk, GLib, GObject # Added GObject
+from gi.repository import Adw, Gdk, Gio, Gtk, GLib, GObject, AdwToastOverlay, AdwToast # Added GObject
 
 from .constants import (
     APP_ID,
@@ -41,6 +41,7 @@ class WoesWindow(Adw.ApplicationWindow):
     switcher_title = Gtk.Template.Child("switcher_title")
     stack = Gtk.Template.Child("stack")
     main_error_banner = Gtk.Template.Child("main_error_banner")
+    toast_overlay = Gtk.Template.Child("toast_overlay")
 
     def __init__(self, **kwargs):
         """Initialize the WoesWindow.
@@ -122,6 +123,7 @@ class WoesWindow(Adw.ApplicationWindow):
         """
         if self.main_error_banner:
             self.main_error_banner.set_title(message)
+            self.main_error_banner.add_css_class("error")
             self.main_error_banner.set_revealed(True)
             logging.info("Main error banner shown with message: %s", message)
         else:
@@ -130,6 +132,7 @@ class WoesWindow(Adw.ApplicationWindow):
     def hide_error(self):
         """Hides the main error banner and clears its title."""
         if self.main_error_banner:
+            self.main_error_banner.remove_css_class("error")
             self.main_error_banner.set_revealed(False)
             self.main_error_banner.set_title("") # Clear title
             logging.info("Main error banner hidden.")
@@ -271,3 +274,28 @@ class WoesWindow(Adw.ApplicationWindow):
 
         """
         logging.debug("Switched to page: %s", self.stack.get_visible_child_name())
+
+    def show_toast(self, title: str, priority: Adw.ToastPriority = Adw.ToastPriority.NORMAL, timeout: int = 2):
+        """Displays an AdwToast message.
+
+        Args:
+        ----
+            title: The message to display in the toast.
+            priority: The priority of the toast (e.g., Adw.ToastPriority.NORMAL, Adw.ToastPriority.HIGH).
+            timeout: Duration in seconds for the toast to be visible. Default is 2 seconds.
+                     A value of 0 means it will stay until dismissed.
+        """
+        if not self.toast_overlay:
+            logging.warning("ToastOverlay not found, cannot display toast: %s", title)
+            # Fallback to banner if toast system isn't available for some reason
+            # self.show_error(f"Toast (fallback): {title}") # Optional: consider if fallback is desired
+            return
+
+        toast = Adw.Toast.new(title)
+        toast.set_priority(priority)
+        toast.set_timeout(timeout) # Set timeout in seconds
+        # toast.set_action_name("app.example-action") # Optional: if toast needs an action button
+        # toast.set_button_label("Example")         # Optional: label for the action button
+
+        self.toast_overlay.add_toast(toast)
+        logging.info("Toast shown: %s (Priority: %s, Timeout: %s)", title, priority, timeout)

@@ -497,7 +497,13 @@ class HttpPage(Adw.PreferencesPage):
 
         if not self._is_valid_url(url):
             logger.warning("Invalid URL provided: %s (processed as: %s)", original_url, url)
-            self._display_error("Invalid URL format: Please enter a valid URL (e.g., https://example.com).")
+            main_window = self.get_native()
+            if main_window and hasattr(main_window, 'show_toast'):
+                main_window.show_toast("Invalid URL format. Please enter a valid URL (e.g., https://example.com).")
+            else:
+                # Fallback or log if main_window or show_toast is not available
+                logger.warning("Could not find main window or show_toast method to display invalid URL toast.")
+                self._display_error("Invalid URL format: Please enter a valid URL (e.g., https://example.com).") # Fallback to banner
             self._update_column_view_model(None) # Clear previous results
             return
 

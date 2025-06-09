@@ -5,11 +5,13 @@
   <requires lib="libadwaita" version="1.7"/>
   <template class="WoesWindow" parent="AdwApplicationWindow">
     <property name="content">
-      <object class="GtkBox" id="main_box">
-        <property name="halign">baseline-fill</property>
-        <property name="orientation">vertical</property>
-        <child>
-          <object class="AdwHeaderBar" id="header_bar">
+      <object class="AdwToastOverlay" id="toast_overlay">
+        <property name="child">
+          <object class="GtkBox" id="main_box">
+            <property name="halign">baseline-fill</property>
+            <property name="orientation">vertical</property>
+            <child>
+              <object class="AdwHeaderBar" id="header_bar">
             <property name="title-widget">
               <object class="AdwViewSwitcher" id="switcher_title">
                 <property name="halign">baseline-fill</property>
@@ -176,7 +178,9 @@
             <property name="stack">stack</property>
           </object>
         </child>
-      </object>
+          </object> <!-- End of main_box -->
+        </property> <!-- End of AdwToastOverlay child property -->
+      </object> <!-- End of AdwToastOverlay -->
     </property>
     <property name="default-height">1000</property>
     <property name="default-width">1000</property>
