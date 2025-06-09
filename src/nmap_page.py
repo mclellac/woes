@@ -794,7 +794,7 @@ class NmapPage(Gtk.Box):
 
 
     def _create_target_listbox_row(self, item: NmapItem) -> Gtk.ListBoxRow:
-        """Factory function to create an NmapTargetRow for the host ListBox.
+        """Create an NmapTargetRow for the host ListBox.
 
         Args:
         ----

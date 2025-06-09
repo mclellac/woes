@@ -6,8 +6,11 @@ gi.require_version("Gtk", "4.0")
 
 
 class Helper:
-    """A helper class to add keyboard shortcuts (Ctrl+C) and context menu functionality
-    (right-click to copy) to a Gtk.ColumnView widget.
+    """Provides keyboard shortcuts and context menu for Gtk.ColumnView.
+
+    This helper class adds common functionalities like Ctrl+C for copying
+    and a right-click context menu with a 'Copy' option to a Gtk.ColumnView
+    widget.
     """
 
     def __init__(self, widget, parent_window):
@@ -27,8 +30,10 @@ class Helper:
             self.setup_context_menu()
 
     def setup_keyboard_shortcut(self):
-        """Set up a keyboard shortcut (Ctrl+C) for copying selected content
-        from the Gtk.ColumnView to the clipboard.
+        """Set up a keyboard shortcut (Ctrl+C) for copying.
+
+        This allows copying selected content from the Gtk.ColumnView
+        to the clipboard using the Ctrl+C combination.
         """
         key_controller = Gtk.EventControllerKey()
         key_controller.connect("key-pressed", self.on_key_pressed)

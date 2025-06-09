@@ -276,7 +276,7 @@ class WoesWindow(Adw.ApplicationWindow):
         logging.debug("Switched to page: %s", self.stack.get_visible_child_name())
 
     def show_toast(self, title: str, priority: Adw.ToastPriority = Adw.ToastPriority.NORMAL, timeout: int = 2):
-        """Displays an AdwToast message.
+        """Display an AdwToast message.
 
         Args:
         ----
@@ -284,6 +284,7 @@ class WoesWindow(Adw.ApplicationWindow):
             priority: The priority of the toast (e.g., Adw.ToastPriority.NORMAL, Adw.ToastPriority.HIGH).
             timeout: Duration in seconds for the toast to be visible. Default is 2 seconds.
                      A value of 0 means it will stay until dismissed.
+
         """
         if not self.toast_overlay:
             logging.warning("ToastOverlay not found, cannot display toast: %s", title)

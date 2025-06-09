@@ -32,6 +32,10 @@ class WebScanPage(Adw.PreferencesPage):
     interesting_content_switch = Gtk.Template.Child()
 
     def __init__(self, **kwargs):
+        """Initialize the WebScanPage.
+
+        Sets up signal handlers for UI elements.
+        """
         super().__init__(**kwargs)
         logger.debug("WebScanPage initialized")
         self.url_entry.connect("entry-activated", self.on_scan_button_clicked)
@@ -216,7 +220,7 @@ class WebScanPage(Adw.PreferencesPage):
             else:
                 self._update_textview(stdout, stderr_or_error_msg)
 
-        except GLib.Error as e:
+        except GLib.Error:
             logger.exception(f"GLib.Error during scan task finalization for {target_url}:")
             user_message = "A task finalization error occurred. Please check the application logs for more details."
             self._show_main_banner_error(user_message)
