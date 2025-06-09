@@ -301,10 +301,14 @@ class WebScanPage(Adw.PreferencesPage):
 
         try:
             # Gio.Task.propagate_value() can raise a GLib.Error if the task itself
-            # encountered an unhandled exception (e.g., was cancelled before returning a value).
-            # On success, it directly returns the Python object passed to task.return_value().
-            returned_value = active_task.propagate_value()
-            stdout, stderr_or_error_msg, error_type = returned_value
+            # encountered an unhandled exception.
+            # On success, it returns a 2-tuple. The first element's role is secondary
+            # here as critical errors are caught by GLib.Error.
+            # The second element is the actual payload (our 3-element tuple)
+            # passed to task.return_value() in the thread.
+            _intermediate_tuple_from_propagate = active_task.propagate_value()
+            _status_or_bool, actual_payload_tuple = _intermediate_tuple_from_propagate
+            stdout, stderr_or_error_msg, error_type = actual_payload_tuple
 
             if error_type == "FileNotFoundError":
                 logger.exception("Nikto command not found. Ensure it's in PATH.")
