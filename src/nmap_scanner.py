@@ -127,17 +127,17 @@ class NmapScanner:
     """
 
     def __init__(self):
-        """Initializes the NmapScanner with a ThreadPoolExecutor for concurrent scans."""
+        """Initialize the NmapScanner with a ThreadPoolExecutor for concurrent scans."""
         logger.debug("NmapScanner initialized.")
         self.executor = ThreadPoolExecutor(max_workers=4)
         self.nm = None  # Initialize nm attribute
 
     def __del__(self):
-        """Ensures the ThreadPoolExecutor is shut down when the NmapScanner instance is deleted."""
+        """Ensure the ThreadPoolExecutor is shut down when the NmapScanner instance is deleted."""
         self.executor.shutdown(wait=True)
 
     def validate_target_input(self, target: str) -> bool:
-        """Validates the target string for Nmap scanning.
+        """Validate the target string for Nmap scanning.
 
         The target can be a single IP address, a hostname, a CIDR block,
         or multiple targets separated by commas or spaces.
@@ -176,7 +176,7 @@ class NmapScanner:
     def build_nmap_options(
         self, os_fingerprinting: bool, scan_all_ports: bool, selected_script: str
     ) -> str:
-        """Constructs the Nmap command-line options string based on boolean flags and a script name.
+        """Construct Nmap command-line options string based on boolean flags and a script name.
 
         Args:
         ----
@@ -475,7 +475,7 @@ class NmapScanner:
             ) from e_unexpected
 
     def convert_results_to_yaml(self, nm: nmap.PortScanner) -> Dict[str, str]:
-        """Converts Nmap scan results from an nmap.PortScanner object into a YAML formatted string for each host.
+        """Convert Nmap scan results from an nmap.PortScanner object into a YAML formatted string for each host.
 
         Args:
         ----
@@ -503,8 +503,12 @@ class NmapScanner:
         return all_results
 
     def to_plain_dict(self, data: Any) -> Union[Dict[str, Any], Any]:
-        """Recursively converts complex Nmap data structures (like PortScannerHostDict)
-        into plain Python dictionaries and lists, suitable for YAML serialization.
+        """Recursively convert Nmap data to plain dicts/lists.
+
+        This function takes complex Nmap data structures (such as
+        PortScannerHostDict) and transforms them into plain Python
+        dictionaries and lists. This makes the data suitable for
+        serialization, for example, into YAML format.
 
         Args:
         ----

@@ -8,7 +8,7 @@ import dns.reversename
 import dns.rdatatype
 import dns.rdataclass
 import gi
-from gi.repository import Adw, Gio, Gtk, Pango, GObject, Gdk
+from gi.repository import Adw, Gio, Gtk, Pango, GObject
 from typing import Tuple, Sequence, Any, List, Dict
 
 from .constants import APP_ID, RESOURCE_PREFIX
@@ -66,7 +66,7 @@ class DNSPage(Adw.PreferencesPage):
                 logger.info("Copied to clipboard: %s", text)
             else:
                 logger.warning("Could not get clipboard from widget: %s", widget)
-        except Exception as e: # pylint: disable=broad-except
+        except Exception: # pylint: disable=broad-except
             logger.exception("Error copying to clipboard:")
 
 

@@ -89,7 +89,7 @@ class CustomDNSAdapter(HTTPAdapter):
         super().__init__(*args, **kwargs)
 
     def _resolve_hostname_to_ip(self, hostname: str) -> Optional[str]:
-        """Resolves a hostname using the custom DNS server.
+        """Resolve a hostname using the custom DNS server.
 
         Attempts to resolve AAAA records first, then A records.
 
@@ -166,7 +166,7 @@ class CustomDNSAdapter(HTTPAdapter):
         cert: Optional[tuple[str, str] | str] = None,
         proxies=None,
     ):
-        """Overrides HTTPAdapter.send method.
+        """Override HTTPAdapter.send method.
 
         This method is called by `requests.Session` to send a `PreparedRequest`.
         It performs custom DNS resolution if applicable before the request is actually sent.
@@ -241,7 +241,7 @@ class CustomDNSAdapter(HTTPAdapter):
         return super().send(request, stream, timeout, verify, cert, proxies)
 
     def init_poolmanager(self, connections: int, maxsize: int, block: bool = False, **pool_kwargs):
-        """Initializes the `urllib3.PoolManager`.
+        """Initialize the `urllib3.PoolManager`.
 
         This method is overridden to inject SNI (Server Name Indication) and
         `assert_hostname` parameters into the pool's keyword arguments if:
@@ -429,7 +429,7 @@ class HttpPage(Adw.PreferencesPage):
             self.http_user_agent_row.connect("notify::selected-item", self._on_user_agent_changed)
 
     def _on_host_header_changed(self, entry_row: Adw.EntryRow) -> None:
-        """Adds or removes 'active-override' CSS class based on Host header text.
+        """Add or remove 'active-override' CSS class based on Host header text.
 
         Args:
         ----
@@ -445,7 +445,7 @@ class HttpPage(Adw.PreferencesPage):
             entry_row.remove_css_class("active-override")
 
     def _on_user_agent_changed(self, combo_row: Adw.ComboRow, _gparam: Optional[GObject.ParamSpec]) -> None:
-        """Adds or removes 'active-override' CSS class based on User-Agent selection.
+        """Add or remove 'active-override' CSS class based on User-Agent selection.
 
         The class is added if the selected User-Agent is not the default "None" option.
 
@@ -579,7 +579,7 @@ class HttpPage(Adw.PreferencesPage):
     def _prepare_request_headers(
         self, use_akamai_pragma: bool, host_header_from_input: Optional[str], user_agent: Optional[str]
     ) -> tuple[dict[str, str], dict[str, str]]:
-        """Prepares initial request-specific headers and session-wide headers.
+        """Prepare initial request-specific headers and session-wide headers.
 
         Args:
         ----
@@ -635,7 +635,7 @@ class HttpPage(Adw.PreferencesPage):
         task_data_arg: dict,  # pylint: disable=unused-argument
         cancellable: Optional[Gio.Cancellable],
     ):
-        """Performs the HTTP GET request in a separate thread via `Gio.Task`.
+        """Perform the HTTP GET request in a separate thread via `Gio.Task`.
 
         This method orchestrates the HTTP request by:
         1.  Preparing headers using `_prepare_request_headers`.
@@ -771,7 +771,7 @@ class HttpPage(Adw.PreferencesPage):
             task.return_new_error_literal(
                 GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN), HttpErrorType.REQUEST_EXCEPTION.value, error_message
             )
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception:  # pylint: disable=broad-except
             logger.exception("Task thread: Truly unexpected error during HTTP fetch for URL '%s':", url_to_fetch)
             error_message = (
                 "An unexpected internal error occurred while processing your request. "
@@ -789,7 +789,7 @@ class HttpPage(Adw.PreferencesPage):
         initial_request_headers: dict[str, str],
         cancellable: Optional[Gio.Cancellable],
     ) -> requests.Response:
-        """Executes the HTTP GET request using the provided session and headers.
+        """Execute the HTTP GET request using the provided session and headers.
 
         Handles pre-request cancellation check. Network-related exceptions
         (Timeout, ConnectionError, other RequestException) are expected to be
@@ -831,7 +831,7 @@ class HttpPage(Adw.PreferencesPage):
     def _process_http_response(
         self, response: requests.Response, task: Gio.Task, url_being_fetched: str
     ) -> Optional[list[dict[str, object]]]:
-        """Processes the HTTP response, including redirects, and checks for HTTP errors.
+        """Process the HTTP response, including redirects, and checks for HTTP errors.
 
         If an `requests.exceptions.HTTPError` (4xx or 5xx status code) occurs on the
         final response, this method sets an error on the `Gio.Task` and returns `None`.
@@ -995,7 +995,7 @@ class HttpPage(Adw.PreferencesPage):
         return None  # No specific detailed message generated
 
     def _fetch_headers_task_done_cb(self, _source_object, result: Gio.AsyncResult, _user_data):  # pylint: disable=too-many-branches,too-many-statements,unused-argument # noqa: C901
-        """Callback executed in the main GTK thread when `_fetch_headers_task_thread_func` completes.
+        """Handle completion of the HTTP header fetching task.
 
         Processes the results (a list of response data dictionaries) or errors returned
         by the background task. Updates the UI (ColumnView for headers, error banner) accordingly.
@@ -1444,7 +1444,7 @@ class HttpPage(Adw.PreferencesPage):
 
         # Setup function: Called once per list item when it's created.
         def setup_func(_factory: Gtk.SignalListItemFactory, list_item: Gtk.ListItem) -> None:
-            """Setup function for the list item factory. Creates and sets a Gtk.Label as child."""
+            """Set up the list item factory. Create and set a Gtk.Label as child."""
             label = Gtk.Label(xalign=0.0)  # Align text to the left
             label.set_hexpand(True)  # Allow label to expand horizontally
             if wrap_text:  # For "value" column

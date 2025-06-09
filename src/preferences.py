@@ -69,12 +69,14 @@ class Preferences(Adw.PreferencesWindow):
                     self.dns_server_entryrow.set_sensitive(False)
                     self.dns_server_entryrow.set_subtitle("Requires 'dnspython' library to be installed.")
                     self.dns_server_entryrow.set_tooltip_text("Custom DNS functionality is disabled because the 'dnspython' library is not installed.")
-                    if self.prefs_dns_apply_button: self.prefs_dns_apply_button.set_sensitive(False)
+                    if self.prefs_dns_apply_button:
+                        self.prefs_dns_apply_button.set_sensitive(False)
                 else:
                     self.dns_server_entryrow.set_sensitive(True)
                     self.dns_server_entryrow.set_subtitle("") # Clear subtitle
                     self.dns_server_entryrow.set_tooltip_text("Enter your custom DNS server IP address. Leave empty to use system default.")
-                    if self.prefs_dns_apply_button: self.prefs_dns_apply_button.set_sensitive(True)
+                    if self.prefs_dns_apply_button:
+                        self.prefs_dns_apply_button.set_sensitive(True)
                 logging.info(
                     "'dnspython' status: %s. Custom DNS server entry in preferences updated.",
                     "found" if http_dns_module else "not found"
@@ -84,7 +86,8 @@ class Preferences(Adw.PreferencesWindow):
                 if http_dns_module is None:
                     self.dns_server_entryrow.set_sensitive(False)
                     self.dns_server_entryrow.set_tooltip_text("Custom DNS disabled: 'dnspython' library not found. Install it for this feature.")
-                    if self.prefs_dns_apply_button: self.prefs_dns_apply_button.set_sensitive(False)
+                    if self.prefs_dns_apply_button:
+                        self.prefs_dns_apply_button.set_sensitive(False)
                 else:
                     self.dns_server_entryrow.set_sensitive(True)
                     self.dns_server_entryrow.set_tooltip_text("Enter custom DNS server IP. Leave empty for system default.")
@@ -287,7 +290,7 @@ class Preferences(Adw.PreferencesWindow):
 
     @staticmethod
     def _rgba_to_hex(rgba: Gdk.RGBA) -> str:
-        """Converts a Gdk.RGBA object to a hex color string (e.g., #RRGGBB)."""
+        """Convert a Gdk.RGBA object to a hex color string (e.g., #RRGGBB)."""
         # Ensure values are scaled to 0-255 and are integers
         red = int(rgba.red * 255)
         green = int(rgba.green * 255)
@@ -375,8 +378,10 @@ class Preferences(Adw.PreferencesWindow):
                 self.new_custom_ua_value_entry.remove_css_class("error")
             return
 
-        if self.new_custom_ua_title_entry: self.new_custom_ua_title_entry.remove_css_class("error")
-        if self.new_custom_ua_value_entry: self.new_custom_ua_value_entry.remove_css_class("error")
+        if self.new_custom_ua_title_entry:
+            self.new_custom_ua_title_entry.remove_css_class("error")
+        if self.new_custom_ua_value_entry:
+            self.new_custom_ua_value_entry.remove_css_class("error")
 
         variant = self.settings.get_value("custom-user-agents")
         current_ua_pairs = list(variant.unpack() if variant and variant.get_type_string() == 'a(ss)' else [])
@@ -395,8 +400,10 @@ class Preferences(Adw.PreferencesWindow):
 
         if self.settings.set_value("custom-user-agents", new_variant):
             logging.info(f"Added custom User-Agent: '{title_text}' -> '{value_text}'")
-            if self.new_custom_ua_title_entry: self.new_custom_ua_title_entry.set_text("")
-            if self.new_custom_ua_value_entry: self.new_custom_ua_value_entry.set_text("")
+            if self.new_custom_ua_title_entry:
+                self.new_custom_ua_title_entry.set_text("")
+            if self.new_custom_ua_value_entry:
+                self.new_custom_ua_value_entry.set_text("")
             self._render_custom_ua_list()
         else:
             logging.error(f"Failed to save custom User-Agent list to GSettings with new UA: {title_text}")

@@ -10,7 +10,7 @@ from typing import Optional, List
 import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gio, GLib, Gtk
+from gi.repository import Adw, Gio, GLib
 
 from .constants import (
     APP_ID,
@@ -345,11 +345,12 @@ class WoesApplication(Adw.Application):
         about.present()
 
     def _create_about_window(self) -> Adw.AboutWindow:
-        """Helper method to create and configure the Adw.AboutWindow.
+        """Create and configure the Adw.AboutWindow.
 
         Returns
         -------
             Adw.AboutWindow: The configured About Window.
+
         """
         # Note: 'transient_for' is typically set by the caller (on_about_action)
         # if an active window exists. If direct testing _create_about_window,
