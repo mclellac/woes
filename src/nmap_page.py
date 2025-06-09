@@ -7,7 +7,7 @@ information (ports, OS, etc.) shown in expandable sections.
 import logging
 logger = logging.getLogger(__name__)
 import re
-from typing import Optional # Removed List as it's not used
+from typing import Optional
 import yaml
 
 import gi
@@ -88,7 +88,6 @@ class NmapPage(Gtk.Box):
     status_row = Gtk.Template.Child("status_row")
     scan_spinner = Gtk.Template.Child("scan_spinner")
 
-    # error_banner = Gtk.Template.Child("error_banner") # Removed
 
     left_vbox_content = Gtk.Template.Child("left_vbox_content")
 
@@ -170,7 +169,7 @@ class NmapPage(Gtk.Box):
             self.nmap_detail_box.remove(child)
             child = self.nmap_detail_box.get_first_child()
 
-        # self.error_banner.set_revealed(False) # Removed
+
         self.scan_spinner.set_spinning(False)
         self.scan_spinner.set_visible(False)
         self.status_row.set_subtitle("Idle")
@@ -191,11 +190,9 @@ class NmapPage(Gtk.Box):
         self.nmap_target_entryrow.connect("entry-activated", self._on_target_activate)
         self.nmap_apply_button.connect("clicked", self._on_target_activate)
         self.nmap_host_listbox.connect("row-selected", self._on_target_selected)
-        # Removed signal connection for local error_banner
-        # if self.error_banner:
-        #     self.error_banner.connect("button-clicked", self._on_error_banner_dismiss)
 
-    def _on_target_activate(self, entry_row: Adw.EntryRow): # Renamed from _widget to entry_row for clarity
+
+    def _on_target_activate(self, entry_row: Adw.EntryRow):
         logger.debug(f"_on_target_activate called by {entry_row}.")
         target = self.nmap_target_entryrow.get_text().strip()
         self._clear_error()
@@ -266,7 +263,7 @@ class NmapPage(Gtk.Box):
             timing_template,
             custom_dns_server,
         )
-        # Removed redundant logging.debug of params as it's covered above
+
 
     def _run_nmap_scan_task(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
@@ -314,10 +311,10 @@ class NmapPage(Gtk.Box):
             )
             GLib.idle_add(self._process_scan_results, nm, target)
         except nmap.PortScannerError as e:
-            logger.exception("Nmap PortScannerError for %s:", target) # Changed to logger.exception
+            logger.exception("Nmap PortScannerError for %s:", target)
             GLib.idle_add(self._handle_scan_error, target, f"Nmap scan error: {e}")
         except Exception as e:  # pylint: disable=broad-except
-            logger.exception( # Changed to logger.exception
+            logger.exception(
                 "Unexpected exception in Nmap scan task for %s (%s):",
                 target,
                 type(e).__name__,
@@ -383,7 +380,7 @@ class NmapPage(Gtk.Box):
         self._display_error(f"Error scanning {target}: {error_message}")
         self._set_scan_status(ScanStatus.FAILED, f"Scan failed for {target}")
 
-    def _on_target_selected(self, _listbox: Gtk.ListBox, row: Gtk.ListBoxRow | None): # Changed Optional[] to | None
+    def _on_target_selected(self, _listbox: Gtk.ListBox, row: Gtk.ListBoxRow | None):
         """Handle selection of a host in the Nmap results ListBox.
 
         Clears previous details and displays the scan results (parsed from YAML)
@@ -762,7 +759,7 @@ class NmapPage(Gtk.Box):
             self.nmap_detail_box.append(self.nmap_detail_placeholder)
         self.nmap_detail_placeholder.set_visible(True)
 
-        self.error_banner.set_revealed(False)
+        # self.error_banner.set_revealed(False) # This line was for a local banner, now removed.
         self.nmap_target_entryrow.remove_css_class("error")
         self.nmap_target_entryrow.set_sensitive(True)
         self._set_scan_status(ScanStatus.IDLE, "Idle")
@@ -771,7 +768,6 @@ class NmapPage(Gtk.Box):
         """Handle dismissal of the error banner by clearing the error state."""
         self._clear_error()
 
-    # Removed _on_error_banner_dismiss method
 
     def _display_error(self, message: str):
         """Display an error message using the main window's banner.
@@ -960,3 +956,5 @@ class NmapPage(Gtk.Box):
             self.nmap_apply_button.clicked()
         else:
             logger.warning("Nmap scan button not available or not sensitive, cannot trigger scan.")
+
+[end of src/nmap_page.py]

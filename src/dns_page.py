@@ -8,11 +8,10 @@ import dns.reversename
 import dns.rdatatype
 import dns.rdataclass
 import gi
-from gi.repository import Adw, Gio, Gtk, Pango, GObject, Gdk # Added Gdk
+from gi.repository import Adw, Gio, Gtk, Pango, GObject, Gdk
 from typing import Tuple, Sequence, Any, List, Dict
 
 from .constants import APP_ID, RESOURCE_PREFIX
-# GtkSource specific imports are no longer needed.
 
 
 gi.require_version("Adw", "1")
@@ -62,7 +61,7 @@ class DNSPage(Adw.PreferencesPage):
         """
         try:
             clipboard = widget.get_clipboard()
-            if clipboard: # Check if clipboard is available
+            if clipboard:
                 clipboard.set(text)
                 logger.info("Copied to clipboard: %s", text)
             else:
@@ -254,7 +253,7 @@ class DNSPage(Adw.PreferencesPage):
             logger.exception("DNS lookup failed for %s, type %s:", user_input, requested_record_type)
             self._show_error(f"DNS Error: {str(e)}")
         except Exception as e:  # pylint: disable=broad-except
-            logger.exception( # Changed to logger.exception
+            logger.exception(
                 "Unexpected error during DNS lookup for %s, type %s:",
                 user_input,
                 requested_record_type,
@@ -335,7 +334,7 @@ class DNSPage(Adw.PreferencesPage):
         parsed_records: List[Dict[str, Any]] = []
         for rdata in answer:
             record: Dict[str, Any] = {
-                'name': answer.qname.to_text(),  # The name that was queried
+                'name': answer.qname.to_text(),
                 'ttl': rdata.ttl if hasattr(rdata, 'ttl') else answer.response.answer[0].ttl,  # SOA might not have ttl on rdata itself
                 'class': dns.rdataclass.to_text(rdata.rdclass),
                 'type': dns.rdatatype.to_text(rdata.rdtype)
@@ -395,11 +394,11 @@ class DNSPage(Adw.PreferencesPage):
         for rec in result_records:
             logger.debug("Record: %s", rec)
 
-        # Clear previous results
+
         while (child := self.dns_results_box_container.get_first_child()):
             self.dns_results_box_container.remove(child)
 
-        # Header Info
+
         query_info_row = Adw.ActionRow(
             title=f"Query: {domain_or_ip}",
             subtitle=f"Record type queried: {record_type}"
@@ -618,7 +617,6 @@ class DNSPage(Adw.PreferencesPage):
              row.set_selectable(False)
         return row
 
-    # Removed _format_result_in_buffer
 
     def trigger_lookup(self):
         """Programmatically triggers the DNS 'Lookup' action.

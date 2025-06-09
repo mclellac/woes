@@ -7,7 +7,7 @@ and integrates system font settings.
 import logging
 import platform
 import gi
-from gi.repository import Adw, Gdk, Gio, Gtk, GLib, GObject, AdwToastOverlay, AdwToast # Added GObject
+from gi.repository import Adw, Gdk, Gio, Gtk, GLib, GObject
 
 from .constants import (
     APP_ID,
@@ -134,7 +134,7 @@ class WoesWindow(Adw.ApplicationWindow):
         if self.main_error_banner:
             self.main_error_banner.remove_css_class("error")
             self.main_error_banner.set_revealed(False)
-            self.main_error_banner.set_title("") # Clear title
+            self.main_error_banner.set_title("")
             logging.info("Main error banner hidden.")
         else:
             logging.warning("main_error_banner not available to hide.")

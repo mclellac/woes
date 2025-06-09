@@ -7,10 +7,10 @@ import subprocess
 import re
 import logging
 logger = logging.getLogger(__name__)
-from typing import Optional # Added for type hinting
+from typing import Optional
 
 import gi
-from gi.repository import Gtk, Adw, Gio, GLib, GObject # Added GObject
+from gi.repository import Gtk, Adw, Gio, GLib, GObject
 
 from .constants import RESOURCE_PREFIX
 
@@ -24,7 +24,6 @@ class WebScanPage(Adw.PreferencesPage):
 
     __gtype_name__ = "WebScanPage"
 
-    # toast_overlay_internal and preferences_page_content removed
     url_entry = Gtk.Template.Child()
     scan_button = Gtk.Template.Child()
     results_textview = Gtk.Template.Child()
@@ -52,7 +51,6 @@ class WebScanPage(Adw.PreferencesPage):
         logger.debug(f"WebScanPage scan button clicked. URL: '{self.url_entry.get_text()}'")
         target_url = self.url_entry.get_text()
 
-        # URL validation
         url_pattern = re.compile(
             r"^(?:(?:https?|ftp)://)?(?:\S+(?::\S*)?@)?"  # Scheme and optional user:pass
             r"(?:(?:[1-9]\d?|1\d\d|2[01]\d|22[0-3])"  # IPv4 part 1
@@ -131,14 +129,11 @@ class WebScanPage(Adw.PreferencesPage):
         if not target_url.startswith(("http://", "https://")):
             target_url = "http://" + target_url
 
-        # Construct Nikto command
         nikto_command = ['nikto', '-h', target_url, '-Format', 'txt']
 
-        # Check SSL option
         if force_ssl:
             nikto_command.append('-ssl')
 
-        # Check Tuning options
         tuning_options = []
         if cgi_vulns:
             tuning_options.append('2') # Misconfiguration / Default File
@@ -172,14 +167,14 @@ class WebScanPage(Adw.PreferencesPage):
                 text=True,
             ) as process:
                 stdout, stderr = process.communicate(timeout=300)
-            gio_task.return_value((stdout, stderr, None))
+            task.return_value((stdout, stderr, None))
 
         except FileNotFoundError:
-            gio_task.return_value((None, None, "FileNotFoundError"))
+            task.return_value((None, None, "FileNotFoundError"))
         except subprocess.TimeoutExpired:
-            gio_task.return_value((None, None, "TimeoutExpired"))
+            task.return_value((None, None, "TimeoutExpired"))
         except Exception as e:  # pylint: disable=broad-except
-            gio_task.return_value((None, str(e), "Exception"))
+            task.return_value((None, str(e), "Exception"))
 
     def _on_scan_task_done(self, task: Gio.Task, result: Gio.AsyncResult, _user_data: object):
         """Handle completion of the Nikto scan task.
@@ -268,7 +263,6 @@ class WebScanPage(Adw.PreferencesPage):
         else:
             logger.warning("Could not find main window or show_error method to display: %s", message)
 
-    # Removed on_error_banner_dismiss_clicked method
 
     def trigger_scan(self):
         """Programmatically triggers the WebScan 'Scan' action.

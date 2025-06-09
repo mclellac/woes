@@ -11,7 +11,7 @@ import re
 import ssl
 import socket # Used by CustomDNSAdapter for IP family checks, not for patching.
 from enum import Enum
-from typing import Optional, List # Added List
+from typing import Optional, List
 
 import requests
 import requests.utils # For urlparse, urlunparse
@@ -377,9 +377,9 @@ class HttpPage(Adw.PreferencesPage):
             self.http_apply_button.set_use_underline(True)
 
         # Call handlers to set initial visual state for overrides based on current values
-        if self.http_host_header_row: # Ensure row exists
+        if self.http_host_header_row:
             self._on_host_header_changed(self.http_host_header_row)
-        if self.http_user_agent_row: # Ensure row exists
+        if self.http_user_agent_row:
             self._on_user_agent_changed(self.http_user_agent_row, None)
 
 
@@ -389,7 +389,7 @@ class HttpPage(Adw.PreferencesPage):
         self.http_apply_button.connect("clicked", self._on_entry_row_activated)
         self.http_pragma_switch_row.connect("notify::active", self._on_pragma_toggled)
         self.clear_results_button.connect("clicked", self._on_clear_results_clicked)
-        if self.copy_results_button: # Template child might not exist in all UI definitions
+        if self.copy_results_button:
             self.copy_results_button.connect("clicked", self._on_copy_results_clicked)
 
         # Signals for visual cues on active overrides
@@ -504,14 +504,14 @@ class HttpPage(Adw.PreferencesPage):
                 # Fallback or log if main_window or show_toast is not available
                 logger.warning("Could not find main window or show_toast method to display invalid URL toast.")
                 self._display_error("Invalid URL format: Please enter a valid URL (e.g., https://example.com).") # Fallback to banner
-            self._update_column_view_model(None) # Clear previous results
+            self._update_column_view_model(None)
             return
 
-        self._clear_error() # Clear previous errors
+        self._clear_error()
         self.http_entry_row.set_sensitive(False)
         if hasattr(self, "http_apply_button") and self.http_apply_button:
             self.http_apply_button.set_sensitive(False)
-            self.http_apply_button.set_icon_name("process-working-symbolic") # Show spinner
+            self.http_apply_button.set_icon_name("process-working-symbolic")
 
         host_header = self.http_host_header_row.get_text().strip()
 
@@ -539,7 +539,7 @@ class HttpPage(Adw.PreferencesPage):
         logger.debug(f"Starting header fetch task with data: {self._http_task_data_for_thread}")
 
         task = Gio.Task.new(self, None, self._fetch_headers_task_done_cb, None)
-        self.current_http_task = task # Store current task
+        self.current_http_task = task
         task.run_in_thread(self._fetch_headers_task_thread_func)
 
 
@@ -826,7 +826,7 @@ class HttpPage(Adw.PreferencesPage):
             final_data_type = "final"
         except requests.exceptions.HTTPError as http_err:
             logger.warning("HTTPError for URL '%s': %s", url_being_fetched, http_err)
-            error_message = self._format_http_error(http_err) # Format a user-friendly message
+            error_message = self._format_http_error(http_err)
             task.return_new_error_literal(
                 GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
                 HttpErrorType.HTTP_ERROR.value,
@@ -970,10 +970,10 @@ class HttpPage(Adw.PreferencesPage):
             if (hasattr(self, "http_apply_button") and self.http_apply_button and
                     not self.http_apply_button.get_sensitive()):
                 self.http_apply_button.set_sensitive(True)
-                self.http_apply_button.set_icon_name(None) # Clear spinner
+                self.http_apply_button.set_icon_name("") # Icon cleared with empty string
             return
 
-        self.current_http_task = None # Clear current task reference
+        self.current_http_task = None
         logger.info("Processing task completion in _fetch_headers_task_done_cb.")
 
         try:
@@ -994,7 +994,7 @@ class HttpPage(Adw.PreferencesPage):
                 processed_headers_for_store: list[HeaderItem] = []
                 if not actual_list_of_responses:
                     logger.info("Received empty list of responses (e.g. no redirects and no final data).")
-                    self._update_column_view_model(None) # Clear view
+                    self._update_column_view_model(None)
                 else:
                     for i, response_data_dict in enumerate(actual_list_of_responses):
                         if not isinstance(response_data_dict, dict):
@@ -1004,7 +1004,6 @@ class HttpPage(Adw.PreferencesPage):
                             )
                             continue # Skip malformed item
 
-                        # Display URL and Status for each response stage
                         url_display = f"URL: {response_data_dict.get('url', 'N/A')}"
                         status_code = response_data_dict.get('status_code', 'N/A')
                         response_type = response_data_dict.get("type", "unknown")
@@ -1014,7 +1013,6 @@ class HttpPage(Adw.PreferencesPage):
                             HeaderItem(key=url_display, value=status_display, is_special_row=True)
                         )
 
-                        # Display headers for this response stage
                         headers_for_this_response = response_data_dict.get("headers", {})
                         if isinstance(headers_for_this_response, dict):
                             for key, value in headers_for_this_response.items():
@@ -1026,7 +1024,6 @@ class HttpPage(Adw.PreferencesPage):
                                            i, headers_for_this_response)
 
 
-                        # Add a separator if not the last response stage
                         if i < len(actual_list_of_responses) - 1:
                             processed_headers_for_store.append(
                                 HeaderItem(key="--- Redirected To ---", value="", is_special_row=True)
@@ -1048,7 +1045,7 @@ class HttpPage(Adw.PreferencesPage):
                 )
                 if hasattr(self, "http_entry_row") and self.http_entry_row:
                     self.http_entry_row.add_css_class("error")
-                self._update_column_view_model(None) # Clear results
+                self._update_column_view_model(None)
 
         except GLib.Error as e: # Errors set by task.return_new_error_literal land here
             logger.warning(
@@ -1060,7 +1057,7 @@ class HttpPage(Adw.PreferencesPage):
             self._display_error(display_message)
             if hasattr(self, "http_entry_row") and self.http_entry_row:
                 self.http_entry_row.add_css_class("error") # Style entry as erroneous
-            self._update_column_view_model(None) # Clear previous results
+            self._update_column_view_model(None)
         except Exception as e:  # Catch any other Python exceptions during result processing
             logger.exception("Unexpected Python error in _fetch_headers_task_done_cb:")
             error_message = "An unexpected application error occurred while displaying results."
@@ -1448,3 +1445,5 @@ class HttpPage(Adw.PreferencesPage):
             self.http_apply_button.clicked()
         else:
             logging.warning("HTTP fetch button not available or not sensitive, cannot trigger fetch.")
+
+[end of src/http_page.py]
