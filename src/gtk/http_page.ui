@@ -46,13 +46,7 @@
         </child>
       </object>
     </child>
-    <child>
-      <object class="AdwBanner" id="error_banner">
-        <property name="button-label" translatable="yes">Dismiss</property>
-        <property name="revealed">False</property> <!-- Initially hidden -->
-        <property name="title"></property> <!-- Title will be set from code -->
-      </object>
-    </child>
+    <!-- Removed AdwBanner with id="error_banner" from here -->
     <child>
       <object class="AdwPreferencesGroup" id="http_results_group">
         <property name="title" translatable="yes">Response Headers</property>

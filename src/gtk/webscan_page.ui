@@ -4,13 +4,7 @@
   <requires lib="libadwaita" version="1.0"/>
   <template class="WebScanPage" parent="AdwPreferencesPage">
     <property name="title">Web Scan</property>
-    <child>
-      <object class="AdwBanner" id="error_banner_webscan">
-        <property name="button-label" translatable="yes">Dismiss</property>
-        <property name="revealed">False</property>
-        <signal name="button-clicked" handler="on_error_banner_dismiss_clicked"/>
-      </object>
-    </child>
+    <!-- Removed AdwBanner with id="error_banner_webscan" from here -->
     <child>
       <object class="AdwPreferencesGroup">
         <property name="title">Scan Target</property>

@@ -31,7 +31,7 @@ class WebScanPage(Adw.PreferencesPage):
     url_entry = Gtk.Template.Child()
     scan_button = Gtk.Template.Child()
     results_textview = Gtk.Template.Child()
-    error_banner_webscan = Gtk.Template.Child()
+    # error_banner_webscan = Gtk.Template.Child() # Removed
 
     def on_scan_button_clicked(self, _widget: Gtk.Button):
         """Handle the 'Scan' button click event.
@@ -197,16 +197,20 @@ class WebScanPage(Adw.PreferencesPage):
 
         """
         logging.error("Displaying error: %s", message)
-        self.error_banner_webscan.set_title(message)
-        self.error_banner_webscan.set_revealed(True)
+        main_window = self.get_native()
+        if main_window and hasattr(main_window, 'show_error'):
+            main_window.show_error(message)
+        else:
+            logging.warning("Could not find main window or show_error method to display: %s", message)
 
-    def on_error_banner_dismiss_clicked(self, _widget: Adw.Banner, *_args):
-        """Handle the dismissal of the error banner.
-
-        Args:
-        ----
-            _widget: The Adw.Banner or its dismiss button.
-            *_args: Additional arguments (unused).
-
-        """
-        self.error_banner_webscan.set_revealed(False)
+    # Removed on_error_banner_dismiss_clicked method
+    # def on_error_banner_dismiss_clicked(self, _widget: Adw.Banner, *_args):
+    #     """Handle the dismissal of the error banner.
+    #
+    #     Args:
+    #     ----
+    #         _widget: The Adw.Banner or its dismiss button.
+    #         *_args: Additional arguments (unused).
+    #
+    #     """
+    #     self.error_banner_webscan.set_revealed(False)

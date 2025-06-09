@@ -87,7 +87,7 @@ class NmapPage(Gtk.Box):
     status_row = Gtk.Template.Child("status_row")
     scan_spinner = Gtk.Template.Child("scan_spinner")
 
-    error_banner = Gtk.Template.Child("error_banner")
+    # error_banner = Gtk.Template.Child("error_banner") # Removed
 
     left_vbox_content = Gtk.Template.Child("left_vbox_content")
 
@@ -169,7 +169,7 @@ class NmapPage(Gtk.Box):
             self.nmap_detail_box.remove(child)
             child = self.nmap_detail_box.get_first_child()
 
-        self.error_banner.set_revealed(False)
+        # self.error_banner.set_revealed(False) # Removed
         self.scan_spinner.set_spinning(False)
         self.scan_spinner.set_visible(False)
         self.status_row.set_subtitle("Idle")
@@ -190,8 +190,9 @@ class NmapPage(Gtk.Box):
         self.nmap_target_entryrow.connect("entry-activated", self._on_target_activate)
         self.nmap_apply_button.connect("clicked", self._on_target_activate)
         self.nmap_host_listbox.connect("row-selected", self._on_target_selected)
-        if self.error_banner:
-            self.error_banner.connect("button-clicked", self._on_error_banner_dismiss)
+        # Removed signal connection for local error_banner
+        # if self.error_banner:
+        #     self.error_banner.connect("button-clicked", self._on_error_banner_dismiss)
 
     def _on_target_activate(self, entry_row: Adw.EntryRow):
         target = self.nmap_target_entryrow.get_text().strip()
@@ -767,21 +768,31 @@ class NmapPage(Gtk.Box):
         """Handle dismissal of the error banner by clearing the error state."""
         self._clear_error()
 
+    # Removed _on_error_banner_dismiss method
+
     def _display_error(self, message: str):
-        """Display an error message in the UI banner.
+        """Display an error message using the main window's banner.
 
         Args:
         ----
             message: The error message to display.
 
         """
-        self.error_banner.set_title(message)
-        self.error_banner.set_revealed(True)
+        main_window = self.get_native()
+        if main_window and hasattr(main_window, 'show_error'):
+            main_window.show_error(message)
+        else:
+            logging.warning("Could not find main window or show_error method to display: %s", message)
+
 
     def _clear_error(self):
-        """Clear any displayed error message from the UI banner."""
-        self.error_banner.set_revealed(False)
-        self.error_banner.set_title("")
+        """Clear any displayed error message using the main window's banner."""
+        main_window = self.get_native()
+        if main_window and hasattr(main_window, 'hide_error'):
+            main_window.hide_error()
+        else:
+            logging.warning("Could not find main window or hide_error method to clear error.")
+
 
     def _create_target_listbox_row(self, item: NmapItem) -> Gtk.ListBoxRow:
         """Factory function to create an NmapTargetRow for the host ListBox.

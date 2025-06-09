@@ -27,6 +27,14 @@
             </child>
           </object>
         </child>
+        <child> <!-- This is the new banner -->
+          <object class="AdwBanner" id="main_error_banner">
+            <property name="revealed">False</property>
+            <property name="button_label" translatable="yes">Dismiss</property>
+            <property name="hexpand">True</property>
+            <!-- No title property here, it will be set from code -->
+          </object>
+        </child>
         <child>
           <object class="AdwViewStack" id="stack">
             <property name="hexpand">true</property>

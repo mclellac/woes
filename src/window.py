@@ -40,6 +40,7 @@ class WoesWindow(Adw.ApplicationWindow):
 
     switcher_title = Gtk.Template.Child("switcher_title")
     stack = Gtk.Template.Child("stack")
+    main_error_banner = Gtk.Template.Child("main_error_banner") # Added banner
 
     def __init__(self, **kwargs):
         """Initialize the WoesWindow.
@@ -102,6 +103,37 @@ class WoesWindow(Adw.ApplicationWindow):
             self.setup_ui()
         except Exception as _e:  # pylint: disable=broad-except
             logging.exception("WoesWindow.__init__: Error during self.setup_ui()") # noqa: F841
+
+        if self.main_error_banner:
+            self.main_error_banner.connect("button-clicked", self._on_main_error_banner_dismissed)
+            self.hide_error() # Ensure it's hidden on startup by default
+
+    def _on_main_error_banner_dismissed(self, _banner=None, _data=None):
+        """Handles the dismiss signal for the main error banner."""
+        self.hide_error()
+
+    def show_error(self, message: str):
+        """Displays a message in the main error banner.
+
+        Args:
+        ----
+            message: The error message to display.
+        """
+        if self.main_error_banner:
+            self.main_error_banner.set_title(message)
+            self.main_error_banner.set_revealed(True)
+            logging.info("Main error banner shown with message: %s", message)
+        else:
+            logging.warning("main_error_banner not available to show message: %s", message)
+
+    def hide_error(self):
+        """Hides the main error banner and clears its title."""
+        if self.main_error_banner:
+            self.main_error_banner.set_revealed(False)
+            self.main_error_banner.set_title("") # Clear title
+            logging.info("Main error banner hidden.")
+        else:
+            logging.warning("main_error_banner not available to hide.")
 
     def _on_gnome_font_setting_changed(self, _gnome_settings_obj, key_name: str):
         logging.debug("GNOME font setting changed: %s. Re-applying font preferences.", key_name)
