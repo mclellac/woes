@@ -1161,6 +1161,80 @@ k(return_value=MagicMock(spec=MockGtk.ColumnViewColumn))
         page.http_results_group.set_visible.assert_called_with(False)
         page.header_list_store.remove_all.assert_called_once()
 
+    def test_fetch_button_icon_cycle(self):
+        """Test the fetch button icon changes during a successful fetch."""
+        page = self.page
+
+        # Setup mocks for UI elements accessed before or during _on_entry_row_activated
+        page.http_entry_row = MagicMock(spec=MockAdw.EntryRow)
+        page.http_entry_row.get_text.return_value = "http://example.com" # Valid URL
+        page.http_entry_row.set_sensitive = MagicMock()
+        page.http_entry_row.remove_css_class = MagicMock() # For _clear_error
+
+        # http_apply_button is the one we are testing. It's already a MagicMock from Template.Child.
+        # Ensure it's part of the 'page' instance for clarity if not already.
+        # page.http_apply_button = MockGtk.Template.Child("http_apply_button") # Already done by Gtk.Template mock essentially
+        page.http_apply_button.set_sensitive = MagicMock()
+        page.http_apply_button.set_icon_name = MagicMock()
+        page.http_apply_button.get_icon_name = MagicMock() # To verify changes
+
+        page.http_user_agent_row = MagicMock(spec=MockAdw.ComboRow)
+        # Simulate a StringObject for selected item
+        mock_string_object = MagicMock(spec=MockGtk.StringObject)
+        mock_string_object.get_string.return_value = "None" # Default UA
+        page.http_user_agent_row.get_selected_item.return_value = mock_string_object
+        page._ua_title_to_value_map = {"None": None} # Ensure this map exists
+
+        page.http_host_header_row = MagicMock(spec=MockAdw.EntryRow)
+        page.http_host_header_row.get_text.return_value = ""
+
+        page.http_pragma_switch_row = MagicMock(spec=MockAdw.SwitchRow)
+        page.http_pragma_switch_row.get_active.return_value = False
+
+        # Mock for _clear_error and _display_error not to interfere
+        page._clear_error = MagicMock()
+        page._display_error = MagicMock()
+        page._update_column_view_model = MagicMock() # To prevent issues with list store
+
+        # Simulate a successful result for the task
+        mock_successful_result_data = [{
+            "type": "final",
+            "url": "http://example.com",
+            "status_code": 200,
+            "headers": {"Content-Type": "text/html"}
+        }]
+        self.captured_task_result_for_propagate = mock_successful_result_data
+
+
+        # --- Trigger the fetch ---
+        page._on_entry_row_activated(None) # Argument is not used by the method
+
+        # --- Verify spinner icon is set ---
+        # Icon name is "process-working-symbolic"
+        page.http_apply_button.set_icon_name.assert_any_call("process-working-symbolic")
+        # To check the *current* icon, we'd ideally get it from the mock.
+        # Let's assume the last call to set_icon_name before done_cb is the spinner.
+        # The actual call to set_icon_name("") happens in done_cb, which is simulated by run_in_thread.
+
+        # The way run_in_thread is mocked, it will synchronously call the done_cb.
+        # So, by the time _on_entry_row_activated finishes, the done_cb also finishes.
+
+        # --- Verify icon is cleared after task completion ---
+        # The last call to set_icon_name in the sequence should be to clear it.
+        # The sequence is: set_sensitive(False), set_icon_name("process-working-symbolic")
+        # then in finally: set_sensitive(True), set_icon_name("")
+        calls = page.http_apply_button.set_icon_name.call_args_list
+        self.assertTrue(len(calls) >= 2, "set_icon_name was not called enough times")
+        self.assertEqual(calls[0][0][0], "process-working-symbolic", "Spinner icon not set first.")
+        self.assertEqual(calls[-1][0][0], "", "Icon not cleared after fetch.")
+
+        # Verify sensitivity calls
+        page.http_apply_button.set_sensitive.assert_has_calls([
+            call(False), # During start of fetch
+            call(True)   # In finally block of done_cb
+        ])
+
+
 # Entire TestHttpPageStaticMethods class commented out to prevent AttributeError at module load time
 # class TestHttpPageStaticMethods(unittest.TestCase):
 #     def test_ensure_scheme(self):
