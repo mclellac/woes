@@ -4,6 +4,7 @@ Module for performing DNS lookups.
 """
 import logging
 from typing import Optional, List, Dict, Any
+import ipaddress # Added: Used in resolve()
 
 import dns.resolver
 import dns.reversename
@@ -160,5 +161,4 @@ class DnsResolverClient:
 
         return self._lookup_record_internal(query_target, record_type.upper())
 
-# ipaddress is imported within resolve method for its local IP check,
-# making a global import or separate utility here for that specific check redundant.
+# Comment about ipaddress import location removed as it's now a module-level import.
