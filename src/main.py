@@ -12,25 +12,39 @@ gi.require_version("Gtk", "4.0")  # Moved require_version before repository impo
 gi.require_version("Adw", "1")    # Moved require_version before repository imports
 from gi.repository import Adw, Gio, GLib
 
-from .window import WoesWindow
-from .preferences import Preferences
-from .constants import APP_ID, VERSION, RESOURCE_PREFIX, PKGDATADIR
+from .constants import APP_ID, VERSION, RESOURCE_PREFIX, PKGDATADIR # Moved earlier for _load_gresources_early
 
-
+# GResource loading must happen before any modules that use Gtk.Template are imported.
 def _load_gresources_early():
     """Load GResources."""
-    resource_file_path = os.path.join(PKGDATADIR, "woes.gresource")
-    logging.info(
-        "Attempting to load GResource file from: %s (derived from PKGDATADIR: %s)",
-        resource_file_path,
-        PKGDATADIR,
-    )
-    if not os.path.exists(resource_file_path):
+    # Path for installed version
+    installed_resource_path = os.path.join(PKGDATADIR, "woes.gresource")
+
+    # Path for running from source tree (e.g., relative to src/main.py)
+    # Assumes main.py is in src/ and resources are in ../build/src/ relative to main.py's dir
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    # Path from /app/src/ to /app/build/src/woes.gresource
+    dev_resource_path = os.path.normpath(os.path.join(script_dir, "..", "build", "src", "woes.gresource"))
+
+    resource_file_path = None
+    if os.path.exists(dev_resource_path):
+        logging.info("Development GResource path found: %s", dev_resource_path)
+        resource_file_path = dev_resource_path
+    elif os.path.exists(installed_resource_path):
+        logging.info("Installed GResource path found: %s", installed_resource_path)
+        resource_file_path = installed_resource_path
+    else:
         logging.critical(
-            "GResource file not found at %s. Application will now exit.",
-            resource_file_path,
+            "GResource file not found at development path (%s) or installed path (%s). Application will now exit.",
+            dev_resource_path,
+            installed_resource_path,
         )
         sys.exit(1)
+
+    logging.info(
+        "Attempting to load GResource file from: %s",
+        resource_file_path
+    )
 
     try:
         resource = Gio.Resource.load(resource_file_path)
@@ -74,7 +88,11 @@ def _load_gresources_early():
         sys.exit(1)
 
 
-_load_gresources_early()
+_load_gresources_early() # Call this as early as possible
+
+# Now import other application modules
+from .window import WoesWindow
+from .preferences import Preferences
 
 
 class WoesApplication(Adw.Application):

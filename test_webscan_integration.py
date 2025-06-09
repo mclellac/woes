@@ -33,7 +33,8 @@ finally:
     if _original_gtk_template_child is not None and hasattr(Gtk.Template, 'Child'): # hasattr check for safety
          Gtk.Template.Child = _original_gtk_template_child
     elif _original_gtk_template_child is None and hasattr(Gtk.Template, 'Child'): # If it had Child but we set it to None
-        del Gtk.Template.Child # Try to remove it if it was added by our mock on a Template that didn't have it
+        if hasattr(Gtk.Template, 'Child'): # Ensure it actually has Child before trying to delete
+             del Gtk.Template.Child
 
 
 class TestWebScanPageIntegration(unittest.TestCase):
@@ -48,8 +49,6 @@ class TestWebScanPageIntegration(unittest.TestCase):
         self.page = WebScanPage()
 
         # Manually assign mocks to fields that would normally be populated by Gtk.Template.Child
-        # This is necessary because the @Gtk.Template decorator and .Child calls were dummied out
-        # during the import of WebScanPage.
         self.page.url_entry = MagicMock(spec=Adw.EntryRow)
         self.page.scan_button = MagicMock(spec=Gtk.Button)
 
@@ -64,31 +63,35 @@ class TestWebScanPageIntegration(unittest.TestCase):
         self.mock_main_window = MagicMock()
         self.mock_main_window.show_error = Mock()
 
-        # If the real WebScanPage was imported, its methods exist and can be patched.
-        # If WebScanPage is a MagicMock, patching non-existent methods would fail,
-        # but assigning to them (like above) works.
         if _webscan_page_imported_successfully:
             self.get_native_patch = patch.object(self.page, 'get_native', return_value=self.mock_main_window)
             self.mock_get_native = self.get_native_patch.start()
 
             self.run_scan_task_patch = patch.object(self.page, '_run_scan_task_thread_func')
             self.mock_run_scan_task = self.run_scan_task_patch.start()
-        else: # If WebScanPage is a MagicMock, just make sure these attributes exist and are mocks
+        else:
             self.page.get_native = Mock(return_value=self.mock_main_window)
-            self.page._run_scan_task_thread_func = Mock()
+            self.page._run_scan_task_thread_func = Mock() # This will be self.mock_run_scan_task
             self.mock_run_scan_task = self.page._run_scan_task_thread_func
 
 
         self.gio_task_new_patch = patch('gi.repository.Gio.Task.new')
         self.mock_gio_task_new = self.gio_task_new_patch.start()
         self.mock_gio_task_instance = MagicMock(spec=Gio.Task)
+        # Ensure run_in_thread_finish can be configured on this mock task instance
+        self.mock_gio_task_instance.run_in_thread_finish = Mock()
         self.mock_gio_task_new.return_value = self.mock_gio_task_instance
+
 
     def tearDown(self):
         if _webscan_page_imported_successfully:
-            self.get_native_patch.stop()
-            self.run_scan_task_patch.stop()
-        self.gio_task_new_patch.stop()
+            if hasattr(self, 'get_native_patch') and self.get_native_patch.is_started:
+                self.get_native_patch.stop()
+            if hasattr(self, 'run_scan_task_patch') and self.run_scan_task_patch.is_started:
+                self.run_scan_task_patch.stop()
+        if hasattr(self, 'gio_task_new_patch') and self.gio_task_new_patch.is_started: # Check if started
+            self.gio_task_new_patch.stop()
+
 
     def test_empty_url(self):
         print("Running test_empty_url...")
@@ -96,10 +99,8 @@ class TestWebScanPageIntegration(unittest.TestCase):
         self.page.on_scan_button_clicked(None)
         self.mock_add_toast.assert_called_once()
         toast_arg = self.mock_add_toast.call_args[0][0]
-        # self.assertIsInstance(toast_arg, Adw.Toast) # Adw.Toast might be mocked if Adw not fully init
         self.assertEqual(toast_arg.get_title(), "Target URL cannot be empty.")
         self.mock_main_window.show_error.assert_not_called()
-        # self.mock_run_scan_task.assert_not_called() # This is now on self.page directly if mock
         self.page._run_scan_task_thread_func.assert_not_called()
         print("Finished test_empty_url.")
 
@@ -109,13 +110,12 @@ class TestWebScanPageIntegration(unittest.TestCase):
         self.page.on_scan_button_clicked(None)
         self.mock_add_toast.assert_called_once()
         toast_arg = self.mock_add_toast.call_args[0][0]
-        # self.assertIsInstance(toast_arg, Adw.Toast)
         self.assertEqual(toast_arg.get_title(), "Invalid URL format. Please enter a valid URL.")
         self.mock_main_window.show_error.assert_not_called()
         self.page._run_scan_task_thread_func.assert_not_called()
         print("Finished test_invalid_url_format.")
 
-    def test_valid_scan_starts(self):
+    def test_valid_scan_starts(self): # Renamed from test_scan_initiation_logic_after_validation
         print("Running test_valid_scan_starts...")
         self.page.url_entry.get_text.return_value = "example.com"
         self.page.on_scan_button_clicked(None)
@@ -126,8 +126,50 @@ class TestWebScanPageIntegration(unittest.TestCase):
         self.mock_gio_task_instance.run_in_thread.assert_called_once_with(self.page._run_scan_task_thread_func)
         print("Finished test_valid_scan_starts.")
 
-    def test_critical_error_nikto_not_found(self):
-        print("Running test_critical_error_nikto_not_found...")
+    def test_scan_flow_to_nikto_not_found_error(self):
+        print("Running test_scan_flow_to_nikto_not_found_error...")
+        self.page.url_entry.get_text.return_value = "example.com"
+
+        # This mock task instance will be passed to simulate_nikto_not_found via run_in_thread
+        # And then it will be used by _on_scan_task_done
+        self.mock_gio_task_instance.get_task_data.return_value = "example.com"
+        self.mock_gio_task_instance.run_in_thread_finish.return_value = (None, None, "FileNotFoundError")
+
+        # Configure the mocked _run_scan_task_thread_func (which is self.mock_run_scan_task)
+        # to indicate the error by setting the return value on the task instance it receives.
+        def simulate_nikto_not_found_in_thread_func(gio_task, _source_object, _task_data, _cancellable):
+            # This is what the real _run_scan_task_thread_func does for FileNotFoundError
+            # It calls return_value on the Gio.Task instance it was given.
+            gio_task.return_value = (None, None, "FileNotFoundError")
+            # Note: In the real Gio.Task, this would trigger the callback.
+            # Here, we will make our mock run_in_thread do that.
+
+        # self.mock_run_scan_task is already self.page._run_scan_task_thread_func (or its mock)
+        self.mock_run_scan_task.side_effect = simulate_nikto_not_found_in_thread_func
+
+        # Simulate that task.run_in_thread calls _run_scan_task_thread_func,
+        # which then sets up the result on the task,
+        # and then _on_scan_task_done is called (as if by the main loop).
+        def mock_run_in_thread_and_then_callback(target_thread_func_on_page_obj):
+            # Call the thread func (our simulate_nikto_not_found_in_thread_func via self.mock_run_scan_task)
+            # It needs the task, source_obj (page), task_data, cancellable
+            target_thread_func_on_page_obj(self.mock_gio_task_instance, self.page, "example.com", None)
+            # Now, manually call the task completion callback with the same task instance
+            self.page._on_scan_task_done(self.mock_gio_task_instance, Mock(spec=Gio.AsyncResult), None)
+
+        self.mock_gio_task_instance.run_in_thread.side_effect = mock_run_in_thread_and_then_callback
+
+        self.page.on_scan_button_clicked(None) # This will trigger the chain
+
+        self.mock_main_window.show_error.assert_called_once_with(
+            "Nikto command not found. Please ensure it is installed and in your PATH."
+        )
+        self.mock_add_toast.assert_not_called()
+        print("Finished test_scan_flow_to_nikto_not_found_error.")
+
+
+    def test_critical_error_nikto_not_found_direct(self): # Renamed
+        print("Running test_critical_error_nikto_not_found_direct...")
         mock_task_for_finish = MagicMock(spec=Gio.Task)
         mock_task_for_finish.get_task_data.return_value = "example.com"
         mock_task_for_finish.run_in_thread_finish = Mock(return_value=(None, None, "FileNotFoundError"))
@@ -137,10 +179,10 @@ class TestWebScanPageIntegration(unittest.TestCase):
             "Nikto command not found. Please ensure it is installed and in your PATH."
         )
         self.mock_add_toast.assert_not_called()
-        print("Finished test_critical_error_nikto_not_found.")
+        print("Finished test_critical_error_nikto_not_found_direct.")
 
-    def test_critical_error_timeout(self):
-        print("Running test_critical_error_timeout...")
+    def test_critical_error_timeout_direct(self): # Renamed
+        print("Running test_critical_error_timeout_direct...")
         target_url = "timeout.com"
         mock_task_for_finish = MagicMock(spec=Gio.Task)
         mock_task_for_finish.get_task_data.return_value = target_url
@@ -151,10 +193,9 @@ class TestWebScanPageIntegration(unittest.TestCase):
             f"Scan for {target_url} timed out."
         )
         self.mock_add_toast.assert_not_called()
-        print("Finished test_critical_error_timeout.")
+        print("Finished test_critical_error_timeout_direct.")
 
 if __name__ == '__main__':
-    # Ensure Gtk.Application is only initialized once if tests are run multiple times in a session
     if not Gtk.Application.get_default():
         app = Gtk.Application(application_id="com.example.test.woes.unittest.main")
         def do_activate(app_instance): pass
