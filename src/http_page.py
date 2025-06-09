@@ -10,7 +10,7 @@ via a :class:`.custom_dns_adapter.CustomDNSAdapter`.
 # ruff: noqa: E501
 import logging
 from enum import Enum
-from typing import Optional, List, Any # Added Any
+from typing import Optional, List, Any, Dict # Added Dict
 
 # Removed requests, requests.utils, dns.resolver, urllib3.exceptions as they moved to http_client
 # CustomDNSAdapter is now used by HttpFetcher, not directly here.
@@ -109,8 +109,8 @@ class HttpPage(Adw.PreferencesPage):
         logger.debug("HttpPage initialized.")
         self.current_http_task: Optional[Gio.Task] = None
         self._current_header_items: List[HeaderItem] = []
-        self._http_task_data_for_thread: dict = {}
-        self._ua_title_to_value_map: dict[str, Optional[str]] = {}
+        self._http_task_data_for_thread: Dict[str, Any] = {} # Changed dict to Dict
+        self._ua_title_to_value_map: Dict[str, Optional[str]] = {} # Changed dict to Dict
         self.settings = Gio.Settings(schema_id=APP_ID)
         self._header_key_color = self.settings.get_string("http-output-header-key-color")
         self._header_value_color = self.settings.get_string("http-output-header-value-color")
@@ -290,7 +290,7 @@ class HttpPage(Adw.PreferencesPage):
         self,
         task: Gio.Task, # The task itself, passed by run_in_thread
         _source_object: GObject.Object, # type: ignore
-        _task_data_arg: dict, # type: ignore # Not used, self._http_task_data_for_thread is used
+        _task_data_arg: Dict[str, Any], # type: ignore # Not used, self._http_task_data_for_thread is used
         cancellable: Optional[Gio.Cancellable], # Provided by Gio.Task
     ) -> None:
         """Background thread function for fetching HTTP headers.

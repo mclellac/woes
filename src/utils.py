@@ -3,7 +3,7 @@ import logging
 import ipaddress
 import re
 from urllib.parse import urlparse
-from typing import Tuple, List
+from typing import Tuple, List, Optional # Added Optional
 
 import gi
 from gi.repository import Gtk, GtkSource, Adw
@@ -169,7 +169,7 @@ def is_valid_domain(domain: str) -> bool:
     return bool(domain_regex.fullmatch(domain))
 
 
-def is_valid_url(url: str, schemes: List[str] = None) -> bool:
+def is_valid_url(url: str, schemes: Optional[List[str]] = None) -> bool:
     """Check if the given string is a syntactically valid URL with specific schemes.
 
     :param url: The string to validate.
@@ -178,7 +178,7 @@ def is_valid_url(url: str, schemes: List[str] = None) -> bool:
                     If ``None``, defaults to ``['http', 'https']``.
                     If an empty list is provided, any scheme is effectively allowed
                     as long as one is present in the URL.
-    :type schemes: list[str], optional
+    :type schemes: Optional[List[str]]
     :return: ``True`` if the string is a valid URL with an allowed scheme
              (or any scheme if ``schemes`` is empty), ``False`` otherwise.
     :rtype: bool

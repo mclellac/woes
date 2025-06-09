@@ -6,7 +6,7 @@ parsing, and launching the main application window and services.
 import sys
 import os
 import logging
-from typing import Optional, List
+from typing import Optional, List, Callable # Added Callable
 import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
@@ -435,7 +435,7 @@ class WoesApplication(Adw.Application):
         preferences_dialog = Preferences(main_window=self.win)
         preferences_dialog.present()
 
-    def create_action(self, name: str, callback, shortcuts: Optional[List[str]] = None):
+    def create_action(self, name: str, callback: Callable, shortcuts: Optional[List[str]] = None):
         """Create and add a Gio.SimpleAction to the application.
 
         :param name: The name of the action (e.g., "quit", "about").

@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 # DNS library imports (dns.resolver, etc.) are now primarily in dns_client.py
 import gi
 from gi.repository import Adw, Gio, Gtk, Pango, GObject # Added GObject
-from typing import Tuple, Sequence, Any, List, Dict # Kept for type hints if _display_result uses them
+from typing import Optional, Tuple, Sequence, Any, List, Dict # Kept for type hints, added Optional
 
 from .constants import APP_ID, RESOURCE_PREFIX
 from .utils import show_global_error, show_global_toast, is_valid_ip, is_valid_domain

@@ -3,7 +3,7 @@
 import logging
 import socket
 import ssl
-from typing import Optional
+from typing import Optional, Tuple, List, Dict, Any # Added Tuple, List, Dict, Any
 
 import requests
 import requests.utils # For urlparse, urlunparse
@@ -53,7 +53,7 @@ class CustomDNSAdapter(HTTPAdapter):
         self.custom_dns_server = custom_dns_server
         self.default_sni_for_ip_url = default_sni
         self._resolved_sni: Optional[str] = None  # SNI derived from hostname resolution by this adapter.
-        self.resolved_ip_cache = {} # Cache for resolved IPs: hostname -> IP
+        self.resolved_ip_cache: Dict[str, str] = {} # Cache for resolved IPs: hostname -> IP
         super().__init__(*args, **kwargs)
 
     def _resolve_hostname_to_ip(self, hostname: str) -> Optional[str]:
@@ -82,7 +82,7 @@ class CustomDNSAdapter(HTTPAdapter):
         resolver.timeout = 2.0  # Short timeout for each DNS query attempt
         resolver.lifetime = 2.0  # Total time for the entire resolution attempt including retries
 
-        ips: list[str] = []
+        ips: List[str] = []
         try:
             for rdtype in ("AAAA", "A"):  # Prefer AAAA (IPv6) if available
                 try:
@@ -106,7 +106,7 @@ class CustomDNSAdapter(HTTPAdapter):
             logger.error("CustomDNSAdapter: Unexpected error during custom DNS resolution for %s: %s", hostname, e, exc_info=True)
         return None
 
-    def send(self, request: requests.models.PreparedRequest, stream: bool = False, timeout: Optional[float] = None, verify: bool = True, cert: Optional[tuple[str, str] | str] = None, proxies=None):
+    def send(self, request: requests.models.PreparedRequest, stream: bool = False, timeout: Optional[float] = None, verify: bool = True, cert: Optional[Tuple[str, str] | str] = None, proxies=None):
         """Override HTTPAdapter.send method."""
         parsed_url = requests.utils.urlparse(request.url)
         original_hostname = parsed_url.hostname
