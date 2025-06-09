@@ -23,15 +23,19 @@ gi.require_version("Adw", "1")
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/webscan_page.ui")
-class WebScanPage(Adw.PreferencesPage):
-    """Page for conducting web scans using Nikto."""
+class WebScanPage(Adw.Bin):
+    """Container for web scanning, managing an AdwToastOverlay and AdwPreferencesPage."""
 
     __gtype_name__ = "WebScanPage"
 
+    toast_overlay_internal = Gtk.Template.Child()
+    preferences_page_content = Gtk.Template.Child() # The AdwPreferencesPage
     url_entry = Gtk.Template.Child()
     scan_button = Gtk.Template.Child()
     results_textview = Gtk.Template.Child()
-    # error_banner_webscan = Gtk.Template.Child() # Removed
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
     def on_scan_button_clicked(self, _widget: Gtk.Button):
         """Handle the 'Scan' button click event.
@@ -60,13 +64,14 @@ class WebScanPage(Adw.PreferencesPage):
             r"(?:[/?#]\S*)?$",  # Optional path, query, fragment
             re.IGNORECASE,
         )
-        if not url_pattern.match(target_url):
-            self.show_error_toast("Invalid URL format. Please enter a valid URL.")
+        if not target_url:
+            toast = Adw.Toast.new("Target URL cannot be empty.")
+            self.toast_overlay_internal.add_toast(toast)
             return
 
-        # This check can remain for the empty case, though regex might catch some empty-like strings too.
-        if not target_url:
-            self.show_error_toast("Target URL cannot be empty.")
+        if not url_pattern.match(target_url):
+            toast = Adw.Toast.new("Invalid URL format. Please enter a valid URL.")
+            self.toast_overlay_internal.add_toast(toast)
             return
 
         buffer = self.results_textview.get_buffer()

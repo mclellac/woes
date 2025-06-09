@@ -2,53 +2,60 @@
 <interface>
   <requires lib="gtk" version="4.0"/>
   <requires lib="libadwaita" version="1.0"/>
-  <template class="WebScanPage" parent="AdwPreferencesPage">
-    <property name="title">Web Scan</property>
-    <!-- Removed AdwBanner with id="error_banner_webscan" from here -->
+  <template class="WebScanPage" parent="AdwBin">
     <child>
-      <object class="AdwPreferencesGroup">
-        <property name="title">Scan Target</property>
+      <object class="AdwToastOverlay" id="toast_overlay_internal">
         <child>
-          <object class="AdwEntryRow" id="url_entry">
-            <property name="title">Target URL</property>
-          </object>
-        </child>
-        <child>
-          <object class="AdwActionRow">
-            <property name="title">Actions</property>
+          <object class="AdwPreferencesPage" id="preferences_page_content">
+            <property name="title">Web Scan</property>
             <child>
-              <object class="GtkButton" id="scan_button">
-                <property name="label">Start Scan</property>
-                <property name="halign">end</property>
-                <property name="valign">center</property>
-                <signal name="clicked" handler="on_scan_button_clicked"/>
-                <style>
-                  <class name="suggested-action"/>
-                </style>
+              <object class="AdwPreferencesGroup">
+                <property name="title">Scan Target</property>
+                <child>
+                  <object class="AdwEntryRow" id="url_entry">
+                    <property name="title">Target URL</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="AdwActionRow">
+                    <property name="title">Actions</property>
+                    <child>
+                      <object class="GtkButton" id="scan_button">
+                        <property name="label">Start Scan</property>
+                        <property name="halign">end</property>
+                        <property name="valign">center</property>
+                        <signal name="clicked" handler="on_scan_button_clicked"/>
+                        <style>
+                          <class name="suggested-action"/>
+                        </style>
+                      </object>
+                    </child>
+                  </object>
+                </child>
               </object>
             </child>
-          </object>
-        </child>
-      </object>
-    </child>
-    <child>
-      <object class="AdwPreferencesGroup">
-        <property name="title">Scan Results</property>
-        <property name="description">Output from the web vulnerability scan will appear here.</property>
-        <child>
-          <object class="GtkScrolledWindow">
-            <property name="min-content-height">200</property>
-            <property name="vexpand">True</property>
             <child>
-              <object class="GtkTextView" id="results_textview">
-                <property name="editable">False</property>
-                <property name="cursor-visible">False</property>
-                <property name="wrap-mode">word-char</property>
+              <object class="AdwPreferencesGroup">
+                <property name="title">Scan Results</property>
+                <property name="description">Output from the web vulnerability scan will appear here.</property>
+                <child>
+                  <object class="GtkScrolledWindow">
+                    <property name="min-content-height">200</property>
+                    <property name="vexpand">True</property>
+                    <child>
+                      <object class="GtkTextView" id="results_textview">
+                        <property name="editable">False</property>
+                        <property name="cursor-visible">False</property>
+                        <property name="wrap-mode">word-char</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
               </object>
             </child>
-          </object>
+          </object> <!-- End AdwPreferencesPage#preferences_page_content -->
         </child>
-      </object>
+      </object> <!-- End AdwToastOverlay#toast_overlay_internal -->
     </child>
-  </template>
+  </template> <!-- End AdwBin#WebScanPage -->
 </interface>
