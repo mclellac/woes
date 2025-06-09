@@ -32,10 +32,14 @@ class WebScanPage(Adw.PreferencesPage):
     url_entry = Gtk.Template.Child()
     scan_button = Gtk.Template.Child()
     results_textview = Gtk.Template.Child()
+    force_ssl_switch = Gtk.Template.Child()
+    cgi_vulns_switch = Gtk.Template.Child()
+    interesting_content_switch = Gtk.Template.Child()
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         logging.debug("WebScanPage initialized")
+        self.url_entry.connect("entry-activated", self.on_scan_button_clicked)
 
     def on_scan_button_clicked(self, _widget: Gtk.Button):
         """Handle the 'Scan' button click event.
@@ -108,12 +112,45 @@ class WebScanPage(Adw.PreferencesPage):
         """
         target_url = task_data
 
-        try:
-            if not target_url.startswith(("http://", "https://")):
-                target_url = "http://" + target_url
+        if not target_url.startswith(("http://", "https://")):
+            target_url = "http://" + target_url
 
+        # Construct Nikto command
+        nikto_command = ['nikto', '-h', target_url, '-Format', 'txt']
+
+        # Check SSL option
+        if self.force_ssl_switch.get_active():
+            nikto_command.append('-ssl')
+
+        # Check Tuning options
+        tuning_options = []
+        if self.cgi_vulns_switch.get_active():
+            tuning_options.append('2') # Misconfiguration / Default File
+        if self.interesting_content_switch.get_active():
+            tuning_options.append('1') # Interesting File / Seen in logs
+
+        # Nikto's -Tuning option takes a string of numbers, e.g., "12"
+        # It's important not to pass 'x' if we are specifying numbers,
+        # as 'x' is for excluding options, while numbers are for including specific checks.
+        # The old command used "xCGIVulnerable" which is equivalent to "x2" (excluding CGI checks).
+        # The new logic is to include specific checks if their switches are on.
+        # If both cgi_vulns_switch (2) and interesting_content_switch (1) are on,
+        # and no other default tuning is desired beyond these, the tuning string should be "12".
+        # If no tuning switches are active, we should not add the -Tuning option,
+        # allowing Nikto to use its default tuning.
+
+        if tuning_options:
+            # Sort to ensure consistent order if needed, e.g., "12" not "21"
+            # Though for Nikto's -Tuning, order usually doesn't matter for inclusion.
+            tuning_string = "".join(sorted(list(set(tuning_options)))) # Use set to avoid duplicates like "11"
+            if tuning_string: # Ensure not empty if logic changes
+                nikto_command.extend(['-Tuning', tuning_string])
+
+        logging.debug(f"Constructed Nikto command: {nikto_command}")
+
+        try:
             with subprocess.Popen(
-                ["nikto", "-h", target_url, "-Tuning", "xCGIVulnerable"],
+                nikto_command,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
