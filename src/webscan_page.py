@@ -66,11 +66,21 @@ class WebScanPage(Adw.PreferencesPage):
             re.IGNORECASE,
         )
         if not target_url:
-            self._show_main_banner_error("Target URL cannot be empty.")
+            main_window = self.get_native()
+            if main_window and hasattr(main_window, 'show_toast'):
+                main_window.show_toast("Target URL cannot be empty.")
+            else:
+                logger.warning("Could not find main window or show_toast method for empty Webscan URL toast.")
+                self._show_main_banner_error("Target URL cannot be empty.") # Fallback
             return
 
         if not url_pattern.match(target_url):
-            self._show_main_banner_error("Invalid URL format. Please enter a valid URL.")
+            main_window = self.get_native()
+            if main_window and hasattr(main_window, 'show_toast'):
+                main_window.show_toast("Invalid URL format. Please enter a valid URL.")
+            else:
+                logger.warning("Could not find main window or show_toast method for invalid Webscan URL toast.")
+                self._show_main_banner_error("Invalid URL format. Please enter a valid URL.") # Fallback
             return
 
         buffer = self.results_textview.get_buffer()

@@ -201,10 +201,13 @@ class NmapPage(Gtk.Box):
         self._clear_error()
 
         if not self.scanner.validate_target_input(target):
-            self.nmap_target_entryrow.add_css_class("error")
-            self._display_error(
-                "Invalid target format. Please enter a valid IP, CIDR, or hostname."
-            )
+            # self.nmap_target_entryrow.add_css_class("error") # Removed for toast
+            main_window = self.get_native()
+            if main_window and hasattr(main_window, 'show_toast'):
+                main_window.show_toast("Invalid target format. Please enter a valid IP, CIDR, or hostname.")
+            else:
+                logger.warning("Could not find main window or show_toast method for invalid Nmap target toast.")
+                self._display_error("Invalid target format. Please enter a valid IP, CIDR, or hostname.") # Fallback
             return
         self.nmap_target_entryrow.remove_css_class("error")
 
@@ -345,7 +348,7 @@ class NmapPage(Gtk.Box):
                 ScanStatus.COMPLETE,
                 f"Scan complete for {original_target}. No hosts found or responsive.",
             )
-            self._display_error(f"No hosts found or responsive for target: {original_target}")
+            # self._display_error(f"No hosts found or responsive for target: {original_target}") # Removed
             self._clear_dynamic_details()
             self.nmap_detail_placeholder.set_title("No Responsive Hosts")
             self.nmap_detail_placeholder.set_description(
