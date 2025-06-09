@@ -14,3 +14,9 @@
 .header-value {
     color: @theme_fg_color;
 }
+
+/* Style for Adw.EntryRow and Adw.ComboRow when an override is active */
+.active-override {
+    background-color: rgba(0, 120, 212, 0.08); /* Light blueish background */
+    border-left: 3px solid rgba(0, 120, 212, 0.7); /* Blueish border */
+}

@@ -187,6 +187,431 @@ def _create_mock_response(url, status_code, headers, history_list=None):
     return mock_resp
 
 
+class TestHttpPageUtils(unittest.TestCase):
+    """Tests for utility functions in http_page.py."""
+
+    def setUp(self):
+        """Ensure http_page_module is loaded for accessing static methods."""
+        if not http_page_module:
+            self.skipTest("http_page module could not be loaded.")
+        # Make static methods directly accessible for cleaner test calls if preferred,
+        # otherwise call them via http_page_module.
+        self._ensure_scheme = http_page_module._ensure_scheme
+        self._is_valid_url = http_page_module._is_valid_url
+
+
+    def test_ensure_scheme(self):
+        """Test the _ensure_scheme static method."""
+        self.assertEqual(self._ensure_scheme("example.com"), "https://example.com")
+        self.assertEqual(self._ensure_scheme("example.com/path"), "https://example.com/path")
+        self.assertEqual(self._ensure_scheme("http://example.com"), "http://example.com")
+        self.assertEqual(self._ensure_scheme("https://example.com"), "https://example.com")
+        self.assertEqual(self._ensure_scheme(""), "https://") # Empty string case
+        self.assertEqual(self._ensure_scheme("1.2.3.4"), "https://1.2.3.4")
+
+    def test_is_valid_url(self):
+        """Test the _is_valid_url static method."""
+        # Valid URLs
+        self.assertTrue(self._is_valid_url("http://example.com"))
+        self.assertTrue(self._is_valid_url("https://example.com"))
+        self.assertTrue(self._is_valid_url("https://www.example.com/path?query=value#fragment"))
+        self.assertTrue(self._is_valid_url("http://localhost"))
+        self.assertTrue(self._is_valid_url("http://localhost:8000"))
+        self.assertTrue(self._is_valid_url("http://127.0.0.1"))
+        self.assertTrue(self._is_valid_url("https://1.1.1.1:1234/test.html"))
+        self.assertTrue(self._is_valid_url("http://[::1]")) # IPv6 localhost
+        self.assertTrue(self._is_valid_url("https://[2001:db8::1]:8080/path")) # IPv6 with port and path
+
+        # Invalid URLs
+        self.assertFalse(self._is_valid_url("example.com")) # Missing scheme
+        self.assertFalse(self._is_valid_url("ftp://example.com")) # Invalid scheme
+        self.assertFalse(self._is_valid_url("http://")) # Missing netloc
+        self.assertFalse(self._is_valid_url("https://")) # Missing netloc
+        self.assertFalse(self._is_valid_url("")) # Empty string
+        self.assertFalse(self._is_valid_url("http:// exam ple.com")) # Space in hostname
+        self.assertFalse(self._is_valid_url("http://example.com /path")) # Space after netloc
+        self.assertFalse(self._is_valid_url("http:///path")) # Missing authority (netloc)
+        self.assertFalse(self._is_valid_url("http://[::1")) # IPv6 missing closing bracket
+        self.assertFalse(self._is_valid_url("http://127.0.0.256")) # Invalid IPv4 segment
+
+
+class TestHttpPageErrorFormatting(unittest.TestCase):
+    """Tests for error formatting methods in http_page.py."""
+
+    def setUp(self):
+        """Ensure http_page_module is loaded and instantiate HttpPage if needed."""
+        if not http_page_module or not HttpPage_class:
+            self.skipTest("http_page module or HttpPage class not loaded.")
+        # We need an instance of HttpPage to test its methods, even if they are simple formatters.
+        # If HttpPage instantiation is complex, consider making formatters static or moving them.
+        # For now, assume HttpPage can be instantiated (mocks should handle UI parts).
+        # Patching self.page.get_native() to avoid issues with main window calls from _display_error etc.
+        with patch.object(HttpPage_class, 'get_native', return_value=MagicMock()) as _:
+            try:
+                # Mocking settings that might be accessed during __init__ indirectly
+                mock_settings = MagicMock()
+                mock_settings.get_string.return_value = "default_color" # Default for color settings
+                with patch('src.http_page.Gio.Settings', return_value=mock_settings):
+                    self.page_instance = HttpPage_class()
+            except Exception as e:
+                self.skipTest(f"Could not instantiate HttpPage for error formatting tests: {e}")
+
+        self._format_http_error = self.page_instance._format_http_error
+        self._get_detailed_connection_error_message = self.page_instance._get_detailed_connection_error_message
+
+
+    def test_format_http_error(self):
+        """Test the _format_http_error method."""
+        mock_request = MagicMock(spec=requests.Request)
+        mock_request.url = "http://testerror.com"
+
+        # Test 403 Forbidden
+        mock_response_403 = MagicMock(spec=requests.Response)
+        mock_response_403.status_code = 403
+        mock_response_403.reason = "Forbidden"
+        http_error_403 = requests.exceptions.HTTPError(response=mock_response_403, request=mock_request)
+        self.assertEqual(self._format_http_error(http_error_403),
+                         "403 Forbidden: Access to the requested resource at http://testerror.com is denied.")
+
+        # Test 404 Not Found
+        mock_response_404 = MagicMock(spec=requests.Response)
+        mock_response_404.status_code = 404
+        mock_response_404.reason = "Not Found"
+        http_error_404 = requests.exceptions.HTTPError(response=mock_response_404, request=mock_request)
+        self.assertEqual(self._format_http_error(http_error_404),
+                         "404 Not Found: The requested resource at http://testerror.com was not found on the server.")
+
+        # Test 500 Internal Server Error
+        mock_response_500 = MagicMock(spec=requests.Response)
+        mock_response_500.status_code = 500
+        mock_response_500.reason = "Internal Server Error"
+        http_error_500 = requests.exceptions.HTTPError(response=mock_response_500, request=mock_request)
+        self.assertEqual(self._format_http_error(http_error_500),
+                         "500 Internal Server Error: The server encountered an internal error for http://testerror.com.")
+
+        # Test other HTTP error (e.g., 418 I'm a teapot)
+        mock_response_418 = MagicMock(spec=requests.Response)
+        mock_response_418.status_code = 418
+        mock_response_418.reason = "I'm a teapot"
+        http_error_418 = requests.exceptions.HTTPError(response=mock_response_418, request=mock_request)
+        self.assertEqual(self._format_http_error(http_error_418),
+                         "HTTP Error 418 (I'm a teapot) for URL: http://testerror.com.")
+
+        # Test with no reason phrase
+        mock_response_503 = MagicMock(spec=requests.Response)
+        mock_response_503.status_code = 503
+        mock_response_503.reason = None # Simulate no reason phrase
+        http_error_503 = requests.exceptions.HTTPError(response=mock_response_503, request=mock_request)
+        self.assertEqual(self._format_http_error(http_error_503),
+                         "HTTP Error 503 (Unknown Error) for URL: http://testerror.com.")
+
+
+    def test_get_detailed_connection_error_message(self):
+        """Test the _get_detailed_connection_error_message method."""
+        # Test direct ConnectionRefusedError with HTTPS URL
+        https_url = "https://example.com"
+        refused_error = ConnectionRefusedError("[Errno 111] Connection refused")
+        expected_msg_https = ("Connection Refused: The server at the HTTPS URL actively refused the connection. "
+                              "This might be an HTTP-only service. Consider trying with 'http://'.")
+        self.assertEqual(self._get_detailed_connection_error_message(refused_error, https_url), expected_msg_https)
+
+        # Test direct ConnectionRefusedError with HTTP URL
+        http_url = "http://example.com"
+        expected_msg_http = ("Connection Refused: The server at the HTTP URL actively refused the connection. "
+                             "The server might only support HTTPS or be down. Consider trying with 'https://'.")
+        self.assertEqual(self._get_detailed_connection_error_message(refused_error, http_url), expected_msg_http)
+
+        # Test with a generic URL if scheme is not http/https
+        generic_url = "customscheme://example.com"
+        expected_msg_generic = "Connection Error: The server at the specified URL actively refused the connection."
+        self.assertEqual(self._get_detailed_connection_error_message(refused_error, generic_url), expected_msg_generic)
+
+
+        # Test with nested exceptions (common pattern with requests and urllib3)
+        # requests.exceptions.ConnectionError -> urllib3.exceptions.MaxRetryError -> urllib3.exceptions.NewConnectionError -> ConnectionRefusedError
+        if http_page_module and hasattr(http_page_module, 'urllib3_exceptions'):
+            urllib3_exceptions = http_page_module.urllib3_exceptions
+            if urllib3_exceptions.NewConnectionError is http_page_module._DummyUrllib3Exception: # type: ignore
+                self.skipTest("urllib3.exceptions not fully available for nested connection error test.")
+
+            cause_l3 = ConnectionRefusedError("[Errno 111] Connection refused")
+            cause_l2 = urllib3_exceptions.NewConnectionError(None, str(cause_l3)) # type: ignore
+            cause_l2.__cause__ = cause_l3 # Manually chain for Python 3
+            cause_l1 = urllib3_exceptions.MaxRetryError(None, https_url, reason=cause_l2) # type: ignore
+            cause_l1.__cause__ = cause_l2
+            top_exception = requests.exceptions.ConnectionError(cause_l1)
+            top_exception.__cause__ = cause_l1
+
+            self.assertEqual(self._get_detailed_connection_error_message(top_exception, https_url), expected_msg_https)
+
+        # Test with an unrelated error
+        unrelated_error = ValueError("Some other error")
+        self.assertIsNone(self._get_detailed_connection_error_message(unrelated_error, https_url))
+
+        # Test with ConnectionError containing "errno 111" in message string
+        conn_error_errno_str = requests.exceptions.ConnectionError("Failed to connect: [Errno 111] Connection refused")
+        self.assertEqual(self._get_detailed_connection_error_message(conn_error_errno_str, http_url), expected_msg_http)
+
+
+class TestHttpPageRequestPreparation(unittest.TestCase):
+    """Tests for the _prepare_request_headers method in HttpPage."""
+
+    def setUp(self):
+        """Set up an instance of HttpPage for testing."""
+        if not http_page_module or not HttpPage_class:
+            self.skipTest("http_page module or HttpPage class not loaded.")
+
+        # Mock settings that might be accessed during __init__ or by tested method
+        mock_settings = MagicMock()
+        mock_settings.get_string.return_value = "default_color" # for color settings in __init__
+
+        # Patch Gio.Settings call within HttpPage's __init__
+        with patch('src.http_page.Gio.Settings', return_value=mock_settings):
+            # Patch get_native to prevent issues if _display_error or similar is called internally
+            with patch.object(HttpPage_class, 'get_native', return_value=MagicMock()):
+                try:
+                    self.page_instance = HttpPage_class()
+                except Exception as e:
+                    self.skipTest(f"Could not instantiate HttpPage for request preparation tests: {e}")
+
+        self._prepare_request_headers = self.page_instance._prepare_request_headers
+
+    def test_prepare_headers_defaults(self):
+        """Test with no overrides and no Akamai Pragma."""
+        initial_hdrs, session_hdrs = self._prepare_request_headers(
+            use_akamai_pragma=False,
+            host_header_from_input=None,
+            user_agent=None
+        )
+        self.assertEqual(initial_hdrs, {})
+        self.assertEqual(session_hdrs, {})
+
+    def test_prepare_headers_with_host_header(self):
+        """Test with a custom Host header."""
+        host = "custom.host.com"
+        initial_hdrs, session_hdrs = self._prepare_request_headers(
+            use_akamai_pragma=False,
+            host_header_from_input=host,
+            user_agent=None
+        )
+        self.assertEqual(initial_hdrs, {"Host": host})
+        self.assertEqual(session_hdrs, {})
+
+    def test_prepare_headers_with_user_agent(self):
+        """Test with a custom User-Agent."""
+        ua = "TestUserAgent/1.0"
+        initial_hdrs, session_hdrs = self._prepare_request_headers(
+            use_akamai_pragma=False,
+            host_header_from_input=None,
+            user_agent=ua
+        )
+        self.assertEqual(initial_hdrs, {})
+        self.assertEqual(session_hdrs, {"User-Agent": ua})
+
+    def test_prepare_headers_with_akamai_pragma(self):
+        """Test with Akamai Pragma headers enabled."""
+        initial_hdrs, session_hdrs = self._prepare_request_headers(
+            use_akamai_pragma=True,
+            host_header_from_input=None,
+            user_agent=None
+        )
+        self.assertEqual(initial_hdrs, {})
+        self.assertIn("Pragma", session_hdrs)
+        self.assertIn("akamai-x-get-request-id", session_hdrs["Pragma"])
+
+    def test_prepare_headers_all_overrides(self):
+        """Test with all overrides active."""
+        host = "another.host.org"
+        ua = "Mozilla/5.0 (Test)"
+        initial_hdrs, session_hdrs = self._prepare_request_headers(
+            use_akamai_pragma=True,
+            host_header_from_input=host,
+            user_agent=ua
+        )
+        self.assertEqual(initial_hdrs, {"Host": host})
+        self.assertIn("User-Agent", session_hdrs)
+        self.assertEqual(session_hdrs["User-Agent"], ua)
+        self.assertIn("Pragma", session_hdrs)
+        self.assertIn("akamai-x-cache-on", session_hdrs["Pragma"])
+
+
+class TestCustomDNSAdapter(unittest.TestCase):
+    """Tests for the CustomDNSAdapter class in http_page.py."""
+
+    def setUp(self):
+        if not http_page_module:
+            self.skipTest("http_page module could not be loaded.")
+
+        self.CustomDNSAdapter_class = getattr(http_page_module, "CustomDNSAdapter", None)
+        if not self.CustomDNSAdapter_class:
+            self.skipTest("CustomDNSAdapter class not found in http_page module.")
+
+        # Mock for dns.resolver.Answer objects
+        self.mock_dns_answer = MagicMock()
+        self.mock_dns_answer.address = "1.2.3.4" # Default mock IP
+
+        # Mock for dns.resolver.Resolver instance
+        self.mock_resolver_instance = MagicMock()
+        # self.mock_resolver_instance.resolve.return_value = [self.mock_dns_answer] # Default success
+
+        # Patch dns.resolver.Resolver to return our mock_resolver_instance
+        self.resolver_patcher = patch('src.http_page.dns.resolver.Resolver', return_value=self.mock_resolver_instance)
+        self.mock_dns_resolver_class = self.resolver_patcher.start()
+
+
+    def tearDown(self):
+        self.resolver_patcher.stop()
+
+    def test_resolve_hostname_to_ip_success_ipv4(self):
+        """Test _resolve_hostname_to_ip successfully resolves an A record."""
+        self.mock_resolver_instance.resolve.side_effect = [
+            http_page_module.dns.resolver.NoAnswer, # Simulate no AAAA record
+            [self.mock_dns_answer] # Return mock A record
+        ]
+        adapter = self.CustomDNSAdapter_class(custom_dns_server="8.8.8.8")
+        ip = adapter._resolve_hostname_to_ip("example.com")
+        self.assertEqual(ip, "1.2.3.4")
+        self.mock_resolver_instance.resolve.assert_has_calls([
+            call("example.com", "AAAA"),
+            call("example.com", "A")
+        ])
+
+    def test_resolve_hostname_to_ip_success_ipv6(self):
+        """Test _resolve_hostname_to_ip successfully resolves an AAAA record first."""
+        self.mock_dns_answer.address = "::1"
+        self.mock_resolver_instance.resolve.return_value = [self.mock_dns_answer] # AAAA record
+
+        adapter = self.CustomDNSAdapter_class(custom_dns_server="8.8.8.8")
+        ip = adapter._resolve_hostname_to_ip("example.com")
+        self.assertEqual(ip, "::1")
+        self.mock_resolver_instance.resolve.assert_called_once_with("example.com", "AAAA")
+
+    def test_resolve_hostname_to_ip_failure_nxdomain(self):
+        """Test _resolve_hostname_to_ip when domain does not exist."""
+        self.mock_resolver_instance.resolve.side_effect = http_page_module.dns.resolver.NXDOMAIN
+        adapter = self.CustomDNSAdapter_class(custom_dns_server="8.8.8.8")
+        ip = adapter._resolve_hostname_to_ip("nonexistent.example.com")
+        self.assertIsNone(ip)
+
+    def test_resolve_hostname_to_ip_no_custom_dns_server(self):
+        """Test _resolve_hostname_to_ip when no custom_dns_server is set."""
+        adapter = self.CustomDNSAdapter_class(custom_dns_server=None)
+        ip = adapter._resolve_hostname_to_ip("example.com")
+        self.assertIsNone(ip)
+        self.mock_resolver_instance.resolve.assert_not_called()
+
+    @patch('src.http_page.dns', None) # Mock dnspython as not imported
+    def test_resolve_hostname_to_ip_no_dnspython(self):
+        """Test _resolve_hostname_to_ip when dnspython is not available."""
+        # Need to reload CustomDNSAdapter or ensure it checks http_page_module.dns at runtime
+        # For simplicity, assume it's checked at init or method call as per current implementation.
+        # If CustomDNSAdapter is imported at the top of test_http_page, this patch might not affect it.
+        # Re-importing or patching the class's reference to dns module might be needed.
+
+        # The CustomDNSAdapter in http_page.py checks the global 'dns' variable from its own module.
+        # So, patching 'src.http_page.dns' should work.
+        adapter = self.CustomDNSAdapter_class(custom_dns_server="8.8.8.8")
+        ip = adapter._resolve_hostname_to_ip("example.com")
+        self.assertIsNone(ip)
+        self.mock_resolver_instance.resolve.assert_not_called()
+
+
+    def test_send_with_dns_resolution(self):
+        """Test send() method when DNS resolution modifies the URL."""
+        original_url = "http://example.com/path"
+        resolved_ip = "10.0.0.1"
+
+        self.mock_dns_answer.address = resolved_ip
+        self.mock_resolver_instance.resolve.side_effect = [
+            http_page_module.dns.resolver.NoAnswer, # No AAAA
+            [self.mock_dns_answer] # A record
+        ]
+
+        adapter = self.CustomDNSAdapter_class(custom_dns_server="8.8.8.8")
+
+        mock_request = requests.PreparedRequest()
+        mock_request.method = "GET"
+        mock_request.url = original_url
+        mock_request.headers = {}
+
+        with patch.object(HTTPAdapter, 'send', return_value=MagicMock()) as mock_super_send:
+            adapter.send(mock_request)
+
+            # Verify URL was modified to IP for connection
+            self.assertTrue(mock_request.url.startswith(f"http://{resolved_ip}/"))
+            # Verify _resolved_sni was set to original hostname
+            self.assertEqual(adapter._resolved_sni, "example.com")
+            mock_super_send.assert_called_once()
+
+    def test_send_no_dns_resolution_if_url_is_ip(self):
+        """Test send() does not attempt DNS resolution if URL is already an IP."""
+        original_url = "http://1.2.3.4/path"
+        adapter = self.CustomDNSAdapter_class(custom_dns_server="8.8.8.8")
+
+        mock_request = requests.PreparedRequest()
+        mock_request.method = "GET"
+        mock_request.url = original_url
+        mock_request.headers = {}
+
+        with patch.object(HTTPAdapter, 'send', return_value=MagicMock()) as mock_super_send:
+            adapter.send(mock_request)
+            self.assertEqual(mock_request.url, original_url) # URL should not change
+            self.assertIsNone(adapter._resolved_sni) # No DNS resolution, so this isn't set from resolve
+            self.mock_resolver_instance.resolve.assert_not_called()
+            mock_super_send.assert_called_once()
+
+
+    def test_init_poolmanager_with_resolved_sni(self):
+        """Test init_poolmanager uses _resolved_sni for SNI/assert_hostname."""
+        adapter = self.CustomDNSAdapter_class()
+        adapter._resolved_sni = "resolved.example.com" # Set manually for test
+
+        mock_super_init_poolmanager = MagicMock()
+        with patch.object(HTTPAdapter, 'init_poolmanager', mock_super_init_poolmanager):
+            adapter.init_poolmanager(connections=10, maxsize=10) # Call with dummy values
+
+        args, kwargs = mock_super_init_poolmanager.call_args
+        pool_kwargs = args[3] # **pool_kwargs is the 4th positional arg in the patched call
+
+        self.assertEqual(pool_kwargs.get("assert_hostname"), "resolved.example.com")
+        self.assertEqual(pool_kwargs.get("server_hostname"), "resolved.example.com")
+        self.assertEqual(pool_kwargs.get("cert_reqs"), ssl.CERT_REQUIRED)
+
+    def test_init_poolmanager_with_default_sni_for_ip_url(self):
+        """Test init_poolmanager uses default_sni_for_ip_url if URL is IP and no DNS resolution SNI."""
+        adapter = self.CustomDNSAdapter_class(default_sni="sni_for_ip.example.com")
+        adapter._resolved_sni = None # Ensure no DNS-resolved SNI
+
+        mock_super_init_poolmanager = MagicMock()
+        with patch.object(HTTPAdapter, 'init_poolmanager', mock_super_init_poolmanager):
+            adapter.init_poolmanager(connections=10, maxsize=10)
+
+        args, kwargs = mock_super_init_poolmanager.call_args
+        pool_kwargs = args[3]
+
+        self.assertEqual(pool_kwargs.get("assert_hostname"), "sni_for_ip.example.com")
+        self.assertEqual(pool_kwargs.get("server_hostname"), "sni_for_ip.example.com")
+        self.assertEqual(pool_kwargs.get("cert_reqs"), ssl.CERT_REQUIRED)
+
+    def test_init_poolmanager_no_sni(self):
+        """Test init_poolmanager does not set SNI args if no SNI is determined."""
+        adapter = self.CustomDNSAdapter_class()
+        adapter._resolved_sni = None
+        adapter.default_sni_for_ip_url = None
+
+        mock_super_init_poolmanager = MagicMock()
+        with patch.object(HTTPAdapter, 'init_poolmanager', mock_super_init_poolmanager):
+            adapter.init_poolmanager(connections=10, maxsize=10, initial_pool_kwargs_param=True) # Add a dummy kwarg
+
+        args, kwargs = mock_super_init_poolmanager.call_args
+        pool_kwargs = args[3] # This will be the dict of kwargs passed to super
+
+        self.assertNotIn("assert_hostname", pool_kwargs)
+        self.assertNotIn("server_hostname", pool_kwargs)
+        self.assertNotIn("cert_reqs", pool_kwargs)
+        self.assertIn("initial_pool_kwargs_param", pool_kwargs) # Ensure original kwargs preserved
+
+
 class TestHttpPage(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

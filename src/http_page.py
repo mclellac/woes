@@ -2,30 +2,30 @@
 
 This page allows users to fetch and inspect HTTP headers for a given URL,
 with options for custom Host headers, User-Agent strings, and Akamai Pragma headers.
-It also supports using a custom DNS server for domain resolution.
+It also supports using a custom DNS server for domain resolution via a custom HTTPAdapter.
 """
 
 # pylint: disable=too-many-lines
 import logging
 import re
 import ssl
-import socket
+import socket # Used by CustomDNSAdapter for IP family checks, not for patching.
 from enum import Enum
 from typing import Optional
 
 import requests
-import requests.utils
+import requests.utils # For urlparse, urlunparse
 from requests.adapters import HTTPAdapter
 
 try:
     import dns.resolver
     import dns.exception
 except ImportError:
-    dns = None
+    dns = None # Will be checked by features requiring dnspython
     logging.warning("dnspython library not found. Custom DNS functionality will be disabled.")
 
 import gi
-from gi.repository import Adw, Gio, GObject, Gtk, GLib, Gdk
+from gi.repository import Adw, Gio, GObject, Gtk, GLib, Gdk, Pango
 
 from .constants import RESOURCE_PREFIX, USER_AGENTS, APP_ID
 
@@ -37,7 +37,7 @@ try:
     import urllib3.exceptions as urllib3_exceptions
 except ImportError:
     # If urllib3 is not available at all (should not happen with requests installed)
-    # Define dummy classes for isinstance checks to not fail, or handle differently.
+    # Define dummy classes for isinstance checks to not fail.
     class _DummyUrllib3Exception(Exception):
         pass
 
@@ -52,30 +52,177 @@ except ImportError:
     logging.warning("Could not import urllib3.exceptions. Connection refused detection might be limited.")
 
 
-class CustomSNIAdapter(HTTPAdapter):
-    """A custom HTTPAdapter for `requests` that allows specifying a Server Name Indication (SNI)
-    hostname different from the URL's hostname. This is useful for HTTPS requests to an IP address
-    when the server expects a specific hostname for TLS handshake.
+class CustomDNSAdapter(HTTPAdapter):
+    """A custom HTTPAdapter for `requests` that enables custom DNS resolution and SNI handling.
+
+    This adapter intercepts requests to:
+    1.  Resolve the hostname using a specified custom DNS server if `dnspython` is available.
+        If resolution occurs, the request URL is internally modified to use the resolved IP address
+        for the connection, while the original hostname is saved for SNI and Host header purposes.
+    2.  Configure Server Name Indication (SNI) for HTTPS connections:
+        - If a hostname was resolved to an IP, the original hostname is used for SNI.
+        - If the request URL is already an IP address, a `default_sni` (typically from the
+          user's 'Host' header input) can be used for SNI.
+    3.  Set `assert_hostname` for `urllib3`'s connection pool to ensure the SSL certificate
+        is validated against the correct hostname (either the original or the specified SNI).
+
+    If custom DNS is not used or resolution fails, it behaves like a standard HTTPAdapter.
     """
 
-    def __init__(self, *args, sni_hostname=None, **kwargs):
-        """Initialize the CustomSNIAdapter.
+    def __init__(self, *args, custom_dns_server: Optional[str] = None, default_sni: Optional[str] = None, **kwargs):
+        """Initialize the CustomDNSAdapter.
 
         Args:
         ----
             *args: Positional arguments to pass to the parent HTTPAdapter.
-            sni_hostname (Optional[str]): The hostname to use for SNI. If None, behaves like a normal adapter.
+            custom_dns_server: IP address of the custom DNS server. If None, or if `dns` (dnspython)
+                               module is unavailable, system DNS will be used.
+            default_sni: The hostname to use for SNI and certificate validation if the request URL
+                         is already an IP address. This is typically derived from the user's
+                         'Host' header input.
             **kwargs: Keyword arguments to pass to the parent HTTPAdapter.
 
         """
-        self.sni_hostname = sni_hostname
+        self.custom_dns_server = custom_dns_server
+        self.default_sni_for_ip_url = default_sni
+        self._resolved_sni: Optional[str] = None # SNI derived from hostname resolution by this adapter.
         super().__init__(*args, **kwargs)
 
-    def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
-        """Initialize the connection pool manager.
+    def _resolve_hostname_to_ip(self, hostname: str) -> Optional[str]:
+        """Resolves a hostname using the custom DNS server.
 
-        Overrides the parent method to inject SNI-specific SSL context options
-        if an `sni_hostname` was provided.
+        Attempts to resolve AAAA records first, then A records.
+
+        Args:
+        ----
+            hostname: The hostname to resolve.
+
+        Returns:
+        -------
+            The first resolved IP address (preferring IPv6) as a string, or None if
+            resolution fails, custom DNS is not configured, or `dnspython` is unavailable.
+
+        """
+        if not self.custom_dns_server or not dns:
+            logger.debug("CustomDNSAdapter: Skipping custom DNS (server: %s, dnspython available: %s) for %s.",
+                         self.custom_dns_server, bool(dns), hostname)
+            return None
+
+        logger.info("CustomDNSAdapter: Attempting to resolve '%s' using DNS server %s", hostname, self.custom_dns_server)
+        resolver = dns.resolver.Resolver()
+        resolver.nameservers = [self.custom_dns_server]
+        resolver.timeout = 2.0  # Short timeout for DNS resolution
+        resolver.lifetime = 2.0 # Total time for resolution attempt including retries
+
+        ips: list[str] = []
+        try:
+            for rdtype in ("AAAA", "A"):  # Prefer AAAA (IPv6) if available
+                try:
+                    answers = resolver.resolve(hostname, rdtype)
+                    for rdata in answers:
+                        ips.append(rdata.address)
+                    if ips:  # Found records of the current type
+                        break
+                except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
+                    logger.debug("CustomDNSAdapter: No %s records found for %s via %s.",
+                                 rdtype, hostname, self.custom_dns_server)
+                except dns.exception.DNSException as e:
+                    logger.warning("CustomDNSAdapter: DNS %s query for %s via %s failed: %s",
+                                 rdtype, hostname, self.custom_dns_server, e)
+
+            if ips:
+                selected_ip = ips[0]
+                logger.info("CustomDNSAdapter: Resolved '%s' to %s (using %s).",
+                            hostname, selected_ip, self.custom_dns_server)
+                return selected_ip
+            logger.warning("CustomDNSAdapter: No AAAA or A records found for %s via %s.",
+                           hostname, self.custom_dns_server)
+        except Exception as e:  # pylint: disable=broad-except
+            logger.error("CustomDNSAdapter: Unexpected error during custom DNS resolution for %s: %s",
+                         hostname, e, exc_info=True)
+        return None
+
+    def send(self, request: requests.models.PreparedRequest, stream: bool = False, timeout: Optional[float] = None,
+             verify: bool = True, cert: Optional[tuple[str, str] | str] = None, proxies=None):
+        """Overrides HTTPAdapter.send method.
+
+        This method is called by `requests.Session` to send a `PreparedRequest`.
+        It performs custom DNS resolution if applicable before the request is actually sent.
+        If a hostname is resolved to an IP:
+        - The `request.url` is updated to use the IP for the connection.
+        - `self._resolved_sni` is set to the original hostname for SNI and cert validation.
+        The Host header in `request.headers` should remain the original hostname.
+
+        Args:
+        ----
+            request: The `PreparedRequest` to send.
+            stream: Whether to stream the response content.
+            timeout: Request timeout.
+            verify: Whether to verify SSL certificates.
+            cert: Client-side certificate.
+            proxies: Proxies to use for the request.
+
+        Returns:
+        -------
+            The response from `super().send()`.
+
+        """
+        parsed_url = requests.utils.urlparse(request.url)
+        original_hostname = parsed_url.hostname
+        self._resolved_sni = None  # Reset for each request
+
+        # Determine if the original hostname in the URL is already an IP address.
+        is_original_hostname_ip = False
+        if original_hostname:
+            try:
+                # Check if it's a valid IP address (IPv4 or IPv6)
+                socket.inet_pton(socket.AF_INET, original_hostname)
+                is_original_hostname_ip = True
+            except socket.error:
+                try:
+                    socket.inet_pton(socket.AF_INET6, original_hostname)
+                    is_original_hostname_ip = True
+                except socket.error:
+                    is_original_hostname_ip = False
+
+        if original_hostname and not is_original_hostname_ip and self.custom_dns_server and dns:
+            resolved_ip = self._resolve_hostname_to_ip(original_hostname)
+            if resolved_ip:
+                # Store original hostname for SNI and certificate validation
+                self._resolved_sni = original_hostname
+
+                # Modify the request URL to point to the resolved IP address.
+                # The Host header (in request.headers) should still be the original hostname.
+                # `requests` uses the hostname from request.url to generate the Host header
+                # if not already present. We must ensure it's the original, or set it manually.
+                # However, initial_request_specific_headers["Host"] in _fetch_headers_task_thread_func
+                # usually sets this correctly based on user input or original URL.
+
+                new_netloc = resolved_ip
+                if parsed_url.port:
+                    new_netloc += f":{parsed_url.port}"
+
+                # Create new URL parts list for urlunparse
+                # (scheme, netloc, path, params, query, fragment)
+                new_url_parts = list(parsed_url[:]) # Make a mutable copy
+                new_url_parts[1] = new_netloc  # Index 1 is 'netloc'
+                request.url = requests.utils.urlunparse(new_url_parts)
+                logger.info("CustomDNSAdapter.send: Modified request URL for IP connection: %s (Original Host: %s, SNI will be: %s)",
+                            request.url, original_hostname, self._resolved_sni)
+
+        # The actual SNI value to be used by init_poolmanager is determined there based on
+        # self._resolved_sni or self.default_sni_for_ip_url.
+        return super().send(request, stream, timeout, verify, cert, proxies)
+
+    def init_poolmanager(self, connections: int, maxsize: int, block: bool = False, **pool_kwargs):
+        """Initializes the `urllib3.PoolManager`.
+
+        This method is overridden to inject SNI (Server Name Indication) and
+        `assert_hostname` parameters into the pool's keyword arguments if:
+        1.  A hostname was resolved to an IP by this adapter (`self._resolved_sni` is set).
+            In this case, the original hostname is used for SNI and certificate validation.
+        2.  The original request URL was an IP address and `self.default_sni_for_ip_url` was provided
+            (e.g., from a user-supplied 'Host' header). This value is then used.
 
         Args:
         ----
@@ -85,22 +232,30 @@ class CustomSNIAdapter(HTTPAdapter):
             **pool_kwargs: Additional keyword arguments to pass to the PoolManager.
 
         """
-        if self.sni_hostname:
-            # These kwargs are for urllib3.PoolManager and its ConnectionPools
-            pool_kwargs["assert_hostname"] = self.sni_hostname
-            pool_kwargs["cert_reqs"] = ssl.CERT_REQUIRED
+        sni_hostname_for_pool = None
+        if self._resolved_sni:
+            # Case 1: Hostname was resolved to an IP. Use original hostname for SNI/validation.
+            sni_hostname_for_pool = self._resolved_sni
+            logger.info("CustomDNSAdapter.init_poolmanager: Using SNI/assert_hostname from resolved hostname: %s",
+                        sni_hostname_for_pool)
+        elif self.default_sni_for_ip_url:
+            # Case 2: Original URL was an IP, and a default SNI was provided.
+            # This is used only if _resolved_sni is not set (i.e., no DNS resolution occurred for a hostname).
+            # This implies the connection is likely being made to an IP specified in the original URL.
+            sni_hostname_for_pool = self.default_sni_for_ip_url
+            logger.info("CustomDNSAdapter.init_poolmanager: Using default SNI for IP URL: %s",
+                        sni_hostname_for_pool)
 
-            # Urllib3's PoolManager passes `server_hostname` to individual ConnectionPools.
-            # We get the existing connection_pool_kw, add our server_hostname,
-            # and then update pool_kwargs to include these for the PoolManager.
-            conn_pool_specific_kwargs = pool_kwargs.pop("connection_pool_kw", {}).copy()
-            conn_pool_specific_kwargs["server_hostname"] = self.sni_hostname
-            pool_kwargs.update(conn_pool_specific_kwargs)
+        if sni_hostname_for_pool:
+            pool_kwargs["assert_hostname"] = sni_hostname_for_pool
+            pool_kwargs["server_hostname"] = sni_hostname_for_pool  # For SNI in modern urllib3/ssl contexts
+            pool_kwargs["cert_reqs"] = ssl.CERT_REQUIRED # Ensure certificate validation is enforced
+            logger.debug("CustomDNSAdapter.init_poolmanager: Pool configured with SNI/assert_hostname: %s",
+                         sni_hostname_for_pool)
+        else:
+            logger.debug("CustomDNSAdapter.init_poolmanager: No specific SNI/assert_hostname configuration for this pool.")
 
         super().init_poolmanager(connections, maxsize, block=block, **pool_kwargs)
-
-    # This implementation focuses on direct connections.
-
 
 logger = logging.getLogger(__name__)
 
@@ -158,6 +313,7 @@ class HttpPage(Adw.PreferencesPage):
     Provides UI elements for URL input, Host header, User-Agent selection,
     Akamai Pragma toggles, and displays results in a Gtk.ColumnView.
     Handles asynchronous fetching of headers and error display.
+    Uses CustomDNSAdapter for custom DNS resolution and SNI.
     """
 
     __gtype_name__ = "HttpPage"
@@ -167,7 +323,6 @@ class HttpPage(Adw.PreferencesPage):
     http_user_agent_row = Gtk.Template.Child("http_user_agent_row")
     http_pragma_switch_row = Gtk.Template.Child("http_pragma_switch_row")
     http_column_view = Gtk.Template.Child("http_column_view")
-    # error_banner = Gtk.Template.Child("error_banner") # Removed
     http_results_group = Gtk.Template.Child("http_results_group")
     clear_results_button = Gtk.Template.Child("clear_results_button")
     copy_results_button = Gtk.Template.Child()
@@ -177,14 +332,15 @@ class HttpPage(Adw.PreferencesPage):
 
         Sets up UI elements from the template, initializes GSettings,
         configures the Gtk.ColumnView for displaying headers,
-        connects signal handlers, and sets initial UI state.
+        connects signal handlers, and sets initial UI state including visual cues
+        for active overrides.
         """
         super().__init__(**kwargs)
         logger.debug("HttpPage initialized.")
         self.current_http_task = None
         self._current_header_items = []
-        self._http_task_data_for_thread = {}
-        self._ua_title_to_value_map = {}
+        self._http_task_data_for_thread: dict = {} # Explicitly typed for clarity
+        self._ua_title_to_value_map: dict[str, Optional[str]] = {} # Explicitly typed
 
         self.settings = Gio.Settings(schema_id=APP_ID)
         self._header_key_color = self.settings.get_string("http-output-header-key-color")
@@ -211,14 +367,21 @@ class HttpPage(Adw.PreferencesPage):
             self.http_column_view.append_column(col_value)
 
         self._connect_signals()
-        self._clear_error()
-        self._hide_results()
+        self._clear_error() # Clear any persistent error state from previous view
+        self._hide_results() # Initially hide results section
 
-        self._update_user_agent_model()
+        self._update_user_agent_model() # Populate User-Agent dropdown
         self.settings.connect("changed::custom-user-agents", lambda _s, _k: self._update_user_agent_model())
 
         if self.http_apply_button:
             self.http_apply_button.set_use_underline(True)
+
+        # Call handlers to set initial visual state for overrides based on current values
+        if self.http_host_header_row: # Ensure row exists
+            self._on_host_header_changed(self.http_host_header_row)
+        if self.http_user_agent_row: # Ensure row exists
+            self._on_user_agent_changed(self.http_user_agent_row, None)
+
 
     def _connect_signals(self) -> None:
         """Connect signals for UI elements to their respective handlers."""
@@ -226,21 +389,65 @@ class HttpPage(Adw.PreferencesPage):
         self.http_apply_button.connect("clicked", self._on_entry_row_activated)
         self.http_pragma_switch_row.connect("notify::active", self._on_pragma_toggled)
         self.clear_results_button.connect("clicked", self._on_clear_results_clicked)
-        if self.copy_results_button:
+        if self.copy_results_button: # Template child might not exist in all UI definitions
             self.copy_results_button.connect("clicked", self._on_copy_results_clicked)
-        # Removed signal connection for local error_banner
-        # if self.error_banner:
-        #     self.error_banner.connect("button-clicked", self._on_error_banner_dismiss)
+
+        # Signals for visual cues on active overrides
+        if self.http_host_header_row:
+            self.http_host_header_row.connect("changed", self._on_host_header_changed)
+        if self.http_user_agent_row:
+            self.http_user_agent_row.connect("notify::selected-item", self._on_user_agent_changed)
+
+    def _on_host_header_changed(self, entry_row: Adw.EntryRow) -> None:
+        """Adds or removes 'active-override' CSS class based on Host header text.
+
+        Args:
+        ----
+            entry_row: The Adw.EntryRow for the Host header.
+
+        """
+        if not entry_row: return
+        text = entry_row.get_text().strip()
+        if text:
+            entry_row.add_css_class("active-override")
+        else:
+            entry_row.remove_css_class("active-override")
+
+    def _on_user_agent_changed(self, combo_row: Adw.ComboRow, _gparam: Optional[GObject.ParamSpec]) -> None:
+        """Adds or removes 'active-override' CSS class based on User-Agent selection.
+
+        The class is added if the selected User-Agent is not the default "None" option.
+
+        Args:
+        ----
+            combo_row: The Adw.ComboRow for User-Agent selection.
+            _gparam: The GObject.ParamSpec associated with the signal (unused here).
+
+        """
+        if not combo_row: return
+        selected_item_obj = combo_row.get_selected_item()
+        if isinstance(selected_item_obj, Gtk.StringObject):
+            selected_title = selected_item_obj.get_string()
+            # Check if the effective UA value is non-empty (i.e., not the "None" option)
+            effective_ua_value = self._ua_title_to_value_map.get(selected_title)
+            if effective_ua_value:  # An actual UA string is selected (not the one mapping to None)
+                combo_row.add_css_class("active-override")
+            else: # "None" is selected, or title not in map
+                combo_row.remove_css_class("active-override")
+        elif selected_item_obj is None and not self._ua_title_to_value_map:
+            # Handles case where model might be initially empty before _update_user_agent_model.
+            combo_row.remove_css_class("active-override")
+
 
     def _on_copy_results_clicked(self, _button: Gtk.Button) -> None:
         """Handle click event for the 'Copy Results' button.
 
-        Collects all displayed header items, formats them as text,
+        Collects all displayed header items (URLs, statuses, headers), formats them as text,
         and copies them to the clipboard.
 
         Args:
         ----
-            _button: The Gtk.Button that was clicked.
+            _button: The Gtk.Button that was clicked (unused).
 
         """
         logger.info("Copying all headers to clipboard.")
@@ -249,12 +456,12 @@ class HttpPage(Adw.PreferencesPage):
             for i in range(self.header_list_store.get_n_items()):
                 item = self.header_list_store.get_item(i)
                 if isinstance(item, HeaderItem):
-                    if item.is_special_row:
-                        if item.value and item.value.strip():
+                    if item.is_special_row: # For URL/Status rows
+                        if item.value and item.value.strip(): # If there's a value part (status)
                             lines.append(f"{item.key} {item.value}")
-                        else:
+                        else: # Just the key (URL line or separator)
                             lines.append(item.key)
-                    else:
+                    else: # For actual header rows
                         lines.append(f"{item.key}: {item.value}")
 
         if lines:
@@ -265,79 +472,137 @@ class HttpPage(Adw.PreferencesPage):
                     clipboard.set(text_to_copy)
                     logger.info("Headers copied to clipboard successfully.")
                 else:
-                    logger.warning("Failed to get default clipboard.")
+                    logger.warning("Failed to get default clipboard for copying.")
             except Exception as e:  # pylint: disable=broad-except
-                logger.error("Error copying to clipboard: %s", e, exc_info=True)
+                logger.error("Error copying headers to clipboard: %s", e, exc_info=True)
         else:
-            logger.info("No headers to copy.")
+            logger.info("No headers to copy from the results view.")
 
     def _on_entry_row_activated(self, _widget: Gtk.Widget) -> None:
-        """Handle activation of the URL entry row or click of the 'Apply' button.
+        """Handle activation of the URL entry row or click of the 'Fetch' button.
 
-        Initiates the process of fetching HTTP headers for the entered URL.
-        Validates the URL, gathers configuration from UI elements (Host header, User-Agent, etc.),
-        and starts an asynchronous task to perform the HTTP request.
+        Initiates the process of fetching HTTP headers. Validates the URL,
+        gathers configuration from UI elements (Host header, User-Agent, etc.),
+        and starts an asynchronous task (`Gio.Task`) to perform the HTTP request.
+        UI elements are made insensitive during the fetch.
 
         Args:
         ----
-            _widget: The widget that triggered the activation (Adw.EntryRow or Gtk.Button).
+            _widget: The widget that triggered the activation (Adw.EntryRow or Gtk.Button, unused).
 
         """
         original_url = self.http_entry_row.get_text().strip()
-        url = self._ensure_scheme(original_url)
-        logger.info("Fetching headers for URL: %s (original: %s)", url, original_url)
+        url = self._ensure_scheme(original_url) # Ensure URL has a scheme (https:// by default)
+        logger.info("Fetching headers for URL: %s (original input: %s)", url, original_url)
 
         if not self._is_valid_url(url):
             logger.warning("Invalid URL provided: %s (processed as: %s)", original_url, url)
-            self._display_error("Invalid URL format: Please enter a valid URL.")
-            self._update_column_view_model(None)
+            self._display_error("Invalid URL format: Please enter a valid URL (e.g., https://example.com).")
+            self._update_column_view_model(None) # Clear previous results
             return
 
-        self._clear_error()
+        self._clear_error() # Clear previous errors
         self.http_entry_row.set_sensitive(False)
-        if hasattr(self, "http_apply_button"):
+        if hasattr(self, "http_apply_button") and self.http_apply_button:
             self.http_apply_button.set_sensitive(False)
+            self.http_apply_button.set_icon_name("process-working-symbolic") # Show spinner
 
         host_header = self.http_host_header_row.get_text().strip()
 
-        user_agent_to_send = None
+        user_agent_to_send: Optional[str] = None # Explicitly typed
         selected_title_obj = self.http_user_agent_row.get_selected_item()
         if isinstance(selected_title_obj, Gtk.StringObject):
             selected_title = selected_title_obj.get_string()
-            # .get will return None if selected_title is not found, or if its mapped value is None
             user_agent_to_send = self._ua_title_to_value_map.get(selected_title)
 
         custom_dns_server = self.settings.get_string("custom-dns-server")
+        if custom_dns_server and dns is None:
+            logger.warning(
+                "Custom DNS server ('%s') is configured, but 'dnspython' library is not available. "
+                "Custom DNS resolution will be skipped; system DNS will be used.", custom_dns_server
+            )
+            # This warning is for logging; CustomDNSAdapter handles dns=None by falling back.
 
         self._http_task_data_for_thread = {
             "url": url,
             "use_akamai_pragma": self.http_pragma_switch_row.get_active(),
-            "host_header": host_header,
-            "user_agent": user_agent_to_send,
-            "custom_dns_server": custom_dns_server,
+            "host_header": host_header if host_header else None, # Ensure None if empty
+            "user_agent": user_agent_to_send, # Already Optional[str]
+            "custom_dns_server": custom_dns_server if custom_dns_server else None, # Ensure None if empty
         }
-        logger.debug(f"Task data for thread: {self._http_task_data_for_thread}")
+        logger.debug(f"Starting header fetch task with data: {self._http_task_data_for_thread}")
+
         task = Gio.Task.new(self, None, self._fetch_headers_task_done_cb, None)
-        self.current_http_task = task
+        self.current_http_task = task # Store current task
         task.run_in_thread(self._fetch_headers_task_thread_func)
 
-    def _fetch_headers_task_thread_func(  # pylint: disable=too-many-locals,too-many-branches,too-many-statements,too-many-nested-blocks # noqa: C901
+
+    def _prepare_request_headers(
+        self, use_akamai_pragma: bool, host_header_from_input: Optional[str], user_agent: Optional[str]
+    ) -> tuple[dict[str, str], dict[str, str]]:
+        """Prepares initial request-specific headers and session-wide headers.
+
+        Args:
+        ----
+            use_akamai_pragma: Whether to include Akamai Pragma headers.
+            host_header_from_input: Custom Host header value, if any.
+            user_agent: Custom User-Agent string, if any.
+
+        Returns:
+        -------
+            A tuple containing two dictionaries:
+            - `initial_request_specific_headers`: Headers for the first request only (e.g., Host).
+            - `session_headers`: Headers to be applied to the `requests.Session` object for all requests.
+
+        """
+        initial_request_specific_headers: dict[str,str] = {}
+        session_headers: dict[str, str] = {}
+
+        if host_header_from_input:
+            initial_request_specific_headers["Host"] = host_header_from_input
+            logger.info("Using user-provided Host header for the initial request: '%s'", host_header_from_input)
+
+        if user_agent: # If a specific User-Agent is chosen (not "None" which maps to None value)
+            session_headers["User-Agent"] = user_agent
+            logger.info("Using custom User-Agent for the session: '%s'", user_agent)
+        else: # "None" selected or no UA preference
+            logger.info("No custom User-Agent specified; `requests` default will be used.")
+
+
+        if use_akamai_pragma:
+            akamai_pragma_directives = [
+                "akamai-x-get-request-id", "akamai-x-get-cache-key", "akamai-x-cache-on",
+                "akamai-x-cache-remote-on", "akamai-x-get-true-cache-key", "akamai-x-check-cacheable",
+                "akamai-x-get-extracted-values", "akamai-x-feo-trace", "x-akamai-logging-mode: verbose",
+            ]
+            session_headers["Pragma"] = ", ".join(akamai_pragma_directives)
+            logger.info("Akamai Pragma headers will be included in session headers.")
+        else:
+            logger.info("Akamai Pragma headers will not be included.")
+
+        return initial_request_specific_headers, session_headers
+
+    # _configure_sni_adapter method was removed as its logic is now integrated into CustomDNSAdapter.
+
+    def _fetch_headers_task_thread_func(
         self,
         task: Gio.Task,
         source_object,  # pylint: disable=unused-argument
         task_data_arg: dict,  # pylint: disable=unused-argument
         cancellable: Optional[Gio.Cancellable],
     ):
-        """Perform the HTTP GET request in a separate thread.
+        """Performs the HTTP GET request in a separate thread via `Gio.Task`.
 
-        This method is executed by `Gio.Task.run_in_thread`. It constructs the request
-        based on `_http_task_data_for_thread`, handles custom DNS resolution via
-        `socket.getaddrinfo` patching if configured, mounts a `CustomSNIAdapter`
-        if necessary (for HTTPS to IP with Host header), and makes the request
-        using the `requests` library.
+        This method orchestrates the HTTP request by:
+        1.  Preparing headers using `_prepare_request_headers`.
+        2.  Configuring a `requests.Session` with a `CustomDNSAdapter` for custom DNS
+            resolution and SNI handling.
+        3.  Executing the request using `_execute_http_request`.
+        4.  Processing the response (including redirects and HTTP errors) using `_process_http_response`.
 
-        It captures all responses (redirects and final) and returns them as a list
-        of dictionaries. Errors during the process are returned via `task.return_new_error_literal`.
+        Exceptions during the request (Timeout, ConnectionError, etc.) are caught and
+        reported to the main thread via `task.return_new_error_literal` with an appropriate
+        `HttpErrorType` and message.
 
         Args:
         ----
@@ -347,303 +612,232 @@ class HttpPage(Adw.PreferencesPage):
             cancellable: A `Gio.Cancellable` object to monitor for cancellation requests.
 
         """
+        # Retrieve task data set in _on_entry_row_activated
         current_task_data = self._http_task_data_for_thread
+        url_to_fetch: str = current_task_data["url"]
+        use_akamai_pragma: bool = current_task_data["use_akamai_pragma"]
+        host_header_from_input: Optional[str] = current_task_data.get("host_header")
+        user_agent: Optional[str] = current_task_data.get("user_agent")
+        custom_dns_server: Optional[str] = current_task_data.get("custom_dns_server")
 
-        url_to_fetch = current_task_data["url"]
-        original_url_with_scheme = current_task_data["url"]
-        use_akamai_pragma = current_task_data["use_akamai_pragma"]
-        host_header_from_input = current_task_data.get("host_header")
-        user_agent = current_task_data.get("user_agent")
-        custom_dns_server = current_task_data.get("custom_dns_server")
-
-        initial_request_specific_headers = {}
-        session_headers = {}
-        original_hostname = None
-        captured_original_hostname = ""  # Initialize to ensure it's always bound
-
-        original_getaddrinfo = None
-        resolved_addresses_for_host = None
-
-        if custom_dns_server and dns:
-            parsed_url_obj = requests.utils.urlparse(original_url_with_scheme)
-            original_hostname = parsed_url_obj.hostname
-
-            if not original_hostname:
-                logger.warning("Could not parse hostname from URL for custom DNS: %s", original_url_with_scheme)
-            else:
-                logger.info(
-                    "Attempting to resolve '%s' using custom DNS server %s",
-                    original_hostname,
-                    custom_dns_server,
-                )
-                resolver = dns.resolver.Resolver()
-                resolver.nameservers = [custom_dns_server]
-                resolver.timeout = 2.0
-                resolver.lifetime = 2.0
-
-                all_ips = []
-                try:
-                    for rdtype in ("A", "AAAA"):
-                        try:
-                            answers = resolver.resolve(original_hostname, rdtype)
-                            for rdata in answers:
-                                all_ips.append(rdata.address)
-                        except dns.resolver.NoAnswer:
-                            logger.debug(
-                                "No %s records found for %s using %s.",
-                                rdtype,
-                                original_hostname,
-                                custom_dns_server,
-                            )
-                        except dns.exception.DNSException as e:
-                            logger.warning(
-                                "DNS resolution for %s records of %s failed: %s",
-                                rdtype,
-                                original_hostname,
-                                e,
-                            )
-
-                    if all_ips:
-                        resolved_addresses_for_host = all_ips
-                        logger.info(
-                            "Resolved '%s' to %s via %s.",
-                            original_hostname,
-                            resolved_addresses_for_host,
-                            custom_dns_server,
-                        )
-                    else:
-                        logger.warning(
-                            "Custom DNS %s provided no A or AAAA records for %s. "
-                            "Falling back to system DNS for this request.",
-                            custom_dns_server,
-                            original_hostname,
-                        )
-                except Exception as e:  # pylint: disable=broad-exception-caught
-                    logger.error(
-                        "Unexpected error during custom DNS processing for %s: %s",
-                        original_hostname,
-                        e,
-                        exc_info=True,
-                    )
-
-        if resolved_addresses_for_host and original_hostname:
-            original_getaddrinfo = socket.getaddrinfo
-
-            captured_original_hostname = original_hostname
-            captured_resolved_ips = resolved_addresses_for_host
-
-            def custom_getaddrinfo(host, port, family=0, addr_type=0, proto=0, flags=0):  # pylint: disable=too-many-arguments,redefined-builtin,too-many-positional-arguments
-                if host == captured_original_hostname:
-                    logger.debug(
-                        "Custom getaddrinfo: Intercepting '%s', returning %s",
-                        host,
-                        captured_resolved_ips,
-                    )
-                    results = []
-                    for ip_addr in captured_resolved_ips:
-                        addr_family = socket.AF_INET6 if ":" in ip_addr else socket.AF_INET
-                        if family in (0, addr_family):
-                            results.append(
-                                (
-                                    addr_family,
-                                    socket.SOCK_STREAM,
-                                    socket.IPPROTO_TCP,
-                                    "",
-                                    (ip_addr, port),
-                                )
-                            )
-
-                    if not results and family:
-                        logger.warning(
-                            "Custom getaddrinfo: No addresses for '%s' matched requested family %s. Falling back.",
-                            host,
-                            family,
-                        )
-                        return original_getaddrinfo(host, port, family, addr_type, proto, flags)
-                    if not results:
-                        logger.warning(
-                            "Custom getaddrinfo: No addresses for '%s' after filtering. Falling back.",
-                            host,
-                        )
-                        return original_getaddrinfo(host, port, family, addr_type, proto, flags)
-                    return results
-                return original_getaddrinfo(host, port, family, addr_type, proto, flags)
-
-            socket.getaddrinfo = custom_getaddrinfo
-            logger.info("socket.getaddrinfo patched to use custom DNS results for '%s'.", original_hostname)
-        else:
-            logger.debug("Not patching socket.getaddrinfo, custom DNS not used or resolution failed/yielded no IPs.")
-
-        use_custom_sni_adapter = False
-        parsed_url_for_sni_check = requests.utils.urlparse(url_to_fetch)
-        is_url_ip_address = all(
-            c.isdigit() or c == "." or c == ":" or c == "[" or c == "]"
-            for c in parsed_url_for_sni_check.netloc.split(":", 1)[0]
+        # 1. Prepare headers
+        initial_request_specific_headers, session_headers = self._prepare_request_headers(
+            use_akamai_pragma, host_header_from_input, user_agent
         )
 
-        if url_to_fetch.startswith("https://") and is_url_ip_address and host_header_from_input:
-            use_custom_sni_adapter = True
-            logger.info(
-                "URL '%s' is IP-based. User-provided Host header '%s' will be used for SNI via CustomSNIAdapter.",
-                url_to_fetch,
-                host_header_from_input,
-            )
-        elif custom_dns_server and original_hostname and not is_url_ip_address:
-            logger.info(
-                "Custom DNS resolved %s, but URL '%s' is a hostname. "
-                "Requests will handle SNI; CustomSNIAdapter not mounted for this reason.",
-                original_hostname,
-                url_to_fetch,
-            )
-
+        # 2. Configure session with CustomDNSAdapter
         session = requests.Session()
 
-        if use_custom_sni_adapter and host_header_from_input:
-            adapter = CustomSNIAdapter(sni_hostname=host_header_from_input)
-            session.mount("https://", adapter)
-            logger.debug("Mounted CustomSNIAdapter for https:// with SNI: %s", host_header_from_input)
-        elif use_custom_sni_adapter and not host_header_from_input:
-            logger.warning("CustomSNIAdapter was considered but no host_header_from_input was available for SNI name.")
+        parsed_url = requests.utils.urlparse(url_to_fetch)
+        url_hostname = parsed_url.hostname or "" # Ensure str, not None
 
-        if host_header_from_input:
-            initial_request_specific_headers["Host"] = host_header_from_input
+        # Determine if the URL's hostname part is already an IP address
+        is_url_direct_ip = False
+        if url_hostname:
+            try:
+                socket.inet_pton(socket.AF_INET, url_hostname)
+                is_url_direct_ip = True
+            except socket.error:
+                try:
+                    socket.inet_pton(socket.AF_INET6, url_hostname)
+                    is_url_direct_ip = True
+                except socket.error:
+                    is_url_direct_ip = False
+
+        # SNI hint for the adapter if the URL is an IP and a Host header is provided
+        adapter_sni_hint: Optional[str] = None
+        if is_url_direct_ip and host_header_from_input:
+            adapter_sni_hint = host_header_from_input
             logger.info(
-                "User-provided Host header '%s' will be used for the request.",
-                host_header_from_input,
+                "HttpPage: URL '%s' is IP-based and Host header '%s' provided. Passing as SNI hint to CustomDNSAdapter.",
+                 url_to_fetch, adapter_sni_hint
             )
 
-        if user_agent:
-            session_headers["User-Agent"] = user_agent
-        if use_akamai_pragma:
-            akamai_pragma_directives = [
-                "akamai-x-get-request-id",
-                "akamai-x-get-cache-key",
-                "akamai-x-cache-on",
-                "akamai-x-cache-remote-on",
-                "akamai-x-get-true-cache-key",
-                "akamai-x-check-cacheable",
-                "akamai-x-get-extracted-values",
-                "akamai-x-feo-trace",
-                "x-akamai-logging-mode: verbose",
-            ]
-            session_headers["Pragma"] = ", ".join(akamai_pragma_directives)
-        if session_headers:
+        # Use custom_dns_server only if dnspython (dns module) is available
+        effective_custom_dns_server = custom_dns_server if dns else None
+        if custom_dns_server and not dns: # Log if configured but unavailable
+            logger.warning(
+                "HttpPage._fetch_headers_task_thread_func: Custom DNS server ('%s') configured, "
+                "but dnspython library is missing. Adapter will use system DNS.", custom_dns_server
+            )
+
+        # Instantiate and mount the CustomDNSAdapter
+        adapter = CustomDNSAdapter(
+            custom_dns_server=effective_custom_dns_server,
+            default_sni=adapter_sni_hint # Used by adapter if URL is IP
+        )
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+        logger.info(
+            "HttpPage: CustomDNSAdapter mounted (DNS server: '%s', SNI hint for IP URL: '%s').",
+            effective_custom_dns_server, adapter_sni_hint
+        )
+
+        if session_headers: # Apply session-wide headers (User-Agent, Pragma)
             session.headers.update(session_headers)
 
-        logger.info("Task thread: Making GET request to %s.", url_to_fetch)
-
+        # 3. Execute request and process response
         try:
             if cancellable and cancellable.is_cancelled():
                 task.return_new_error_literal(
                     GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
                     HttpErrorType.CANCELLED.value,
-                    "Task was cancelled.",
+                    "Task was cancelled before request execution.",
                 )
                 return
 
-            response = session.get(
-                url_to_fetch,
-                headers=(initial_request_specific_headers if initial_request_specific_headers else None),
-                allow_redirects=True,
-                timeout=5,
+            # Core request execution
+            response = self._execute_http_request(
+                session, url_to_fetch, initial_request_specific_headers, cancellable
             )
 
-            all_responses_data = []
-
-            for hist_resp in response.history:
-                hist_data = {
-                    "type": "redirect",
-                    "url": str(hist_resp.url),
-                    "status_code": hist_resp.status_code,
-                    "headers": {str(k): str(v) for k, v in dict(hist_resp.headers).items()},
-                }
-                all_responses_data.append(hist_data)
-
-            try:
-                response.raise_for_status()
-                final_data_type = "final"
-            except requests.exceptions.HTTPError as http_err:
-                logger.warning("Task thread: HTTPError for %s: %s", url_to_fetch, http_err)
-                error_message = self._format_http_error(http_err)
-                task.return_new_error_literal(
-                    GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
-                    HttpErrorType.HTTP_ERROR.value,
-                    error_message,
-                )
-                return
-
-            final_data = {
-                "type": final_data_type,
-                "url": str(response.url),
-                "status_code": response.status_code,
-                "headers": {str(k): str(v) for k, v in dict(response.headers).items()},
-            }
-            all_responses_data.append(final_data)
-
-            task.return_value(all_responses_data)
+            # Process response (handles redirects and HTTP errors)
+            processed_data = self._process_http_response(response, task, url_to_fetch)
+            if processed_data: # If no HTTPError occurred (error not set on task by _process_http_response)
+                task.return_value(processed_data)
+            # If processed_data is None, an error was already set on the task by _process_http_response
 
         except requests.exceptions.Timeout as e:
-            logger.warning("Task thread: Timeout for %s: %s", url_to_fetch, e)
+            logger.warning("Task thread: Timeout for URL '%s': %s", url_to_fetch, e)
             error_message = (
                 "Request timed out. This could be due to a slow network, server issues, "
                 "or a Web Application Firewall (WAF) interfering. "
                 "Please check the URL or try again later."
             )
             task.return_new_error_literal(
-                GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
-                HttpErrorType.TIMEOUT.value,
-                error_message,
+                GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN), HttpErrorType.TIMEOUT.value, error_message
             )
-            return
         except requests.exceptions.ConnectionError as e:
-            logger.warning("Task thread: ConnectionError for %s: %s", url_to_fetch, e)
+            logger.warning("Task thread: ConnectionError for URL '%s': %s", url_to_fetch, e)
             custom_msg = self._get_detailed_connection_error_message(e, url_to_fetch)
-            if custom_msg:
-                error_message = custom_msg
-            else:
-                error_message = (
-                    "A network connection error occurred. Please check your internet connection "
-                    "and the entered URL, then try again."
-                )
-            if not error_message:
-                error_message = "Connection Error: Failed to establish a connection."
-            task.return_new_error_literal(
-                GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
-                HttpErrorType.CONNECTION_ERROR.value,
-                error_message,
+            error_message = custom_msg or ( # Use detailed message if available
+                "A network connection error occurred. Please check your internet connection "
+                "and the entered URL, then try again."
             )
-            return
-        except requests.exceptions.RequestException as e:
-            logger.warning("Task thread: RequestException for %s: %s", url_to_fetch, e)
-            error_message = "The request could not be completed. Please verify the URL and your network connection."
             task.return_new_error_literal(
-                GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
-                HttpErrorType.REQUEST_EXCEPTION.value,
-                error_message,
+                GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN), HttpErrorType.CONNECTION_ERROR.value, error_message
             )
-            return
+        except requests.exceptions.RequestException as e: # Catch other requests-related errors
+            logger.warning("Task thread: RequestException for URL '%s': %s", url_to_fetch, e)
+            error_message = (f"The request could not be completed due to an issue: {e}. "
+                             "Please verify the URL and your network connection.")
+            task.return_new_error_literal(
+                GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN), HttpErrorType.REQUEST_EXCEPTION.value, error_message
+            )
         except Exception as e:  # pylint: disable=broad-except
-                logger.exception( # Changed to logger.exception
-                    "Task thread: Truly unexpected error for %s:",
-                url_to_fetch,
+            logger.exception("Task thread: Truly unexpected error during HTTP fetch for URL '%s':", url_to_fetch)
+            error_message = ("An unexpected internal error occurred while processing your request. "
+                             "Please try again later or report this issue if it persists.")
+            task.return_new_error_literal(
+                GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN), HttpErrorType.GENERIC_UNEXPECTED.value, error_message
             )
-            error_message = (
-                "An unexpected internal error occurred while processing your request. Please try again later."
-            )
+        # No 'finally' block for unpatching socket needed anymore due to adapter pattern.
+
+    def _execute_http_request(
+        self,
+        session: requests.Session,
+        url_to_fetch: str,
+        initial_request_headers: dict[str, str],
+        cancellable: Optional[Gio.Cancellable],
+    ) -> requests.Response:
+        """Executes the HTTP GET request using the provided session and headers.
+
+        Handles pre-request cancellation check. Network-related exceptions
+        (Timeout, ConnectionError, other RequestException) are expected to be
+        caught by the caller (`_fetch_headers_task_thread_func`).
+
+        Args:
+        ----
+            session: The configured `requests.Session` to use for the request.
+            url_to_fetch: The URL to fetch.
+            initial_request_headers: Headers specific to this initial request (e.g., Host).
+                                     These are passed directly to `session.get()`.
+            cancellable: `Gio.Cancellable` object to check for cancellation.
+
+        Returns:
+        -------
+            `requests.Response` object from `session.get()`.
+
+        Raises:
+        ------
+            requests.exceptions.RequestException: If cancelled before sending, or for other
+                                                 `requests` library issues (Timeout, ConnectionError, etc.).
+                                                 HTTPError is not raised here but handled by `_process_http_response`.
+
+        """
+        logger.info("Executing HTTP GET request to %s via configured session.", url_to_fetch)
+        if cancellable and cancellable.is_cancelled():
+            # This exception will be caught by the RequestException handler in the calling function.
+            raise requests.exceptions.RequestException("Request cancelled by user before sending.")
+
+        response = session.get(
+            url_to_fetch,
+            headers=(initial_request_headers if initial_request_headers else None),
+            allow_redirects=True, # Allow requests to handle redirects automatically
+            timeout=5, # Standard timeout for the request in seconds
+        )
+        # HTTPError (4xx/5xx) is not raised here; _process_http_response will handle it.
+        return response
+
+    def _process_http_response(
+        self, response: requests.Response, task: Gio.Task, url_being_fetched: str
+    ) -> Optional[list[dict[str, object]]]:
+        """Processes the HTTP response, including redirects, and checks for HTTP errors.
+
+        If an `requests.exceptions.HTTPError` (4xx or 5xx status code) occurs on the
+        final response, this method sets an error on the `Gio.Task` and returns `None`.
+        Otherwise, it compiles a list of dictionaries containing data for each response
+        in the redirect chain and the final response.
+
+        Args:
+        ----
+            response: The final `requests.Response` object from `session.get()`.
+            task: The `Gio.Task` to set errors on if an HTTPError occurs.
+            url_being_fetched: The original URL that was fetched, for logging context.
+
+        Returns:
+        -------
+            A list of response data dictionaries if successful. Each dictionary represents
+            a response (redirect or final) and includes 'type', 'url', 'status_code',
+            and 'headers'. Returns `None` if an HTTPError occurred (error is set on the task).
+
+        """
+        all_responses_data: list[dict[str, object]] = []
+
+        # Process redirect history
+        for hist_resp in response.history: # response.history contains prior Response objects
+            hist_data: dict[str, object] = {
+                "type": "redirect",
+                "url": str(hist_resp.url),
+                "status_code": hist_resp.status_code,
+                "headers": {str(k): str(v) for k, v in dict(hist_resp.headers).items()},
+            }
+            all_responses_data.append(hist_data)
+
+        # Process final response - check for HTTP errors first
+        try:
+            response.raise_for_status()  # Raises HTTPError for 4xx/5xx status codes
+            final_data_type = "final"
+        except requests.exceptions.HTTPError as http_err:
+            logger.warning("HTTPError for URL '%s': %s", url_being_fetched, http_err)
+            error_message = self._format_http_error(http_err) # Format a user-friendly message
             task.return_new_error_literal(
                 GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
-                HttpErrorType.GENERIC_UNEXPECTED.value,
+                HttpErrorType.HTTP_ERROR.value,
                 error_message,
             )
-            return
-        finally:
-            if original_getaddrinfo:
-                socket.getaddrinfo = original_getaddrinfo
-                # Use captured_original_hostname directly as it's now guaranteed to be bound
-                logger.info(
-                    "socket.getaddrinfo restored for '%s'.",
-                    captured_original_hostname,
-                )
+            return None # Indicate error by returning None; task error is set.
+
+        # If no HTTPError, proceed to format final response data
+        final_data: dict[str, object] = {
+            "type": final_data_type,
+            "url": str(response.url),
+            "status_code": response.status_code,
+            "headers": {str(k): str(v) for k, v in dict(response.headers).items()},
+        }
+        all_responses_data.append(final_data)
+        return all_responses_data
+
 
     def _get_detailed_connection_error_message(self, exc: Exception, url: str) -> Optional[str]:  # pylint: disable=too-many-branches,too-many-statements # noqa: C901
         """Attempt to provide a more specific error message for connection errors.
@@ -654,238 +848,233 @@ class HttpPage(Adw.PreferencesPage):
 
         Args:
         ----
-            exc: The connection-related exception caught.
+            exc: The connection-related exception caught (e.g., `requests.exceptions.ConnectionError`).
             url: The URL that was being accessed.
 
         Returns:
         -------
-            A more specific error message string if a known pattern is matched, otherwise None.
+            A more specific error message string if a known pattern is matched, otherwise `None`.
 
         """
-        current_exc = exc
+        current_exc: Optional[BaseException] = exc # Type hint for clarity
         found_connection_refused = False
-        max_depth = 5
+        max_depth = 5 # Limit how deep we traverse exception causes
 
         for _depth in range(max_depth):
             if current_exc is None:
                 break
 
-            exc_str = str(current_exc)
+            exc_str = str(current_exc).lower() # For case-insensitive search
 
+            # Check for direct ConnectionRefusedError or specific strings/errno in common exceptions
             if isinstance(current_exc, ConnectionRefusedError):
                 found_connection_refused = True
                 break
-
             if isinstance(current_exc, urllib3_exceptions.NewConnectionError):
-                if "connection refused" in exc_str.lower() or "errno 111" in exc_str.lower():
+                if "connection refused" in exc_str or "errno 111" in exc_str:
                     found_connection_refused = True
                     break
-                if hasattr(current_exc, "original_error") and isinstance(
-                    current_exc.original_error, ConnectionRefusedError
-                ):
-                    found_connection_refused = True
-                    break
-                if (
-                    hasattr(current_exc, "original_error")
-                    and hasattr(current_exc.original_error, "errno")
-                    and current_exc.original_error.errno == 111
-                ):
-                    found_connection_refused = True
-                    break
-
+                # Check original_error if present (urllib3 specific)
+                if hasattr(current_exc, "original_error"):
+                    original_error = getattr(current_exc, "original_error")
+                    if isinstance(original_error, ConnectionRefusedError) or \
+                       (hasattr(original_error, "errno") and getattr(original_error, "errno") == 111):
+                        found_connection_refused = True
+                        break
             if isinstance(current_exc, urllib3_exceptions.MaxRetryError):
-                if hasattr(current_exc, "reason") and current_exc.reason is not None:
-                    reason_exc = current_exc.reason
-                    reason_exc_str = str(reason_exc)
-                    if isinstance(reason_exc, urllib3_exceptions.NewConnectionError):
-                        if "connection refused" in reason_exc_str.lower() or "errno 111" in reason_exc_str.lower():
-                            found_connection_refused = True
-                            break
-                        if hasattr(reason_exc, "original_error") and isinstance(
-                            reason_exc.original_error, ConnectionRefusedError
-                        ):
-                            found_connection_refused = True
-                            break
-                        if (
-                            hasattr(reason_exc, "original_error")
-                            and hasattr(reason_exc.original_error, "errno")
-                            and reason_exc.original_error.errno == 111
-                        ):
+                # MaxRetryError often wraps NewConnectionError in its 'reason' attribute
+                if hasattr(current_exc, "reason") and isinstance(current_exc.reason, urllib3_exceptions.NewConnectionError):
+                    reason_exc_str = str(current_exc.reason).lower()
+                    if "connection refused" in reason_exc_str or "errno 111" in reason_exc_str:
+                        found_connection_refused = True
+                        break
+                    if hasattr(current_exc.reason, "original_error"):
+                        original_error = getattr(current_exc.reason, "original_error")
+                        if isinstance(original_error, ConnectionRefusedError) or \
+                           (hasattr(original_error, "errno") and getattr(original_error, "errno") == 111):
                             found_connection_refused = True
                             break
 
-            if (
-                any("connection refused" in str(arg).lower() for arg in current_exc.args if isinstance(arg, str))
-                or "connection refused" in exc_str.lower()
-            ):
+            # Generic check in args or string representation (less reliable)
+            if any("connection refused" in str(arg).lower() for arg in current_exc.args if isinstance(arg, str)) or \
+               "connection refused" in exc_str:
+                found_connection_refused = True
+            if any("errno 111" in str(arg).lower() for arg in current_exc.args if isinstance(arg, str)) or \
+               "errno 111" in exc_str: # Errno 111 is Connection Refused on Linux
                 found_connection_refused = True
 
-            if (
-                any("errno 111" in str(arg).lower() for arg in current_exc.args if isinstance(arg, str))
-                or "errno 111" in exc_str.lower()
-            ):
-                found_connection_refused = True
+            if found_connection_refused: break
 
-            next_exc = None
+
+            # Traverse to the next exception in the chain (__cause__ or __context__)
+            next_exc: Optional[BaseException] = None
             if hasattr(current_exc, "__cause__") and current_exc.__cause__ is not None:
                 next_exc = current_exc.__cause__
             elif (
                 hasattr(current_exc, "__context__")
                 and current_exc.__context__ is not None
-                and not current_exc.__suppress_context__
+                and not getattr(current_exc, "__suppress_context__", False) # Check __suppress_context__
             ):
                 next_exc = current_exc.__context__
 
-            if current_exc is next_exc:  # Avoid infinite loops
+            if current_exc is next_exc:  # Avoid infinite loops if somehow context is self
                 break
             current_exc = next_exc
 
         if found_connection_refused:
             logger.info("Connection refused condition identified for URL: %s", url)
-            if requests.utils.urlparse(url).scheme == "https":
+            parsed_url_scheme = requests.utils.urlparse(url).scheme
+            if parsed_url_scheme == "https":
                 return (
-                    "The URL targetted via HTTPS is refusing the connection. "
-                    "It might be an HTTP-only service. Please try with 'http://'."
+                    "Connection Refused: The server at the HTTPS URL actively refused the connection. "
+                    "This might be an HTTP-only service. Consider trying with 'http://'."
                 )
-            if requests.utils.urlparse(url).scheme == "http":
+            if parsed_url_scheme == "http":
                 return (
-                    "The HTTP request failed. The server might only support HTTPS for this resource. "
-                    "Please try with 'https://'."
+                    "Connection Refused: The server at the HTTP URL actively refused the connection. "
+                    "The server might only support HTTPS or be down. Consider trying with 'https://'."
                 )
             return "Connection Error: The server at the specified URL actively refused the connection."
 
-        return None
+        return None # No specific detailed message generated
 
     def _fetch_headers_task_done_cb(self, _source_object, result: Gio.AsyncResult, _user_data):  # pylint: disable=too-many-branches,too-many-statements,unused-argument # noqa: C901
-        """Callback executed in the main thread when `_fetch_headers_task_thread_func` completes.
+        """Callback executed in the main GTK thread when `_fetch_headers_task_thread_func` completes.
 
-        Processes the results (list of response data dictionaries) or errors returned
-        by the background task. Updates the UI (ColumnView, error banners) accordingly.
-        Re-enables UI elements that were disabled during the fetch.
+        Processes the results (a list of response data dictionaries) or errors returned
+        by the background task. Updates the UI (ColumnView for headers, error banner) accordingly.
+        Re-enables UI elements that were disabled during the fetch operation.
 
         Args:
         ----
-            _source_object: The object that initiated the task (unused).
-            result: A `Gio.AsyncResult` containing the task's outcome.
+            _source_object: The object that initiated the task (HttpPage instance, unused).
+            result: A `Gio.AsyncResult` containing the task's outcome (data or error).
             _user_data: User data passed to the callback (unused).
 
         """
-        task_being_processed = self.current_http_task
+        task_being_processed = self.current_http_task # Get the task we stored
 
-        if task_being_processed is None:
+        if task_being_processed is None: # Should ideally not happen if task management is correct
             logger.warning(
-                "_fetch_headers_task_done_cb: current_http_task is None. UI might have been re-enabled prematurely."
+                "_fetch_headers_task_done_cb: current_http_task is None. UI state might be inconsistent."
             )
+            # Attempt to re-enable UI elements as a fallback
             if hasattr(self, "http_entry_row") and self.http_entry_row and not self.http_entry_row.get_sensitive():
                 self.http_entry_row.set_sensitive(True)
-            if (
-                hasattr(self, "http_apply_button")
-                and self.http_apply_button
-                and not self.http_apply_button.get_sensitive()
-            ):
+            if (hasattr(self, "http_apply_button") and self.http_apply_button and
+                    not self.http_apply_button.get_sensitive()):
                 self.http_apply_button.set_sensitive(True)
+                self.http_apply_button.set_icon_name(None) # Clear spinner
             return
 
-        self.current_http_task = None
+        self.current_http_task = None # Clear current task reference
         logger.info("Processing task completion in _fetch_headers_task_done_cb.")
 
         try:
+            # Propagate the result. This will raise GLib.Error if the task returned an error.
             actual_list_of_responses = task_being_processed.propagate_value()
 
+            # Ensure the result is a list, as expected.
+            # Gio.Task can sometimes wrap results in a tuple if multiple values are returned,
+            # or a GObject.Value. We expect a direct list from our thread function.
             if not isinstance(actual_list_of_responses, list) and isinstance(actual_list_of_responses, tuple):
                 if len(actual_list_of_responses) > 0 and isinstance(actual_list_of_responses[0], list):
-                    actual_list_of_responses = actual_list_of_responses[0]
+                    actual_list_of_responses = actual_list_of_responses[0] # Extract if wrapped
                 elif hasattr(actual_list_of_responses, "value") and isinstance(actual_list_of_responses.value, list):
-                    actual_list_of_responses = actual_list_of_responses.value
+                    actual_list_of_responses = actual_list_of_responses.value # Extract from GObject.Value
 
             if isinstance(actual_list_of_responses, list):
-                logger.info("Successfully processed task result as list.")
-                processed_headers_for_store = []
+                logger.info("Successfully processed task result: %d response stages.", len(actual_list_of_responses))
+                processed_headers_for_store: list[HeaderItem] = []
                 if not actual_list_of_responses:
-                    logger.info("Received empty list for results.")
-                    self._update_column_view_model(None)
+                    logger.info("Received empty list of responses (e.g. no redirects and no final data).")
+                    self._update_column_view_model(None) # Clear view
                 else:
-                    for i, response_data in enumerate(actual_list_of_responses):
-                        if not isinstance(response_data, dict):
+                    for i, response_data_dict in enumerate(actual_list_of_responses):
+                        if not isinstance(response_data_dict, dict):
                             logger.error(
                                 "Expected dict item in response list, got %s. Data: %s",
-                                type(response_data),
-                                response_data,
+                                type(response_data_dict), response_data_dict,
                             )
-                            continue
+                            continue # Skip malformed item
 
-                        url_display = f"URL: {response_data.get('url', 'N/A')}"
-                        status_display = f"Status: {response_data.get('status_code', 'N/A')}"
-
-                        if response_data.get("type") == "redirect":
-                            status_display += " (Redirect)"
-                        elif response_data.get("type") == "final":
-                            status_display += " (Final)"
+                        # Display URL and Status for each response stage
+                        url_display = f"URL: {response_data_dict.get('url', 'N/A')}"
+                        status_code = response_data_dict.get('status_code', 'N/A')
+                        response_type = response_data_dict.get("type", "unknown")
+                        status_display = f"Status: {status_code} ({response_type.capitalize()})"
 
                         processed_headers_for_store.append(
-                            HeaderItem(
-                                key=url_display,
-                                value=status_display,
-                                is_special_row=True,
-                            )
+                            HeaderItem(key=url_display, value=status_display, is_special_row=True)
                         )
 
-                        headers_for_this_response = response_data.get("headers", {})
-                        for (
-                            header_key,
-                            header_value,
-                        ) in headers_for_this_response.items():
-                            processed_headers_for_store.append(
-                                HeaderItem(
-                                    key=str(header_key),
-                                    value=str(header_value),
-                                    is_special_row=False,
+                        # Display headers for this response stage
+                        headers_for_this_response = response_data_dict.get("headers", {})
+                        if isinstance(headers_for_this_response, dict):
+                            for key, value in headers_for_this_response.items():
+                                processed_headers_for_store.append(
+                                    HeaderItem(key=str(key), value=str(value), is_special_row=False)
                                 )
-                            )
+                        else:
+                            logger.warning("Headers data for response stage %d is not a dict: %s",
+                                           i, headers_for_this_response)
 
+
+                        # Add a separator if not the last response stage
                         if i < len(actual_list_of_responses) - 1:
-                            processed_headers_for_store.append(HeaderItem(key="---", value="---", is_special_row=True))
+                            processed_headers_for_store.append(
+                                HeaderItem(key="--- Redirected To ---", value="", is_special_row=True)
+                            )
 
                     self._current_header_items = processed_headers_for_store
                     self._update_column_view_model(processed_headers_for_store)
                 if hasattr(self, "http_entry_row") and self.http_entry_row:
-                    self.http_entry_row.remove_css_class("error")
+                    self.http_entry_row.remove_css_class("error") # Clear error style from entry if successful
             else:
+                # This case indicates an unexpected result type from the task.
                 logger.error(
-                    "Result data of unexpected type %s. Expected list.",
-                    type(actual_list_of_responses),
+                    "Result data from task is of unexpected type %s. Expected list. Data: %s",
+                    type(actual_list_of_responses), actual_list_of_responses
                 )
                 self._display_error(
                     f"Failed to process task result (unexpected data structure: "
-                    f"{type(actual_list_of_responses).__name__})."
+                    f"{type(actual_list_of_responses).__name__}). Please check logs."
                 )
                 if hasattr(self, "http_entry_row") and self.http_entry_row:
                     self.http_entry_row.add_css_class("error")
-                self._update_column_view_model(None)
+                self._update_column_view_model(None) # Clear results
 
-        except GLib.Error as e:
-            logger.exception( # Changed to logger.exception
-                "Task failed with GLib.Error (Domain: %s, Code: %s):",
-                e.domain,
-                e.code,
-            ) # Message is part of exception details automatically
-            self._display_error(e.message.replace("<b>", "").replace("</b>", "")) # Keep user message simple
-            if hasattr(self, "http_entry_row") and self.http_entry_row:
-                self.http_entry_row.add_css_class("error")
-            self._update_column_view_model(None)
-        except Exception as e:  # pylint: disable=broad-except
-            logger.exception( # Changed to logger.exception
-                "Unexpected Python error in _fetch_headers_task_done_cb:"
+        except GLib.Error as e: # Errors set by task.return_new_error_literal land here
+            logger.warning(
+                "Task failed with GLib.Error (Domain: %s, Code: %s, Message: %s)",
+                e.domain, e.code, e.message
             )
-            self._display_error("An unexpected application error occurred while displaying the results.")
+            # Sanitize error message for display (remove potential Pango markup if simple text is desired)
+            display_message = e.message.replace("<b>", "").replace("</b>", "") if e.message else "An unknown error occurred."
+            self._display_error(display_message)
+            if hasattr(self, "http_entry_row") and self.http_entry_row:
+                self.http_entry_row.add_css_class("error") # Style entry as erroneous
+            self._update_column_view_model(None) # Clear previous results
+        except Exception as e:  # Catch any other Python exceptions during result processing
+            logger.exception("Unexpected Python error in _fetch_headers_task_done_cb:")
+            error_message = "An unexpected application error occurred while displaying results."
+            # Try to get a more specific message if available
+            if hasattr(e, 'message') and e.message: # Check for a message attribute
+                error_message = str(e.message)
+            elif str(e): # Fallback to string representation of the exception
+                error_message = str(e)
+
+            self._display_error(error_message)
             if hasattr(self, "http_entry_row") and self.http_entry_row:
                 self.http_entry_row.add_css_class("error")
             self._update_column_view_model(None)
         finally:
+            # Ensure UI elements are re-enabled regardless of success or failure
             if hasattr(self, "http_entry_row") and self.http_entry_row:
                 self.http_entry_row.set_sensitive(True)
             if hasattr(self, "http_apply_button") and self.http_apply_button:
                 self.http_apply_button.set_sensitive(True)
+                self.http_apply_button.set_icon_name(None) # Remove spinner icon
 
     @staticmethod
     def _ensure_scheme(url: str) -> str:
@@ -897,17 +1086,20 @@ class HttpPage(Adw.PreferencesPage):
 
         Returns:
         -------
-            The URL string with a scheme.
+            The URL string with "https://" prepended if no scheme was present.
 
         """
         parsed_url = requests.utils.urlparse(url)
         if not parsed_url.scheme:
-            url = "https://" + url
+            logger.debug("URL '%s' has no scheme, prepending 'https://'.", url)
+            return "https://" + url
         return url
 
     @staticmethod
     def _is_valid_url(url: str) -> bool:
-        """Validate if a string is a well-formed HTTP/HTTPS URL.
+        """Validate if a string is a well-formed HTTP or HTTPS URL.
+
+        Checks for a scheme, a netloc (domain/IP), and uses a regex for overall structure.
 
         Args:
         ----
@@ -915,24 +1107,30 @@ class HttpPage(Adw.PreferencesPage):
 
         Returns:
         -------
-            True if the URL is valid, False otherwise.
+            True if the URL is considered valid, False otherwise.
 
         """
+        # Regex for basic URL structure (scheme, authority, path/query/fragment)
+        # Allows for IP addresses (IPv4 and IPv6), hostnames, optional ports.
         url_regex = re.compile(
-            r"^(?:http|https)://"
-            r"(?:\S+(?::\S*)?@)?"
-            r"(?:[A-Za-z0-9.-]+\.[A-Za-z]{2,}|localhost|"
-            r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|"
-            r"\[?[A-Fa-f0-9]*:[A-Fa-f0-9:]+\]?)"
-            r"(?::\d+)?"
-            r"(?:/?|[/?]\S+)$",
+            r"^(?:http|https)://"  # Scheme: http or https
+            r"(?:\S+(?::\S*)?@)?"  # Optional user:pass@
+            r"(?:(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,6}|"  # Hostname
+            r"localhost|"  # localhost
+            r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|"  # IPv4 address
+            r"\[?[A-Fa-f0-9:.]+\]?)"  # IPv6 address (basic check, allows surrounding brackets)
+            r"(?::\d+)?"  # Optional port
+            r"(?:/?|[/?]\S+)$",  # Optional path, query, fragment
             re.IGNORECASE,
         )
-
-        return re.match(url_regex, url) is not None and bool(requests.utils.urlparse(url).netloc)
+        # Additionally, ensure netloc is present after parsing, as regex might be too lenient alone.
+        return bool(re.match(url_regex, url)) and bool(requests.utils.urlparse(url).netloc)
 
     def _format_http_error(self, e: requests.exceptions.HTTPError) -> str:
-        """Format an HTTPError from the `requests` library into a user-friendly message.
+        """Format an `requests.exceptions.HTTPError` into a user-friendly message.
+
+        Provides specific messages for common HTTP error codes (403, 404, 500)
+        and a generic message for other HTTP errors.
 
         Args:
         ----
@@ -944,129 +1142,135 @@ class HttpPage(Adw.PreferencesPage):
 
         """
         status_code = e.response.status_code
-        if status_code == 404:
-            return "404 Not Found: The requested URL was not found on this server."
+        reason = e.response.reason if e.response.reason else "Unknown Error"
         if status_code == 403:
-            return "403 Forbidden: You don't have permission to access this URL."
+            return f"403 Forbidden: Access to the requested resource at {e.request.url} is denied."
+        if status_code == 404:
+            return f"404 Not Found: The requested resource at {e.request.url} was not found on the server."
         if status_code == 500:
-            return "500 Internal Server Error: The server encountered an internal error."
-        return f"HTTP Error {status_code}: {e.response.reason}."
+            return f"500 Internal Server Error: The server encountered an internal error for {e.request.url}."
+        return f"HTTP Error {status_code} ({reason}) for URL: {e.request.url}."
 
     def _on_pragma_toggled(
         self,
-        widget: Gtk.Switch,
-        _gparam: GObject.ParamSpec,
+        _widget: Gtk.Switch, # The Gtk.Switch that was toggled (unused)
+        _gparam: GObject.ParamSpec, # The GObject.ParamSpec of the 'active' property (unused)
     ) -> None:
         """Handle the toggle event for the Akamai Pragma switch.
 
-        If the URL entry is not empty, it re-triggers the header fetch.
+        If the URL entry row is not empty, this method re-triggers the header fetch
+        to reflect the new Pragma header state.
 
         Args:
         ----
-            widget: The Gtk.Switch that was toggled.
-            _gparam: The GObject.ParamSpec of the 'active' property (unused).
+            _widget: The Gtk.Switch that was toggled.
+            _gparam: The GObject.ParamSpec of the 'active' property.
 
         """
-        logger.debug("Akamai Pragma toggled to: %s", widget.get_active())
-        if self.http_entry_row.get_text().strip():
-            self._on_entry_row_activated(self.http_entry_row)
+        logger.debug("Akamai Pragma toggled to: %s. Re-fetching if URL is present.",
+                     self.http_pragma_switch_row.get_active())
+        if self.http_entry_row.get_text().strip(): # Only re-fetch if there's a URL
+            self._on_entry_row_activated(self.http_entry_row) # Pass any widget, it's unused by handler
 
-    def _update_column_view_model(self, header_items: Optional[list[HeaderItem]]) -> None:
-        """Update the Gtk.ColumnView's model with new header items.
+    def _update_column_view_model(self, header_items: Optional[list]) -> None: # Simplified type hint for diagnosis
+        """Update the Gtk.ColumnView's model (`Gio.ListStore`) with new header items.
 
         Clears existing items and populates the ListStore with the provided list.
-        Shows or hides the results group based on whether items are present.
+        Shows or hides the results group (`http_results_group`) based on whether
+        `header_items` are present.
 
         Args:
         ----
-            header_items: A list of `HeaderItem` objects, or None to clear.
+            header_items: A list of `HeaderItem` objects to display, or `None` to clear the view.
 
         """
-        self.header_list_store.remove_all()
+        self.header_list_store.remove_all() # Clear previous items
 
         if header_items:
             for item in header_items:
                 self.header_list_store.append(item)
-            self._show_results()
+            self._show_results() # Make results group visible
         else:
-            self._hide_results()
+            self._hide_results() # Hide results group if no items
 
     def _show_results(self):
         """Make the HTTP results group visible."""
-        self.http_results_group.set_visible(True)
+        if self.http_results_group: # Check if it exists
+            self.http_results_group.set_visible(True)
 
     def _hide_results(self):
         """Make the HTTP results group invisible."""
-        self.http_results_group.set_visible(False)
+        if self.http_results_group: # Check if it exists
+            self.http_results_group.set_visible(False)
 
     def _display_error(self, message: str) -> None:
-        """Display an error message in the UI.
+        """Display an error message in the main window's error banner.
 
-        Sets the error banner title, reveals it, adds 'error' CSS class
-        to the entry row, and hides the results section.
+        Also adds an 'error' CSS class to the URL entry row and hides any existing results.
 
         Args:
         ----
-            message: The error message to display.
+            message: The error message string to display.
 
         """
-        # self.error_banner.set_title(message) # Removed
-        # self.error_banner.set_revealed(True) # Removed
-        main_window = self.get_native()
+        main_window = self.get_native() # Get the top-level window (WoesWindow)
         if main_window and hasattr(main_window, 'show_error'):
-            main_window.show_error(message)
+            main_window.show_error(message) # Call show_error method on WoesWindow
         else:
-            logger.warning("Could not find main window or show_error method to display: %s", message)
+            # Fallback or log if WoesWindow or show_error is not found
+            logger.warning("Could not find main window or its 'show_error' method to display: %s", message)
 
-        self.http_entry_row.add_css_class("error")
-        self._hide_results()
+        if self.http_entry_row: # Check if it exists
+            self.http_entry_row.add_css_class("error")
+        self._hide_results() # Hide results section when an error occurs
 
     def _clear_error(self) -> None:
-        """Clear any displayed error messages from the UI.
+        """Clear any displayed error messages from the main window's banner.
 
-        Hides the error banner, clears its title, and removes 'error'
-        CSS class from the entry row.
+        Also removes the 'error' CSS class from the URL entry row.
         """
-        # self.error_banner.set_revealed(False) # Removed
-        # self.error_banner.set_title("") # Removed
-        main_window = self.get_native()
+        main_window = self.get_native() # Get the top-level window
         if main_window and hasattr(main_window, 'hide_error'):
-            main_window.hide_error()
+            main_window.hide_error() # Call hide_error method on WoesWindow
         else:
-            logger.warning("Could not find main window or hide_error method to clear error.")
+            logger.warning("Could not find main window or its 'hide_error' method to clear error.")
 
-        self.http_entry_row.remove_css_class("error")
+        if self.http_entry_row: # Check if it exists
+            self.http_entry_row.remove_css_class("error")
 
-    # Removed _on_error_banner_dismiss method
-    # def _on_error_banner_dismiss(self, _banner: Adw.Banner, *_args):
-    #     """Handle dismissal of the error banner by clearing the error state."""
-    #     self._clear_error()
 
-    def _on_clear_results_clicked(self, _button: Gtk.Button, *_args):
+    def _on_clear_results_clicked(self, _button: Gtk.Button) -> None:
         """Handle click of the 'Clear Results' button.
 
-        Clears current header items, updates the view model, clears errors,
-        and resets the URL entry row.
-        """
-        logger.info("Results cleared by user.")
-        self._current_header_items = []
-        self._update_column_view_model(None)
-        self._clear_error()
-        self.http_entry_row.set_text("")
-
-    def _on_color_setting_changed(self, settings: Gio.Settings, key: str):
-        """Handle changes to color-related GSettings.
-
-        Updates internal color attributes and re-populates the ColumnView
-        if results are currently displayed to apply new colors.
+        Clears current header items from the internal list and the view model,
+        clears any displayed errors, and resets the URL entry row text.
 
         Args:
         ----
-            settings: The Gio.Settings object that changed.
-            key: The name of the setting key that changed.
+            _button: The Gtk.Button that was clicked (unused).
 
         """
-        logger.debug("Color setting changed for key: %s", key)
+        logger.info("Results cleared by user action.")
+        self._current_header_items = [] # Clear internal cache of items
+        self._update_column_view_model(None) # Clear the ListStore and hide results view
+        self._clear_error() # Clear any error banners/styles
+        if self.http_entry_row: # Check if it exists
+            self.http_entry_row.set_text("") # Clear URL entry
+
+    def _on_color_setting_changed(self, settings: Gio.Settings, key: str) -> None:
+        """Handle changes to GSettings related to HTTP output colors.
+
+        Updates internal color attributes (`_header_key_color`, etc.) with the new
+        values from settings. If results are currently displayed, it re-populates
+        the `Gtk.ColumnView` to apply the new colors immediately.
+
+        Args:
+        ----
+            settings: The `Gio.Settings` object that changed.
+            key: The name of the GSetting key that changed.
+
+        """
+        logger.debug("Color setting changed for GSettings key: %s", key)
         if key == "http-output-header-key-color":
             self._header_key_color = settings.get_string(key)
         elif key == "http-output-header-value-color":
@@ -1074,137 +1278,152 @@ class HttpPage(Adw.PreferencesPage):
         elif key == "http-output-special-row-color":
             self._special_row_color = settings.get_string(key)
 
+        # If results are currently displayed, re-bind them to update colors
         if self._current_header_items:
-            logger.debug("Re-populating view to apply color changes.")
-            self._update_column_view_model(self._current_header_items)
+            logger.debug("Re-populating ColumnView to apply new color changes.")
+            self._update_column_view_model(self._current_header_items) # This re-triggers bind
 
-    def _update_user_agent_model(self):
-        """Update the User-Agent dropdown model.
+    def _update_user_agent_model(self) -> None:
+        """Update the User-Agent dropdown (Adw.ComboRow) model.
 
-        Clears and repopulates the User-Agent title-to-value map and
-        the dropdown model (Gtk.StringList) with custom User-Agents first,
-        then "None", then default User-Agents.
-        Preserves selection if possible.
+        Clears and repopulates the User-Agent title-to-value map (`_ua_title_to_value_map`)
+        and the dropdown's `Gtk.StringList` model. The order is:
+        1. Custom User-Agents from GSettings.
+        2. A "None" option (representing no override / default `requests` UA).
+        3. Default User-Agents from `constants.USER_AGENTS`.
+
+        Preserves the currently selected User-Agent if possible after rebuilding the list.
         """
-        if not self.http_user_agent_row:
+        if not self.http_user_agent_row: # Should not happen if UI is built correctly
+            logger.error("HttpPage._update_user_agent_model: http_user_agent_row is None.")
             return
 
-        self._ua_title_to_value_map.clear()  # Clear map at the beginning
+        self._ua_title_to_value_map.clear()  # Clear internal mapping
 
-        current_selection_text = None
-        # Preserve current selection
+        current_selection_text: Optional[str] = None
+        # Preserve current selection text if an item is selected
         if (
-            self.http_user_agent_row.get_model()
-            and self.http_user_agent_row.get_selected() != Gtk.INVALID_LIST_POSITION
+            self.http_user_agent_row.get_model() and # Check model exists
+            self.http_user_agent_row.get_selected() != Gtk.INVALID_LIST_POSITION
         ):
             selected_item = self.http_user_agent_row.get_selected_item()
             if isinstance(selected_item, Gtk.StringObject):
                 current_selection_text = selected_item.get_string()
 
-        display_titles = []
+        display_titles: list[str] = []
 
-        # 1. Custom UAs from GSettings
+        # 1. Add Custom User-Agents from GSettings
         variant = self.settings.get_value("custom-user-agents")
-        custom_ua_pairs = list(variant.unpack() if variant and variant.get_type_string() == "a(ss)" else [])
+        # Ensure variant is not None and is of the correct type 'a(ss)' (array of string pairs)
+        custom_ua_pairs: list[tuple[str,str]] = list(variant.unpack() if variant and variant.get_type_string() == "a(ss)" else [])
 
         for title, value in custom_ua_pairs:
-            # Custom UAs are added first, so their titles are definitely new to the map in this loop
-            display_titles.append(title)
-            self._ua_title_to_value_map[title] = value
+            if title not in self._ua_title_to_value_map: # Avoid duplicate titles if somehow in GSettings
+                display_titles.append(title)
+                self._ua_title_to_value_map[title] = value
 
-        # 2. "None" option
+        # 2. Add "None" option (to use default requests UA)
         none_title = "None"
-        # Ensure "None" title is unique if a custom UA is named "None"
-        if none_title not in self._ua_title_to_value_map:
+        if none_title not in self._ua_title_to_value_map: # Ensure "None" title is unique
             display_titles.append(none_title)
-        # Always ensure "None" maps to None for sending no header,
-        # even if a custom UA is named "None" (its custom value would be in the map for selection purposes).
+        # Always map the "None" title to a None value, signifying no override.
         self._ua_title_to_value_map[none_title] = None
 
-        # 3. Default UAs from constants.py
-        for ua_dict in USER_AGENTS:
+        # 3. Add Default User-Agents from constants.USER_AGENTS
+        for ua_dict in USER_AGENTS: # USER_AGENTS is a list of dicts
             title = ua_dict.get("title")
             value = ua_dict.get("value")
-            if title and value:
-                if title not in self._ua_title_to_value_map:  # Add if title not used by custom or "None"
+            if title and value: # Ensure both title and value exist
+                if title not in self._ua_title_to_value_map:  # Add only if title not used by custom or "None"
                     display_titles.append(title)
                     self._ua_title_to_value_map[title] = value
-                # If title was used by custom, map already has custom value.
-                # If title is "None", it's already handled to map to None for sending.
 
+        # Set the new model for the ComboRow
         self.http_user_agent_row.set_model(Gtk.StringList.new(display_titles))
 
-        # Restore selection
-        if current_selection_text and current_selection_text in self._ua_title_to_value_map:
+        # Restore selection if possible
+        if current_selection_text and current_selection_text in display_titles:
             try:
                 idx = display_titles.index(current_selection_text)
                 self.http_user_agent_row.set_selected(idx)
-            except ValueError:
-                # If current_selection_text is in map but not display_titles (e.g. a default overridden by custom and not re-added)
-                # or simply not found, default to the first available item.
-                if display_titles:
-                    self.http_user_agent_row.set_selected(0)
-        elif display_titles:
+            except ValueError: # Should not happen if current_selection_text is in display_titles
+                logger.warning("Error restoring User-Agent selection: '%s' not in new list.", current_selection_text)
+                if display_titles: self.http_user_agent_row.set_selected(0) # Default to first
+        elif display_titles: # If no prior selection or prior selection not found, select first item
             self.http_user_agent_row.set_selected(0)
 
+        # After updating model, also update visual cue for active override
+        self._on_user_agent_changed(self.http_user_agent_row, None)
+
+
         logging.info(
-            f"User-Agent dropdown model updated with {len(display_titles)} titles in custom->None->default order."
+            "User-Agent dropdown model updated with %d titles (Custom -> None -> Default order).",
+            len(display_titles)
         )
 
     def _create_factory(self, attr_name: str, wrap_text: bool = False) -> Gtk.SignalListItemFactory:
         """Create a Gtk.SignalListItemFactory for a column in the Gtk.ColumnView.
 
-        This factory is responsible for setting up and binding Gtk.Label widgets
-        to display `HeaderItem` data. It applies custom colors based on settings
-        and whether the row is a special informational row.
+        This factory is responsible for setting up Gtk.Label widgets and binding them
+        to display `HeaderItem` data (either 'key' or 'value' attribute).
+        It applies custom colors based on GSettings and whether the row is a special
+        informational row (like URL/Status) or a standard HTTP header.
+        Text wrapping is enabled for the 'value' column.
 
         Args:
         ----
             attr_name: The attribute name of `HeaderItem` to display (e.g., "key", "value").
-            wrap_text: Whether the text in the label should be wrapped.
+            wrap_text: Whether the text in the label should be wrapped (True for "value" column).
 
         Returns:
         -------
-            A configured Gtk.SignalListItemFactory.
+            A configured `Gtk.SignalListItemFactory`.
 
         """
         factory = Gtk.SignalListItemFactory()
 
+        # Setup function: Called once per list item when it's created.
         def setup_func(_factory: Gtk.SignalListItemFactory, list_item: Gtk.ListItem) -> None:
             """Setup function for the list item factory. Creates and sets a Gtk.Label as child."""
-            label = Gtk.Label(xalign=0)
-            label.set_hexpand(True)
-            if wrap_text:
+            label = Gtk.Label(xalign=0.0) # Align text to the left
+            label.set_hexpand(True) # Allow label to expand horizontally
+            if wrap_text: # For "value" column
                 label.set_wrap(True)
-                label.set_max_width_chars(80)
+                label.set_wrap_mode(Pango.WrapMode.WORD_CHAR) # Wrap at word or char boundaries
+                label.set_max_width_chars(80) # Hint for max width before wrapping (approx)
             list_item.set_child(label)
 
-        # This nested function can capture 'self' from the outer _create_factory method
+        # Bind function: Called when an item needs to be displayed or re-displayed.
         def bind_func_internal(_factory: Gtk.SignalListItemFactory, list_item: Gtk.ListItem) -> None:
-            """Bind function for the list item factory. Sets label text and markup."""
+            """Bind function for the list item factory. Sets label text and Pango markup."""
             label = list_item.get_child()
-            item = list_item.get_item()
+            item = list_item.get_item() # This is a HeaderItem instance
 
-            if not (label and isinstance(label, Gtk.Label) and item and isinstance(item, HeaderItem)):
-                if label and isinstance(label, Gtk.Label):
-                    label.set_text("Error: Invalid item or label.")
+            if not (isinstance(label, Gtk.Label) and isinstance(item, HeaderItem)):
+                if isinstance(label, Gtk.Label): # If label exists but item is wrong type
+                    label.set_text("Error: Invalid item type in ColumnView.")
                 return
 
-            text_to_display = getattr(item, attr_name, "")
+            text_to_display = getattr(item, attr_name, "") # Get "key" or "value" from HeaderItem
 
-            if item.is_special_row:
-                if attr_name == "key":
-                    key_text = GLib.markup_escape_text(item.key if item.key else "")
-                    value_text = GLib.markup_escape_text(item.value if item.value else "")
+            # Apply Pango markup for styling
+            if item.is_special_row: # For URL/Status rows or separators
+                if attr_name == "key": # Primary text for special rows is in 'key'
+                    key_text = GLib.markup_escape_text(str(item.key))
+                    value_text = GLib.markup_escape_text(str(item.value)) if item.value else ""
+                    # Combine key and value for display in the 'key' column's label for special rows
                     full_text = key_text
-                    if value_text.strip():
+                    if value_text.strip() and value_text != "N/A": # Append value if meaningful
                         full_text += f" {value_text}"
+
+                    # Use bold and special row color
                     label.set_markup(f"<b><span foreground='{self._special_row_color}'>{full_text}</span></b>")
-                else:
-                    label.set_markup("")
-            else:
+                else: # 'value' column for special rows is usually empty or handled by 'key'
+                    label.set_markup("") # Clear any previous markup
+            else: # For standard HTTP header rows
                 color_to_use = self._header_key_color if attr_name == "key" else self._header_value_color
-                escaped_text = GLib.markup_escape_text(text_to_display)
+                escaped_text = GLib.markup_escape_text(str(text_to_display))
+                # Use bold and specific color for key/value
                 label.set_markup(f"<b><span foreground='{color_to_use}'>{escaped_text}</span></b>")
 
         factory.connect("setup", setup_func)
