@@ -319,7 +319,7 @@ class WebScanPage(Adw.PreferencesPage):
             # This will raise a GLib.Error if the task itself failed fundamentally,
             # but our thread function is designed to return values, not set GLib.Error.
             # However, it's good practice to keep the try-except GLib.Error for robustness.
-            returned_value = active_task.propagate_value(async_result_obj)
+            returned_value = active_task.propagate_value()
             stdout, stderr_or_error_msg, error_type = returned_value
 
             if error_type == "FileNotFoundError":
