@@ -167,7 +167,7 @@ class HttpPage(Adw.PreferencesPage):
     http_user_agent_row = Gtk.Template.Child("http_user_agent_row")
     http_pragma_switch_row = Gtk.Template.Child("http_pragma_switch_row")
     http_column_view = Gtk.Template.Child("http_column_view")
-    error_banner = Gtk.Template.Child("error_banner")
+    # error_banner = Gtk.Template.Child("error_banner") # Removed
     http_results_group = Gtk.Template.Child("http_results_group")
     clear_results_button = Gtk.Template.Child("clear_results_button")
     copy_results_button = Gtk.Template.Child()
@@ -228,8 +228,9 @@ class HttpPage(Adw.PreferencesPage):
         self.clear_results_button.connect("clicked", self._on_clear_results_clicked)
         if self.copy_results_button:
             self.copy_results_button.connect("clicked", self._on_copy_results_clicked)
-        if self.error_banner:
-            self.error_banner.connect("button-clicked", self._on_error_banner_dismiss)
+        # Removed signal connection for local error_banner
+        # if self.error_banner:
+        #     self.error_banner.connect("button-clicked", self._on_error_banner_dismiss)
 
     def _on_copy_results_clicked(self, _button: Gtk.Button) -> None:
         """Handle click event for the 'Copy Results' button.
@@ -1013,8 +1014,14 @@ class HttpPage(Adw.PreferencesPage):
             message: The error message to display.
 
         """
-        self.error_banner.set_title(message)
-        self.error_banner.set_revealed(True)
+        # self.error_banner.set_title(message) # Removed
+        # self.error_banner.set_revealed(True) # Removed
+        main_window = self.get_native()
+        if main_window and hasattr(main_window, 'show_error'):
+            main_window.show_error(message)
+        else:
+            logger.warning("Could not find main window or show_error method to display: %s", message)
+
         self.http_entry_row.add_css_class("error")
         self._hide_results()
 
@@ -1024,13 +1031,20 @@ class HttpPage(Adw.PreferencesPage):
         Hides the error banner, clears its title, and removes 'error'
         CSS class from the entry row.
         """
-        self.error_banner.set_revealed(False)
-        self.error_banner.set_title("")
+        # self.error_banner.set_revealed(False) # Removed
+        # self.error_banner.set_title("") # Removed
+        main_window = self.get_native()
+        if main_window and hasattr(main_window, 'hide_error'):
+            main_window.hide_error()
+        else:
+            logger.warning("Could not find main window or hide_error method to clear error.")
+
         self.http_entry_row.remove_css_class("error")
 
-    def _on_error_banner_dismiss(self, _banner: Adw.Banner, *_args):
-        """Handle dismissal of the error banner by clearing the error state."""
-        self._clear_error()
+    # Removed _on_error_banner_dismiss method
+    # def _on_error_banner_dismiss(self, _banner: Adw.Banner, *_args):
+    #     """Handle dismissal of the error banner by clearing the error state."""
+    #     self._clear_error()
 
     def _on_clear_results_clicked(self, _button: Gtk.Button, *_args):
         """Handle click of the 'Clear Results' button.

@@ -32,7 +32,7 @@ class DNSPage(Adw.PreferencesPage):
     dns_apply_button = Gtk.Template.Child("dns_apply_button")
     dns_record_type_dropdown = Gtk.Template.Child("dns_record_type_dropdown")
     dns_results_box_container = Gtk.Template.Child("dns_results_box_container") # Changed from dns_results_scrolled_window
-    error_banner = Gtk.Template.Child("error_banner")
+    # error_banner = Gtk.Template.Child("error_banner") # Removed
 
     def __init__(self, **kwargs):
         """Initialize the DNSPage."""
@@ -82,8 +82,9 @@ class DNSPage(Adw.PreferencesPage):
         self.domain_entry.connect("activate", self._on_entry_activated) # Changed signal from "entry-activated" to "activate"
         self.dns_apply_button.connect("clicked", self._on_entry_activated)
         self.dns_record_type_dropdown.connect("notify::selected", self._on_record_type_changed)
-        if self.error_banner:
-            self.error_banner.connect("button-clicked", self._on_error_banner_dismiss)
+        # Removed signal connection for local error_banner
+        # if self.error_banner:
+        #     self.error_banner.connect("button-clicked", self._on_error_banner_dismiss)
 
     # Removed _on_source_style_scheme_setting_changed
     # Removed _apply_source_view_style
@@ -171,9 +172,7 @@ class DNSPage(Adw.PreferencesPage):
         """
         self._perform_lookup()
 
-    def _on_error_banner_dismiss(self, _banner: Adw.Banner, *_args):
-        """Handle the error banner dismiss button click by clearing the error display."""
-        self._clear_error() # Corrected from self._on_error_banner_dismiss()
+    # Removed _on_error_banner_dismiss method
 
     def _prepare_resolver(self) -> dns.resolver.Resolver:
         """Prepare a DNS resolver, incorporating custom server settings if configured.
@@ -315,15 +314,22 @@ class DNSPage(Adw.PreferencesPage):
             message: The error message to display.
 
         """
-        self.domain_entry.add_css_class("error") # Changed from dns_ip_entryrow
-        self.error_banner.set_title(message)
-        self.error_banner.set_revealed(True)
+        self.domain_entry.add_css_class("error")
+        main_window = self.get_native() # Get the top-level window
+        if main_window and hasattr(main_window, 'show_error'):
+            main_window.show_error(message)
+        else:
+            logging.warning("Could not find main window or show_error method to display: %s", message)
+
 
     def _clear_error(self):
         """Clear any existing error messages from the UI banner and entry row styling."""
-        self.domain_entry.remove_css_class("error") # Changed from dns_ip_entryrow
-        self.error_banner.set_revealed(False)
-        self.error_banner.set_title("")
+        self.domain_entry.remove_css_class("error")
+        main_window = self.get_native() # Get the top-level window
+        if main_window and hasattr(main_window, 'hide_error'):
+            main_window.hide_error()
+        else:
+            logging.warning("Could not find main window or hide_error method to clear error.")
 
     @staticmethod
     def _lookup_record(domain_or_ip: str, record_type_str: str, resolver: dns.resolver.Resolver) -> List[Dict[str, Any]]:

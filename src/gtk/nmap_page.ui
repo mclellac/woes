@@ -9,16 +9,7 @@
         <property name="hexpand">true</property>
         <property name="hexpand-set">true</property>
         <property name="orientation">vertical</property>
-        <child>
-          <object class="AdwBanner" id="error_banner">
-            <property name="button-label" translatable="yes">Dismiss</property>
-            <property name="hexpand">true</property>
-            <property name="hexpand-set">true</property>
-            <property name="revealed">False</property>
-            <property name="title"/>
-            <signal name="button-clicked" handler="_on_error_banner_dismiss"/>
-          </object>
-        </child>
+        <!-- Removed AdwBanner with id="error_banner" from here -->
         <child>
           <object class="GtkPaned" id="main_paned_view">
             <property name="hexpand">true</property>
