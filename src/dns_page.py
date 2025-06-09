@@ -79,7 +79,7 @@ class DNSPage(Adw.PreferencesPage):
 
     def _connect_signals(self) -> None:
         """Connect signals for UI elements to their respective handlers."""
-        self.domain_entry.connect("entry-activated", self._on_entry_activated) # Changed from dns_ip_entryrow
+        self.domain_entry.connect("activate", self._on_entry_activated) # Changed signal from "entry-activated" to "activate"
         self.dns_apply_button.connect("clicked", self._on_entry_activated)
         self.dns_record_type_dropdown.connect("notify::selected", self._on_record_type_changed)
         if self.error_banner:
