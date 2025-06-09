@@ -6,6 +6,7 @@ window state and theme preferences, and integrates system font settings.
 """
 import logging
 import platform
+from typing import Optional, Any # Added Optional, Any
 import gi
 from gi.repository import Adw, Gdk, Gio, Gtk, GLib, GObject
 
@@ -100,7 +101,7 @@ class WoesWindow(Adw.ApplicationWindow):
             self.main_error_banner.connect("button-clicked", self._on_main_error_banner_dismissed)
             self.hide_error()
 
-    def _on_main_error_banner_dismissed(self, _banner: Adw.Banner = None, _data=None):
+    def _on_main_error_banner_dismissed(self, _banner: Optional[Adw.Banner] = None, _data: Optional[Any] = None):
         """Handle dismissal of the main error banner.
 
         This callback is connected to the 'button-clicked' signal of the
