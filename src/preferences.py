@@ -18,6 +18,7 @@ import gi
 from gi.repository import Adw, Gio, Gtk, GLib, GObject, Gdk  # pylint: disable=wrong-import-position # Added GObject and Gdk
 
 from .constants import APP_ID, RESOURCE_PREFIX  # pylint: disable=wrong-import-position
+from ..http_page import dns as http_dns_module # Import dns from http_page
 
 gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
@@ -66,6 +67,21 @@ class Preferences(Adw.PreferencesWindow):
         self.settings = Gio.Settings(schema_id=APP_ID)
         self.load_ui()
         self.load_preferences()
+
+        # Handle dnspython absence for DNS server entry
+        if http_dns_module is None:
+            if self.dns_server_entryrow:
+                self.dns_server_entryrow.set_sensitive(False)
+                self.dns_server_entryrow.set_subtitle("Requires 'dnspython' library to be installed.")
+                # Consider also disabling prefs_dns_apply_button if it makes sense
+                # if self.prefs_dns_apply_button:
+                # self.prefs_dns_apply_button.set_sensitive(False)
+            logging.info("'dnspython' not found; Custom DNS server entry in preferences is disabled.")
+        else:
+            if self.dns_server_entryrow:
+                 # Ensure subtitle is cleared if dnspython IS available (e.g., if it was installed later)
+                self.dns_server_entryrow.set_subtitle("")
+
 
     def load_ui(self):
         """Connect signals for UI elements.

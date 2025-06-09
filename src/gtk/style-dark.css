@@ -6,3 +6,9 @@
 .header-value {
     color: @theme_fg_color;
 }
+
+/* Style for Adw.EntryRow and Adw.ComboRow when an override is active - Dark Theme */
+.active-override {
+    background-color: rgba(74, 144, 226, 0.1); /* Lighter blueish background for dark theme */
+    border-left: 3px solid rgba(74, 144, 226, 0.7); /* Lighter blueish border for dark theme */
+}
