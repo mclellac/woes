@@ -463,7 +463,7 @@ class DNSPage(Adw.PreferencesPage):
             address_value = str(record_data.get('address', 'N/A'))
             address_label = Gtk.Label(label=address_value, halign=Gtk.Align.START, selectable=True)
 
-            copy_button = Gtk.Button.new_from_icon_name("content-copy-symbolic", Gtk.IconSize.BUTTON)
+            copy_button = Gtk.Button.new_from_icon_name("content-copy-symbolic")
             copy_button.set_valign(Gtk.Align.CENTER)
             copy_button.set_tooltip_text(f"Copy Address: {address_value}")
             copy_button.connect("clicked", lambda _btn, text=address_value, w=row: DNSPage._copy_to_clipboard(text, w))
@@ -474,7 +474,7 @@ class DNSPage(Adw.PreferencesPage):
 
             # Add "Copy Full Record" button
             summary_a = f"{name} {ttl} {rd_class_str} {record_type} {address_value}"
-            copy_full_button_a = Gtk.Button.new_from_icon_name("content-copy-symbolic", Gtk.IconSize.BUTTON)
+            copy_full_button_a = Gtk.Button.new_from_icon_name("content-copy-symbolic")
             copy_full_button_a.set_valign(Gtk.Align.CENTER)
             copy_full_button_a.set_tooltip_text("Copy Full Record Summary")
             copy_full_button_a.connect("clicked", lambda _btn, text=summary_a, w=row: DNSPage._copy_to_clipboard(text, w))
@@ -489,7 +489,7 @@ class DNSPage(Adw.PreferencesPage):
             target_value = str(record_data.get('target', 'N/A'))
             target_label = Gtk.Label(label=target_value, halign=Gtk.Align.START, selectable=True)
 
-            copy_button_target = Gtk.Button.new_from_icon_name("content-copy-symbolic", Gtk.IconSize.BUTTON)
+            copy_button_target = Gtk.Button.new_from_icon_name("content-copy-symbolic")
             copy_button_target.set_valign(Gtk.Align.CENTER)
             copy_button_target.set_tooltip_text(f"Copy Target: {target_value}")
             copy_button_target.connect("clicked", lambda _btn, text=target_value, w=row: DNSPage._copy_to_clipboard(text, w))
@@ -499,7 +499,7 @@ class DNSPage(Adw.PreferencesPage):
             suffix_box.append(copy_button_target)
 
             summary_cname_ns_ptr = f"{name} {ttl} {rd_class_str} {record_type} {target_value}"
-            copy_full_button_cname = Gtk.Button.new_from_icon_name("content-copy-symbolic", Gtk.IconSize.BUTTON)
+            copy_full_button_cname = Gtk.Button.new_from_icon_name("content-copy-symbolic")
             copy_full_button_cname.set_valign(Gtk.Align.CENTER)
             copy_full_button_cname.set_tooltip_text("Copy Full Record Summary")
             copy_full_button_cname.connect("clicked", lambda _btn, text=summary_cname_ns_ptr, w=row: DNSPage._copy_to_clipboard(text, w))
@@ -514,7 +514,7 @@ class DNSPage(Adw.PreferencesPage):
             mx_detail_row_title_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
             mx_detail_row_title_box.append(Gtk.Label(label=exchange_value, halign=Gtk.Align.START, selectable=True))
 
-            copy_button_exchange = Gtk.Button.new_from_icon_name("content-copy-symbolic", Gtk.IconSize.BUTTON)
+            copy_button_exchange = Gtk.Button.new_from_icon_name("content-copy-symbolic")
             copy_button_exchange.set_valign(Gtk.Align.CENTER)
             copy_button_exchange.set_tooltip_text(f"Copy Exchange: {exchange_value}")
             copy_button_exchange.connect("clicked", lambda _btn, text=exchange_value, w=row: DNSPage._copy_to_clipboard(text, w))
@@ -527,7 +527,7 @@ class DNSPage(Adw.PreferencesPage):
             row.set_expanded(True)
 
             summary_mx = f"{name} {ttl} {rd_class_str} MX {preference_value} {exchange_value}"
-            copy_full_mx_button = Gtk.Button.new_from_icon_name("content-copy-symbolic", Gtk.IconSize.BUTTON)
+            copy_full_mx_button = Gtk.Button.new_from_icon_name("content-copy-symbolic")
             copy_full_mx_button.set_valign(Gtk.Align.CENTER)
             copy_full_mx_button.set_tooltip_text("Copy Full MX Record")
             copy_full_mx_button.connect("clicked", lambda _btn, text=summary_mx, w=row: DNSPage._copy_to_clipboard(text, w))
@@ -541,7 +541,7 @@ class DNSPage(Adw.PreferencesPage):
             for text_string in texts:
                 text_label = Gtk.Label(label=text_string, halign=Gtk.Align.START, selectable=True, wrap=True, wrap_mode=Pango.WrapMode.WORD_CHAR)
 
-                copy_button_segment = Gtk.Button.new_from_icon_name("content-copy-symbolic", Gtk.IconSize.BUTTON)
+                copy_button_segment = Gtk.Button.new_from_icon_name("content-copy-symbolic")
                 copy_button_segment.set_valign(Gtk.Align.CENTER)
                 copy_button_segment.set_tooltip_text("Copy Text Segment")
                 copy_button_segment.connect("clicked", lambda _btn, text=text_string, w=row: DNSPage._copy_to_clipboard(text, w))
@@ -558,7 +558,7 @@ class DNSPage(Adw.PreferencesPage):
 
             texts_str_summary = " ".join([f'"{s}"' for s in texts])
             summary_txt = f"{name} {ttl} {rd_class_str} TXT {texts_str_summary}"
-            copy_full_txt_button = Gtk.Button.new_from_icon_name("content-copy-symbolic", Gtk.IconSize.BUTTON)
+            copy_full_txt_button = Gtk.Button.new_from_icon_name("content-copy-symbolic")
             copy_full_txt_button.set_valign(Gtk.Align.CENTER)
             copy_full_txt_button.set_tooltip_text("Copy Full TXT Record")
             copy_full_txt_button.connect("clicked", lambda _btn, text=summary_txt, w=row: DNSPage._copy_to_clipboard(text, w))
@@ -581,7 +581,7 @@ class DNSPage(Adw.PreferencesPage):
             ]
             for field_name, field_value in soa_fields:
                 field_label = Gtk.Label(label=field_value, halign=Gtk.Align.START, selectable=True)
-                copy_button_field = Gtk.Button.new_from_icon_name("content-copy-symbolic", Gtk.IconSize.BUTTON)
+                copy_button_field = Gtk.Button.new_from_icon_name("content-copy-symbolic")
                 copy_button_field.set_valign(Gtk.Align.CENTER)
                 copy_button_field.set_tooltip_text(f"Copy {field_name}: {field_value}")
                 copy_button_field.connect("clicked", lambda _btn, text=field_value, w=row: DNSPage._copy_to_clipboard(text, w))
@@ -597,7 +597,7 @@ class DNSPage(Adw.PreferencesPage):
             row.set_expanded(True)
 
             summary_soa = f"{name} {ttl} {rd_class_str} SOA {mname_val} {rname_val} {serial_val} {refresh_val} {retry_val} {expire_val} {minimum_val}"
-            copy_full_soa_button = Gtk.Button.new_from_icon_name("content-copy-symbolic", Gtk.IconSize.BUTTON)
+            copy_full_soa_button = Gtk.Button.new_from_icon_name("content-copy-symbolic")
             copy_full_soa_button.set_valign(Gtk.Align.CENTER)
             copy_full_soa_button.set_tooltip_text("Copy Full SOA Record")
             copy_full_soa_button.connect("clicked", lambda _btn, text=summary_soa, w=row: DNSPage._copy_to_clipboard(text, w))
@@ -608,7 +608,7 @@ class DNSPage(Adw.PreferencesPage):
             data_value = str(record_data.get('data', 'N/A'))
             data_label = Gtk.Label(label=data_value, halign=Gtk.Align.START, selectable=True, wrap=True)
 
-            copy_button_data = Gtk.Button.new_from_icon_name("content-copy-symbolic", Gtk.IconSize.BUTTON)
+            copy_button_data = Gtk.Button.new_from_icon_name("content-copy-symbolic")
             copy_button_data.set_valign(Gtk.Align.CENTER)
             copy_button_data.set_tooltip_text(f"Copy Data: {data_value}")
             copy_button_data.connect("clicked", lambda _btn, text=data_value, w=row: DNSPage._copy_to_clipboard(text, w))
@@ -621,7 +621,7 @@ class DNSPage(Adw.PreferencesPage):
             # but we can make it more explicit in zone file format if desired.
             # For now, the 'data' field often includes type and other info if it's from rdata.to_text()
             summary_data = f"{name} {ttl} {rd_class_str} {record_type} {data_value}"
-            copy_full_button_data = Gtk.Button.new_from_icon_name("content-copy-symbolic", Gtk.IconSize.BUTTON)
+            copy_full_button_data = Gtk.Button.new_from_icon_name("content-copy-symbolic")
             copy_full_button_data.set_valign(Gtk.Align.CENTER)
             copy_full_button_data.set_tooltip_text("Copy Full Record Summary")
             copy_full_button_data.connect("clicked", lambda _btn, text=summary_data, w=row: DNSPage._copy_to_clipboard(text, w))
