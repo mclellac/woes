@@ -1,24 +1,21 @@
 """Defines the DNS lookup page for the Woes application."""
 import logging
 import re
-from datetime import datetime
 
 import dns.resolver
 import dns.reversename
-import dns.rdatatype # Added
-import dns.rdataclass # Added
+import dns.rdatatype
+import dns.rdataclass
 import gi
-from gi.repository import Adw, Gio, Gtk, Pango, GLib, GObject, Gdk # Removed GtkSource, Added Gdk
-from typing import Tuple, Sequence, Any, List, Dict # Added List, Dict, changed from typing.Tuple
+from gi.repository import Adw, Gio, Gtk, Pango, GObject, Gdk # Added Gdk
+from typing import Tuple, Sequence, Any, List, Dict
 
 from .constants import APP_ID, RESOURCE_PREFIX
-# Removed GtkSource specific imports:
-# from .style_utils import apply_source_style_scheme
-# from .utils import create_source_view
+# GtkSource specific imports are no longer needed.
+
 
 gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
-# gi.require_version("GtkSource", "5") # Removed GtkSource requirement
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/dns_page.ui")
@@ -27,67 +24,29 @@ class DNSPage(Adw.PreferencesPage):
 
     __gtype_name__ = "DNSPage"
 
-    domain_entry = Gtk.Template.Child("domain_entry") # Changed from dns_ip_entryrow
-    dns_lookup_spinner = Gtk.Template.Child("dns_lookup_spinner") # Added spinner
-    dns_apply_button = Gtk.Template.Child("dns_apply_button")
-    dns_record_type_dropdown = Gtk.Template.Child("dns_record_type_dropdown")
-    dns_results_box_container = Gtk.Template.Child("dns_results_box_container") # Changed from dns_results_scrolled_window
-    # error_banner = Gtk.Template.Child("error_banner") # Removed
+    domain_entry = Gtk.Template.Child()
+    dns_lookup_spinner = Gtk.Template.Child()
+    dns_apply_button = Gtk.Template.Child()
+    dns_record_type_dropdown = Gtk.Template.Child()
+    dns_results_box_container = Gtk.Template.Child()
 
     def __init__(self, **kwargs):
         """Initialize the DNSPage."""
         super().__init__(**kwargs)
-        # self.header_tag = None # Removed Pango tag
         self._connect_signals()
-        # Removed GtkSourceView related initializations
-        # self.source_view, self.source_buffer = create_source_view()
-        # self.dns_results_scrolled_window.set_child(self.source_view)
         self.settings = Gio.Settings.new(APP_ID)
-        # self._apply_source_view_style() # Removed
-        # Removed GSettings connection for source-style-scheme
-        # self.settings.connect(
-        # "changed::source-style-scheme", self._on_source_style_scheme_setting_changed
-        # )
         if self.dns_apply_button:
             self.dns_apply_button.set_use_underline(True)
 
-        # Initialize spinner state
         if self.dns_lookup_spinner:
             self.dns_lookup_spinner.set_spinning(False)
             self.dns_lookup_spinner.set_visible(False)
 
-        # Removed Pango tag creation
-        # try:
-        #     self.bold_tag = self.source_buffer.create_tag("bold", weight=Pango.Weight.BOLD)
-        #     self.domain_color_tag = self.source_buffer.create_tag(
-        #         "domain_color", foreground="#3465a4"
-        #     )
-        #     self.record_type_color_tag = self.source_buffer.create_tag(
-        #         "record_type_color", foreground="#cc0000"
-        #     )
-        #     self.value_color_tag = self.source_buffer.create_tag(
-        #         "value_color", foreground="#73d216"
-        #     )
-        #     self.ttl_color_tag = self.source_buffer.create_tag("ttl_color", foreground="#fce94f")
-        #     self.class_color_tag = self.source_buffer.create_tag(
-        #         "class_color", foreground="#75507b"
-        #     )
-        # except GLib.Error as e:
-        #     logging.error("Error creating Pango text tags: %s", e)
-        # except Exception as e:  # pylint: disable=broad-except
-        #     logging.error("Unexpected error creating text tags (%s): %s", type(e).__name__, e)
-
     def _connect_signals(self) -> None:
         """Connect signals for UI elements to their respective handlers."""
-        self.domain_entry.connect("activate", self._on_entry_activated) # Changed signal from "entry-activated" to "activate"
+        self.domain_entry.connect("activate", self._on_entry_activated)
         self.dns_apply_button.connect("clicked", self._on_entry_activated)
         self.dns_record_type_dropdown.connect("notify::selected", self._on_record_type_changed)
-        # Removed signal connection for local error_banner
-        # if self.error_banner:
-        #     self.error_banner.connect("button-clicked", self._on_error_banner_dismiss)
-
-    # Removed _on_source_style_scheme_setting_changed
-    # Removed _apply_source_view_style
 
     @staticmethod
     def _copy_to_clipboard(text: str, widget: Gtk.Widget) -> None:
@@ -97,6 +56,7 @@ class DNSPage(Adw.PreferencesPage):
         ----
             text: The text to copy.
             widget: A Gtk.Widget to get the clipboard from.
+
         """
         try:
             clipboard = widget.get_clipboard()
@@ -161,7 +121,7 @@ class DNSPage(Adw.PreferencesPage):
         """
         self._perform_lookup()
 
-    def _on_record_type_changed(self, _dropdown: Gtk.DropDown, _param_spec: GObject.ParamSpec): # Changed GLib.ParamSpec to GObject.ParamSpec
+    def _on_record_type_changed(self, _dropdown: Gtk.DropDown, _param_spec: GObject.ParamSpec):
         """Handle the record type dropdown change event.
 
         Args:
@@ -171,8 +131,6 @@ class DNSPage(Adw.PreferencesPage):
 
         """
         self._perform_lookup()
-
-    # Removed _on_error_banner_dismiss method
 
     def _prepare_resolver(self) -> dns.resolver.Resolver:
         """Prepare a DNS resolver, incorporating custom server settings if configured.
@@ -193,7 +151,7 @@ class DNSPage(Adw.PreferencesPage):
         user_input: str,
         requested_record_type: str,
         resolver: dns.resolver.Resolver,
-    ) -> Tuple[List[Dict[str, Any]], str]: # Changed return type
+    ) -> Tuple[List[Dict[str, Any]], str]:
         """Fetch DNS records for the given input.
 
         Args:
@@ -217,8 +175,7 @@ class DNSPage(Adw.PreferencesPage):
         if self._is_ip_address(user_input):
             actual_record_type = "PTR"  # Override to PTR for IP addresses
 
-        # _lookup_record will call resolver.resolve() which can raise the exceptions
-        parsed_records = self._lookup_record(user_input, actual_record_type, resolver) # Changed variable name
+        parsed_records = self._lookup_record(user_input, actual_record_type, resolver)
         return parsed_records, actual_record_type
 
     def _perform_lookup(self):  # noqa: C901 # Function complexity is high, consider refactoring.
@@ -231,7 +188,7 @@ class DNSPage(Adw.PreferencesPage):
             self.dns_lookup_spinner.set_visible(True)
             self.dns_lookup_spinner.start()
 
-        user_input = self.domain_entry.get_text().strip() # Changed from dns_ip_entryrow
+        user_input = self.domain_entry.get_text().strip()
         if not user_input:
             self._show_error("Input cannot be empty.")
             if self.dns_lookup_spinner:
@@ -315,7 +272,7 @@ class DNSPage(Adw.PreferencesPage):
 
         """
         self.domain_entry.add_css_class("error")
-        main_window = self.get_native() # Get the top-level window
+        main_window = self.get_native()
         if main_window and hasattr(main_window, 'show_error'):
             main_window.show_error(message)
         else:
@@ -325,7 +282,7 @@ class DNSPage(Adw.PreferencesPage):
     def _clear_error(self):
         """Clear any existing error messages from the UI banner and entry row styling."""
         self.domain_entry.remove_css_class("error")
-        main_window = self.get_native() # Get the top-level window
+        main_window = self.get_native()
         if main_window and hasattr(main_window, 'hide_error'):
             main_window.hide_error()
         else:
@@ -351,6 +308,7 @@ class DNSPage(Adw.PreferencesPage):
             dns.resolver.NoAnswer: If no records of the requested type exist.
             dns.resolver.Timeout: If the query times out.
             dns.exception.DNSException: For other DNS-related errors.
+
         """
         # Let DNSExceptions propagate
         if record_type_str == "PTR":
@@ -363,8 +321,8 @@ class DNSPage(Adw.PreferencesPage):
         parsed_records: List[Dict[str, Any]] = []
         for rdata in answer:
             record: Dict[str, Any] = {
-                'name': answer.qname.to_text(), # The name that was queried
-                'ttl': rdata.ttl if hasattr(rdata, 'ttl') else answer.response.answer[0].ttl, # SOA might not have ttl on rdata itself
+                'name': answer.qname.to_text(),  # The name that was queried
+                'ttl': rdata.ttl if hasattr(rdata, 'ttl') else answer.response.answer[0].ttl,  # SOA might not have ttl on rdata itself
                 'class': dns.rdataclass.to_text(rdata.rdclass),
                 'type': dns.rdatatype.to_text(rdata.rdtype)
             }
@@ -379,8 +337,7 @@ class DNSPage(Adw.PreferencesPage):
                 record['preference'] = rdata.preference
                 record['exchange'] = rdata.exchange.to_text()
             elif rdata.rdtype == dns.rdatatype.TXT:
-                # Assuming strings are UTF-8 encoded, adjust if needed
-                record['texts'] = [s.decode('utf-8', 'replace') for s in rdata.strings]
+                record['texts'] = [s.decode('utf-8', 'replace') for s in rdata.strings]  # Assuming strings are UTF-8
             elif rdata.rdtype == dns.rdatatype.NS:
                 record['target'] = rdata.target.to_text()
             elif rdata.rdtype == dns.rdatatype.PTR:
@@ -394,14 +351,13 @@ class DNSPage(Adw.PreferencesPage):
                 record['expire'] = rdata.expire
                 record['minimum'] = rdata.minimum
             else:
-                # For unhandled types, store the raw to_text() representation
-                record['data'] = rdata.to_text()
+                record['data'] = rdata.to_text()  # For unhandled types
 
             parsed_records.append(record)
         return parsed_records
 
     def _display_result(self, result_records: List[Dict[str, Any]], domain_or_ip: str, record_type: str, dns_servers: Sequence[Any]):
-        """Display the DNS lookup results. (Currently logs, will populate UI later)
+        """Display the DNS lookup results in the UI.
 
         Args:
         ----
@@ -409,9 +365,8 @@ class DNSPage(Adw.PreferencesPage):
             domain_or_ip: The domain or IP that was queried.
             record_type: The record type used for the query.
             dns_servers: A list of DNS servers that were used.
+
         """
-        # Clear previous results (if any) - UI part will be handled in next step
-        # For now, just log the structured data
         logging.info(
             "Query for %s, type %s, using servers %s, returned %d records.",
             domain_or_ip,
@@ -451,7 +406,7 @@ class DNSPage(Adw.PreferencesPage):
 
         for record_data in result_records:
             row = self._create_record_row(record_data)
-            if row: # _create_record_row might return None if a type is somehow unhandled
+            if row:
                 self.dns_results_box_container.append(row)
 
     def _create_record_row(self, record_data: Dict[str, Any]) -> Gtk.Widget | None:
@@ -478,7 +433,6 @@ class DNSPage(Adw.PreferencesPage):
             suffix_box.append(address_label)
             suffix_box.append(copy_button)
 
-            # Add "Copy Full Record" button
             summary_a = f"{name} {ttl} {rd_class_str} {record_type} {address_value}"
             copy_full_button_a = Gtk.Button.new_from_icon_name("content-copy-symbolic")
             copy_full_button_a.set_valign(Gtk.Align.CENTER)
@@ -489,8 +443,10 @@ class DNSPage(Adw.PreferencesPage):
         elif record_type in ("CNAME", "NS", "PTR"):
             row = Adw.ActionRow(title=name, subtitle=f"Type: {record_type}, {base_subtitle}")
             icon_name = "emblem-shared-symbolic"
-            if record_type == "NS": icon_name = "network-server-symbolic"
-            elif record_type == "PTR": icon_name = "system-search-symbolic"
+            if record_type == "NS":
+                icon_name = "network-server-symbolic"
+            elif record_type == "PTR":
+                icon_name = "system-search-symbolic"
             row.add_prefix(Gtk.Image(icon_name=icon_name))
             target_value = str(record_data.get('target', 'N/A'))
             target_label = Gtk.Label(label=target_value, halign=Gtk.Align.START, selectable=True)
@@ -537,7 +493,7 @@ class DNSPage(Adw.PreferencesPage):
             copy_full_mx_button.set_valign(Gtk.Align.CENTER)
             copy_full_mx_button.set_tooltip_text("Copy Full MX Record")
             copy_full_mx_button.connect("clicked", lambda _btn, text=summary_mx, w=row: DNSPage._copy_to_clipboard(text, w))
-            row.add_suffix(copy_full_mx_button) # Adw.ExpanderRow can take suffixes
+            row.add_suffix(copy_full_mx_button)
         elif record_type == "TXT":
             row = Adw.ExpanderRow(title=name, subtitle=f"TXT Records ({base_subtitle})")
             row.add_prefix(Gtk.Image(icon_name="document-properties-symbolic"))
@@ -623,9 +579,6 @@ class DNSPage(Adw.PreferencesPage):
             suffix_box.append(data_label)
             suffix_box.append(copy_button_data)
 
-            # For 'data', the summary is essentially the same as the field data itself,
-            # but we can make it more explicit in zone file format if desired.
-            # For now, the 'data' field often includes type and other info if it's from rdata.to_text()
             summary_data = f"{name} {ttl} {rd_class_str} {record_type} {data_value}"
             copy_full_button_data = Gtk.Button.new_from_icon_name("content-copy-symbolic")
             copy_full_button_data.set_valign(Gtk.Align.CENTER)
@@ -637,8 +590,8 @@ class DNSPage(Adw.PreferencesPage):
             logging.warning("Could not create row for unknown record_data: %s", record_data)
             return None
 
-        if not isinstance(row, Adw.ExpanderRow): # ExpanderRow itself is not selectable in this way
-             row.set_selectable(False) # Make rows non-interactive for now.
+        if not isinstance(row, Adw.ExpanderRow):
+             row.set_selectable(False)
         return row
 
     # Removed _format_result_in_buffer

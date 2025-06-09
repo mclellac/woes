@@ -11,7 +11,7 @@ import re
 import ssl
 import socket
 from enum import Enum
-from typing import Optional, Any
+from typing import Optional
 
 import requests
 import requests.utils

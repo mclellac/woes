@@ -5,12 +5,7 @@ and GtkSourceView style schemes. It interacts with GSettings to retrieve
 system and application-specific style configurations.
 """
 import logging
-"""Utility functions for managing application styling.
-
-This module provides functions for applying font preferences, themes,
-and GtkSourceView style schemes. It interacts with GSettings to retrieve
-system and application-specific style configurations.
-"""
+# Removed duplicated docstring
 import re
 import platform
 from typing import Optional, Tuple # Added Tuple

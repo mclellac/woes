@@ -1,6 +1,6 @@
 """General utility functions for the Woes application."""
 import logging
-from typing import Tuple # Added Tuple
+from typing import Tuple
 import gi
 from gi.repository import Gtk, GtkSource
 
@@ -8,7 +8,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("GtkSource", "5")
 
 
-def create_source_view(language_name: str = "txt") -> Tuple[GtkSource.View, GtkSource.Buffer]: # Changed to typing.Tuple
+def create_source_view(language_name: str = "txt") -> Tuple[GtkSource.View, GtkSource.Buffer]:
     """Create and configure a GtkSource.View and its associated GtkSource.Buffer.
 
     Sets up common properties for the source view like line numbers, monospace font,

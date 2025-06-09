@@ -816,6 +816,7 @@ class NmapPage(Gtk.Box):
 
         Returns:
             A string summarizing the host's scan data.
+
         """
         summary_lines = []
 
