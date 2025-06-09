@@ -61,7 +61,7 @@ class DNSPage(Adw.PreferencesPage):
         try:
             clipboard = widget.get_clipboard()
             if clipboard: # Check if clipboard is available
-                clipboard.set_text(text, -1)
+                clipboard.set(text)
                 logging.info("Copied to clipboard: %s", text)
             else:
                 logging.warning("Could not get clipboard from widget: %s", widget)

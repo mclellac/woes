@@ -262,7 +262,7 @@ class HttpPage(Adw.PreferencesPage):
             try:
                 clipboard = Gdk.Display.get_default().get_clipboard()
                 if clipboard:
-                    clipboard.set_text(text_to_copy)
+                    clipboard.set(text_to_copy)
                     logger.info("Headers copied to clipboard successfully.")
                 else:
                     logger.warning("Failed to get default clipboard.")

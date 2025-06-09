@@ -23,13 +23,12 @@ gi.require_version("Adw", "1")
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/webscan_page.ui")
-class WebScanPage(Adw.Bin):
-    """Container for web scanning, managing an AdwToastOverlay and AdwPreferencesPage."""
+class WebScanPage(Adw.PreferencesPage):
+    """Page for conducting web scans using Nikto, displaying results and errors."""
 
     __gtype_name__ = "WebScanPage"
 
-    toast_overlay_internal = Gtk.Template.Child()
-    preferences_page_content = Gtk.Template.Child() # The AdwPreferencesPage
+    # toast_overlay_internal and preferences_page_content removed
     url_entry = Gtk.Template.Child()
     scan_button = Gtk.Template.Child()
     results_textview = Gtk.Template.Child()
@@ -67,13 +66,11 @@ class WebScanPage(Adw.Bin):
             re.IGNORECASE,
         )
         if not target_url:
-            toast = Adw.Toast.new("Target URL cannot be empty.")
-            self.toast_overlay_internal.add_toast(toast)
+            self._show_main_banner_error("Target URL cannot be empty.")
             return
 
         if not url_pattern.match(target_url):
-            toast = Adw.Toast.new("Invalid URL format. Please enter a valid URL.")
-            self.toast_overlay_internal.add_toast(toast)
+            self._show_main_banner_error("Invalid URL format. Please enter a valid URL.")
             return
 
         buffer = self.results_textview.get_buffer()
