@@ -84,17 +84,19 @@ class WebScanPage(Adw.PreferencesPage):
 
         cancellable = Gio.Cancellable()
         task = Gio.Task.new(self, cancellable, self._on_scan_task_done)
-        task.set_task_data(target_url)
+        # Wrap the string in a GLib.Variant
+        variant_target_url = GLib.Variant('s', target_url)
+        task.set_task_data(variant_target_url)
         task.run_in_thread(self._run_scan_task_thread_func)
 
     def _run_scan_task_thread_func(self,
                                    gio_task: Gio.Task,
                                    _source_object: GObject.Object,
-                                   task_data: str,
+                                   task_data_variant: GLib.Variant,
                                    _cancellable: Gio.Cancellable):
         """Execute the Nikto scan in a separate thread.
 
-        This method is run by `Gio.Task.run_in_thread`. It takes the target URL,
+        This method is run by `Gio.Task.run_in_thread`. It takes the target URL (from task_data_variant),
         prepends 'http://' if no scheme is present, and runs the Nikto command
         using `subprocess.Popen`. It captures stdout and stderr.
 
@@ -106,11 +108,11 @@ class WebScanPage(Adw.PreferencesPage):
         ----
             gio_task: The `Gio.Task` associated with this asynchronous operation.
             _source_object: The source GObject that initiated the task (unused).
-            task_data: The target URL string passed via `task.set_task_data()`.
+            task_data_variant: GLib.Variant containing the target URL string.
             _cancellable: A `Gio.Cancellable` (unused in this implementation).
 
         """
-        target_url = task_data
+        target_url = task_data_variant.get_string()
 
         if not target_url.startswith(("http://", "https://")):
             target_url = "http://" + target_url
@@ -179,31 +181,36 @@ class WebScanPage(Adw.PreferencesPage):
             _user_data: User data passed to the callback (unused).
 
         """
-        target_url = task.get_task_data()
+        variant_target_url_in_callback = task.get_task_data()
+        target_url = variant_target_url_in_callback.get_string()
 
         try:
             stdout, stderr_or_error_msg, error_type = task.run_in_thread_finish(result)
 
             if error_type == "FileNotFoundError":
-                self._show_main_banner_error(
-                    "Nikto command not found. Please ensure it is installed and in your PATH."
-                )
-                self._update_textview("", "Error: Nikto not found.")
+                logging.exception("Nikto command not found. Ensure it's in PATH.")
+                user_message = "Nikto command not found. Please ensure Nikto is installed and in your system's PATH."
+                self._show_main_banner_error(user_message)
+                self._update_textview("", f"Error: {user_message}")
             elif error_type == "TimeoutExpired":
-                self._show_main_banner_error(f"Scan for {target_url} timed out.")
-                self._update_textview(
-                    "", f"Error: Scan for {target_url} timed out after 5 minutes."
-                )
+                logging.exception(f"Nikto scan for {target_url} timed out.")
+                user_message = f"Scan for {target_url} timed out after 5 minutes."
+                self._show_main_banner_error(user_message)
+                self._update_textview("", f"Error: {user_message}")
             elif error_type == "Exception":
-                self._show_main_banner_error(f"An error occurred: {stderr_or_error_msg}")
-                self._update_textview("", f"An error occurred: {stderr_or_error_msg}")
+                logging.exception(f"An unexpected error occurred during Nikto scan task for {target_url}:")
+                user_message = "An unexpected error occurred during the scan. Please check the application logs for more details."
+                self._show_main_banner_error(user_message)
+                # The stderr_or_error_msg might contain some details, but for user, generic is safer.
+                self._update_textview("", user_message)
             else:
                 self._update_textview(stdout, stderr_or_error_msg)
 
         except GLib.Error as e:
-            logging.error("Error in scan task: %s", e.message)
-            self._show_main_banner_error(f"An error occurred: {e.message}")
-            self._update_textview("", f"An error occurred: {e.message}")
+            logging.exception(f"GLib.Error during scan task finalization for {target_url}:")
+            user_message = "A task finalization error occurred. Please check the application logs for more details."
+            self._show_main_banner_error(user_message)
+            self._update_textview("", user_message)
         finally:
             self.scan_button.set_sensitive(True)
 
