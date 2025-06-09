@@ -70,6 +70,8 @@ class NmapPage(Gtk.Box):
     nmap_timing_template_comborow = Gtk.Template.Child("nmap_timing_template_comborow")
     status_row = Gtk.Template.Child("status_row")
     scan_spinner = Gtk.Template.Child("scan_spinner")
+    # Cancel button will be added programmatically
+    # nmap_cancel_scan_button = Gtk.Template.Child("nmap_cancel_scan_button")
 
     left_vbox_content = Gtk.Template.Child("left_vbox_content")
     nmap_host_listbox = Gtk.Template.Child("nmap_host_listbox")
@@ -84,7 +86,11 @@ class NmapPage(Gtk.Box):
         self.nmap_target_listbox_store = Gio.ListStore(item_type=NmapItem)
         self.scanner = NmapScanner()
         self.settings = Gio.Settings.new(APP_ID)
-        self._init_page_ui()
+
+        self.current_nmap_task: Optional[Gio.Task] = None
+        self.current_nmap_cancellable: Optional[Gio.Cancellable] = None
+
+        self._init_page_ui() # Includes adding cancel button now
         self._connect_signals()
         if self.nmap_apply_button:
             self.nmap_apply_button.set_use_underline(True)
@@ -92,9 +98,13 @@ class NmapPage(Gtk.Box):
         logger.debug("NmapPage __init__ completed.")
 
     def __del__(self):
-        """Clean up resources, specifically the NmapScanner's thread pool."""
+        """Clean up resources, specifically the NmapScanner's thread pool and cancel any ongoing scan."""
+        if self.current_nmap_cancellable and not self.current_nmap_cancellable.is_cancelled():
+            self.current_nmap_cancellable.cancel()
+            logger.info("NmapPage finalized, ongoing scan cancelled.")
         if hasattr(self, "scanner") and self.scanner:
-            del self.scanner  # NmapScanner.__del__ handles executor shutdown
+            del self.scanner
+        super().__del__() # Important if GObject has its own __del__
 
     def _on_source_style_scheme_setting_changed(self, _settings: Gio.Settings, key: str):
         """Handle changes to the 'source-style-scheme' GSettings key."""
@@ -123,6 +133,19 @@ class NmapPage(Gtk.Box):
         self.scan_spinner.set_spinning(False)
         self.scan_spinner.set_visible(False)
         self.status_row.set_subtitle("Idle")
+
+        # Programmatically create and add the Cancel Scan button
+        self.nmap_cancel_scan_button = Gtk.Button(label="Cancel Scan", icon_name="process-stop-symbolic")
+        self.nmap_cancel_scan_button.set_sensitive(False)
+        self.nmap_cancel_scan_button.set_visible(False) # Initially hidden
+        self.nmap_cancel_scan_button.add_css_class("destructive-action")
+        # Add it as a suffix to the status_row (Adw.ActionRow)
+        if isinstance(self.status_row, Adw.ActionRow):
+            self.status_row.add_suffix(self.nmap_cancel_scan_button)
+            self.status_row.set_activatable_widget(self.nmap_cancel_scan_button) # Or None if row itself not activatable
+        else:
+            logger.warning("status_row is not an Adw.ActionRow, cannot add cancel button as suffix.")
+
         logger.debug("NmapPage _init_page_ui completed.")
 
     def _clear_dynamic_details(self):
@@ -140,19 +163,28 @@ class NmapPage(Gtk.Box):
         self.nmap_target_entryrow.connect("entry-activated", self._on_target_activate)
         self.nmap_apply_button.connect("clicked", self._on_target_activate)
         self.nmap_host_listbox.connect("row-selected", self._on_target_selected)
+        if hasattr(self, 'nmap_cancel_scan_button') and self.nmap_cancel_scan_button: # Ensure it was created
+            self.nmap_cancel_scan_button.connect("clicked", self._on_cancel_scan_clicked)
 
-    def _on_target_activate(self, entry_row: Adw.EntryRow):
-        logger.debug(f"_on_target_activate called by {entry_row}.")
+    def _on_cancel_scan_clicked(self, _button: Gtk.Button) -> None:
+        """Handle the 'Cancel Scan' button click."""
+        logger.info("Cancel scan button clicked.")
+        if self.current_nmap_cancellable and not self.current_nmap_cancellable.is_cancelled():
+            self.current_nmap_cancellable.cancel()
+            logger.info("Scan cancellation requested.")
+            # UI update will be handled by the task's done_cb when it exits due to cancellation
+        else:
+            logger.warning("No active scan or cancellable to cancel.")
+
+    def _on_target_activate(self, _widget: Adw.EntryRow): # pylint: disable=unused-argument # Gtk.Widget or Adw.EntryRow
+        logger.debug(f"_on_target_activate called by {_widget}.")
         target = self.nmap_target_entryrow.get_text().strip()
         self._clear_error()
 
         if not self.scanner.validate_target_input(target):
             message = "Invalid target format. Please enter a valid IP, CIDR, or hostname."
-            main_window = self.get_native()
-            if main_window and hasattr(main_window, "show_toast"):
-                show_global_toast(self, message)
-            else:
-                show_global_error(self, message)
+            show_global_toast(self, message) # type: ignore
+            # No need for main_window check here as show_global_toast is preferred
             return
         self.nmap_target_entryrow.remove_css_class("error")
 
@@ -160,104 +192,132 @@ class NmapPage(Gtk.Box):
             self._clear_results()
             return
 
-        self.nmap_target_entryrow.set_sensitive(False)
-        self._set_scan_status(ScanStatus.IN_PROGRESS, f"Scanning {target}...")
+        # Cancel any existing scan task
+        if self.current_nmap_task and not self.current_nmap_task.is_done():
+            if self.current_nmap_cancellable and not self.current_nmap_cancellable.is_cancelled():
+                logger.info("Requesting cancellation of previous Nmap scan task.")
+                self.current_nmap_cancellable.cancel()
+            # Do not start a new scan immediately; wait for the old one to actually cancel and clean up.
+            # Or, decide if a new scan should override. For now, let user cancel explicitly.
+            # For simplicity here, we'll just log and potentially prevent a new scan if one is running.
+            # A more robust approach might queue the new scan or provide more feedback.
+            if not self.current_nmap_task.is_done(): # Re-check after cancel attempt
+                 logger.warning("Previous scan task still running. Please cancel it explicitly or wait.")
+                 # show_global_toast(self, "A scan is already in progress. Cancel it or wait.")
+                 # return # Optionally prevent starting a new scan
 
-        os_fingerprinting = self.nmap_fingerprint_switchrow.get_active()
-        all_ports = self.nmap_all_ports_switchrow.get_active()
-        selected_script_item = self.nmap_scripts_dropdown.get_selected_item()
-        script_name = (
-            selected_script_item.get_string()
-            if isinstance(selected_script_item, Gtk.StringObject) and selected_script_item.get_string() != "None"
-            else None
-        )
-        service_version_detection = self.nmap_service_version_switchrow.get_active()
-        no_ping_scan = self.nmap_no_ping_switchrow.get_active()
-        selected_timing_item = self.nmap_timing_template_comborow.get_selected_item()
-        timing_template_str = selected_timing_item.get_string()
-        timing_match = re.search(r"\(T([0-5])\)", timing_template_str)
-        timing_template = f"T{timing_match.group(1)}" if timing_match else "T3"
-        custom_dns_server = self.settings.get_string("custom-dns-server")
+        self._set_scan_status(ScanStatus.IN_PROGRESS, f"Starting scan for {target}...")
 
-        logger.debug(
-            "Nmap scan parameters collected: target=%s, os_fingerprint=%s, all_ports=%s, script_name=%s, "
-            "service_version_detection=%s, no_ping_scan=%s, timing_template=%s, custom_dns_server=%s",
-            target,
-            os_fingerprinting,
-            all_ports,
-            script_name,
-            service_version_detection,
-            no_ping_scan,
-            timing_template,
-            custom_dns_server,
-        )
-        logger.info(
-            "Nmap scan for target: %s (OSScan:%s, AllPorts:%s, Script:%s, Ver:%s, NoPing:%s, Time:%s, CustomDNS:%s)",
-            target,
-            os_fingerprinting,
-            all_ports,
-            script_name,
-            service_version_detection,
-            no_ping_scan,
-            timing_template,
-            custom_dns_server if custom_dns_server else "None",
-        )
-        self.scanner.executor.submit(
-            self._run_nmap_scan_task,
-            target,
-            os_fingerprinting,
-            all_ports,
-            script_name,
-            service_version_detection,
-            no_ping_scan,
-            timing_template,
-            custom_dns_server,
-        )
+        self.current_nmap_cancellable = Gio.Cancellable()
 
-    def _run_nmap_scan_task(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+        scan_params = {
+            "target": target,
+            "os_fingerprinting": self.nmap_fingerprint_switchrow.get_active(),
+            "all_ports": self.nmap_all_ports_switchrow.get_active(),
+            "script_name": (
+                item.get_string()
+                if isinstance(item := self.nmap_scripts_dropdown.get_selected_item(), Gtk.StringObject) and item.get_string() != "None"
+                else None
+            ),
+            "service_version_detection": self.nmap_service_version_switchrow.get_active(),
+            "no_ping_scan": self.nmap_no_ping_switchrow.get_active(),
+            "timing_template": (
+                f"T{m.group(1)}"
+                if (m := re.search(r"\(T([0-5])\)", self.nmap_timing_template_comborow.get_selected_item().get_string()))
+                else "T3"
+            ),
+            "custom_dns_server": self.settings.get_string("custom-dns-server")
+        }
+        logger.info(f"NmapPage: Starting Nmap scan task with params: {scan_params}")
+
+        self.current_nmap_task = Gio.Task.new(
+            self, self.current_nmap_cancellable, self._nmap_scan_task_done_cb # type: ignore
+        )
+        self.current_nmap_task.set_task_data(scan_params) # Store params for the thread
+        self.current_nmap_task.run_in_thread(self._run_nmap_scan_thread_func) # type: ignore
+
+
+    def _run_nmap_scan_thread_func(
         self,
-        target: str,
-        os_fingerprinting: bool,
-        all_ports: bool,
-        script_name: Optional[str],
-        service_version_detection: bool,
-        no_ping_scan: bool,
-        timing_template: str,
-        custom_dns_server: Optional[str],
+        task: Gio.Task,
+        _source_object: GObject.Object, # type: ignore
+        task_data: Dict[str, Any], # Custom task data
+        cancellable: Optional[Gio.Cancellable]
     ):
-        """Execute the Nmap scan in a separate thread via NmapScanner."""
-        logger.debug(
-            "_run_nmap_scan_task started for target: %s with options - OSScan:%s, AllPorts:%s, Script:%s, Ver:%s, NoPing:%s, Time:%s, CustomDNS:%s",
-            target,
-            os_fingerprinting,
-            all_ports,
-            script_name,
-            service_version_detection,
-            no_ping_scan,
-            timing_template,
-            custom_dns_server,
-        )
+        """Execute the Nmap scan in a separate thread via NmapScanner, for Gio.Task."""
+        params = task.get_task_data()
+        target = params["target"]
+        logger.debug(f"_run_nmap_scan_thread_func started for target: {target}")
+
+        if cancellable and cancellable.is_cancelled():
+            task.return_new_error_literal(NMAP_SCAN_ERROR_DOMAIN, NmapScanErrorType.CANCELLED.value, "Scan cancelled before start.")
+            return
+
         try:
+            # run_nmap_scan will need to be modified to accept and use cancellable
             nm = self.scanner.run_nmap_scan(
-                target,
-                os_fingerprinting,
-                all_ports,
-                script_name,
-                service_version_detection,
-                no_ping_scan,
-                timing_template,
-                custom_dns_server=custom_dns_server,
+                target=params["target"],
+                os_fingerprinting=params["os_fingerprinting"],
+                all_ports=params["all_ports"],
+                script_name=params["script_name"],
+                service_version_detection=params["service_version_detection"],
+                no_ping_scan=params["no_ping_scan"],
+                timing_template=params["timing_template"],
+                custom_dns_server=params["custom_dns_server"],
+                cancellable=cancellable # Pass cancellable here
             )
-            GLib.idle_add(self._process_scan_results, nm, target)
+            if cancellable and cancellable.is_cancelled():
+                task.return_new_error_literal(NMAP_SCAN_ERROR_DOMAIN, NmapScanErrorType.CANCELLED.value, "Scan cancelled during operation.")
+            else:
+                task.return_value(nm) # type: ignore
         except nmap.PortScannerError as e:
             logger.exception("Nmap PortScannerError for %s:", target)
-            GLib.idle_add(self._handle_scan_error, target, f"Nmap scan error: {e}")
-        except Exception as e:  # pylint: disable=broad-except
+            task.return_new_error_literal(NMAP_SCAN_ERROR_DOMAIN, NmapScanErrorType.SCAN_FAILED.value, f"Nmap scan error: {e}")
+        except Exception as e:
             logger.exception("Unexpected exception in Nmap scan task for %s (%s):", target, type(e).__name__)
-            GLib.idle_add(self._handle_scan_error, target, f"Scan failed unexpectedly: {e}")
+            task.return_new_error_literal(NMAP_SCAN_ERROR_DOMAIN, NmapScanErrorType.UNEXPECTED.value, f"Scan failed unexpectedly: {e}")
         finally:
-            GLib.idle_add(self.nmap_target_entryrow.set_sensitive, True)
-            logger.info("Nmap scan task finished for %s.", target)
+            logger.info("Nmap scan thread finished for %s.", target)
+            # UI sensitivity updates are handled in _nmap_scan_task_done_cb
+
+    def _nmap_scan_task_done_cb(self, _source_object: GObject.Object, result: Gio.AsyncResult, _user_data: object): # type: ignore
+        """Callback for when the Nmap scan Gio.Task completes."""
+        task = self.current_nmap_task # Should match the task that finished
+        original_target = task.get_task_data()["target"] if task and task.get_task_data() else "unknown target"
+
+        logger.info(f"Nmap scan task done for {original_target}.")
+
+        nm_results: Optional[nmap.PortScanner] = None
+        try:
+            nm_results = task.propagate_value().value if hasattr(task.propagate_value(), 'value') else task.propagate_value()
+            # nm_results = task.propagate_value() # type: ignore
+            if isinstance(nm_results, nmap.PortScanner):
+                 self._process_scan_results(nm_results, original_target)
+            else: # Should not happen if task.return_value(nm) was called with PortScanner object
+                 logger.error(f"Nmap scan for {original_target} returned unexpected result type: {type(nm_results)}")
+                 self._handle_scan_error(original_target, "Scan returned unexpected data.")
+        except GLib.Error as e:
+            logger.warning(f"Nmap scan for {original_target} failed or was cancelled. Domain: {e.domain}, Code: {e.code}, Message: {e.message}")
+            if e.matches(NMAP_SCAN_ERROR_DOMAIN, NmapScanErrorType.CANCELLED.value):
+                self._set_scan_status(ScanStatus.IDLE, f"Scan for {original_target} cancelled.")
+                self._clear_results() # Or some other specific UI state for cancellation
+            elif e.matches(NMAP_SCAN_ERROR_DOMAIN, NmapScanErrorType.SCAN_FAILED.value):
+                self._handle_scan_error(original_target, e.message)
+            else: # UNEXPECTED or other GLib.Error
+                self._handle_scan_error(original_target, f"Scan error: {e.message}")
+        except Exception as e: # Catch any other Python exceptions from this callback itself
+            logger.exception(f"NmapPage: Unexpected Python error in _nmap_scan_task_done_cb for {original_target}:")
+            self._handle_scan_error(original_target, f"Unexpected error processing scan results: {e}")
+        finally:
+            self.current_nmap_task = None
+            self.current_nmap_cancellable = None
+            self._set_scan_status(ScanStatus.IDLE, "Idle") # Reset to idle, or specific status based on outcome
+            self.nmap_target_entryrow.set_sensitive(True) # type: ignore
+            if self.nmap_apply_button: self.nmap_apply_button.set_sensitive(True) # type: ignore
+            if hasattr(self, 'nmap_cancel_scan_button') and self.nmap_cancel_scan_button:
+                 self.nmap_cancel_scan_button.set_sensitive(False)
+                 self.nmap_cancel_scan_button.set_visible(False)
+
 
     def _process_scan_results(self, nm: nmap.PortScanner, original_target: str):
         """Process the Nmap scan results received from the scanner task."""
@@ -496,22 +556,31 @@ class NmapPage(Gtk.Box):
             style_context.remove_class(css_class)
         if status_type == ScanStatus.IN_PROGRESS:
             self.scan_spinner.set_visible(True)
-            self.scan_spinner.start()
-            self.status_row.set_title("Scanning...")
-            style_context.add_class("error-color")  # Red for scanning
-        else:
-            self.scan_spinner.stop()
-            self.scan_spinner.set_visible(False)
+            self.scan_spinner.start() # type: ignore
+            self.status_row.set_title("Scanning...") # type: ignore
+            style_context.add_class("accent-color") # Using accent for "in progress"
+            if self.nmap_apply_button: self.nmap_apply_button.set_sensitive(False) # type: ignore
+            if hasattr(self, 'nmap_cancel_scan_button') and self.nmap_cancel_scan_button:
+                self.nmap_cancel_scan_button.set_visible(True)
+                self.nmap_cancel_scan_button.set_sensitive(True)
+        else: # Not IN_PROGRESS (COMPLETE, FAILED, IDLE)
+            self.scan_spinner.stop() # type: ignore
+            self.scan_spinner.set_visible(False) # type: ignore
+            if self.nmap_apply_button: self.nmap_apply_button.set_sensitive(True) # type: ignore
+            if hasattr(self, 'nmap_cancel_scan_button') and self.nmap_cancel_scan_button:
+                self.nmap_cancel_scan_button.set_visible(False)
+                self.nmap_cancel_scan_button.set_sensitive(False)
+
             if status_type == ScanStatus.COMPLETE:
-                self.status_row.set_title("Scan Complete")
+                self.status_row.set_title("Scan Complete") # type: ignore
                 style_context.add_class("success-color")
             elif status_type == ScanStatus.FAILED:
-                self.status_row.set_title("Scan Failed")
+                self.status_row.set_title("Scan Failed") # type: ignore
                 style_context.add_class("error-color")
-            elif status_type == ScanStatus.IDLE:
-                self.status_row.set_title("Idle")
-            else:
-                self.status_row.set_title("Scan Status")
+            elif status_type == ScanStatus.IDLE: # Also for CANCELLED if no specific UI for it
+                self.status_row.set_title("Idle") # type: ignore
+            else: # Should not happen
+                self.status_row.set_title("Scan Status") # type: ignore
 
     def _clear_results(self):
         """Clear all Nmap scan results from the UI."""
@@ -526,9 +595,14 @@ class NmapPage(Gtk.Box):
         if not self.nmap_detail_placeholder.get_parent():
             self.nmap_detail_box.append(self.nmap_detail_placeholder)
         self.nmap_detail_placeholder.set_visible(True)
-        self.nmap_target_entryrow.remove_css_class("error")
-        self.nmap_target_entryrow.set_sensitive(True)
+        self.nmap_target_entryrow.remove_css_class("error") # type: ignore
+        self.nmap_target_entryrow.set_sensitive(True) # type: ignore
+        if self.nmap_apply_button: self.nmap_apply_button.set_sensitive(True) # type: ignore
+        if hasattr(self, 'nmap_cancel_scan_button') and self.nmap_cancel_scan_button:
+            self.nmap_cancel_scan_button.set_sensitive(False)
+            self.nmap_cancel_scan_button.set_visible(False)
         self._set_scan_status(ScanStatus.IDLE, "Idle")
+
 
     def _on_error_banner_dismiss(self, _banner: Adw.Banner, *_args):
         """Handle dismissal of the error banner by clearing the error state."""
@@ -650,6 +724,17 @@ class NmapPage(Gtk.Box):
         """Programmatically triggers the Nmap 'Scan' action."""
         logger.debug("Nmap scan triggered by shortcut.")
         if self.nmap_apply_button and self.nmap_apply_button.get_sensitive():
-            self.nmap_apply_button.clicked()
+            self.nmap_apply_button.clicked() # type: ignore
+        elif self.current_nmap_task and not self.current_nmap_task.is_done():
+             show_global_toast(self, "A scan is already in progress. Cancel it or wait.") # type: ignore
         else:
             logger.warning("Nmap scan button not available or not sensitive, cannot trigger scan.")
+
+# --- Gio.Task Error Handling ---
+NMAP_SCAN_ERROR_DOMAIN = "nmap-scan-error-domain"
+
+class NmapScanErrorType(int, Enum):
+    """Enumeration of Nmap scan error types for Gio.Task error reporting."""
+    SCAN_FAILED = 0     # Corresponds to nmap.PortScannerError
+    UNEXPECTED = 1      # For other unexpected exceptions during scan
+    CANCELLED = 2       # If the scan was cancelled

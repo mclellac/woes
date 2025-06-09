@@ -6,21 +6,22 @@ load and save these preferences.
 """
 import logging
 import re
-from typing import Optional # Added for type hinting
+from typing import Optional
 
 import gi
-from gi.repository import Adw, Gio, Gtk, GLib, GObject, Gdk  # pylint: disable=wrong-import-position # Added GObject and Gdk
+gi.require_version("Adw", "1") # Must be called before importing from gi.repository
+gi.require_version("Gtk", "4.0")
+from gi.repository import Adw, Gio, Gtk, GLib, GObject, Gdk # No longer wrong position
 
-from .constants import APP_ID, RESOURCE_PREFIX  # pylint: disable=wrong-import-position
+# Local application imports
+from .constants import APP_ID, RESOURCE_PREFIX # No longer wrong position
 
+# Conditional import for dnspython
 try:
-    import dns.resolver # Check if dnspython is available
+    import dns.resolver
     dnspython_available = True
 except ImportError:
     dnspython_available = False
-
-gi.require_version("Adw", "1")
-gi.require_version("Gtk", "4.0")
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/preferences.ui")
