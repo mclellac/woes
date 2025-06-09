@@ -13,6 +13,7 @@ import gi
 from gi.repository import Gtk, Adw, Gio, GLib, GObject, Gdk, GtkSource # Added Gdk and GtkSource
 
 from .constants import RESOURCE_PREFIX
+from .utils import show_global_error, show_global_toast
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
@@ -143,21 +144,23 @@ class WebScanPage(Adw.PreferencesPage):
             re.IGNORECASE,
         )
         if not target_url:
+            # Attempt to show a toast.
+            show_global_toast(self, "Target URL cannot be empty.")
+            # If the toast mechanism itself isn't available (e.g., no main_window or show_toast method),
+            # the original code would fall back to _show_main_banner_error.
+            # We replicate this by calling show_global_error under the same conditions.
             main_window = self.get_native()
-            if main_window and hasattr(main_window, 'show_toast'):
-                main_window.show_toast("Target URL cannot be empty.")
-            else:
-                logger.warning("Could not find main window or show_toast method for empty Webscan URL toast.")
-                self._show_main_banner_error("Target URL cannot be empty.")
+            if not (main_window and hasattr(main_window, 'show_toast')):
+                show_global_error(self, "Target URL cannot be empty.")
             return
 
         if not url_pattern.match(target_url):
+            # Attempt to show a toast.
+            show_global_toast(self, "Invalid URL format. Please enter a valid URL.")
+            # Fallback to error banner if the toast mechanism isn't available.
             main_window = self.get_native()
-            if main_window and hasattr(main_window, 'show_toast'):
-                main_window.show_toast("Invalid URL format. Please enter a valid URL.")
-            else:
-                logger.warning("Could not find main window or show_toast method for invalid Webscan URL toast.")
-                self._show_main_banner_error("Invalid URL format. Please enter a valid URL.")
+            if not (main_window and hasattr(main_window, 'show_toast')):
+                show_global_error(self, "Invalid URL format. Please enter a valid URL.")
             return
 
         buffer = self.results_textview.get_buffer()
@@ -313,17 +316,17 @@ class WebScanPage(Adw.PreferencesPage):
             if error_type == "FileNotFoundError":
                 logger.exception("Nikto command not found. Ensure it's in PATH.")
                 user_message = "Nikto command not found. Please ensure Nikto is installed and in your system's PATH."
-                self._show_main_banner_error(user_message)
+                show_global_error(self, user_message)
                 self._update_textview("", f"Error: {user_message}")
             elif error_type == "TimeoutExpired":
                 logger.exception(f"Nikto scan for {target_url} timed out.")
                 user_message = f"Scan for {target_url} timed out after 5 minutes."
-                self._show_main_banner_error(user_message)
+                show_global_error(self, user_message)
                 self._update_textview("", f"Error: {user_message}")
             elif error_type == "Exception":
                 logger.exception(f"An unexpected error occurred during Nikto scan task for {target_url}:")
                 user_message = "An unexpected error occurred during the scan. Please check the application logs for more details."
-                self._show_main_banner_error(user_message)
+                show_global_error(self, user_message)
                 self._update_textview("", user_message)
             else:
                 self._update_textview(stdout, stderr_or_error_msg)
@@ -331,7 +334,7 @@ class WebScanPage(Adw.PreferencesPage):
         except GLib.Error:
             logger.exception(f"GLib.Error during scan task finalization for {target_url}:")
             user_message = "A task finalization error occurred. Please check the application logs for more details."
-            self._show_main_banner_error(user_message)
+            show_global_error(self, user_message)
             self._update_textview("", user_message)
         finally:
             self.scan_button.set_sensitive(True)
@@ -360,22 +363,6 @@ class WebScanPage(Adw.PreferencesPage):
         scroll_adj = self.results_textview.get_parent().get_vadjustment()
         if scroll_adj:
             scroll_adj.set_value(scroll_adj.get_upper() - scroll_adj.get_page_size())
-
-    def _show_main_banner_error(self, message: str):
-        """Display an error message in the main window's error banner.
-
-        Args:
-        ----
-            message: The error message to display.
-
-        """
-        logger.error("Displaying error: %s", message)
-        main_window = self.get_native()
-        if main_window and hasattr(main_window, 'show_error'):
-            main_window.show_error(message)
-        else:
-            logger.warning("Could not find main window or show_error method to display: %s", message)
-
 
     def trigger_scan(self):
         """Programmatically triggers the WebScan 'Scan' action.

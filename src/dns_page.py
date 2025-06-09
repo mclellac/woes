@@ -12,6 +12,7 @@ from gi.repository import Adw, Gio, Gtk, Pango, GObject
 from typing import Tuple, Sequence, Any, List, Dict
 
 from .constants import APP_ID, RESOURCE_PREFIX
+from .utils import show_global_error, show_global_toast
 
 
 gi.require_version("Adw", "1")
@@ -196,12 +197,10 @@ class DNSPage(Adw.PreferencesPage):
         logger.debug(f"Performing DNS lookup for: {user_input}, type: {requested_record_type}")
 
         if not user_input:
-            main_window = self.get_native()
-            if main_window and hasattr(main_window, 'show_toast'):
-                main_window.show_toast("Input cannot be empty.")
-            else:
-                logger.warning("Could not find main window or show_toast method for empty DNS input toast.")
-                self._show_error("Input cannot be empty.") # Fallback
+            show_global_toast(self, "Input cannot be empty.")
+            main_window = self.get_native() # Still need to check for fallback condition
+            if not (main_window and hasattr(main_window, 'show_toast')):
+                show_global_error(self, "Input cannot be empty.")
             if self.dns_lookup_spinner:
                 self.dns_lookup_spinner.stop()
                 self.dns_lookup_spinner.set_visible(False)
@@ -210,12 +209,10 @@ class DNSPage(Adw.PreferencesPage):
         self._clear_error() # Clears banner and CSS error class
 
         if not self._is_valid_ip_or_domain(user_input):
-            main_window = self.get_native()
-            if main_window and hasattr(main_window, 'show_toast'):
-                main_window.show_toast("Invalid IP address or domain name.")
-            else:
-                logger.warning("Could not find main window or show_toast method for invalid DNS input toast.")
-                self._show_error("Invalid IP address or domain name.") # Fallback
+            show_global_toast(self, "Invalid IP address or domain name.")
+            main_window = self.get_native() # Still need to check for fallback condition
+            if not (main_window and hasattr(main_window, 'show_toast')):
+                show_global_error(self, "Invalid IP address or domain name.")
             if self.dns_lookup_spinner:
                 self.dns_lookup_spinner.stop()
                 self.dns_lookup_spinner.set_visible(False)
@@ -240,7 +237,7 @@ class DNSPage(Adw.PreferencesPage):
             self._display_result(result_data, user_input, actual_type_used, resolver.nameservers)
 
         except dns.resolver.NXDOMAIN:
-            self._show_error(f"Domain not found: {user_input} (NXDOMAIN)")
+            show_global_error(self, f"Domain not found: {user_input} (NXDOMAIN)")
         except dns.resolver.NoAnswer:
             # For NoAnswer, we want to display this information in the results area, not as an error banner.
             # _display_result will handle showing "No records found".
@@ -248,17 +245,17 @@ class DNSPage(Adw.PreferencesPage):
             logger.info("No %s records found for %s (NoAnswer).", requested_record_type, user_input)
             self._display_result([], user_input, requested_record_type, resolver.nameservers if hasattr(resolver, 'nameservers') else ["System default"])
         except dns.resolver.Timeout:
-            self._show_error(f"DNS query timed out for {user_input}")
+            show_global_error(self, f"DNS query timed out for {user_input}")
         except dns.exception.DNSException as e:  # Catch other DNS-specific exceptions
             logger.exception("DNS lookup failed for %s, type %s:", user_input, requested_record_type)
-            self._show_error(f"DNS Error: {str(e)}")
+            show_global_error(self, f"DNS Error: {str(e)}")
         except Exception as e:  # pylint: disable=broad-except
             logger.exception(
                 "Unexpected error during DNS lookup for %s, type %s:",
                 user_input,
                 requested_record_type,
             )
-            self._show_error(f"An unexpected error occurred: {str(e)}")
+            show_global_error(self, f"An unexpected error occurred: {str(e)}")
         finally:
             if self.dns_lookup_spinner:
                 self.dns_lookup_spinner.stop()
@@ -275,22 +272,6 @@ class DNSPage(Adw.PreferencesPage):
         model = self.dns_record_type_dropdown.get_model()
         selected_index = self.dns_record_type_dropdown.get_selected()
         return model.get_string(selected_index)
-
-    def _show_error(self, message: str):
-        """Display an error message in the UI banner and style the entry row.
-
-        Args:
-        ----
-            message: The error message to display.
-
-        """
-        self.domain_entry.add_css_class("error")
-        main_window = self.get_native()
-        if main_window and hasattr(main_window, 'show_error'):
-            main_window.show_error(message)
-        else:
-            logger.warning("Could not find main window or show_error method to display: %s", message)
-
 
     def _clear_error(self):
         """Clear any existing error messages from the UI banner and entry row styling."""

@@ -18,7 +18,7 @@ import nmap
 from .constants import APP_ID, RESOURCE_PREFIX
 from .nmap_scanner import NmapScanner, ScanStatus
 from .style_utils import apply_source_style_scheme
-from .utils import create_source_view
+from .utils import create_source_view, show_global_error, show_global_toast
 
 
 gi.require_version("Adw", "1")
@@ -198,13 +198,16 @@ class NmapPage(Gtk.Box):
         self._clear_error()
 
         if not self.scanner.validate_target_input(target):
-            # self.nmap_target_entryrow.add_css_class("error") # Removed for toast
+            # self.nmap_target_entryrow.add_css_class("error") # Kept commented as per subtask notes
+            message = "Invalid target format. Please enter a valid IP, CIDR, or hostname."
             main_window = self.get_native()
             if main_window and hasattr(main_window, 'show_toast'):
-                main_window.show_toast("Invalid target format. Please enter a valid IP, CIDR, or hostname.")
+                show_global_toast(self, message)
             else:
-                logger.warning("Could not find main window or show_toast method for invalid Nmap target toast.")
-                self._display_error("Invalid target format. Please enter a valid IP, CIDR, or hostname.") # Fallback
+                # The original code logged a warning here, but show_global_error will log one if it also fails.
+                # If show_global_toast was attempted but main_window/show_toast wasn't available,
+                # show_global_toast itself logs a warning. Then we fall back to show_global_error.
+                show_global_error(self, message) # Fallback
             return
         self.nmap_target_entryrow.remove_css_class("error")
 
@@ -377,7 +380,7 @@ class NmapPage(Gtk.Box):
 
         """
         logger.debug("Handling Nmap scan error for target %s: %s", target, error_message)
-        self._display_error(f"Error scanning {target}: {error_message}")
+        show_global_error(self, f"Error scanning {target}: {error_message}")
         self._set_scan_status(ScanStatus.FAILED, f"Scan failed for {target}")
 
     def _on_target_selected(self, _listbox: Gtk.ListBox, row: Gtk.ListBoxRow | None):
@@ -767,22 +770,6 @@ class NmapPage(Gtk.Box):
     def _on_error_banner_dismiss(self, _banner: Adw.Banner, *_args):
         """Handle dismissal of the error banner by clearing the error state."""
         self._clear_error()
-
-
-    def _display_error(self, message: str):
-        """Display an error message using the main window's banner.
-
-        Args:
-        ----
-            message: The error message to display.
-
-        """
-        main_window = self.get_native()
-        if main_window and hasattr(main_window, 'show_error'):
-            main_window.show_error(message)
-        else:
-            logger.warning("Could not find main window or show_error method to display: %s", message)
-
 
     def _clear_error(self):
         """Clear any displayed error message using the main window's banner."""
