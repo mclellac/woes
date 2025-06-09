@@ -1074,7 +1074,7 @@ class HttpPage(Adw.PreferencesPage):
                 self.http_entry_row.set_sensitive(True)
             if hasattr(self, "http_apply_button") and self.http_apply_button:
                 self.http_apply_button.set_sensitive(True)
-                self.http_apply_button.set_icon_name(None) # Remove spinner icon
+                self.http_apply_button.set_icon_name("") # Remove spinner icon
 
     @staticmethod
     def _ensure_scheme(url: str) -> str:
@@ -1172,7 +1172,7 @@ class HttpPage(Adw.PreferencesPage):
         if self.http_entry_row.get_text().strip(): # Only re-fetch if there's a URL
             self._on_entry_row_activated(self.http_entry_row) # Pass any widget, it's unused by handler
 
-    def _update_column_view_model(self, header_items: Optional[List[HeaderItem]]) -> None: # Restored specific type hint
+    def _update_column_view_model(self, header_items: Optional[List['HeaderItem']]) -> None: # Forward reference for HeaderItem
         """Update the Gtk.ColumnView's model (`Gio.ListStore`) with new header items.
 
         Clears existing items and populates the ListStore with the provided list.
