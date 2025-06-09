@@ -36,6 +36,7 @@ class WebScanPage(Adw.Bin):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        logging.debug("WebScanPage initialized")
 
     def on_scan_button_clicked(self, _widget: Gtk.Button):
         """Handle the 'Scan' button click event.
@@ -49,6 +50,7 @@ class WebScanPage(Adw.Bin):
             _widget: The Gtk.Button that was clicked.
 
         """
+        logging.debug(f"WebScanPage scan button clicked. URL: '{self.url_entry.get_text()}'")
         target_url = self.url_entry.get_text()
 
         # URL validation
@@ -149,24 +151,24 @@ class WebScanPage(Adw.Bin):
             stdout, stderr_or_error_msg, error_type = task.run_in_thread_finish(result)
 
             if error_type == "FileNotFoundError":
-                self.show_error_toast(
+                self._show_main_banner_error(
                     "Nikto command not found. Please ensure it is installed and in your PATH."
                 )
                 self._update_textview("", "Error: Nikto not found.")
             elif error_type == "TimeoutExpired":
-                self.show_error_toast(f"Scan for {target_url} timed out.")
+                self._show_main_banner_error(f"Scan for {target_url} timed out.")
                 self._update_textview(
                     "", f"Error: Scan for {target_url} timed out after 5 minutes."
                 )
             elif error_type == "Exception":
-                self.show_error_toast(f"An error occurred: {stderr_or_error_msg}")
+                self._show_main_banner_error(f"An error occurred: {stderr_or_error_msg}")
                 self._update_textview("", f"An error occurred: {stderr_or_error_msg}")
             else:
                 self._update_textview(stdout, stderr_or_error_msg)
 
         except GLib.Error as e:
             logging.error("Error in scan task: %s", e.message)
-            self.show_error_toast(f"An error occurred: {e.message}")
+            self._show_main_banner_error(f"An error occurred: {e.message}")
             self._update_textview("", f"An error occurred: {e.message}")
         finally:
             self.scan_button.set_sensitive(True)
@@ -193,8 +195,8 @@ class WebScanPage(Adw.Bin):
         if scroll_adj:
             scroll_adj.set_value(scroll_adj.get_upper() - scroll_adj.get_page_size())
 
-    def show_error_toast(self, message: str):
-        """Display an error message in the page's Adw.Banner.
+    def _show_main_banner_error(self, message: str):
+        """Display an error message in the main window's error banner.
 
         Args:
         ----
