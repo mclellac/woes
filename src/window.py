@@ -40,7 +40,7 @@ class WoesWindow(Adw.ApplicationWindow):
 
     switcher_title = Gtk.Template.Child("switcher_title")
     stack = Gtk.Template.Child("stack")
-    main_error_banner = Gtk.Template.Child("main_error_banner") # Added banner
+    main_error_banner = Gtk.Template.Child("main_error_banner")
 
     def __init__(self, **kwargs):
         """Initialize the WoesWindow.
@@ -88,7 +88,7 @@ class WoesWindow(Adw.ApplicationWindow):
                     "Could not connect to GNOME interface settings (%s): %s. "
                     "System font integration will be limited.",
                     GNOME_INTERFACE_SCHEMA,
-                    e, # Log the exception
+                    e,
                 )
             # Optionally, initialize and connect to GNOME_A11Y_SCHEMA here if needed for high-contrast etc.
 
@@ -106,10 +106,10 @@ class WoesWindow(Adw.ApplicationWindow):
 
         if self.main_error_banner:
             self.main_error_banner.connect("button-clicked", self._on_main_error_banner_dismissed)
-            self.hide_error() # Ensure it's hidden on startup by default
+            self.hide_error()
 
     def _on_main_error_banner_dismissed(self, _banner=None, _data=None):
-        """Handle dismissal of the main error banner.""" # Corrected docstring
+        """Handle dismissal of the main error banner."""
         self.hide_error()
 
     def show_error(self, message: str):
