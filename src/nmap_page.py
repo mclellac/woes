@@ -9,7 +9,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 import re
-from typing import Optional
+from typing import Optional, List, Dict, Any # Added List, Dict, Any
 import yaml
 
 import gi
@@ -70,8 +70,6 @@ class NmapPage(Gtk.Box):
     nmap_timing_template_comborow = Gtk.Template.Child("nmap_timing_template_comborow")
     status_row = Gtk.Template.Child("status_row")
     scan_spinner = Gtk.Template.Child("scan_spinner")
-    # Cancel button will be added programmatically
-    # nmap_cancel_scan_button = Gtk.Template.Child("nmap_cancel_scan_button")
 
     left_vbox_content = Gtk.Template.Child("left_vbox_content")
     nmap_host_listbox = Gtk.Template.Child("nmap_host_listbox")
@@ -176,7 +174,7 @@ class NmapPage(Gtk.Box):
         else:
             logger.warning("No active scan or cancellable to cancel.")
 
-    def _on_target_activate(self, _widget: Adw.EntryRow): # pylint: disable=unused-argument # Gtk.Widget or Adw.EntryRow
+    def _on_target_activate(self, _widget: Adw.EntryRow): # pylint: disable=unused-argument # Standard GTK signal handler signature
         logger.debug(f"_on_target_activate called by {_widget}.")
         target = self.nmap_target_entryrow.get_text().strip()
         self._clear_error()
@@ -203,8 +201,6 @@ class NmapPage(Gtk.Box):
             # A more robust approach might queue the new scan or provide more feedback.
             if not self.current_nmap_task.is_done(): # Re-check after cancel attempt
                  logger.warning("Previous scan task still running. Please cancel it explicitly or wait.")
-                 # show_global_toast(self, "A scan is already in progress. Cancel it or wait.")
-                 # return # Optionally prevent starting a new scan
 
         self._set_scan_status(ScanStatus.IN_PROGRESS, f"Starting scan for {target}...")
 
@@ -240,12 +236,14 @@ class NmapPage(Gtk.Box):
     def _run_nmap_scan_thread_func(
         self,
         task: Gio.Task,
-        _source_object: GObject.Object, # type: ignore
-        task_data: Dict[str, Any], # Custom task data
+        _source_object: GObject.Object, # type: ignore # Standard GIO Task parameter, page instance
+        _task_data: Optional[Dict[str, Any]], # Standard GIO Task parameter, data from set_task_data()
         cancellable: Optional[Gio.Cancellable]
-    ):
+    ): # pylint: disable=unused-argument
         """Execute the Nmap scan in a separate thread via NmapScanner, for Gio.Task."""
-        params = task.get_task_data()
+        # _source_object is self (NmapPage instance)
+        # _task_data is the data set by task.set_task_data(), also retrievable via task.get_task_data()
+        params = task.get_task_data() # Use this to get data for clarity
         target = params["target"]
         logger.debug(f"_run_nmap_scan_thread_func started for target: {target}")
 
@@ -254,7 +252,6 @@ class NmapPage(Gtk.Box):
             return
 
         try:
-            # run_nmap_scan will need to be modified to accept and use cancellable
             nm = self.scanner.run_nmap_scan(
                 target=params["target"],
                 os_fingerprinting=params["os_fingerprinting"],
@@ -280,8 +277,10 @@ class NmapPage(Gtk.Box):
             logger.info("Nmap scan thread finished for %s.", target)
             # UI sensitivity updates are handled in _nmap_scan_task_done_cb
 
-    def _nmap_scan_task_done_cb(self, _source_object: GObject.Object, result: Gio.AsyncResult, _user_data: object): # type: ignore
+    def _nmap_scan_task_done_cb(self, _source_object: GObject.Object, result: Gio.AsyncResult, _user_data: object): # type: ignore # pylint: disable=unused-argument
         """Callback for when the Nmap scan Gio.Task completes."""
+        # _source_object is self (NmapPage instance)
+        # _user_data is None (as passed in Gio.Task.new)
         task = self.current_nmap_task # Should match the task that finished
         original_target = task.get_task_data()["target"] if task and task.get_task_data() else "unknown target"
 
@@ -290,18 +289,22 @@ class NmapPage(Gtk.Box):
         nm_results: Optional[nmap.PortScanner] = None
         try:
             nm_results = task.propagate_value().value if hasattr(task.propagate_value(), 'value') else task.propagate_value()
-            # nm_results = task.propagate_value() # type: ignore
             if isinstance(nm_results, nmap.PortScanner):
                  self._process_scan_results(nm_results, original_target)
-            else: # Should not happen if task.return_value(nm) was called with PortScanner object
+            # Ensure nm_results is not None and is of the expected type before processing further.
+            # This condition might be redundant if task.propagate_value() already guarantees a PortScanner object or raises.
+            # However, if task.return_value(None) was possible, this check would be useful.
+            # Given the current logic of _run_nmap_scan_thread_func, it should always return PortScanner or raise.
+            elif nm_results is not None: # Should not happen if task.return_value(nm) was called with PortScanner object
                  logger.error(f"Nmap scan for {original_target} returned unexpected result type: {type(nm_results)}")
                  self._handle_scan_error(original_target, "Scan returned unexpected data.")
+            # If nm_results is None, it means an error was already raised and handled by GLib.Error block.
         except GLib.Error as e:
             logger.warning(f"Nmap scan for {original_target} failed or was cancelled. Domain: {e.domain}, Code: {e.code}, Message: {e.message}")
-            if e.matches(NMAP_SCAN_ERROR_DOMAIN, NmapScanErrorType.CANCELLED.value):
+            if e.matches(NMAP_SCAN_ERROR_DOMAIN, NmapScanErrorType.CANCELLED.value): # type: ignore
                 self._set_scan_status(ScanStatus.IDLE, f"Scan for {original_target} cancelled.")
                 self._clear_results() # Or some other specific UI state for cancellation
-            elif e.matches(NMAP_SCAN_ERROR_DOMAIN, NmapScanErrorType.SCAN_FAILED.value):
+            elif e.matches(NMAP_SCAN_ERROR_DOMAIN, NmapScanErrorType.SCAN_FAILED.value): # type: ignore
                 self._handle_scan_error(original_target, e.message)
             else: # UNEXPECTED or other GLib.Error
                 self._handle_scan_error(original_target, f"Scan error: {e.message}")
@@ -355,7 +358,7 @@ class NmapPage(Gtk.Box):
         show_global_error(self, f"Error scanning {target}: {error_message}")
         self._set_scan_status(ScanStatus.FAILED, f"Scan failed for {target}")
 
-    def _on_target_selected(self, _listbox: Gtk.ListBox, row: Gtk.ListBoxRow | None):
+    def _on_target_selected(self, _listbox: Gtk.ListBox, row: Optional[Gtk.ListBoxRow]):
         """Handle selection of a host in the Nmap results ListBox."""
         self._clear_dynamic_details()
         if row is None:
@@ -395,7 +398,14 @@ class NmapPage(Gtk.Box):
             self._add_ports_expander(host_data_dict, selected_target_key)
             self._add_os_expander(host_data_dict, selected_target_key)
             self._add_raw_output_expander(host_data_dict, selected_target_key)
-        else:
+        elif item_obj is None and row is not None: # Row selected but not an NmapTargetRow or no item
+            logger.warning("Selected row is not a valid NmapTargetRow or has no NmapItem.")
+            self.nmap_detail_placeholder.set_title("Selection Error")
+            self.nmap_detail_placeholder.set_description("Could not process selected item.")
+            if not self.nmap_detail_placeholder.get_parent():
+                self.nmap_detail_box.append(self.nmap_detail_placeholder)
+            self.nmap_detail_placeholder.set_visible(True)
+        else: # item_obj is None and row is None was handled by the first if block.
             logger.warning("Could not retrieve NmapItem from selected row or item_obj is None.")
             self.nmap_detail_placeholder.set_title("Error")
             self.nmap_detail_placeholder.set_description("Could not load details for the selected host.")
@@ -403,7 +413,7 @@ class NmapPage(Gtk.Box):
                 self.nmap_detail_box.append(self.nmap_detail_placeholder)
             self.nmap_detail_placeholder.set_visible(True)
 
-    def _add_raw_output_expander(self, host_data_dict: dict, host_key: str):
+    def _add_raw_output_expander(self, host_data_dict: Dict[str, Any], host_key: str):
         """Add an Adw.ExpanderRow to display the human-readable text summary for a host."""
         logger.debug("Adding text scan summary expander for %s", host_key)
         expander = Adw.ExpanderRow(title=f"Text Scan Summary - {host_key}")
@@ -421,7 +431,7 @@ class NmapPage(Gtk.Box):
         expander.add_row(scrolled_window)
         self.nmap_detail_box.append(expander)
 
-    def _add_host_details_expander(self, host_data: dict, host_key: str):  # pylint: disable=too-many-locals
+    def _add_host_details_expander(self, host_data: Dict[str, Any], host_key: str):  # pylint: disable=too-many-locals # UI construction method with many data points
         """Add an Adw.ExpanderRow to display general host information."""
         logger.debug("Adding host details expander for %s", host_key)
         expander = Adw.ExpanderRow(title=f"Host Information - {host_key}")
@@ -447,7 +457,7 @@ class NmapPage(Gtk.Box):
             expander.add_row(Adw.ActionRow(title="Hostnames", subtitle="No hostnames reported"))
         self.nmap_detail_box.append(expander)
 
-    def _add_ports_expander(self, host_data: dict, host_key: str):  # pylint: disable=too-many-locals
+    def _add_ports_expander(self, host_data: Dict[str, Any], host_key: str):  # pylint: disable=too-many-locals # UI construction method with many data points
         """Add an Adw.ExpanderRow to display detected network ports and their details."""
         logger.debug("Adding ports expander for %s", host_key)
         expander = Adw.ExpanderRow(title=f"Network Ports - {host_key}")
@@ -475,7 +485,7 @@ class NmapPage(Gtk.Box):
             expander.add_row(Adw.ActionRow(title="Ports", subtitle="No open ports reported or port data available."))
         self.nmap_detail_box.append(expander)
 
-    def _add_os_expander(self, host_data: dict, host_key: str):  # pylint: disable=too-many-locals
+    def _add_os_expander(self, host_data: Dict[str, Any], host_key: str):  # pylint: disable=too-many-locals # UI construction method with many data points
         """Add an Adw.ExpanderRow to display OS detection results."""
         osmatch_data = host_data.get("osmatch", [])
         if not osmatch_data:
@@ -514,7 +524,7 @@ class NmapPage(Gtk.Box):
             expander.add_row(Adw.ActionRow(title="OS Detection", subtitle="No specific OS matches found."))
         self.nmap_detail_box.append(expander)
 
-    def _update_results_view(self, hosts: list, results_map: dict):
+    def _update_results_view(self, hosts: List[str], results_map: Dict[str, str]):
         """Update the host ListBox with new scan results."""
         logger.info("Updating Nmap results view for hosts: %s", hosts)
         self.nmap_target_listbox_store.remove_all()
@@ -542,7 +552,7 @@ class NmapPage(Gtk.Box):
                 self.nmap_detail_box.append(self.nmap_detail_placeholder)
             self.nmap_detail_placeholder.set_visible(True)
 
-    def _set_scan_status(self, status_type: ScanStatus, message: str):
+    def _set_scan_status(self, status_type: ScanStatus, message: str): # type: ignore
         """Set the scan status and update the UI via GLib.idle_add."""
         logger.info("Setting Nmap scan status: %s - %s", status_type.name, message)
         GLib.idle_add(self._update_status_ui, status_type, message)

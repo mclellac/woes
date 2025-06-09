@@ -108,7 +108,7 @@ class HttpFetcher:
         :return: A tuple containing two dictionaries:
                  - initial_request_specific_headers: Headers for the first request only.
                  - session_headers: Headers to apply to the requests.Session.
-        :rtype: tuple[dict[str, str], dict[str, str]]
+        :rtype: Tuple[Dict[str, str], Dict[str, str]]
         """
         initial_request_specific_headers: Dict[str, str] = {}
         session_headers: Dict[str, str] = {}
@@ -141,7 +141,7 @@ class HttpFetcher:
         Moved from HttpPage.
 
         :param initial_request_headers: Headers to send with the initial request.
-        :type initial_request_headers: dict[str, str]
+        :type initial_request_headers: Dict[str, str]
         :raises HttpRequestTimeoutError: If the request times out.
         :raises HttpConnectionError: If a connection error occurs.
         :raises HttpGenericRequestError: For other request-related errors.
@@ -183,7 +183,7 @@ class HttpFetcher:
         :raises HttpProcessingError: If an HTTPError (4xx/5xx) occurs.
         :return: A list of dictionaries, where each dictionary represents a
                  response (redirect or final).
-        :rtype: list[dict[str, any]]
+        :rtype: List[Dict[str, Any]]
         """
         all_responses_data: List[Dict[str, Any]] = []
         for hist_resp in response.history:
@@ -213,7 +213,16 @@ class HttpFetcher:
 
     def _get_detailed_connection_error_message(self, exc: Exception, url: str) -> Optional[str]:
         """Attempts to find a 'Connection Refused' error within a chain of exceptions.
+
         Moved from HttpPage.
+
+        :param exc: The initial exception object.
+        :type exc: Exception
+        :param url: The URL for which the connection was attempted.
+        :type url: str
+        :return: A detailed error message if 'Connection Refused' is identified,
+                 otherwise ``None``.
+        :rtype: Optional[str]
         """
         current_exc: Optional[BaseException] = exc
         found_connection_refused = False
@@ -258,7 +267,15 @@ class HttpFetcher:
         return None
 
     def _format_http_error(self, e: requests.exceptions.HTTPError) -> str:
-        """Format an HTTPError into a user-friendly string. Moved from HttpPage."""
+        """Format an HTTPError into a user-friendly string.
+
+        Moved from HttpPage.
+
+        :param e: The :class:`requests.exceptions.HTTPError` object.
+        :type e: requests.exceptions.HTTPError
+        :return: A user-friendly error message string.
+        :rtype: str
+        """
         status_code = e.response.status_code
         reason = e.response.reason if e.response.reason else "Unknown Error"
         url = e.request.url if e.request else "N/A"
@@ -278,7 +295,7 @@ class HttpFetcher:
         :raises HttpClientError: If cancelled or other client-side issue.
         :return: A list of dictionaries, where each dictionary represents a
                  response (redirect or final).
-        :rtype: list[dict[str, any]]
+        :rtype: List[Dict[str, Any]]
         """
         initial_request_specific_headers, session_headers = self._prepare_request_headers()
 

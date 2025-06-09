@@ -7,7 +7,7 @@ import subprocess
 # import re # No longer used in this file
 import logging
 logger = logging.getLogger(__name__)
-from typing import Optional, Dict, Any, Tuple # Added Dict, Any, Tuple
+from typing import Optional, Dict, Any, Tuple
 import time # Added for polling loop
 from enum import Enum # Added for WebScanErrorType
 
@@ -39,7 +39,7 @@ class WebScanPage(Adw.PreferencesPage):
     maxtime_entry_row = Gtk.Template.Child()
     clear_results_button = Gtk.Template.Child()
     copy_results_button = Gtk.Template.Child()
-    webscan_status_spinner = Gtk.Template.Child("webscan_status_spinner") # Assuming this exists in UI or will be added
+    webscan_status_spinner = Gtk.Template.Child("webscan_status_spinner")
 
     def __init__(self, **kwargs):
         """Initialize the WebScanPage."""
@@ -53,7 +53,7 @@ class WebScanPage(Adw.PreferencesPage):
         # Programmatically create and add the Cancel Scan button
         self.webscan_cancel_button = Gtk.Button(label="Cancel Scan", icon_name="process-stop-symbolic")
         self.webscan_cancel_button.set_sensitive(False)
-        self.webscan_cancel_button.set_visible(False) # Initially hidden
+        self.webscan_cancel_button.set_visible(False)
         self.webscan_cancel_button.add_css_class("destructive-action")
         self.webscan_cancel_button.connect("clicked", self._on_cancel_scan_clicked)
 
@@ -220,14 +220,13 @@ class WebScanPage(Adw.PreferencesPage):
         """Execute the Nikto scan in a separate thread, with cancellation support."""
         logger.debug("WebScanPage._run_scan_task_thread_func started")
 
-        scan_params = task.get_task_data() # Retrieve parameters set earlier
+        scan_params = task.get_task_data()
         if not scan_params: # Should not happen if set correctly
             logger.error("No scan parameters found in task data.")
             task.return_new_error_literal(WEB_SCAN_ERROR_DOMAIN, WebScanErrorType.GENERIC.value, "Missing scan parameters.") # type: ignore
             return
 
         target_url = scan_params["target_url"]
-        # (URL scheme adjustment logic remains the same)
 
         # is_valid_url (used in on_scan_button_clicked) ensures target_url has a scheme from
         # ['http', 'https', 'ftp']. Nikto prepends 'http://' if no scheme is given,
@@ -283,7 +282,7 @@ class WebScanPage(Adw.PreferencesPage):
                 return
 
             process = subprocess.Popen(nikto_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8")
-            page_instance.current_nikto_process = process # Store for potential external cancellation (e.g. __del__) - though __del__ might not run in main thread
+            self.current_nikto_process = process # Store for potential external cancellation (e.g. __del__) - though __del__ might not run in main thread
 
             stdout_str, stderr_str = "", ""
             # Polling loop for cancellation
@@ -301,18 +300,16 @@ class WebScanPage(Adw.PreferencesPage):
                         except Exception as e_term: # pylint: disable=broad-except
                             logger.error(f"Error terminating Nikto process: {e_term}")
                     task.return_new_error_literal(WEB_SCAN_ERROR_DOMAIN, WebScanErrorType.CANCELLED.value, "Scan cancelled by user.") # type: ignore
-                    page_instance.current_nikto_process = None
+                    self.current_nikto_process = None
                     return
 
-                if process.poll() is not None: # Process finished
-                    logger.debug("Nikto process finished on its own.")
+                if process.poll() is not None:
                     break
 
                 time.sleep(0.2) # Polling interval
 
-            # Process finished, get final output
             stdout_str, stderr_str = process.communicate()
-            page_instance.current_nikto_process = None # Clear process reference
+            self.current_nikto_process = None # Clear process reference
 
             if process.returncode != 0:
                  logger.error(f"Nikto process finished with error code {process.returncode}. Stderr: {stderr_str}")
@@ -329,12 +326,11 @@ class WebScanPage(Adw.PreferencesPage):
             logger.exception(f"An unexpected error occurred during Nikto scan task: {e}")
             task.return_new_error_literal(WEB_SCAN_ERROR_DOMAIN, WebScanErrorType.GENERIC.value, str(e)) # type: ignore
         finally:
-            page_instance.current_nikto_process = None # Ensure cleared
+            self.current_nikto_process = None # Ensure cleared
 
     def _on_scan_task_done(self, _source_object: GObject.Object, result: Gio.AsyncResult, _user_data: object): # type: ignore
         """Handle completion of the Nikto scan task."""
         target_url = "Unknown URL"
-        # Retrieve target_url from task_data if available
         if self.current_web_scan_task and self.current_web_scan_task.get_task_data():
             task_data_retrieved = self.current_web_scan_task.get_task_data()
             if isinstance(task_data_retrieved, dict): # Check if it's the dict we set

@@ -122,6 +122,7 @@ class WoesApplication(Adw.Application):
         :param version: The application version.
         :type version: str
         :param kwargs: Additional keyword arguments for :class:`Adw.Application`.
+        :type kwargs: Any
         """
         logging.info("WoesApplication.__init__ entered")
         self.version = version

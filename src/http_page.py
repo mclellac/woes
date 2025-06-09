@@ -561,7 +561,7 @@ class HttpPage(Adw.PreferencesPage):
 
         :param header_items: A list of :class:`HeaderItem` objects to display,
                              or ``None`` to clear the view.
-        :type header_items: list[:class:`HeaderItem`], optional
+        :type header_items: Optional[List[:class:`HeaderItem`]]
         """
         self.header_list_store.remove_all()
         if header_items:
