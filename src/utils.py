@@ -1,9 +1,9 @@
 """General utility functions for the Woes application."""
 import logging
-import ipaddress # Added for is_valid_ip
-import re # Added for is_valid_domain
-from urllib.parse import urlparse # Added for is_valid_url
-from typing import Tuple, List # Added List for type hint
+import ipaddress
+import re
+from urllib.parse import urlparse
+from typing import Tuple, List
 
 import gi
 from gi.repository import Gtk, GtkSource, Adw
@@ -118,7 +118,6 @@ def show_global_toast(
             message, e
         )
 
-# --- New Validation Functions ---
 
 def is_valid_ip(address: str) -> bool:
     """Check if the given string is a valid IPv4 or IPv6 address.
@@ -157,7 +156,6 @@ def is_valid_domain(domain: str) -> bool:
     # - Labels consist of LDH (letters, digits, hyphen).
     # - Labels do not start or end with a hyphen.
     # - The TLD (last label) must be at least 2 chars and all alphabetic.
-    # - Total length up to 253 chars is often cited, but regex focuses on structure.
     # This regex is a common one for ASCII domain names.
     # It allows for subdomains and ensures TLD is alphabetic.
     domain_regex = re.compile(
@@ -192,7 +190,7 @@ def is_valid_url(url: str, schemes: List[str] = None) -> bool:
         parsed_url = urlparse(url)
         if not (parsed_url.scheme and parsed_url.netloc):
             return False
-        if schemes and parsed_url.scheme not in schemes:
+        if schemes and parsed_url.scheme not in schemes: # Only check schemes if list is not empty
             return False
         return True
     except ValueError: # urlparse can raise ValueError for some malformed URLs, though it's rare

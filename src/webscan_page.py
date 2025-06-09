@@ -4,7 +4,7 @@ This page provides a simple interface to run Nikto scans against a target URL
 and display the results.
 """
 import subprocess
-import re # Keep re for now, other parts of the file might use it, or remove if truly unused later.
+# import re # No longer used in this file
 import logging
 logger = logging.getLogger(__name__)
 from typing import Optional
@@ -13,7 +13,7 @@ import gi
 from gi.repository import Gtk, Adw, Gio, GLib, GObject, Gdk, GtkSource
 
 from .constants import RESOURCE_PREFIX
-from .utils import show_global_error, show_global_toast, is_valid_url # Added is_valid_url
+from .utils import show_global_error, show_global_toast, is_valid_url
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
@@ -96,9 +96,7 @@ class WebScanPage(Adw.PreferencesPage):
     def on_scan_button_clicked(self, _widget: Gtk.Button):
         """Handle the 'Scan' button click event."""
         logger.debug(f"WebScanPage scan button clicked. URL: '{self.url_entry.get_text()}'")
-        target_url = self.url_entry.get_text().strip() # Added strip() here for consistency
-
-        # Removed local url_pattern regex definition
+        target_url = self.url_entry.get_text().strip()
 
         if not target_url:
             show_global_toast(self, "Target URL cannot be empty.")
@@ -107,9 +105,8 @@ class WebScanPage(Adw.PreferencesPage):
                 show_global_error(self, "Target URL cannot be empty.")
             return
 
-        # Use the new is_valid_url utility function
         # The original regex allowed http, https, ftp.
-        # is_valid_url defaults to ['http', 'https'], so we provide the schemes.
+        # utils.is_valid_url defaults to ['http', 'https'], so we provide the schemes.
         if not is_valid_url(target_url, schemes=['http', 'https', 'ftp']):
             show_global_toast(self, "Invalid URL format. Please enter a valid URL.")
             main_window = self.get_native()
@@ -130,7 +127,7 @@ class WebScanPage(Adw.PreferencesPage):
                 logger.warning(f"Error trying to cancel previous web scan task: {e_cancel}")
 
         cancellable = Gio.Cancellable()
-        task = Gio.Task.new(self, cancellable, self._on_scan_task_done, None)
+        task = Gio.Task.new(self, cancellable, self._on_scan_task_done, None) # task_data is None
         self.current_web_scan_task = task
 
         self._temp_scan_data = {
@@ -146,8 +143,8 @@ class WebScanPage(Adw.PreferencesPage):
 
     def _run_scan_task_thread_func(self,
                                    task: Gio.Task,
-                                   source_object: GObject.Object,
-                                   task_data: object,
+                                   source_object: GObject.Object, # WebScanPage instance
+                                   task_data: object, # None
                                    cancellable: Gio.Cancellable):
         """Execute the Nikto scan in a separate thread."""
         logger.debug("WebScanPage._run_scan_task_thread_func started")
@@ -162,20 +159,19 @@ class WebScanPage(Adw.PreferencesPage):
         mutate_active = scan_data.get("mutate", False)
         maxtime_str = scan_data.get("maxtime", "")
 
-        # Note: is_valid_url used in on_scan_button_clicked ensures scheme presence.
-        # However, Nikto itself might prepend http:// if no scheme is given.
-        # To be safe and explicit for Nikto's -h argument:
-        if not target_url.startswith(("http://", "https://", "ftp://")): # Check against allowed schemes
-            # Defaulting to http for nikto if scheme is missing after validation
-            # This case should ideally not be hit if is_valid_url (with schemes) works as expected
-            # and target_url is passed directly from input.
-            # However, if is_valid_url allows URLs without explicit schemes (e.g. example.com)
-            # then this logic is needed. The current is_valid_url requires a scheme.
-            # Let's assume target_url from input might be schemeless and is_valid_url allows it.
-            # The current is_valid_url in utils.py DOES require a scheme.
-            # So this block might be less critical if target_url is always pre-schemed by user or validation.
-            # For robustness with Nikto:
-            logger.info("Prepending http:// to target URL for Nikto as scheme was missing or not http/https/ftp.")
+        # is_valid_url (used in on_scan_button_clicked) ensures target_url has a scheme from
+        # ['http', 'https', 'ftp']. Nikto prepends 'http://' if no scheme is given,
+        # but since our validation requires a scheme, this explicit check and prepend
+        # ensures Nikto gets a URL it can work with, especially if the URL somehow
+        # lost its scheme or if ftp was validated but nikto needs http/s for -h.
+        # For robustness with Nikto, ensure it has an http/https scheme if ftp isn't directly supported by -h.
+        if target_url.startswith("ftp://"):
+            logger.info("FTP URL provided; Nikto might not directly support it. Attempting with http:// for the host part.")
+            # Attempt to convert ftp://host/path to http://host/path for Nikto
+            # This is a simple conversion; complex FTP URLs might not translate well.
+            target_url = target_url.replace("ftp://", "http://", 1)
+        elif not target_url.startswith(("http://", "https://")):
+            logger.info("Prepending http:// to target URL for Nikto as scheme was missing or not http/https.")
             target_url = "http://" + target_url
 
 
@@ -198,10 +194,13 @@ class WebScanPage(Adw.PreferencesPage):
                 logger.warning(f"Invalid maxtime value '{maxtime_str}', not an integer. Ignoring.")
 
         tuning_options = []
-        if cgi_vulns: tuning_options.append('2')
-        if interesting_content: tuning_options.append('1')
+        if cgi_vulns: tuning_options.append('2') # Corresponds to Nikto's "Misconfiguration / Default File"
+        if interesting_content: tuning_options.append('1') # Corresponds to Nikto's "Interesting File / Seen in logs"
 
+        # Nikto's -Tuning option takes a string of numbers (e.g., "12") to specify checks.
+        # If no tuning switches are active, the -Tuning option is omitted.
         if tuning_options:
+            # Using set avoids duplicates and sorted() ensures a consistent order.
             tuning_string = "".join(sorted(list(set(tuning_options))))
             if tuning_string:
                 nikto_command.extend(['-Tuning', tuning_string])
@@ -221,7 +220,7 @@ class WebScanPage(Adw.PreferencesPage):
             task.return_value((None, None, "FileNotFoundError"))
         except subprocess.TimeoutExpired:
             task.return_value((None, None, "TimeoutExpired"))
-        except Exception as e:
+        except Exception as e: # pylint: disable=broad-except
             task.return_value((None, str(e), "Exception"))
 
     def _on_scan_task_done(self, source_object: GObject.Object, async_result_obj: Gio.AsyncResult, _user_data: object):
@@ -238,6 +237,12 @@ class WebScanPage(Adw.PreferencesPage):
             return
 
         try:
+            # Gio.Task.propagate_value() can raise a GLib.Error if the task itself
+            # encountered an unhandled exception.
+            # On success, it returns a 2-tuple. The first element's role is secondary
+            # here as critical errors are caught by GLib.Error.
+            # The second element is the actual payload (our 3-element tuple)
+            # passed to task.return_value() in the thread.
             _intermediate_tuple_from_propagate = active_task.propagate_value()
             _status_or_bool, actual_payload_tuple = _intermediate_tuple_from_propagate
             stdout, stderr_or_error_msg, error_type = actual_payload_tuple

@@ -1,7 +1,7 @@
 """Defines the DNS lookup page for the Woes application."""
 import logging
 logger = logging.getLogger(__name__)
-import re # Keep for existing _is_valid_ip_or_domain if not fully replaced by utils initially
+# import re # No longer used in this file
 
 import dns.resolver
 import dns.reversename
@@ -52,14 +52,7 @@ class DNSPage(Adw.PreferencesPage):
 
     @staticmethod
     def _copy_to_clipboard(text: str, widget: Gtk.Widget) -> None:
-        """Copy the given text to the clipboard.
-
-        Args:
-        ----
-            text: The text to copy.
-            widget: A Gtk.Widget to get the clipboard from.
-
-        """
+        """Copy the given text to the clipboard."""
         try:
             clipboard = widget.get_clipboard()
             if clipboard:
@@ -70,46 +63,25 @@ class DNSPage(Adw.PreferencesPage):
         except Exception: # pylint: disable=broad-except
             logger.exception("Error copying to clipboard:")
 
-    # _is_ip_address method is removed. Callsites will use utils.is_valid_ip.
-
     def _is_valid_ip_or_domain(self, input_str: str) -> bool:
         """Validate whether the input string is a syntactically valid IP address or domain name
         using utility functions.
         """
-        if not input_str: # Utility functions also check for empty, but good to be explicit.
+        if not input_str:
             return False
         return is_valid_ip(input_str) or is_valid_domain(input_str)
 
     def _on_entry_activated(self, _widget: Gtk.Widget):
-        """Handle DNS entry activation (e.g., pressing Enter or clicking Apply).
-
-        Args:
-        ----
-            _widget: The widget that emitted the signal.
-
-        """
+        """Handle DNS entry activation."""
         logger.debug(f"_on_entry_activated called by widget: {_widget}")
         self._perform_lookup()
 
     def _on_record_type_changed(self, _dropdown: Gtk.DropDown, _param_spec: GObject.ParamSpec):
-        """Handle the record type dropdown change event.
-
-        Args:
-        ----
-            _dropdown: The Gtk.DropDown widget whose selection changed.
-            _param_spec: The GLib.ParamSpec of the property that changed.
-
-        """
+        """Handle the record type dropdown change event."""
         self._perform_lookup()
 
     def _prepare_resolver(self) -> dns.resolver.Resolver:
-        """Prepare a DNS resolver, incorporating custom server settings if configured.
-
-        Returns
-        -------
-            dns.resolver.Resolver: The configured DNS resolver instance.
-
-        """
+        """Prepare a DNS resolver, incorporating custom server settings if configured."""
         resolver = dns.resolver.Resolver()
         custom_dns_server = self.settings.get_string("custom-dns-server")
         if custom_dns_server:
@@ -122,50 +94,28 @@ class DNSPage(Adw.PreferencesPage):
         requested_record_type: str,
         resolver: dns.resolver.Resolver,
     ) -> Tuple[List[Dict[str, Any]], str]:
-        """Fetch DNS records for the given input.
-
-        Args:
-        ----
-            user_input: The domain name or IP address to query.
-            requested_record_type: The DNS record type as a string (e.g., "A", "MX").
-            resolver: The DNS resolver instance to use for the query.
-
-        Returns:
-        -------
-            A tuple containing the list of parsed DNS record dictionaries and the actual record type used.
-
-        Raises:
-        ------
-            dns.resolver.NXDOMAIN: If the domain does not exist.
-            dns.resolver.NoAnswer: If the query succeeded but no records of the requested type exist.
-            dns.resolver.Timeout: If the query timed out.
-
-        """
+        """Fetch DNS records for the given input."""
         logger.debug(f"Fetching DNS records for: {user_input}, type: {requested_record_type}")
         actual_record_type = requested_record_type
-        if is_valid_ip(user_input): # Use new util function
+        if is_valid_ip(user_input):
             actual_record_type = "PTR"  # Override to PTR for IP addresses
 
         parsed_records = self._lookup_record(user_input, actual_record_type, resolver)
         return parsed_records, actual_record_type
 
     def _perform_lookup(self):  # noqa: C901 # Function complexity is high, consider refactoring.
-        """Perform the DNS lookup based on user input and selected record type.
-
-        Handles input validation, prepares the resolver, fetches records,
-        and updates the UI with results or error messages.
-        """
+        """Perform the DNS lookup based on user input and selected record type."""
         if self.dns_lookup_spinner:
             self.dns_lookup_spinner.set_visible(True)
             self.dns_lookup_spinner.start()
 
         user_input = self.domain_entry.get_text().strip()
-        requested_record_type = self._get_selected_record_type() # Get it early for logging
+        requested_record_type = self._get_selected_record_type()
         logger.debug(f"Performing DNS lookup for: {user_input}, type: {requested_record_type}")
 
         if not user_input:
             show_global_toast(self, "Input cannot be empty.")
-            main_window = self.get_native() # Still need to check for fallback condition
+            main_window = self.get_native()
             if not (main_window and hasattr(main_window, 'show_toast')):
                 show_global_error(self, "Input cannot be empty.")
             if self.dns_lookup_spinner:
@@ -173,11 +123,11 @@ class DNSPage(Adw.PreferencesPage):
                 self.dns_lookup_spinner.set_visible(False)
             return
 
-        self._clear_error() # Clears banner and CSS error class
+        self._clear_error() # Clears banner and CSS error class from domain_entry
 
-        if not self._is_valid_ip_or_domain(user_input): # This now uses new utils
+        if not self._is_valid_ip_or_domain(user_input):
             show_global_toast(self, "Invalid IP address or domain name.")
-            main_window = self.get_native() # Still need to check for fallback condition
+            main_window = self.get_native()
             if not (main_window and hasattr(main_window, 'show_toast')):
                 show_global_error(self, "Invalid IP address or domain name.")
             if self.dns_lookup_spinner:
@@ -185,16 +135,14 @@ class DNSPage(Adw.PreferencesPage):
                 self.dns_lookup_spinner.set_visible(False)
             return
 
-        requested_record_type = self._get_selected_record_type()
-
+        # requested_record_type already fetched above, no need to call _get_selected_record_type() again
         try:
             resolver = self._prepare_resolver()
             result_data, actual_type_used = self._fetch_dns_records(
                 user_input, requested_record_type, resolver
             )
 
-            # If an IP was given, _fetch_dns_records used PTR. Update dropdown to reflect this.
-            if is_valid_ip(user_input) and actual_type_used == "PTR": # Use new util function
+            if is_valid_ip(user_input) and actual_type_used == "PTR":
                 model = self.dns_record_type_dropdown.get_model()
                 for i in range(model.get_n_items()):
                     if model.get_string(i) == "PTR":
@@ -206,6 +154,7 @@ class DNSPage(Adw.PreferencesPage):
         except dns.resolver.NXDOMAIN:
             show_global_error(self, f"Domain not found: {user_input} (NXDOMAIN)")
         except dns.resolver.NoAnswer:
+            # For NoAnswer, display this information in the results area, not as an error banner.
             logger.info("No %s records found for %s (NoAnswer).", requested_record_type, user_input)
             self._display_result([], user_input, requested_record_type, resolver.nameservers if hasattr(resolver, 'nameservers') else ["System default"])
         except dns.resolver.Timeout:
@@ -213,7 +162,7 @@ class DNSPage(Adw.PreferencesPage):
         except dns.exception.DNSException as e:
             logger.exception("DNS lookup failed for %s, type %s:", user_input, requested_record_type)
             show_global_error(self, f"DNS Error: {str(e)}")
-        except Exception as e:
+        except Exception as e: # pylint: disable=broad-except
             logger.exception(
                 "Unexpected error during DNS lookup for %s, type %s:",
                 user_input,
@@ -253,7 +202,7 @@ class DNSPage(Adw.PreferencesPage):
         for rdata in answer:
             record: Dict[str, Any] = {
                 'name': answer.qname.to_text(),
-                'ttl': rdata.ttl if hasattr(rdata, 'ttl') else answer.response.answer[0].ttl,
+                'ttl': rdata.ttl if hasattr(rdata, 'ttl') else answer.response.answer[0].ttl, # SOA might not have ttl on rdata
                 'class': dns.rdataclass.to_text(rdata.rdclass),
                 'type': dns.rdatatype.to_text(rdata.rdtype)
             }
@@ -263,7 +212,7 @@ class DNSPage(Adw.PreferencesPage):
             elif rdata.rdtype == dns.rdatatype.MX:
                 record['preference'] = rdata.preference
                 record['exchange'] = rdata.exchange.to_text()
-            elif rdata.rdtype == dns.rdatatype.TXT: record['texts'] = [s.decode('utf-8', 'replace') for s in rdata.strings]
+            elif rdata.rdtype == dns.rdatatype.TXT: record['texts'] = [s.decode('utf-8', 'replace') for s in rdata.strings] # Assuming UTF-8
             elif rdata.rdtype == dns.rdatatype.NS: record['target'] = rdata.target.to_text()
             elif rdata.rdtype == dns.rdatatype.PTR: record['target'] = rdata.target.to_text()
             elif rdata.rdtype == dns.rdatatype.SOA:
@@ -274,7 +223,7 @@ class DNSPage(Adw.PreferencesPage):
                 record['retry'] = rdata.retry
                 record['expire'] = rdata.expire
                 record['minimum'] = rdata.minimum
-            else: record['data'] = rdata.to_text()
+            else: record['data'] = rdata.to_text() # For unhandled types
             parsed_records.append(record)
         return parsed_records
 
@@ -282,7 +231,7 @@ class DNSPage(Adw.PreferencesPage):
         """Display the DNS lookup results in the UI."""
         logger.debug("Displaying %d results for %s (type %s) using servers %s.", len(result_records), domain_or_ip, record_type, dns_servers)
         logger.info("Query for %s, type %s, using servers %s, returned %d records.", domain_or_ip, record_type, dns_servers, len(result_records))
-        for rec in result_records: logger.debug("Record: %s", rec)
+        # Removed per-record debug log as it can be very verbose. Overall info log is kept.
         while (child := self.dns_results_box_container.get_first_child()): self.dns_results_box_container.remove(child)
         query_info_row = Adw.ActionRow(title=f"Query: {domain_or_ip}", subtitle=f"Record type queried: {record_type}")
         query_info_row.set_selectable(False)

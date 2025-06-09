@@ -18,39 +18,27 @@ import nmap
 from nmap import PortScannerError
 import yaml
 
-from .utils import is_valid_ip, is_valid_domain # Added new utils
+from .utils import is_valid_ip, is_valid_domain
 
 
 class ScanOptions(Enum):
     """Enumeration of common Nmap command-line option fragments."""
-
-    DEFAULT = "-T4"  # Default timing template
-    OS_FINGERPRINTING = "-O -A"  # Enable OS detection and version detection, scripts, traceroute
-    ALL_PORTS = "-p-"  # Scan all 65535 ports
-    SCRIPT = "--script="  # Base for specifying Nmap NSE scripts
+    DEFAULT = "-T4"
+    OS_FINGERPRINTING = "-O -A"
+    ALL_PORTS = "-p-"
+    SCRIPT = "--script="
 
 
 class ScanStatus(Enum):
     """Enumeration representing the status of an Nmap scan."""
-
-    IN_PROGRESS = (0.0, "Scanning {target}...")  # Value is (progress_fraction, status_message_template)
+    IN_PROGRESS = (0.0, "Scanning {target}...")
     COMPLETE = (1.0, "Scan complete")
-    FAILED = (1.0, "Scan failed unexpectedly") # Scan completed but with errors or no useful results
-    IDLE = (0.0, "Idle") # Scanner is ready, no active scan
+    FAILED = (1.0, "Scan failed unexpectedly")
+    IDLE = (0.0, "Idle")
 
 
 def _is_scan_root_required(nmap_args_list: List[str]) -> bool:
-    """Check if the given Nmap arguments require root privileges.
-
-    Args:
-    ----
-        nmap_args_list: A list of Nmap command arguments.
-
-    Returns:
-    -------
-        True if root privileges are likely required, False otherwise.
-
-    """
+    """Check if the given Nmap arguments require root privileges."""
     logger.debug("Checking if root is required for args: %s", nmap_args_list)
     # Common options requiring root: -sS (TCP SYN scan), -O (OS detection), -A (Aggressive scan)
     root_options = ["-sS", "-O", "-A"]
@@ -60,26 +48,7 @@ def _is_scan_root_required(nmap_args_list: List[str]) -> bool:
 
 
 def get_escalated_command(command_parts: List[str]) -> List[str]:
-    """Construct a command list for privilege escalation based on the OS.
-
-    Supports `pkexec` on Linux and `osascript` for `do shell script with administrator privileges`
-    on macOS.
-
-    Args:
-    ----
-        command_parts: The original command and its arguments as a list of strings.
-                       The first element must be the command to escalate (e.g., "nmap").
-
-    Returns:
-    -------
-        A list of strings representing the escalated command.
-
-    Raises:
-    ------
-        FileNotFoundError: If `nmap` or the required escalation tool (pkexec, osascript) is not found.
-        NotImplementedError: If privilege escalation is not supported on the current platform.
-
-    """
+    """Construct a command list for privilege escalation based on the OS."""
     system = platform.system()
     logger.debug("Getting escalated command for: %s on system: %s", command_parts, system)
     if not command_parts:
@@ -102,18 +71,13 @@ def get_escalated_command(command_parts: List[str]) -> List[str]:
         escalated_cmd = ["pkexec"] + resolved_command_parts
     elif system == "Darwin":
         if not shutil.which("osascript"):
-            logger.error(
-                "osascript not found, but it is required for privilege escalation on macOS."
-            )
+            logger.error("osascript not found, but it is required for privilege escalation on macOS.")
             raise FileNotFoundError("osascript not found. Needed for privilege escalation.")
         quoted_command = " ".join(shlex.quote(part) for part in resolved_command_parts)
         osascript_command = f'do shell script "{quoted_command}" with administrator privileges'
         escalated_cmd = ["osascript", "-e", osascript_command]
     else:
-        logger.warning(
-            "Privilege escalation not configured for system: %s. Returning original command.",
-            system,
-        )
+        logger.warning("Privilege escalation not configured for system: %s.", system)
         raise NotImplementedError(f"Privilege escalation not supported on this platform: {system}")
 
     logger.debug("Escalated command: %s", escalated_cmd)
@@ -121,55 +85,36 @@ def get_escalated_command(command_parts: List[str]) -> List[str]:
 
 
 class NmapScanner:
-    """A wrapper around the python-nmap library to perform network scans.
-
-    This class provides methods to validate target inputs, build Nmap command options,
-    run scans asynchronously using a ThreadPoolExecutor, and process the results
-    into a YAML format.
-    """
+    """A wrapper around the python-nmap library to perform network scans."""
 
     def __init__(self):
         """Initialize the NmapScanner with a ThreadPoolExecutor for concurrent scans."""
         logger.debug("NmapScanner initialized.")
         self.executor = ThreadPoolExecutor(max_workers=4)
-        self.nm = None  # Initialize nm attribute
+        self.nm = None
 
     def __del__(self):
         """Ensure the ThreadPoolExecutor is shut down when the NmapScanner instance is deleted."""
         self.executor.shutdown(wait=True)
 
     def validate_target_input(self, target: str) -> bool:
-        """Validate the target string for Nmap scanning.
-
-        The target can be a single IP address, a hostname, a CIDR block,
-        or multiple targets separated by commas or spaces.
-        Uses utility functions for IP and domain validation.
-
-        Args:
-        ----
-            target: The target string to validate.
-
-        Returns:
-        -------
-            True if the target string is valid, False otherwise.
-
-        """
+        """Validate the target string for Nmap scanning."""
         if not target or not isinstance(target, str): # Handle empty or non-string input early
             return False
 
         targets = re.split(r"[ ,]+", target.strip())
-        if not targets or all(not t for t in targets): # Handle case where split results in empty list or list of empty strings
+        if not targets or all(not t for t in targets): # Handle if split results in empty list or list of empty strings
             return False
 
         ipv4_segment_regex = r"(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9]|0)"
         ipv4_address_regex_str = r"{s}\.{s}\.{s}\.{s}".format(s=ipv4_segment_regex)
-        # CIDR regex for IPv4. For IPv6 CIDR, this would need expansion.
+        # CIDR regex for IPv4.
         cidr_regex = re.compile(rf"^{ipv4_address_regex_str}/(?:[0-9]|[12][0-9]|3[0-2])$")
 
         logger.debug(f"Validating Nmap target input: '{target}' (split into: {targets})")
 
         for t in targets:
-            if not t: # Skip empty strings that might result from multiple separators
+            if not t: # Skip empty strings from multiple separators
                 continue
             if t.lower() == "localhost":
                 logger.debug("Target segment '%s' is 'localhost'. Valid.", t)
@@ -184,7 +129,6 @@ class NmapScanner:
                 logger.debug("Target segment '%s' is a valid domain. Valid.", t)
                 continue
 
-            # If none of the above, the segment is invalid
             logger.warning("Target segment '%s' is invalid (not localhost, CIDR, IP, or domain).", t)
             return False
 
@@ -194,20 +138,7 @@ class NmapScanner:
     def build_nmap_options(
         self, os_fingerprinting: bool, scan_all_ports: bool, selected_script: str
     ) -> str:
-        """Construct Nmap command-line options string based on boolean flags and a script name.
-
-        Args:
-        ----
-            os_fingerprinting: If True, adds OS detection options (-O -A).
-            scan_all_ports: If True, adds all ports scan option (-p-).
-            selected_script: The name of the Nmap script to run (e.g., "vuln").
-                             If "None" or empty, no script option is added.
-
-        Returns:
-        -------
-            A string of Nmap command-line arguments.
-
-        """
+        """Construct Nmap command-line options string."""
         options = ScanOptions.DEFAULT.value
         if os_fingerprinting:
             options += f" {ScanOptions.OS_FINGERPRINTING.value}"
@@ -219,49 +150,19 @@ class NmapScanner:
         return options
 
     def _build_nmap_arguments(  # pylint: disable=too-many-arguments
-        self,
-        target: str,
-        os_fingerprinting: bool,
-        scan_all_ports: bool,
-        selected_script: Optional[str],
-        service_version: bool,
-        no_ping: bool,
-        timing_template: str,
-        custom_dns_server: Optional[str],
+        self, target: str, os_fingerprinting: bool, scan_all_ports: bool,
+        selected_script: Optional[str], service_version: bool, no_ping: bool,
+        timing_template: str, custom_dns_server: Optional[str],
     ) -> List[str]:
-        """Build the list of arguments for the Nmap command.
+        """Build the list of arguments for the Nmap command."""
+        nmap_args_list = ["nmap", "-sS"] # -sS (TCP SYN scan) requires root.
 
-        Args:
-        ----
-            target: The target string for Nmap.
-            os_fingerprinting: Enable OS fingerprinting (-O).
-            scan_all_ports: Scan all ports (-p-).
-            selected_script: Name of an Nmap script to run (--script=<name>).
-            service_version: Enable service version detection (-sV).
-            no_ping: Disable host discovery ping (-Pn).
-            timing_template: Nmap timing template (e.g., "T3", "T4").
-            custom_dns_server: Optional custom DNS server IP.
-
-        Returns:
-        -------
-            A list of strings representing the Nmap command and its arguments.
-
-        """
-        nmap_args_list = ["nmap"]
-
-        # Basic scan type, -sS requires root.
-        nmap_args_list.append("-sS")
-
-        if os_fingerprinting:
-            nmap_args_list.append("-O")
-        if service_version:
-            nmap_args_list.append("-sV")
-        if scan_all_ports:
-            nmap_args_list.append("-p-")
+        if os_fingerprinting: nmap_args_list.append("-O")
+        if service_version: nmap_args_list.append("-sV")
+        if scan_all_ports: nmap_args_list.append("-p-")
         if selected_script and selected_script != "None":
             nmap_args_list.append(f"--script={selected_script}")
-        if no_ping:
-            nmap_args_list.append("-Pn")
+        if no_ping: nmap_args_list.append("-Pn")
 
         if timing_template and re.match(r"^T[0-5]$", timing_template):
             nmap_args_list.append(f"-{timing_template}")
@@ -279,25 +180,8 @@ class NmapScanner:
     def _execute_nmap_command(
         self, nmap_args_list: List[str], needs_escalation: bool
     ) -> Tuple[str, str, int]:
-        """Execute the Nmap command, handling privilege escalation if needed.
-
-        Args:
-        ----
-            nmap_args_list: The Nmap command and arguments.
-            needs_escalation: True if the command requires root privileges.
-
-        Returns:
-        -------
-            A tuple containing (stdout, stderr, returncode) from the Nmap process.
-
-        Raises:
-        ------
-            FileNotFoundError: If nmap or a required escalation tool is not found.
-            PortScannerError: For errors during command preparation or subprocess execution.
-
-        """
+        """Execute the Nmap command, handling privilege escalation if needed."""
         final_command_parts: List[str] = []
-
         if needs_escalation:
             logger.info("Escalation required for Nmap scan execution.")
             final_command_parts = get_escalated_command(nmap_args_list)
@@ -307,52 +191,22 @@ class NmapScanner:
             nmap_executable = nmap_args_list[0]
             nmap_path = shutil.which(nmap_executable)
             if not nmap_path:
-                raise FileNotFoundError(
-                    f"Nmap executable '{nmap_executable}' not found for non-escalated command."
-                )
+                raise FileNotFoundError(f"Nmap executable '{nmap_executable}' not found for non-escalated command.")
             final_command_parts = [nmap_path] + nmap_args_list[1:]
 
-        logger.info(
-            "Executing Nmap command (first few parts): %s...",
-            " ".join(shlex.quote(part) for part in final_command_parts[:4]),
-        )
-
+        logger.info("Executing Nmap command (first few parts): %s...", " ".join(shlex.quote(part) for part in final_command_parts[:4]))
         try:
-            process = subprocess.run(
-                final_command_parts,
-                capture_output=True,
-                text=True,
-                check=False,
-                encoding="utf-8",
-            )
+            process = subprocess.run(final_command_parts, capture_output=True, text=True, check=False, encoding="utf-8")
             return process.stdout, process.stderr, process.returncode
         except Exception as e_subproc:
             logger.exception("Subprocess execution failed for Nmap:")
             raise PortScannerError(f"Nmap subprocess execution failed: {e_subproc}") from e_subproc
 
     def _parse_nmap_error_message(
-        self,
-        returncode: int,
-        nmap_xml_output: str,
-        nmap_stderr: str,
-        needs_escalation: bool,
+        self, returncode: int, nmap_xml_output: str, nmap_stderr: str, needs_escalation: bool,
     ) -> str:
-        """Construct a detailed error message from Nmap's output when a scan fails.
-
-        Args:
-        ----
-            returncode: The exit code from the Nmap process.
-            nmap_xml_output: The stdout (expected to be XML) from Nmap.
-            nmap_stderr: The stderr output from Nmap.
-            needs_escalation: Whether privilege escalation was attempted.
-
-        Returns:
-        -------
-            A string containing a formatted error message.
-
-        """
+        """Construct a detailed error message from Nmap's output when a scan fails."""
         error_message = f"Nmap scan failed with exit code {returncode}."
-
         if "QUITTING" in nmap_xml_output or "requires root privileges" in nmap_xml_output:
             output_lines = nmap_xml_output.strip().split("\n")
             for line in output_lines:
@@ -363,181 +217,79 @@ class NmapScanner:
             error_message += f" Stderr: {nmap_stderr.strip()}"
 
         if needs_escalation:
-            if (
-                platform.system() == "Darwin"
-                and returncode == 1
-                and not nmap_xml_output.strip()
-                and not nmap_stderr.strip()
-            ):
+            if (platform.system() == "Darwin" and returncode == 1 and not nmap_xml_output.strip() and not nmap_stderr.strip()):
                 error_message = "User cancelled the request for administrator privileges."
-            elif (
-                platform.system() == "Linux"
-                and returncode in [1, 126, 127]
-                and not nmap_xml_output.strip()
-                and not nmap_stderr.strip()
-            ):
+            elif (platform.system() == "Linux" and returncode in [1, 126, 127] and not nmap_xml_output.strip() and not nmap_stderr.strip()):
                 error_message = "User cancelled the request for administrator privileges or authentication failed."
         return error_message
 
     def run_nmap_scan(  # pylint: disable=too-many-arguments,too-many-locals
-        self,
-        target: str,
-        os_fingerprinting: bool,
-        scan_all_ports: bool,
-        selected_script: Optional[str] = None,
-        service_version: bool = False,
-        no_ping: bool = False,
-        timing_template: str = "T3",
+        self, target: str, os_fingerprinting: bool, scan_all_ports: bool,
+        selected_script: Optional[str] = None, service_version: bool = False,
+        no_ping: bool = False, timing_template: str = "T3",
         custom_dns_server: Optional[str] = None,
     ) -> nmap.PortScanner:
         logger.debug(
             "run_nmap_scan called with target: %s, OS:%s, AllPorts:%s, Script:%s, Ver:%s, NoPing:%s, Time:%s, DNS:%s",
             target, os_fingerprinting, scan_all_ports, selected_script, service_version, no_ping, timing_template, custom_dns_server
         )
-        """Execute an Nmap scan with specified options.
-
-        This method orchestrates the scan by building arguments, executing the command
-        (with privilege escalation if necessary), and parsing the XML output.
-
-        Args:
-        ----
-            target: The target host(s) for the scan.
-            os_fingerprinting: Enable OS fingerprinting.
-            scan_all_ports: Scan all 65535 ports.
-            selected_script: Optional Nmap script to run.
-            service_version: Enable service version detection.
-            no_ping: Disable host discovery ping (-Pn).
-            timing_template: Nmap timing template (e.g., "T3", "T4").
-            custom_dns_server: Optional custom DNS server to use.
-
-        Returns:
-        -------
-            An `nmap.PortScanner` object populated with the scan results.
-
-        Raises:
-        ------
-            PortScannerError: If the scan fails due to Nmap errors, parsing issues,
-                              missing prerequisites, or other unexpected problems.
-
-        """
+        """Execute an Nmap scan with specified options."""
         self.nm = nmap.PortScanner()
-
         nmap_args_list = self._build_nmap_arguments(
-            target,
-            os_fingerprinting,
-            scan_all_ports,
-            selected_script,
-            service_version,
-            no_ping,
-            timing_template,
-            custom_dns_server,
+            target, os_fingerprinting, scan_all_ports, selected_script,
+            service_version, no_ping, timing_template, custom_dns_server,
         )
-
         try:
             needs_escalation = _is_scan_root_required(nmap_args_list)
-            nmap_xml_output, nmap_stderr, returncode = self._execute_nmap_command(
-                nmap_args_list, needs_escalation
-            )
-
+            nmap_xml_output, nmap_stderr, returncode = self._execute_nmap_command(nmap_args_list, needs_escalation)
             if returncode:
-                logger.debug(
-                    "Nmap process stdout (on error code %s): %s", returncode, nmap_xml_output
-                )
+                logger.debug("Nmap process stdout (on error code %s): %s", returncode, nmap_xml_output)
                 logger.debug("Nmap process stderr (on error code %s): %s", returncode, nmap_stderr)
-
-                error_message = self._parse_nmap_error_message(
-                    returncode, nmap_xml_output, nmap_stderr, needs_escalation
-                )
+                error_message = self._parse_nmap_error_message(returncode, nmap_xml_output, nmap_stderr, needs_escalation)
                 logger.error(error_message)
                 raise PortScannerError(error_message)
-
             if not nmap_xml_output.strip():
-                logger.warning(
-                    "Nmap scan completed successfully (RC=0) but produced no XML output."
-                )
+                logger.warning("Nmap scan completed successfully (RC=0) but produced no XML output.")
                 raise PortScannerError("Nmap scan succeeded but produced no XML output.")
-
             try:
-                logger.debug(
-                    "Attempting to parse Nmap XML output (first 500 chars): %s",
-                    nmap_xml_output[:500],
-                )
+                logger.debug("Attempting to parse Nmap XML output (first 500 chars): %s", nmap_xml_output[:500])
                 self.nm.analyse_nmap_xml_scan(nmap_xml_output=nmap_xml_output)
             except PortScannerError as e_parse:
                 logger.exception("Failed to parse Nmap XML output:")
-                logger.debug(
-                    "Problematic Nmap XML Output (full, on parse error):\n%s", nmap_xml_output
-                )
-                raise PortScannerError(
-                    f"Failed to parse Nmap XML output: {e_parse}. Stderr was: '{nmap_stderr.strip()}'"
-                ) from e_parse
-
+                logger.debug("Problematic Nmap XML Output (full, on parse error):\n%s", nmap_xml_output)
+                raise PortScannerError(f"Failed to parse Nmap XML output: {e_parse}. Stderr was: '{nmap_stderr.strip()}'") from e_parse
             return self.nm
-
         except FileNotFoundError as e_fnf:
             logger.exception("Nmap execution prerequisite not found:")
             raise PortScannerError(f"Nmap execution prerequisite not found: {e_fnf}") from e_fnf
         except NotImplementedError as e_ni:
             logger.exception("Privilege escalation not implemented for this platform:")
-            raise PortScannerError(
-                f"Privilege escalation not implemented for this platform: {e_ni}"
-            ) from e_ni
-        except PortScannerError:
+            raise PortScannerError(f"Privilege escalation not implemented for this platform: {e_ni}") from e_ni
+        except PortScannerError: # Specific re-raise
             raise
-        except Exception as e_unexpected:
-            logger.exception(
-                "An unexpected error occurred during the Nmap scan process:"
-            )
-            raise PortScannerError(
-                f"An unexpected error occurred: {e_unexpected}"
-            ) from e_unexpected
+        except Exception as e_unexpected: # General catch-all
+            logger.exception("An unexpected error occurred during the Nmap scan process:")
+            raise PortScannerError(f"An unexpected error occurred: {e_unexpected}") from e_unexpected
 
     def convert_results_to_yaml(self, nm: nmap.PortScanner) -> Dict[str, str]:
-        """Convert Nmap scan results from an nmap.PortScanner object into a YAML formatted string for each host.
-
-        Args:
-        ----
-            nm: The nmap.PortScanner object containing the scan results.
-
-        Returns:
-        -------
-            A dictionary where keys are host IP addresses or names, and values are
-            YAML strings representing the scan results for that host.
-
-        """
+        """Convert Nmap scan results to YAML for each host."""
         logger.debug(f"Converting Nmap results to YAML for {len(nm.all_hosts())} hosts.")
         all_results = {}
         prescan_scripts_data = nm.scaninfo().get('prescript', [])
         logger.debug("Pre-scan script data: %s", prescan_scripts_data)
-
         for host in nm.all_hosts():
             logger.debug("Processing results for host: %s", host)
             host_data = nm[host]
             plain_dict = self.to_plain_dict(host_data)
-            if prescan_scripts_data:
+            if prescan_scripts_data: # Only add if there's actual pre-scan data
                 plain_dict["prescript_results"] = prescan_scripts_data
             yaml_output = yaml.safe_dump(plain_dict, default_flow_style=False)
             all_results[host] = yaml_output
         return all_results
 
     def to_plain_dict(self, data: Any) -> Union[Dict[str, Any], Any]:
-        """Recursively convert Nmap data to plain dicts/lists.
-
-        This function takes complex Nmap data structures (such as
-        PortScannerHostDict) and transforms them into plain Python
-        dictionaries and lists. This makes the data suitable for
-        serialization, for example, into YAML format.
-
-        Args:
-        ----
-            data: The Nmap data to convert (can be PortScannerHostDict, dict, list, or other types).
-
-        Returns:
-        -------
-            A plain dictionary or list representation of the input data.
-
-        """
-        logger.debug(f"to_plain_dict called with data of type: {type(data)}")
+        """Recursively convert Nmap data to plain dicts/lists for serialization."""
+        # logger.debug(f"to_plain_dict called with data of type: {type(data)}") # Can be very verbose
         if isinstance(data, nmap.PortScannerHostDict):
             return {k: self.to_plain_dict(v) for k, v in data.items()}
         if isinstance(data, list):
