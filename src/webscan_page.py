@@ -4,20 +4,20 @@ This page provides a simple interface to run Nikto scans against a target URL
 and display the results.
 """
 import subprocess
-import re
+import re # Keep re for now, other parts of the file might use it, or remove if truly unused later.
 import logging
 logger = logging.getLogger(__name__)
 from typing import Optional
 
 import gi
-from gi.repository import Gtk, Adw, Gio, GLib, GObject, Gdk, GtkSource # Added Gdk and GtkSource
+from gi.repository import Gtk, Adw, Gio, GLib, GObject, Gdk, GtkSource
 
 from .constants import RESOURCE_PREFIX
-from .utils import show_global_error, show_global_toast
+from .utils import show_global_error, show_global_toast, is_valid_url # Added is_valid_url
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-gi.require_version("GtkSource", "5") # Match version from UI file
+gi.require_version("GtkSource", "5")
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/webscan_page.ui")
@@ -39,10 +39,7 @@ class WebScanPage(Adw.PreferencesPage):
     copy_results_button = Gtk.Template.Child()
 
     def __init__(self, **kwargs):
-        """Initialize the WebScanPage.
-
-        Sets up signal handlers for UI elements.
-        """
+        """Initialize the WebScanPage."""
         super().__init__(**kwargs)
         self.current_web_scan_task = None
         logger.debug("WebScanPage initialized")
@@ -68,34 +65,14 @@ class WebScanPage(Adw.PreferencesPage):
             self.copy_results_button.connect("clicked", self._on_copy_results_clicked)
 
     def _on_clear_results_clicked(self, _button: Gtk.Button):
-        """Handle click of the 'Clear Results' button.
-
-        Clears the content of the results TextView.
-
-        Args:
-        ----
-            _button: The Gtk.Button that was clicked (unused).
-
-        """
+        """Handle click of the 'Clear Results' button."""
         logger.info("Webscan results cleared by user action.")
         if self.results_textview:
             buffer = self.results_textview.get_buffer()
             buffer.set_text("")
-        # Optionally, clear any related error banners if desired
-        # main_window = self.get_native()
-        # if main_window and hasattr(main_window, 'hide_error'):
-        # main_window.hide_error()
 
     def _on_copy_results_clicked(self, _button: Gtk.Button):
-        """Handle click of the 'Copy Results' button.
-
-        Copies the entire content of the results TextView to the clipboard.
-
-        Args:
-        ----
-            _button: The Gtk.Button that was clicked (unused).
-
-        """
+        """Handle click of the 'Copy Results' button."""
         logger.info("Copying webscan results to clipboard.")
         if self.results_textview:
             buffer = self.results_textview.get_buffer()
@@ -117,47 +94,24 @@ class WebScanPage(Adw.PreferencesPage):
                 logger.info("No webscan results to copy.")
 
     def on_scan_button_clicked(self, _widget: Gtk.Button):
-        """Handle the 'Scan' button click event.
-
-        Validates the URL entered by the user, then initiates an asynchronous
-        Nikto scan task if the URL is valid. Disables the scan button during
-        the scan.
-
-        Args:
-        ----
-            _widget: The Gtk.Button that was clicked.
-
-        """
+        """Handle the 'Scan' button click event."""
         logger.debug(f"WebScanPage scan button clicked. URL: '{self.url_entry.get_text()}'")
-        target_url = self.url_entry.get_text()
+        target_url = self.url_entry.get_text().strip() # Added strip() here for consistency
 
-        url_pattern = re.compile(
-            r"^(?:(?:https?|ftp)://)?(?:\S+(?::\S*)?@)?"  # Scheme and optional user:pass
-            r"(?:(?:[1-9]\d?|1\d\d|2[01]\d|22[0-3])"  # IPv4 part 1
-            r"(?:\.(?:1?\d{1,2}|2[0-4]\d|25[0-5])){2}"  # IPv4 part 2 & 3
-            r"(?:\.(?:[1-9]\d?|1\d\d|2[0-4]\d|25[0-4]))|"  # IPv4 part 4
-            r"(?:(?:[a-z¡-￿0-9]-*)*[a-z¡-￿0-9]+)"  # Domain name
-            r"(?:\.(?:[a-z¡-￿0-9]-*)*[a-z¡-￿0-9]+)*"  # Optional subdomains
-            r"(?:\.(?:[a-z¡-￿]{2,}))\.?)"  # Top Level Domain
-            r"(?::\d{2,5})?"  # Optional port
-            r"(?:[/?#]\S*)?$",  # Optional path, query, or fragment
-            re.IGNORECASE,
-        )
+        # Removed local url_pattern regex definition
+
         if not target_url:
-            # Attempt to show a toast.
             show_global_toast(self, "Target URL cannot be empty.")
-            # If the toast mechanism itself isn't available (e.g., no main_window or show_toast method),
-            # the original code would fall back to _show_main_banner_error.
-            # We replicate this by calling show_global_error under the same conditions.
             main_window = self.get_native()
             if not (main_window and hasattr(main_window, 'show_toast')):
                 show_global_error(self, "Target URL cannot be empty.")
             return
 
-        if not url_pattern.match(target_url):
-            # Attempt to show a toast.
+        # Use the new is_valid_url utility function
+        # The original regex allowed http, https, ftp.
+        # is_valid_url defaults to ['http', 'https'], so we provide the schemes.
+        if not is_valid_url(target_url, schemes=['http', 'https', 'ftp']):
             show_global_toast(self, "Invalid URL format. Please enter a valid URL.")
-            # Fallback to error banner if the toast mechanism isn't available.
             main_window = self.get_native()
             if not (main_window and hasattr(main_window, 'show_toast')):
                 show_global_error(self, "Invalid URL format. Please enter a valid URL.")
@@ -176,7 +130,7 @@ class WebScanPage(Adw.PreferencesPage):
                 logger.warning(f"Error trying to cancel previous web scan task: {e_cancel}")
 
         cancellable = Gio.Cancellable()
-        task = Gio.Task.new(self, cancellable, self._on_scan_task_done, None) # task_data is None
+        task = Gio.Task.new(self, cancellable, self._on_scan_task_done, None)
         self.current_web_scan_task = task
 
         self._temp_scan_data = {
@@ -192,24 +146,12 @@ class WebScanPage(Adw.PreferencesPage):
 
     def _run_scan_task_thread_func(self,
                                    task: Gio.Task,
-                                   source_object: GObject.Object, # This is 'self' (WebScanPage instance)
-                                   task_data: object, # This will be None as no task_data is passed to Gio.Task.new
+                                   source_object: GObject.Object,
+                                   task_data: object,
                                    cancellable: Gio.Cancellable):
-        """Execute the Nikto scan in a separate thread.
-
-        This method is run by `Gio.Task.run_in_thread`. It retrieves scan parameters
-        from the `source_object` (WebScanPage instance), constructs, and runs the Nikto command.
-
-        Args:
-        ----
-            task: The `Gio.Task` associated with this asynchronous operation.
-            source_object: The source GObject that initiated the task (the WebScanPage instance).
-            task_data: Task-specific data (None in this implementation, parameters are on source_object).
-            cancellable: A `Gio.Cancellable` to monitor for cancellation requests.
-
-        """
+        """Execute the Nikto scan in a separate thread."""
         logger.debug("WebScanPage._run_scan_task_thread_func started")
-        page_instance = source_object # page_instance is 'self' (WebScanPage)
+        page_instance = source_object
         scan_data = page_instance._temp_scan_data
 
         target_url = scan_data["target_url"]
@@ -220,8 +162,22 @@ class WebScanPage(Adw.PreferencesPage):
         mutate_active = scan_data.get("mutate", False)
         maxtime_str = scan_data.get("maxtime", "")
 
-        if not target_url.startswith(("http://", "https://")):
+        # Note: is_valid_url used in on_scan_button_clicked ensures scheme presence.
+        # However, Nikto itself might prepend http:// if no scheme is given.
+        # To be safe and explicit for Nikto's -h argument:
+        if not target_url.startswith(("http://", "https://", "ftp://")): # Check against allowed schemes
+            # Defaulting to http for nikto if scheme is missing after validation
+            # This case should ideally not be hit if is_valid_url (with schemes) works as expected
+            # and target_url is passed directly from input.
+            # However, if is_valid_url allows URLs without explicit schemes (e.g. example.com)
+            # then this logic is needed. The current is_valid_url requires a scheme.
+            # Let's assume target_url from input might be schemeless and is_valid_url allows it.
+            # The current is_valid_url in utils.py DOES require a scheme.
+            # So this block might be less critical if target_url is always pre-schemed by user or validation.
+            # For robustness with Nikto:
+            logger.info("Prepending http:// to target URL for Nikto as scheme was missing or not http/https/ftp.")
             target_url = "http://" + target_url
+
 
         nikto_command = ['nikto', '-h', target_url]
 
@@ -235,25 +191,17 @@ class WebScanPage(Adw.PreferencesPage):
             try:
                 maxtime_val = int(maxtime_str)
                 if maxtime_val > 0:
-                    nikto_command.extend(['-maxtime', str(maxtime_val) + 's']) # Nikto expects time with 's' suffix
+                    nikto_command.extend(['-maxtime', str(maxtime_val) + 's'])
                 else:
                     logger.warning(f"Invalid maxtime value '{maxtime_str}', must be positive. Ignoring.")
             except ValueError:
                 logger.warning(f"Invalid maxtime value '{maxtime_str}', not an integer. Ignoring.")
 
         tuning_options = []
-        if cgi_vulns:
-            tuning_options.append('2') # Corresponds to Nikto's "Misconfiguration / Default File"
-        if interesting_content:
-            tuning_options.append('1') # Corresponds to Nikto's "Interesting File / Seen in logs"
+        if cgi_vulns: tuning_options.append('2')
+        if interesting_content: tuning_options.append('1')
 
-        # Nikto's -Tuning option takes a string of numbers (e.g., "12") to specify checks.
-        # If no tuning switches are active, the -Tuning option is omitted,
-        # allowing Nikto to use its default set of checks.
         if tuning_options:
-            # Using set avoids duplicates (e.g. if '1' was added twice)
-            # and sorted() ensures a consistent order (e.g., "12" not "21"),
-            # though order usually doesn't matter for Nikto's -Tuning inclusion.
             tuning_string = "".join(sorted(list(set(tuning_options))))
             if tuning_string:
                 nikto_command.extend(['-Tuning', tuning_string])
@@ -269,46 +217,27 @@ class WebScanPage(Adw.PreferencesPage):
             ) as process:
                 stdout, stderr = process.communicate(timeout=300)
             task.return_value((stdout, stderr, None))
-
         except FileNotFoundError:
             task.return_value((None, None, "FileNotFoundError"))
         except subprocess.TimeoutExpired:
             task.return_value((None, None, "TimeoutExpired"))
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:
             task.return_value((None, str(e), "Exception"))
 
     def _on_scan_task_done(self, source_object: GObject.Object, async_result_obj: Gio.AsyncResult, _user_data: object):
-        """Handle completion of the Nikto scan task.
-
-        This callback is executed in the main thread. It retrieves the results
-        (or error information) from the completed `Gio.Task` and updates the UI
-        (TextView for results, error banner for errors). Re-enables the scan button.
-
-        Args:
-        ----
-            task: The `Gio.Task` that has completed.
-            result: The `Gio.AsyncResult` associated with the task's completion.
-            _user_data: User data passed to the callback (unused).
-
-        """
+        """Handle completion of the Nikto scan task."""
         target_url = "Unknown URL"
-        if hasattr(self, '_temp_scan_data') and self._temp_scan_data: # Check if scan data exists
+        if hasattr(self, '_temp_scan_data') and self._temp_scan_data:
             target_url = self._temp_scan_data.get("target_url", target_url)
 
         active_task = self.current_web_scan_task
         if not active_task:
             logger.warning("_on_scan_task_done called but no active_task found.")
-            if not self.scan_button.get_sensitive(): # Re-enable button if it got stuck
+            if not self.scan_button.get_sensitive():
                 self.scan_button.set_sensitive(True)
             return
 
         try:
-            # Gio.Task.propagate_value() can raise a GLib.Error if the task itself
-            # encountered an unhandled exception.
-            # On success, it returns a 2-tuple. The first element's role is secondary
-            # here as critical errors are caught by GLib.Error.
-            # The second element is the actual payload (our 3-element tuple)
-            # passed to task.return_value() in the thread.
             _intermediate_tuple_from_propagate = active_task.propagate_value()
             _status_or_bool, actual_payload_tuple = _intermediate_tuple_from_propagate
             stdout, stderr_or_error_msg, error_type = actual_payload_tuple
@@ -343,17 +272,7 @@ class WebScanPage(Adw.PreferencesPage):
             self.current_web_scan_task = None
 
     def _update_textview(self, stdout: Optional[str], stderr: Optional[str]):
-        """Update the results TextView with Nikto's stdout and stderr.
-
-        Appends stdout first, then stderr if present. Scrolls the TextView
-        to the end to show the latest results.
-
-        Args:
-        ----
-            stdout: The standard output from the Nikto command, or None.
-            stderr: The standard error from the Nikto command, or None.
-
-        """
+        """Update the results TextView with Nikto's stdout and stderr."""
         buffer = self.results_textview.get_buffer()
         if stdout:
             buffer.insert(buffer.get_end_iter(), stdout)
@@ -365,11 +284,7 @@ class WebScanPage(Adw.PreferencesPage):
             scroll_adj.set_value(scroll_adj.get_upper() - scroll_adj.get_page_size())
 
     def trigger_scan(self):
-        """Programmatically triggers the WebScan 'Scan' action.
-
-        This method is typically called by a global action/shortcut.
-        It simulates a click on the scan button.
-        """
+        """Programmatically triggers the WebScan 'Scan' action."""
         logger.debug("Webscan scan triggered by shortcut.")
         if self.scan_button and self.scan_button.get_sensitive():
             self.scan_button.clicked()

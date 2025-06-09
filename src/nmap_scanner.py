@@ -12,11 +12,13 @@ import shlex
 import shutil
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
-from typing import Any, Dict, Union, List, Optional, Tuple # Ensured List is here, alongside Tuple
+from typing import Any, Dict, Union, List, Optional, Tuple
 
 import nmap
 from nmap import PortScannerError
 import yaml
+
+from .utils import is_valid_ip, is_valid_domain # Added new utils
 
 
 class ScanOptions(Enum):
@@ -37,7 +39,7 @@ class ScanStatus(Enum):
     IDLE = (0.0, "Idle") # Scanner is ready, no active scan
 
 
-def _is_scan_root_required(nmap_args_list: List[str]) -> bool: # Changed to typing.List
+def _is_scan_root_required(nmap_args_list: List[str]) -> bool:
     """Check if the given Nmap arguments require root privileges.
 
     Args:
@@ -57,7 +59,7 @@ def _is_scan_root_required(nmap_args_list: List[str]) -> bool: # Changed to typi
     return is_required
 
 
-def get_escalated_command(command_parts: List[str]) -> List[str]: # Changed to typing.List, removed ignore
+def get_escalated_command(command_parts: List[str]) -> List[str]:
     """Construct a command list for privilege escalation based on the OS.
 
     Supports `pkexec` on Linux and `osascript` for `do shell script with administrator privileges`
@@ -141,6 +143,7 @@ class NmapScanner:
 
         The target can be a single IP address, a hostname, a CIDR block,
         or multiple targets separated by commas or spaces.
+        Uses utility functions for IP and domain validation.
 
         Args:
         ----
@@ -151,27 +154,42 @@ class NmapScanner:
             True if the target string is valid, False otherwise.
 
         """
-        ipv4_segment = r"(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9]|0)"
-        ipv4_address = r"(?:{seg}\.{seg}\.{seg}\.{seg})".format(seg=ipv4_segment)
-        fqdn = r"(?:[A-Za-z0-9-]{1,63}\.)+[A-Za-z]{2,}"
-        cidr = rf"{ipv4_address}/[0-9]{{1,2}}"
+        if not target or not isinstance(target, str): # Handle empty or non-string input early
+            return False
 
-        addr_regex = rf"^(localhost|{ipv4_address}|{fqdn}|{cidr})$"
-
-        logger.debug(f"Validating target input: '{target}'")
         targets = re.split(r"[ ,]+", target.strip())
+        if not targets or all(not t for t in targets): # Handle case where split results in empty list or list of empty strings
+            return False
 
-        is_valid = True
+        ipv4_segment_regex = r"(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9]|0)"
+        ipv4_address_regex_str = r"{s}\.{s}\.{s}\.{s}".format(s=ipv4_segment_regex)
+        # CIDR regex for IPv4. For IPv6 CIDR, this would need expansion.
+        cidr_regex = re.compile(rf"^{ipv4_address_regex_str}/(?:[0-9]|[12][0-9]|3[0-2])$")
+
+        logger.debug(f"Validating Nmap target input: '{target}' (split into: {targets})")
+
         for t in targets:
-            if re.match(addr_regex, t):
-                logger.debug("Target segment '%s' matched the pattern.", t)
-            else:
-                logger.debug("Target segment '%s' did NOT match the pattern.", t)
-                is_valid = False
-                break # No need to check further if one segment is invalid
+            if not t: # Skip empty strings that might result from multiple separators
+                continue
+            if t.lower() == "localhost":
+                logger.debug("Target segment '%s' is 'localhost'. Valid.", t)
+                continue
+            if cidr_regex.fullmatch(t):
+                logger.debug("Target segment '%s' matched CIDR pattern. Valid.", t)
+                continue
+            if is_valid_ip(t):
+                logger.debug("Target segment '%s' is a valid IP. Valid.", t)
+                continue
+            if is_valid_domain(t):
+                logger.debug("Target segment '%s' is a valid domain. Valid.", t)
+                continue
 
-        logger.debug(f"Target validation result for '{target}': {is_valid}")
-        return is_valid
+            # If none of the above, the segment is invalid
+            logger.warning("Target segment '%s' is invalid (not localhost, CIDR, IP, or domain).", t)
+            return False
+
+        logger.debug(f"All target segments validated successfully for input '{target}'.")
+        return True
 
     def build_nmap_options(
         self, os_fingerprinting: bool, scan_all_ports: bool, selected_script: str
@@ -260,7 +278,7 @@ class NmapScanner:
 
     def _execute_nmap_command(
         self, nmap_args_list: List[str], needs_escalation: bool
-    ) -> Tuple[str, str, int]: # Changed to typing.Tuple
+    ) -> Tuple[str, str, int]:
         """Execute the Nmap command, handling privilege escalation if needed.
 
         Args:
@@ -421,7 +439,7 @@ class NmapScanner:
                 nmap_args_list, needs_escalation
             )
 
-            if returncode:  # C1805
+            if returncode:
                 logger.debug(
                     "Nmap process stdout (on error code %s): %s", returncode, nmap_xml_output
                 )
@@ -464,9 +482,9 @@ class NmapScanner:
             raise PortScannerError(
                 f"Privilege escalation not implemented for this platform: {e_ni}"
             ) from e_ni
-        except PortScannerError: # Specific re-raise, keep as is or add logger.debug if needed
+        except PortScannerError:
             raise
-        except Exception as e_unexpected: # General catch-all
+        except Exception as e_unexpected:
             logger.exception(
                 "An unexpected error occurred during the Nmap scan process:"
             )
@@ -496,7 +514,7 @@ class NmapScanner:
             logger.debug("Processing results for host: %s", host)
             host_data = nm[host]
             plain_dict = self.to_plain_dict(host_data)
-            if prescan_scripts_data: # Only add if there's actual pre-scan data
+            if prescan_scripts_data:
                 plain_dict["prescript_results"] = prescan_scripts_data
             yaml_output = yaml.safe_dump(plain_dict, default_flow_style=False)
             all_results[host] = yaml_output
@@ -522,8 +540,8 @@ class NmapScanner:
         logger.debug(f"to_plain_dict called with data of type: {type(data)}")
         if isinstance(data, nmap.PortScannerHostDict):
             return {k: self.to_plain_dict(v) for k, v in data.items()}
-        if isinstance(data, list):  # R1705 (no-else-return makes this an if)
+        if isinstance(data, list):
             return [self.to_plain_dict(item) for item in data]
-        if isinstance(data, dict):  # R1705 (no-else-return makes this an if)
+        if isinstance(data, dict):
             return {k: self.to_plain_dict(v) for k, v in data.items()}
-        return data  # R1705
+        return data
