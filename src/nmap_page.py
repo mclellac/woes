@@ -5,6 +5,7 @@ Results are displayed in a structured way, with hosts listed and detailed
 information (ports, OS, etc.) shown in expandable sections.
 """
 import logging
+logger = logging.getLogger(__name__)
 import re
 from typing import Optional # Removed List as it's not used
 import yaml
@@ -103,7 +104,7 @@ class NmapPage(Gtk.Box):
         connects signal handlers, and sets the initial UI state.
         """
         super().__init__(**kwargs)
-        logging.info("Initializing NmapPage...")
+        logger.info("Initializing NmapPage...")
         self.results_by_host = {}
         self.nmap_target_listbox_store = Gio.ListStore(item_type=NmapItem)
         self.scanner = NmapScanner()
@@ -114,8 +115,8 @@ class NmapPage(Gtk.Box):
         self._connect_signals()
         if self.nmap_apply_button:
             self.nmap_apply_button.set_use_underline(True)
-        logging.info("NmapPage initialized.")
-        logging.debug("NmapPage __init__ completed.")
+        logger.info("NmapPage initialized.")
+        logger.debug("NmapPage __init__ completed.")
 
     def __del__(self):
         """Clean up resources, specifically the NmapScanner's thread pool."""
@@ -135,7 +136,7 @@ class NmapPage(Gtk.Box):
             key: The name of the GSettings key that changed.
 
         """
-        logging.debug("NmapPage: '%s' setting changed, applying new source view style.", key)
+        logger.debug("NmapPage: '%s' setting changed, applying new source view style.", key)
         # self._apply_source_view_style() # Placeholder, actual views are dynamic
         # If a specific view needs update, it should be handled directly.
         # For now, new views created will pick up the new style.
@@ -149,7 +150,7 @@ class NmapPage(Gtk.Box):
 
         """
         source_style_scheme = self.settings.get_string("source-style-scheme")
-        logging.debug("Applying style scheme to GtkSource.Buffer: %s", source_style_scheme)
+        logger.debug("Applying style scheme to GtkSource.Buffer: %s", source_style_scheme)
         apply_source_style_scheme(
             GtkSource.StyleSchemeManager.get_default(),
             buffer,
@@ -157,7 +158,7 @@ class NmapPage(Gtk.Box):
         )
 
     def _init_page_ui(self):
-        logging.debug("Initializing NmapPage UI components.")
+        logger.debug("Initializing NmapPage UI components.")
         self.nmap_host_listbox.bind_model(
             self.nmap_target_listbox_store, self._create_target_listbox_row
         )
@@ -173,7 +174,7 @@ class NmapPage(Gtk.Box):
         self.scan_spinner.set_spinning(False)
         self.scan_spinner.set_visible(False)
         self.status_row.set_subtitle("Idle")
-        logging.debug("NmapPage _init_page_ui completed.")
+        logger.debug("NmapPage _init_page_ui completed.")
 
     def _clear_dynamic_details(self):
         child = self.nmap_detail_box.get_first_child()
@@ -186,7 +187,7 @@ class NmapPage(Gtk.Box):
             self.nmap_detail_box.remove(current_child_to_remove)
 
     def _connect_signals(self):
-        logging.debug("Connecting NmapPage signals.")
+        logger.debug("Connecting NmapPage signals.")
         self.nmap_target_entryrow.connect("entry-activated", self._on_target_activate)
         self.nmap_apply_button.connect("clicked", self._on_target_activate)
         self.nmap_host_listbox.connect("row-selected", self._on_target_selected)
@@ -194,7 +195,8 @@ class NmapPage(Gtk.Box):
         # if self.error_banner:
         #     self.error_banner.connect("button-clicked", self._on_error_banner_dismiss)
 
-    def _on_target_activate(self, entry_row: Adw.EntryRow):
+    def _on_target_activate(self, entry_row: Adw.EntryRow): # Renamed from _widget to entry_row for clarity
+        logger.debug(f"_on_target_activate called by {entry_row}.")
         target = self.nmap_target_entryrow.get_text().strip()
         self._clear_error()
 
@@ -233,7 +235,13 @@ class NmapPage(Gtk.Box):
 
         custom_dns_server = self.settings.get_string("custom-dns-server")
 
-        logging.info(
+        logger.debug(
+            "Nmap scan parameters collected: target=%s, os_fingerprint=%s, all_ports=%s, script_name=%s, "
+            "service_version_detection=%s, no_ping_scan=%s, timing_template=%s, custom_dns_server=%s",
+            target, os_fingerprinting, all_ports, script_name, service_version_detection,
+            no_ping_scan, timing_template, custom_dns_server
+        )
+        logger.info(
             "Nmap scan for target: %s (OSScan:%s, AllPorts:%s, Script:%s, Ver:%s, NoPing:%s, Time:%s, CustomDNS:%s)",
             target,
             os_fingerprinting,
@@ -255,17 +263,7 @@ class NmapPage(Gtk.Box):
             timing_template,
             custom_dns_server,
         )
-        logging.debug(
-            "Scan task params: target=%s, os_fingerprint=%s, all_ports=%s, script_name=%s, "
-            "service_version_detection=%s, no_ping_scan=%s, timing_template=%s",
-            target,
-            os_fingerprinting,
-            all_ports,
-            script_name,
-            service_version_detection,
-            no_ping_scan,
-            timing_template,
-        )
+        # Removed redundant logging.debug of params as it's covered above
 
     def _run_nmap_scan_task(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
@@ -296,7 +294,10 @@ class NmapPage(Gtk.Box):
             custom_dns_server: Optional custom DNS server IP to use for the scan.
 
         """
-        logging.info("Nmap scan task started for %s in executor thread.", target)
+        logger.debug( # Added logger.debug
+            "_run_nmap_scan_task started for target: %s with options - OSScan:%s, AllPorts:%s, Script:%s, Ver:%s, NoPing:%s, Time:%s, CustomDNS:%s",
+            target, os_fingerprinting, all_ports, script_name, service_version_detection, no_ping_scan, timing_template, custom_dns_server
+        )
         try:
             nm = self.scanner.run_nmap_scan(
                 target,
@@ -310,20 +311,18 @@ class NmapPage(Gtk.Box):
             )
             GLib.idle_add(self._process_scan_results, nm, target)
         except nmap.PortScannerError as e:
-            logging.error("Nmap PortScannerError for %s: %s", target, e, exc_info=True)
+            logger.exception("Nmap PortScannerError for %s:", target) # Changed to logger.exception
             GLib.idle_add(self._handle_scan_error, target, f"Nmap scan error: {e}")
         except Exception as e:  # pylint: disable=broad-except
-            logging.error(
-                "Unexpected exception in Nmap scan task for %s (%s): %s",
+            logger.exception( # Changed to logger.exception
+                "Unexpected exception in Nmap scan task for %s (%s):",
                 target,
                 type(e).__name__,
-                e,
-                exc_info=True,
             )
             GLib.idle_add(self._handle_scan_error, target, f"Scan failed unexpectedly: {e}")
         finally:
             GLib.idle_add(self.nmap_target_entryrow.set_sensitive, True)
-            logging.info("Nmap scan task finished for %s.", target)
+            logger.info("Nmap scan task finished for %s.", target)
 
     def _process_scan_results(self, nm: nmap.PortScanner, original_target: str):
         """Process the Nmap scan results received from the scanner task.
@@ -337,10 +336,11 @@ class NmapPage(Gtk.Box):
             original_target: The original target string for which the scan was run.
 
         """
+        logger.debug("Processing Nmap scan results for target: %s", original_target)
         hosts_found = nm.all_hosts()
-        logging.debug("Processing results for %s. nm.all_hosts(): %s", original_target, hosts_found)
+        logger.debug("Hosts found by Nmap: %s", hosts_found)
         if not hosts_found:
-            logging.warning("No hosts found in Nmap results for target %s.", original_target)
+            logger.warning("No hosts found in Nmap results for target %s.", original_target)
             self._set_scan_status(
                 ScanStatus.COMPLETE,
                 f"Scan complete for {original_target}. No hosts found or responsive.",
@@ -356,9 +356,9 @@ class NmapPage(Gtk.Box):
 
         results_yaml_map = self.scanner.convert_results_to_yaml(nm)
         if results_yaml_map:
-            logging.debug("results_yaml_map keys: %s", list(results_yaml_map.keys()))
+            logger.debug("results_yaml_map keys: %s", list(results_yaml_map.keys()))
         else:
-            logging.debug("results_yaml_map is empty.")
+            logger.debug("results_yaml_map is empty.")
         GLib.idle_add(self._update_results_view, hosts_found, results_yaml_map)
         self._set_scan_status(
             ScanStatus.COMPLETE,
@@ -376,7 +376,7 @@ class NmapPage(Gtk.Box):
             error_message: The error message to display.
 
         """
-        logging.error("Handling scan error for target %s: %s", target, error_message)
+        logger.debug("Handling Nmap scan error for target %s: %s", target, error_message)
         self._display_error(f"Error scanning {target}: {error_message}")
         self._set_scan_status(ScanStatus.FAILED, f"Scan failed for {target}")
 
@@ -409,30 +409,30 @@ class NmapPage(Gtk.Box):
         if isinstance(row, NmapTargetRow):
             item_obj = row.nmap_item
         else:
-            logging.warning("Selected row is not an NmapTargetRow instance.")
+            logger.warning("Selected row is not an NmapTargetRow instance.")
             item_obj = None
 
         if item_obj and isinstance(item_obj, NmapItem):
             selected_target_key = item_obj.key
-            logging.debug("Target selected: %s", selected_target_key)
+            logger.debug("Target selected: %s", selected_target_key)
 
             try:
                 host_data_dict = yaml.safe_load(item_obj.value)
                 if not isinstance(host_data_dict, dict):
-                    logging.warning(
+                    logger.warning(
                         "Parsed YAML for host %s is not a dictionary. Value: %s",
                         selected_target_key,
                         item_obj.value[:100],
                     )
                     host_data_dict = {}
-                logging.debug(
+                logger.debug(
                     "Successfully parsed YAML for %s. Data keys: %s",
                     selected_target_key,
                     list(host_data_dict.keys()) if host_data_dict else "None",
                 )
             except yaml.YAMLError as e:
-                logging.debug("YAML parsing failed for %s: %s", selected_target_key, e)
-                logging.error("Error parsing YAML for host %s: %s", selected_target_key, e)
+                logger.debug("YAML parsing failed for %s: %s", selected_target_key, e)
+                logger.error("Error parsing YAML for host %s: %s", selected_target_key, e)
                 error_label = Gtk.Label(
                     label=f"Error: Could not parse scan results for {selected_target_key}.\n{e}"
                 )
@@ -447,7 +447,7 @@ class NmapPage(Gtk.Box):
             self._add_raw_output_expander(host_data_dict, selected_target_key)
 
         else:
-            logging.warning("Could not retrieve NmapItem from selected row or item_obj is None.")
+            logger.warning("Could not retrieve NmapItem from selected row or item_obj is None.")
             self.nmap_detail_placeholder.set_title("Error")
             self.nmap_detail_placeholder.set_description(
                 "Could not load details for the selected host."
@@ -465,7 +465,7 @@ class NmapPage(Gtk.Box):
             host_key: The identifier for the host (IP or name).
 
         """
-        logging.debug("Adding text scan summary expander for %s", host_key)
+        logger.debug("Adding text scan summary expander for %s", host_key)
         expander = Adw.ExpanderRow(title=f"Text Scan Summary - {host_key}")
         expander.set_expanded(False)
 
@@ -496,7 +496,7 @@ class NmapPage(Gtk.Box):
             host_key: The identifier for the host.
 
         """
-        logging.debug("Adding host details expander for %s", host_key)
+        logger.debug("Adding host details expander for %s", host_key)
         expander = Adw.ExpanderRow(title=f"Host Information - {host_key}")
         expander.set_expanded(True)
 
@@ -542,7 +542,7 @@ class NmapPage(Gtk.Box):
             host_key: The identifier for the host.
 
         """
-        logging.debug("Adding ports expander for %s", host_key)
+        logger.debug("Adding ports expander for %s", host_key)
         expander = Adw.ExpanderRow(title=f"Network Ports - {host_key}")
         expander.set_expanded(True)
 
@@ -553,7 +553,7 @@ class NmapPage(Gtk.Box):
                     f"Processing ports for proto {proto} in host {host_key}, data: "
                     f"{list(proto_data.keys()) if isinstance(proto_data, dict) else 'Not a dict'}"
                 )
-                logging.debug(port_data_log_msg)
+                logger.debug(port_data_log_msg)
                 if isinstance(proto_data, dict):
                     for port_id, port_info in proto_data.items():
                         ports_found = True
@@ -595,10 +595,10 @@ class NmapPage(Gtk.Box):
         """
         osmatch_data = host_data.get("osmatch", [])
         if not osmatch_data:
-            logging.debug("No OS data for host %s, skipping OS expander.", host_key)
+            logger.debug("No OS data for host %s, skipping OS expander.", host_key)
             return
 
-        logging.debug("Adding OS expander for %s. OS match data: %s", host_key, osmatch_data)
+        logger.debug("Adding OS expander for %s. OS match data: %s", host_key, osmatch_data)
         expander = Adw.ExpanderRow(title=f"Operating System Detection - {host_key}")
         expander.set_expanded(True)
 
@@ -657,7 +657,7 @@ class NmapPage(Gtk.Box):
             results_map: A dictionary mapping host identifiers to their YAML scan data.
 
         """
-        logging.info("Updating Nmap results view for hosts: %s", hosts)
+        logger.info("Updating Nmap results view for hosts: %s", hosts)
         self.nmap_target_listbox_store.remove_all()
         self.results_by_host.clear()
 
@@ -697,7 +697,7 @@ class NmapPage(Gtk.Box):
             message: The message string to display for the status.
 
         """
-        logging.info("Setting Nmap scan status: %s - %s", status_type.name, message)
+        logger.info("Setting Nmap scan status: %s - %s", status_type.name, message)
         GLib.idle_add(self._update_status_ui, status_type, message)
 
     def _update_status_ui(self, status_type: ScanStatus, message: str):
@@ -745,7 +745,7 @@ class NmapPage(Gtk.Box):
 
         Resets the host list, detail view, error banner, and status indicators.
         """
-        logging.info("Clearing Nmap results and detail view.")
+        logger.info("Clearing Nmap results and detail view.")
         self.nmap_target_listbox_store.remove_all()
         self.results_by_host.clear()
 
@@ -782,7 +782,7 @@ class NmapPage(Gtk.Box):
         if main_window and hasattr(main_window, 'show_error'):
             main_window.show_error(message)
         else:
-            logging.warning("Could not find main window or show_error method to display: %s", message)
+            logger.warning("Could not find main window or show_error method to display: %s", message)
 
 
     def _clear_error(self):
@@ -791,7 +791,7 @@ class NmapPage(Gtk.Box):
         if main_window and hasattr(main_window, 'hide_error'):
             main_window.hide_error()
         else:
-            logging.warning("Could not find main window or hide_error method to clear error.")
+            logger.warning("Could not find main window or hide_error method to clear error.")
 
 
     def _create_target_listbox_row(self, item: NmapItem) -> Gtk.ListBoxRow:
