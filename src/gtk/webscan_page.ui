@@ -32,6 +32,49 @@
     </child>
     <child>
       <object class="AdwPreferencesGroup">
+        <property name="title">Scan Options</property>
+        <child>
+          <object class="AdwActionRow">
+            <property name="title">Force SSL Scan</property>
+            <property name="subtitle">Equivalent to Nikto's -ssl option</property>
+            <property name="activatable_widget">force_ssl_switch</property>
+            <child>
+              <object class="GtkSwitch" id="force_ssl_switch">
+                <property name="valign">center</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="AdwActionRow">
+            <property name="title">Check CGI Vulnerabilities</property>
+            <property name="subtitle">Nikto Tuning Option: 2 (Misconfiguration/Default File)</property>
+            <property name="activatable_widget">cgi_vulns_switch</property>
+            <child>
+              <object class="GtkSwitch" id="cgi_vulns_switch">
+                <property name="valign">center</property>
+                <property name="active">true</property> <!-- Default to true as it was previously hardcoded via xCGIVulnerable -->
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="AdwActionRow">
+            <property name="title">Check Interesting Files/Directories</property>
+            <property name="subtitle">Nikto Tuning Option: 1 (Interesting File / Seen in logs)</property>
+            <property name="activatable_widget">interesting_content_switch</property>
+            <child>
+              <object class="GtkSwitch" id="interesting_content_switch">
+                <property name="valign">center</property>
+                <property name="active">true</property> <!-- Default to true for broader initial scan -->
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="AdwPreferencesGroup">
         <property name="title">Scan Results</property>
         <property name="description">Output from the web vulnerability scan will appear here.</property>
         <child>
