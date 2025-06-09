@@ -18,7 +18,7 @@ from .constants import APP_ID, VERSION, RESOURCE_PREFIX, PKGDATADIR
 
 
 def _load_gresources_early():
-    """Load GResources."""  # Changed docstring to imperative mood
+    """Load GResources."""
     resource_file_path = os.path.join(PKGDATADIR, "woes.gresource")
     logging.info(
         "Attempting to load GResource file from: %s (derived from PKGDATADIR: %s)",

@@ -5,10 +5,9 @@ and GtkSourceView style schemes. It interacts with GSettings to retrieve
 system and application-specific style configurations.
 """
 import logging
-# Removed duplicated docstring
 import re
 import platform
-from typing import Optional, Tuple # Added Tuple
+from typing import Optional, Tuple
 
 import gi
 gi.require_version("Adw", "1")
@@ -28,7 +27,7 @@ HIGH_CONTRAST_KEY = "high-contrast"
 
 def _get_linux_font_preferences(
     base_font_size_pt: float,
-) -> Tuple[Optional[str], float]: # Changed to typing.Tuple
+) -> Tuple[Optional[str], float]:
     """Get font preferences from GNOME settings on Linux.
 
     Retrieves font family and size from `org.gnome.desktop.interface` schema.
@@ -104,7 +103,6 @@ def _get_app_font_scaling(app_settings: Gio.Settings) -> float:
                 "Could not parse app font-scaling-percentage: '%s', defaulting to 100%%.",
                 font_scale_percentage_str,
             )
-            # parsed_app_percentage is already 100.0
     else:
         logging.warning(
             "Could not parse app font-scaling-percentage: '%s', defaulting to 100%%.",
