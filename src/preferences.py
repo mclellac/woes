@@ -18,7 +18,7 @@ import gi
 from gi.repository import Adw, Gio, Gtk, GLib, GObject, Gdk  # pylint: disable=wrong-import-position # Added GObject and Gdk
 
 from .constants import APP_ID, RESOURCE_PREFIX  # pylint: disable=wrong-import-position
-from ..http_page import dns as http_dns_module # Import dns from http_page
+from .http_page import dns as http_dns_module # Import dns from http_page (corrected)
 
 gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
