@@ -1,7 +1,9 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Created with Cambalache 0.96.1 -->
 <interface>
-  <requires lib="gtk" version="4.0"/>
-  <requires lib="libadwaita" version="1.0"/>
+  <!-- interface-name webscan_page.ui -->
+  <requires lib="gtk" version="4.18"/>
+  <requires lib="libadwaita" version="1.7"/>
   <template class="WebScanPage" parent="AdwPreferencesPage">
     <property name="title">Web Scan</property>
     <child>
@@ -17,8 +19,8 @@
             <property name="title">Actions</property>
             <child>
               <object class="GtkButton" id="scan_button">
-                <property name="label">Start Scan</property>
                 <property name="halign">end</property>
+                <property name="label">Start Scan</property>
                 <property name="valign">center</property>
                 <signal name="clicked" handler="on_scan_button_clicked"/>
                 <style>
@@ -35,9 +37,9 @@
         <property name="title">Scan Options</property>
         <child>
           <object class="AdwActionRow">
-            <property name="title">Force SSL Scan</property>
+            <property name="activatable-widget">force_ssl_switch</property>
             <property name="subtitle">Equivalent to Nikto's -ssl option</property>
-            <property name="activatable_widget">force_ssl_switch</property>
+            <property name="title">Force SSL Scan</property>
             <child>
               <object class="GtkSwitch" id="force_ssl_switch">
                 <property name="valign">center</property>
@@ -47,26 +49,26 @@
         </child>
         <child>
           <object class="AdwActionRow">
-            <property name="title">Check CGI Vulnerabilities</property>
+            <property name="activatable-widget">cgi_vulns_switch</property>
             <property name="subtitle">Nikto Tuning Option: 2 (Misconfiguration/Default File)</property>
-            <property name="activatable_widget">cgi_vulns_switch</property>
+            <property name="title">Check CGI Vulnerabilities</property>
             <child>
               <object class="GtkSwitch" id="cgi_vulns_switch">
+                <property name="active">true</property>
                 <property name="valign">center</property>
-                <property name="active">true</property> <!-- Default to true as it was previously hardcoded via xCGIVulnerable -->
               </object>
             </child>
           </object>
         </child>
         <child>
           <object class="AdwActionRow">
-            <property name="title">Check Interesting Files/Directories</property>
+            <property name="activatable-widget">interesting_content_switch</property>
             <property name="subtitle">Nikto Tuning Option: 1 (Interesting File / Seen in logs)</property>
-            <property name="activatable_widget">interesting_content_switch</property>
+            <property name="title">Check Interesting Files/Directories</property>
             <child>
               <object class="GtkSwitch" id="interesting_content_switch">
+                <property name="active">true</property>
                 <property name="valign">center</property>
-                <property name="active">true</property> <!-- Default to true for broader initial scan -->
               </object>
             </child>
           </object>
@@ -75,16 +77,16 @@
     </child>
     <child>
       <object class="AdwPreferencesGroup">
-        <property name="title">Scan Results</property>
         <property name="description">Output from the web vulnerability scan will appear here.</property>
+        <property name="title">Scan Results</property>
         <child>
           <object class="GtkScrolledWindow">
             <property name="min-content-height">200</property>
             <property name="vexpand">True</property>
             <child>
               <object class="GtkTextView" id="results_textview">
-                <property name="editable">False</property>
                 <property name="cursor-visible">False</property>
+                <property name="editable">False</property>
                 <property name="wrap-mode">word-char</property>
               </object>
             </child>
@@ -92,5 +94,5 @@
         </child>
       </object>
     </child>
-  </template> <!-- End AdwPreferencesPage#WebScanPage -->
+  </template>
 </interface>

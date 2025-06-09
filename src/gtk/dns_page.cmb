@@ -2,5 +2,5 @@
 <!DOCTYPE cambalache-project SYSTEM "cambalache-project.dtd">
 <!-- Created with Cambalache 0.96.1 -->
 <cambalache-project version="0.96.0" target_tk="gtk-4.0">
-  <ui template-class="NmapPage" filename="nmap_page.ui" sha256="af85745edff88d7f567ffaa390d678826d646e457466b701579dbd5a436c0747"/>
+  <ui template-class="DNSPage" filename="dns_page.ui" sha256="c8057dcac4de3f73042e3f9fc6e53768e2db035879fe2de136e5a2183fcd50ab"/>
 </cambalache-project>
