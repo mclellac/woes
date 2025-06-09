@@ -316,6 +316,7 @@ class HttpPage(Adw.PreferencesPage):
             "user_agent": user_agent_to_send,
             "custom_dns_server": custom_dns_server,
         }
+        logger.debug(f"Task data for thread: {self._http_task_data_for_thread}")
         task = Gio.Task.new(self, None, self._fetch_headers_task_done_cb, None)
         self.current_http_task = task
         task.run_in_thread(self._fetch_headers_task_thread_func)
@@ -622,11 +623,9 @@ class HttpPage(Adw.PreferencesPage):
             )
             return
         except Exception as e:  # pylint: disable=broad-except
-            logger.error(
-                "Task thread: Truly unexpected error for %s: %s",
+                logger.exception( # Changed to logger.exception
+                    "Task thread: Truly unexpected error for %s:",
                 url_to_fetch,
-                e,
-                exc_info=True,
             )
             error_message = (
                 "An unexpected internal error occurred while processing your request. Please try again later."
@@ -865,21 +864,18 @@ class HttpPage(Adw.PreferencesPage):
                 self._update_column_view_model(None)
 
         except GLib.Error as e:
-            logger.error(
-                "Task failed with GLib.Error: Domain=%s, Code=%s, Message='%s'",
+            logger.exception( # Changed to logger.exception
+                "Task failed with GLib.Error (Domain: %s, Code: %s):",
                 e.domain,
                 e.code,
-                e.message,
-            )
-            self._display_error(e.message.replace("<b>", "").replace("</b>", ""))
+            ) # Message is part of exception details automatically
+            self._display_error(e.message.replace("<b>", "").replace("</b>", "")) # Keep user message simple
             if hasattr(self, "http_entry_row") and self.http_entry_row:
                 self.http_entry_row.add_css_class("error")
             self._update_column_view_model(None)
         except Exception as e:  # pylint: disable=broad-except
-            logger.error(
-                "Unexpected Python error in _fetch_headers_task_done_cb: %s",
-                e,
-                exc_info=True,
+            logger.exception( # Changed to logger.exception
+                "Unexpected Python error in _fetch_headers_task_done_cb:"
             )
             self._display_error("An unexpected application error occurred while displaying the results.")
             if hasattr(self, "http_entry_row") and self.http_entry_row:

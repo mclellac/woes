@@ -11,6 +11,7 @@ This page provides a simple interface to run Nikto scans against a target URL
 and display the results.
 """
 import logging
+logger = logging.getLogger(__name__)
 from typing import Optional # Added for type hinting
 
 import gi
@@ -38,7 +39,7 @@ class WebScanPage(Adw.PreferencesPage):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        logging.debug("WebScanPage initialized")
+        logger.debug("WebScanPage initialized")
         self.url_entry.connect("entry-activated", self.on_scan_button_clicked)
 
     def on_scan_button_clicked(self, _widget: Gtk.Button):
@@ -53,7 +54,7 @@ class WebScanPage(Adw.PreferencesPage):
             _widget: The Gtk.Button that was clicked.
 
         """
-        logging.debug(f"WebScanPage scan button clicked. URL: '{self.url_entry.get_text()}'")
+        logger.debug(f"WebScanPage scan button clicked. URL: '{self.url_entry.get_text()}'")
         target_url = self.url_entry.get_text()
 
         # URL validation
@@ -113,6 +114,7 @@ class WebScanPage(Adw.PreferencesPage):
             cancellable: A `Gio.Cancellable` to monitor for cancellation requests.
 
         """
+        logger.debug("WebScanPage._run_scan_task_thread_func started")
         page_instance = source_object # source_object is the WebScanPage instance
         scan_data = page_instance._temp_scan_data
 
@@ -155,7 +157,7 @@ class WebScanPage(Adw.PreferencesPage):
             if tuning_string: # Ensure not empty if logic changes
                 nikto_command.extend(['-Tuning', tuning_string])
 
-        logging.debug(f"Constructed Nikto command: {nikto_command}")
+        logger.debug(f"Constructed Nikto command: {nikto_command}")
 
         try:
             with subprocess.Popen(
@@ -197,26 +199,25 @@ class WebScanPage(Adw.PreferencesPage):
             stdout, stderr_or_error_msg, error_type = task.run_in_thread_finish(result)
 
             if error_type == "FileNotFoundError":
-                logging.exception("Nikto command not found. Ensure it's in PATH.")
+                logger.exception("Nikto command not found. Ensure it's in PATH.")
                 user_message = "Nikto command not found. Please ensure Nikto is installed and in your system's PATH."
                 self._show_main_banner_error(user_message)
                 self._update_textview("", f"Error: {user_message}")
             elif error_type == "TimeoutExpired":
-                logging.exception(f"Nikto scan for {target_url} timed out.")
+                logger.exception(f"Nikto scan for {target_url} timed out.")
                 user_message = f"Scan for {target_url} timed out after 5 minutes."
                 self._show_main_banner_error(user_message)
                 self._update_textview("", f"Error: {user_message}")
             elif error_type == "Exception":
-                logging.exception(f"An unexpected error occurred during Nikto scan task for {target_url}:")
+                logger.exception(f"An unexpected error occurred during Nikto scan task for {target_url}:")
                 user_message = "An unexpected error occurred during the scan. Please check the application logs for more details."
                 self._show_main_banner_error(user_message)
-                # The stderr_or_error_msg might contain some details, but for user, generic is safer.
                 self._update_textview("", user_message)
             else:
                 self._update_textview(stdout, stderr_or_error_msg)
 
         except GLib.Error as e:
-            logging.exception(f"GLib.Error during scan task finalization for {target_url}:")
+            logger.exception(f"GLib.Error during scan task finalization for {target_url}:")
             user_message = "A task finalization error occurred. Please check the application logs for more details."
             self._show_main_banner_error(user_message)
             self._update_textview("", user_message)
@@ -255,12 +256,12 @@ class WebScanPage(Adw.PreferencesPage):
             message: The error message to display.
 
         """
-        logging.error("Displaying error: %s", message)
+        logger.error("Displaying error: %s", message)
         main_window = self.get_native()
         if main_window and hasattr(main_window, 'show_error'):
             main_window.show_error(message)
         else:
-            logging.warning("Could not find main window or show_error method to display: %s", message)
+            logger.warning("Could not find main window or show_error method to display: %s", message)
 
     # Removed on_error_banner_dismiss_clicked method
     # def on_error_banner_dismiss_clicked(self, _widget: Adw.Banner, *_args):

@@ -1,5 +1,6 @@
 """Defines the DNS lookup page for the Woes application."""
 import logging
+logger = logging.getLogger(__name__)
 import re
 
 import dns.resolver
@@ -33,6 +34,7 @@ class DNSPage(Adw.PreferencesPage):
     def __init__(self, **kwargs):
         """Initialize the DNSPage."""
         super().__init__(**kwargs)
+        logger.debug("DNSPage initialized.")
         self._connect_signals()
         self.settings = Gio.Settings.new(APP_ID)
         if self.dns_apply_button:
@@ -62,11 +64,11 @@ class DNSPage(Adw.PreferencesPage):
             clipboard = widget.get_clipboard()
             if clipboard: # Check if clipboard is available
                 clipboard.set(text)
-                logging.info("Copied to clipboard: %s", text)
+                logger.info("Copied to clipboard: %s", text)
             else:
-                logging.warning("Could not get clipboard from widget: %s", widget)
+                logger.warning("Could not get clipboard from widget: %s", widget)
         except Exception as e: # pylint: disable=broad-except
-            logging.error("Error copying to clipboard: %s", e, exc_info=True)
+            logger.exception("Error copying to clipboard:")
 
 
     def _is_ip_address(self, input_str: str) -> bool:
@@ -119,6 +121,7 @@ class DNSPage(Adw.PreferencesPage):
             _widget: The widget that emitted the signal.
 
         """
+        logger.debug(f"_on_entry_activated called by widget: {_widget}")
         self._perform_lookup()
 
     def _on_record_type_changed(self, _dropdown: Gtk.DropDown, _param_spec: GObject.ParamSpec):
@@ -171,6 +174,7 @@ class DNSPage(Adw.PreferencesPage):
             dns.resolver.Timeout: If the query timed out.
 
         """
+        logger.debug(f"Fetching DNS records for: {user_input}, type: {requested_record_type}")
         actual_record_type = requested_record_type
         if self._is_ip_address(user_input):
             actual_record_type = "PTR"  # Override to PTR for IP addresses
@@ -189,6 +193,9 @@ class DNSPage(Adw.PreferencesPage):
             self.dns_lookup_spinner.start()
 
         user_input = self.domain_entry.get_text().strip()
+        requested_record_type = self._get_selected_record_type() # Get it early for logging
+        logger.debug(f"Performing DNS lookup for: {user_input}, type: {requested_record_type}")
+
         if not user_input:
             self._show_error("Input cannot be empty.")
             if self.dns_lookup_spinner:
@@ -236,14 +243,13 @@ class DNSPage(Adw.PreferencesPage):
         except dns.resolver.Timeout:
             self._show_error(f"DNS query timed out for {user_input}")
         except dns.exception.DNSException as e:  # Catch other DNS-specific exceptions
-            logging.error("DNS lookup failed: %s", e)
+            logger.exception("DNS lookup failed for %s, type %s:", user_input, requested_record_type)
             self._show_error(f"DNS Error: {str(e)}")
         except Exception as e:  # pylint: disable=broad-except
-            logging.error(
-                "Unexpected error during DNS lookup (%s): %s",
-                type(e).__name__,
-                e,
-                exc_info=True,
+            logger.exception( # Changed to logger.exception
+                "Unexpected error during DNS lookup for %s, type %s:",
+                user_input,
+                requested_record_type,
             )
             self._show_error(f"An unexpected error occurred: {str(e)}")
         finally:
@@ -276,7 +282,7 @@ class DNSPage(Adw.PreferencesPage):
         if main_window and hasattr(main_window, 'show_error'):
             main_window.show_error(message)
         else:
-            logging.warning("Could not find main window or show_error method to display: %s", message)
+            logger.warning("Could not find main window or show_error method to display: %s", message)
 
 
     def _clear_error(self):
@@ -286,7 +292,7 @@ class DNSPage(Adw.PreferencesPage):
         if main_window and hasattr(main_window, 'hide_error'):
             main_window.hide_error()
         else:
-            logging.warning("Could not find main window or hide_error method to clear error.")
+            logger.warning("Could not find main window or hide_error method to clear error.")
 
     @staticmethod
     def _lookup_record(domain_or_ip: str, record_type_str: str, resolver: dns.resolver.Resolver) -> List[Dict[str, Any]]:
@@ -367,7 +373,12 @@ class DNSPage(Adw.PreferencesPage):
             dns_servers: A list of DNS servers that were used.
 
         """
-        logging.info(
+        logger.debug( # Added logger.debug
+            "Displaying %d results for %s (type %s) using servers %s.",
+            len(result_records), domain_or_ip, record_type, dns_servers
+        )
+        # The existing logging.info and logging.debug for individual records are good.
+        logger.info(
             "Query for %s, type %s, using servers %s, returned %d records.",
             domain_or_ip,
             record_type,
@@ -375,7 +386,7 @@ class DNSPage(Adw.PreferencesPage):
             len(result_records)
         )
         for rec in result_records:
-            logging.debug("Record: %s", rec)
+            logger.debug("Record: %s", rec)
 
         # Clear previous results
         while (child := self.dns_results_box_container.get_first_child()):
@@ -587,7 +598,7 @@ class DNSPage(Adw.PreferencesPage):
             suffix_box.append(copy_full_button_data)
             row.add_suffix(suffix_box)
         else:
-            logging.warning("Could not create row for unknown record_data: %s", record_data)
+            logger.warning("Could not create row for unknown record_data: %s", record_data)
             return None
 
         if not isinstance(row, Adw.ExpanderRow):
