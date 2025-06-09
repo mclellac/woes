@@ -28,6 +28,7 @@ import gi
 from gi.repository import Adw, Gio, GObject, Gtk, GLib, Gdk, Pango
 
 from .constants import RESOURCE_PREFIX, USER_AGENTS, APP_ID
+from .utils import show_global_error, show_global_toast
 
 
 gi.require_version("Adw", "1")
@@ -560,15 +561,11 @@ class HttpPage(Adw.PreferencesPage):
 
         if not self._is_valid_url(url):
             logger.warning("Invalid URL provided: %s (processed as: %s)", original_url, url)
-            main_window = self.get_native()
-            if main_window and hasattr(main_window, "show_toast"):
-                main_window.show_toast("Invalid URL format. Please enter a valid URL (e.g., https://example.com).")
-            else:
-                # Fallback or log if main_window or show_toast is not available
-                logger.warning("Could not find main window or show_toast method to display invalid URL toast.")
-                self._display_error(
-                    "Invalid URL format: Please enter a valid URL (e.g., https://example.com)."
-                )  # Fallback to banner
+            toast_message = "Invalid URL format. Please enter a valid URL (e.g., https://example.com)."
+            show_global_toast(self, toast_message)
+            main_window = self.get_native() # Still need to check for fallback condition
+            if not (main_window and hasattr(main_window, "show_toast")):
+                show_global_error(self, toast_message)
             self._update_column_view_model(None)
             return
 
@@ -1124,7 +1121,7 @@ class HttpPage(Adw.PreferencesPage):
                     type(actual_list_of_responses),
                     actual_list_of_responses,
                 )
-                self._display_error(
+                show_global_error(self,
                     f"Failed to process task result (unexpected data structure: "
                     f"{type(actual_list_of_responses).__name__}). Please check logs."
                 )
@@ -1140,7 +1137,7 @@ class HttpPage(Adw.PreferencesPage):
             display_message = (
                 e.message.replace("<b>", "").replace("</b>", "") if e.message else "An unknown error occurred."
             )
-            self._display_error(display_message)
+            show_global_error(self, display_message)
             if hasattr(self, "http_entry_row") and self.http_entry_row:
                 self.http_entry_row.add_css_class("error")  # Style entry as erroneous
             self._update_column_view_model(None)
@@ -1153,7 +1150,7 @@ class HttpPage(Adw.PreferencesPage):
             elif str(e):  # Fallback to string representation of the exception
                 error_message = str(e)
 
-            self._display_error(error_message)
+            show_global_error(self, error_message)
             if hasattr(self, "http_entry_row") and self.http_entry_row:
                 self.http_entry_row.add_css_class("error")
             self._update_column_view_model(None)
@@ -1294,27 +1291,6 @@ class HttpPage(Adw.PreferencesPage):
         """Make the HTTP results group invisible."""
         if self.http_results_group:  # Check if it exists
             self.http_results_group.set_visible(False)
-
-    def _display_error(self, message: str) -> None:
-        """Display an error message in the main window's error banner.
-
-        Also adds an 'error' CSS class to the URL entry row and hides any existing results.
-
-        Args:
-        ----
-            message: The error message string to display.
-
-        """
-        main_window = self.get_native()  # Get the top-level window (WoesWindow)
-        if main_window and hasattr(main_window, "show_error"):
-            main_window.show_error(message)  # Call show_error method on WoesWindow
-        else:
-            # Fallback or log if WoesWindow or show_error is not found
-            logger.warning("Could not find main window or its 'show_error' method to display: %s", message)
-
-        if self.http_entry_row:  # Check if it exists
-            self.http_entry_row.add_css_class("error")
-        self._hide_results()  # Hide results section when an error occurs
 
     def _clear_error(self) -> None:
         """Clear any displayed error messages from the main window's banner.
