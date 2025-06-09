@@ -73,6 +73,7 @@ gnome.compile_resources(
 woes_sources = files(
   '__init__.py',
   'constants.py',
+  'custom_dns_adapter.py',
   'dns_page.py',
   'helper.py',
   'http_page.py',
