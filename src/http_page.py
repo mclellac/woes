@@ -410,14 +410,29 @@ class HttpPage(Adw.PreferencesPage):
             # actual_list_of_responses is now the direct result from HttpFetcher if successful
             actual_list_of_responses: Optional[List[Dict[str, Any]]] = None
 
-            if isinstance(propagate_result, Gio.DBusCallFlags):
+            if isinstance(propagate_result, list): # Check for list first, as it's the most direct expected type
+                actual_list_of_responses = propagate_result
+            elif hasattr(propagate_result, '_asdict') and hasattr(propagate_result, '_fields'): # Heuristic for a namedtuple
+                logger.info(f"HttpPage: Received namedtuple-like object {type(propagate_result)}, attempting to extract data.")
+                # Assuming the list is the first field, or a field named 'result' or 'data'
+                if 'result' in propagate_result._fields and isinstance(propagate_result.result, list):
+                    actual_list_of_responses = propagate_result.result
+                elif 'data' in propagate_result._fields and isinstance(propagate_result.data, list):
+                    actual_list_of_responses = propagate_result.data
+                elif propagate_result._fields and hasattr(propagate_result, propagate_result._fields[0]) and isinstance(getattr(propagate_result, propagate_result._fields[0]), list):
+                    actual_list_of_responses = getattr(propagate_result, propagate_result._fields[0])
+                else: # Fallback if fields are empty, not matching, or not a list
+                    logger.error(f"HttpPage: namedtuple-like object detected, but could not extract List[Dict[str, Any]] data: {propagate_result}")
+                    actual_list_of_responses = None # Ensure it's None if extraction fails
+            elif isinstance(propagate_result, Gio.DBusCallFlags):
                  # This was a workaround, ideally HttpFetcher's result is directly a list or raises.
                  # If HttpFetcher returns list directly, this might not be needed.
                  # For now, keeping it if task.return_value() could still wrap.
                  logger.debug("HttpPage: propagate_result is Gio.DBusCallFlags, accessing .value")
                  actual_list_of_responses = propagate_result.value # type: ignore
-            elif isinstance(propagate_result, list):
-                 actual_list_of_responses = propagate_result
+            elif hasattr(propagate_result, 'value'): # Generic fallback for a wrapper with a .value attribute
+                logger.warning(f"HttpPage: Received wrapped object {type(propagate_result)} with .value attribute.")
+                actual_list_of_responses = propagate_result.value
             else:
                 logger.error(f"HttpPage: Unexpected type from propagate_value: {type(propagate_result)}")
                 # This path implies an error that wasn't caught and converted to GLib.Error by the thread func
@@ -428,8 +443,9 @@ class HttpPage(Adw.PreferencesPage):
                 self._update_column_view_model(None)
                 return # Early exit
 
-            # This block is reached if propagate_result was successfully coerced into a list or was already a list.
-            if actual_list_of_responses is not None: # It could be an empty list on success
+            # This block is reached if propagate_result was successfully coerced or extracted.
+            # Ensure actual_list_of_responses is a list before proceeding.
+            if actual_list_of_responses is not None and isinstance(actual_list_of_responses, list):
                 logger.info("HttpPage: Successfully processed task result: %d response stages.", len(actual_list_of_responses))
                 processed_headers_for_store: list[HeaderItem] = []
                 if not actual_list_of_responses: # Empty list is a valid success case (e.g. no data)
@@ -437,13 +453,14 @@ class HttpPage(Adw.PreferencesPage):
                     self._update_column_view_model(None) # Clear view or show "no data"
                 else:
                     for i, response_data_dict_item in enumerate(actual_list_of_responses):
+                        # Ensure each item is a dict, as expected by HttpFetcher's contract
                         if not isinstance(response_data_dict_item, dict):
                             logger.error(
-                                "HttpPage: Expected dict item in response list from HttpFetcher, got %s. Data: %s",
+                                "HttpPage: Expected dict item in response list, got %s. Data: %s",
                                 type(response_data_dict_item), response_data_dict_item,
                             )
                             continue
-                        response_data_dict: dict[str, Any] = response_data_dict_item
+                        response_data_dict: Dict[str, Any] = response_data_dict_item # Explicitly type hint
                         url_display = f"URL: {response_data_dict.get('url', 'N/A')}"
                         status_code = response_data_dict.get('status_code', 'N/A')
                         response_type = response_data_dict.get('type', 'unknown')
@@ -469,7 +486,12 @@ class HttpPage(Adw.PreferencesPage):
                     self._update_column_view_model(processed_headers_for_store)
                 if hasattr(self, "http_entry_row") and self.http_entry_row:
                     self.http_entry_row.remove_css_class("error") # type: ignore
-            # No 'else' here for actual_list_of_responses is None, as it's handled by the type check above.
+            else: # actual_list_of_responses is None or not a list after attempted extraction
+                logger.error(f"HttpPage: Failed to obtain a valid list of responses. Value: {actual_list_of_responses}")
+                show_global_error(self, "Failed to process data from background task.") # type: ignore
+                if hasattr(self, "http_entry_row") and self.http_entry_row:
+                    self.http_entry_row.add_css_class("error") # type: ignore
+                self._update_column_view_model(None)
         except GLib.Error as e:  # Errors set by task.return_new_error_literal in _fetch_headers_task_thread_func
             logger.warning(
                 "HttpPage: Task failed with GLib.Error (Domain: %s, Code: %d, Message: %s)",
