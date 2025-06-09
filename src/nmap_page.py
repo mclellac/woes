@@ -957,4 +957,4 @@ class NmapPage(Gtk.Box):
         else:
             logger.warning("Nmap scan button not available or not sensitive, cannot trigger scan.")
 
-[end of src/nmap_page.py]
+```
