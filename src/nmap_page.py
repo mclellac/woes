@@ -4,7 +4,9 @@ This page allows users to configure and run Nmap scans against specified targets
 Results are displayed in a structured way, with hosts listed and detailed
 information (ports, OS, etc.) shown in expandable sections.
 """
+
 import logging
+
 logger = logging.getLogger(__name__)
 import re
 from typing import Optional
@@ -92,7 +94,7 @@ class NmapPage(Gtk.Box):
     def __del__(self):
         """Clean up resources, specifically the NmapScanner's thread pool."""
         if hasattr(self, "scanner") and self.scanner:
-            del self.scanner # NmapScanner.__del__ handles executor shutdown
+            del self.scanner  # NmapScanner.__del__ handles executor shutdown
 
     def _on_source_style_scheme_setting_changed(self, _settings: Gio.Settings, key: str):
         """Handle changes to the 'source-style-scheme' GSettings key."""
@@ -112,9 +114,7 @@ class NmapPage(Gtk.Box):
 
     def _init_page_ui(self):
         logger.debug("Initializing NmapPage UI components.")
-        self.nmap_host_listbox.bind_model(
-            self.nmap_target_listbox_store, self._create_target_listbox_row
-        )
+        self.nmap_host_listbox.bind_model(self.nmap_target_listbox_store, self._create_target_listbox_row)
         self.nmap_detail_placeholder.set_visible(True)
         child = self.nmap_detail_box.get_first_child()
         while child and child != self.nmap_detail_placeholder:
@@ -149,7 +149,7 @@ class NmapPage(Gtk.Box):
         if not self.scanner.validate_target_input(target):
             message = "Invalid target format. Please enter a valid IP, CIDR, or hostname."
             main_window = self.get_native()
-            if main_window and hasattr(main_window, 'show_toast'):
+            if main_window and hasattr(main_window, "show_toast"):
                 show_global_toast(self, message)
             else:
                 show_global_error(self, message)
@@ -168,8 +168,7 @@ class NmapPage(Gtk.Box):
         selected_script_item = self.nmap_scripts_dropdown.get_selected_item()
         script_name = (
             selected_script_item.get_string()
-            if isinstance(selected_script_item, Gtk.StringObject)
-            and selected_script_item.get_string() != "None"
+            if isinstance(selected_script_item, Gtk.StringObject) and selected_script_item.get_string() != "None"
             else None
         )
         service_version_detection = self.nmap_service_version_switchrow.get_active()
@@ -183,33 +182,70 @@ class NmapPage(Gtk.Box):
         logger.debug(
             "Nmap scan parameters collected: target=%s, os_fingerprint=%s, all_ports=%s, script_name=%s, "
             "service_version_detection=%s, no_ping_scan=%s, timing_template=%s, custom_dns_server=%s",
-            target, os_fingerprinting, all_ports, script_name, service_version_detection,
-            no_ping_scan, timing_template, custom_dns_server
+            target,
+            os_fingerprinting,
+            all_ports,
+            script_name,
+            service_version_detection,
+            no_ping_scan,
+            timing_template,
+            custom_dns_server,
         )
         logger.info(
             "Nmap scan for target: %s (OSScan:%s, AllPorts:%s, Script:%s, Ver:%s, NoPing:%s, Time:%s, CustomDNS:%s)",
-            target, os_fingerprinting, all_ports, script_name, service_version_detection,
-            no_ping_scan, timing_template, custom_dns_server if custom_dns_server else "None",
+            target,
+            os_fingerprinting,
+            all_ports,
+            script_name,
+            service_version_detection,
+            no_ping_scan,
+            timing_template,
+            custom_dns_server if custom_dns_server else "None",
         )
         self.scanner.executor.submit(
-            self._run_nmap_scan_task, target, os_fingerprinting, all_ports, script_name,
-            service_version_detection, no_ping_scan, timing_template, custom_dns_server,
+            self._run_nmap_scan_task,
+            target,
+            os_fingerprinting,
+            all_ports,
+            script_name,
+            service_version_detection,
+            no_ping_scan,
+            timing_template,
+            custom_dns_server,
         )
 
     def _run_nmap_scan_task(  # pylint: disable=too-many-arguments,too-many-positional-arguments
-        self, target: str, os_fingerprinting: bool, all_ports: bool, script_name: Optional[str],
-        service_version_detection: bool, no_ping_scan: bool, timing_template: str,
+        self,
+        target: str,
+        os_fingerprinting: bool,
+        all_ports: bool,
+        script_name: Optional[str],
+        service_version_detection: bool,
+        no_ping_scan: bool,
+        timing_template: str,
         custom_dns_server: Optional[str],
     ):
         """Execute the Nmap scan in a separate thread via NmapScanner."""
         logger.debug(
             "_run_nmap_scan_task started for target: %s with options - OSScan:%s, AllPorts:%s, Script:%s, Ver:%s, NoPing:%s, Time:%s, CustomDNS:%s",
-            target, os_fingerprinting, all_ports, script_name, service_version_detection, no_ping_scan, timing_template, custom_dns_server
+            target,
+            os_fingerprinting,
+            all_ports,
+            script_name,
+            service_version_detection,
+            no_ping_scan,
+            timing_template,
+            custom_dns_server,
         )
         try:
             nm = self.scanner.run_nmap_scan(
-                target, os_fingerprinting, all_ports, script_name,
-                service_version_detection, no_ping_scan, timing_template,
+                target,
+                os_fingerprinting,
+                all_ports,
+                script_name,
+                service_version_detection,
+                no_ping_scan,
+                timing_template,
                 custom_dns_server=custom_dns_server,
             )
             GLib.idle_add(self._process_scan_results, nm, target)
@@ -243,8 +279,10 @@ class NmapPage(Gtk.Box):
             return
 
         results_yaml_map = self.scanner.convert_results_to_yaml(nm)
-        if results_yaml_map: logger.debug("results_yaml_map keys: %s", list(results_yaml_map.keys()))
-        else: logger.debug("results_yaml_map is empty.")
+        if results_yaml_map:
+            logger.debug("results_yaml_map keys: %s", list(results_yaml_map.keys()))
+        else:
+            logger.debug("results_yaml_map is empty.")
         GLib.idle_add(self._update_results_view, hosts_found, results_yaml_map)
         self._set_scan_status(
             ScanStatus.COMPLETE,
@@ -275,9 +313,17 @@ class NmapPage(Gtk.Box):
             try:
                 host_data_dict = yaml.safe_load(item_obj.value)
                 if not isinstance(host_data_dict, dict):
-                    logger.warning("Parsed YAML for host %s is not a dictionary. Value: %s", selected_target_key, item_obj.value[:100])
+                    logger.warning(
+                        "Parsed YAML for host %s is not a dictionary. Value: %s",
+                        selected_target_key,
+                        item_obj.value[:100],
+                    )
                     host_data_dict = {}
-                logger.debug("Successfully parsed YAML for %s. Data keys: %s", selected_target_key, list(host_data_dict.keys()) if host_data_dict else "None")
+                logger.debug(
+                    "Successfully parsed YAML for %s. Data keys: %s",
+                    selected_target_key,
+                    list(host_data_dict.keys()) if host_data_dict else "None",
+                )
             except yaml.YAMLError as e:
                 logger.error("Error parsing YAML for host %s: %s", selected_target_key, e)
                 error_label = Gtk.Label(label=f"Error: Could not parse scan results for {selected_target_key}.\n{e}")
@@ -349,7 +395,9 @@ class NmapPage(Gtk.Box):
         ports_found = False
         for proto in ["tcp", "udp", "sctp", "ip"]:
             if proto_data := host_data.get(proto):
-                logger.debug(f"Processing ports for proto {proto} in host {host_key}, data: {list(proto_data.keys()) if isinstance(proto_data, dict) else 'Not a dict'}")
+                logger.debug(
+                    f"Processing ports for proto {proto} in host {host_key}, data: {list(proto_data.keys()) if isinstance(proto_data, dict) else 'Not a dict'}"
+                )
                 if isinstance(proto_data, dict):
                     for port_id, port_info in proto_data.items():
                         ports_found = True
@@ -383,13 +431,21 @@ class NmapPage(Gtk.Box):
             title = f"{name} (Accuracy: {accuracy}%)"
             osclass_details = []
             osclass_data = match.get("osclass", [])
-            osclasses_to_process = osclass_data if isinstance(osclass_data, list) else [osclass_data] if isinstance(osclass_data, dict) else []
+            osclasses_to_process = (
+                osclass_data
+                if isinstance(osclass_data, list)
+                else [osclass_data]
+                if isinstance(osclass_data, dict)
+                else []
+            )
             for os_class in osclasses_to_process:
                 if isinstance(os_class, dict):
                     vendor = os_class.get("vendor", "N/A")
                     osfamily = os_class.get("osfamily", "N/A")
                     osgen = os_class.get("osgen", "N/A")
-                    osclass_details.append(f"Type: {os_class.get('type', 'N/A')}, Vendor: {vendor}, Family: {osfamily}, Gen: {osgen}")
+                    osclass_details.append(
+                        f"Type: {os_class.get('type', 'N/A')}, Vendor: {vendor}, Family: {osfamily}, Gen: {osgen}"
+                    )
             subtitle = "\n".join(osclass_details) if osclass_details else "No OS class details."
             row = Adw.ActionRow(title=title, subtitle=subtitle if subtitle != "No OS class details." else "")
             expander.add_row(row)
@@ -407,7 +463,8 @@ class NmapPage(Gtk.Box):
             self._clear_dynamic_details()
             self.nmap_detail_placeholder.set_title("No Hosts Found")
             self.nmap_detail_placeholder.set_description("The scan did not find any responsive hosts.")
-            if not self.nmap_detail_placeholder.get_parent(): self.nmap_detail_box.append(self.nmap_detail_placeholder)
+            if not self.nmap_detail_placeholder.get_parent():
+                self.nmap_detail_box.append(self.nmap_detail_placeholder)
             self.nmap_detail_placeholder.set_visible(True)
             return
         for host_key in hosts:
@@ -421,7 +478,8 @@ class NmapPage(Gtk.Box):
             self._clear_dynamic_details()
             self.nmap_detail_placeholder.set_title("No Hosts Available")
             self.nmap_detail_placeholder.set_description("No host data to display.")
-            if not self.nmap_detail_placeholder.get_parent(): self.nmap_detail_box.append(self.nmap_detail_placeholder)
+            if not self.nmap_detail_placeholder.get_parent():
+                self.nmap_detail_box.append(self.nmap_detail_placeholder)
             self.nmap_detail_placeholder.set_visible(True)
 
     def _set_scan_status(self, status_type: ScanStatus, message: str):
@@ -434,12 +492,13 @@ class NmapPage(Gtk.Box):
         self.status_row.set_subtitle(message)
         status_css_classes = ["success-color", "warning-color", "error-color", "accent-color"]
         style_context = self.status_row.get_style_context()
-        for css_class in status_css_classes: style_context.remove_class(css_class)
+        for css_class in status_css_classes:
+            style_context.remove_class(css_class)
         if status_type == ScanStatus.IN_PROGRESS:
             self.scan_spinner.set_visible(True)
             self.scan_spinner.start()
             self.status_row.set_title("Scanning...")
-            style_context.add_class("error-color") # Red for scanning
+            style_context.add_class("error-color")  # Red for scanning
         else:
             self.scan_spinner.stop()
             self.scan_spinner.set_visible(False)
@@ -451,7 +510,8 @@ class NmapPage(Gtk.Box):
                 style_context.add_class("error-color")
             elif status_type == ScanStatus.IDLE:
                 self.status_row.set_title("Idle")
-            else: self.status_row.set_title("Scan Status")
+            else:
+                self.status_row.set_title("Scan Status")
 
     def _clear_results(self):
         """Clear all Nmap scan results from the UI."""
@@ -460,8 +520,11 @@ class NmapPage(Gtk.Box):
         self.results_by_host.clear()
         self._clear_dynamic_details()
         self.nmap_detail_placeholder.set_title("No Host Selected")
-        self.nmap_detail_placeholder.set_description("Select a host from the list to view details, or start a new scan.")
-        if not self.nmap_detail_placeholder.get_parent(): self.nmap_detail_box.append(self.nmap_detail_placeholder)
+        self.nmap_detail_placeholder.set_description(
+            "Select a host from the list to view details, or start a new scan."
+        )
+        if not self.nmap_detail_placeholder.get_parent():
+            self.nmap_detail_box.append(self.nmap_detail_placeholder)
         self.nmap_detail_placeholder.set_visible(True)
         self.nmap_target_entryrow.remove_css_class("error")
         self.nmap_target_entryrow.set_sensitive(True)
@@ -474,7 +537,7 @@ class NmapPage(Gtk.Box):
     def _clear_error(self):
         """Clear any displayed error message using the main window's banner."""
         main_window = self.get_native()
-        if main_window and hasattr(main_window, 'hide_error'):
+        if main_window and hasattr(main_window, "hide_error"):
             main_window.hide_error()
         else:
             logger.warning("Could not find main window or hide_error method to clear error.")
@@ -491,9 +554,12 @@ class NmapPage(Gtk.Box):
         reason = status_info.get("reason", "N/A")
         summary_lines.append(f"Host is {state} (reason: {reason}).")
         addresses_info = host_data_dict.get("addresses", {})
-        if ipv4 := addresses_info.get("ipv4"): summary_lines.append(f"IPv4 Address: {ipv4}")
-        if ipv6 := addresses_info.get("ipv6"): summary_lines.append(f"IPv6 Address: {ipv6}")
-        if mac := addresses_info.get("mac"): summary_lines.append(f"MAC Address: {mac}")
+        if ipv4 := addresses_info.get("ipv4"):
+            summary_lines.append(f"IPv4 Address: {ipv4}")
+        if ipv6 := addresses_info.get("ipv6"):
+            summary_lines.append(f"IPv6 Address: {ipv6}")
+        if mac := addresses_info.get("mac"):
+            summary_lines.append(f"MAC Address: {mac}")
 
         prescan_results = host_data_dict.get("prescript_results")
         if prescan_results and isinstance(prescan_results, list):
@@ -502,9 +568,15 @@ class NmapPage(Gtk.Box):
                 if isinstance(script_item, dict):
                     script_id, script_output = script_item.get("id", "N/A"), script_item.get("output", "N/A")
                     if script_output and isinstance(script_output, str):
-                        formatted_output = "\n".join([f"|_ {script_id}: {line.strip()}" if i == 0 else f"|  {line.strip()}" for i, line in enumerate(script_output.strip().split('\n'))])
+                        formatted_output = "\n".join(
+                            [
+                                f"|_ {script_id}: {line.strip()}" if i == 0 else f"|  {line.strip()}"
+                                for i, line in enumerate(script_output.strip().split("\n"))
+                            ]
+                        )
                         summary_lines.append(formatted_output)
-                    else: summary_lines.append(f"|_ {script_id}: (no output)")
+                    else:
+                        summary_lines.append(f"|_ {script_id}: (no output)")
 
         hostnames_list = host_data_dict.get("hostnames", [])
         if hostnames_list:
@@ -518,7 +590,7 @@ class NmapPage(Gtk.Box):
             for script_item in host_scripts:
                 if isinstance(script_item, dict):
                     script_id, script_output = script_item.get("id", "N/A"), script_item.get("output", "N/A")
-                    formatted_output = "\n".join([f"    {line.strip()}" for line in script_output.strip().split('\n')])
+                    formatted_output = "\n".join([f"    {line.strip()}" for line in script_output.strip().split("\n")])
                     summary_lines.append(f"  Script: {script_id}\n{formatted_output}")
 
         ports_data = []
@@ -528,22 +600,33 @@ class NmapPage(Gtk.Box):
                     for port_id, port_info in proto_data.items():
                         p_state = port_info.get("state", "N/A")
                         if p_state not in ["closed", "filtered out"]:
-                            p_name, p_product, p_version, p_reason = (port_info.get(k, "") for k in ["name", "product", "version", "reason"])
+                            p_name, p_product, p_version, p_reason = (
+                                port_info.get(k, "") for k in ["name", "product", "version", "reason"]
+                            )
                             port_str = f"{port_id}/{proto.upper():<4} {p_state:<10} {p_name}"
-                            if p_product: port_str += f" {p_product}"
-                            if p_version: port_str += f" {p_version}"
-                            if p_reason: port_str += f" (reason: {p_reason})"
+                            if p_product:
+                                port_str += f" {p_product}"
+                            if p_version:
+                                port_str += f" {p_version}"
+                            if p_reason:
+                                port_str += f" (reason: {p_reason})"
                             ports_data.append(port_str)
                         if port_scripts := port_info.get("script"):
                             if isinstance(port_scripts, dict):
                                 for script_id, script_output in port_scripts.items():
                                     if script_output and isinstance(script_output, str):
-                                        formatted_script_output = "\n".join([f"  |_{script_id}: {line.strip()}" if i == 0 else f"  | {line.strip()}" for i, line in enumerate(script_output.strip().split('\n'))])
+                                        formatted_script_output = "\n".join(
+                                            [
+                                                f"  |_{script_id}: {line.strip()}" if i == 0 else f"  | {line.strip()}"
+                                                for i, line in enumerate(script_output.strip().split("\n"))
+                                            ]
+                                        )
                                         ports_data.append(formatted_script_output)
         if ports_data:
             summary_lines.append("\nPORT      STATE SERVICE      VERSION")
             summary_lines.extend(ports_data)
-        else: summary_lines.append("No open ports reported or port data available.")
+        else:
+            summary_lines.append("No open ports reported or port data available.")
 
         osmatch_data = host_data_dict.get("osmatch", [])
         if osmatch_data:
@@ -556,8 +639,11 @@ class NmapPage(Gtk.Box):
                     for os_class in osclasses:
                         if isinstance(os_class, dict):
                             summary_lines.append("  OS Class:")
-                            summary_lines.append(f"    Type: {os_class.get('type', 'N/A')}, Vendor: {os_class.get('vendor', 'N/A')}, Family: {os_class.get('osfamily', 'N/A')}, Gen: {os_class.get('osgen', 'N/A')}")
-        else: summary_lines.append("No OS data available.")
+                            summary_lines.append(
+                                f"    Type: {os_class.get('type', 'N/A')}, Vendor: {os_class.get('vendor', 'N/A')}, Family: {os_class.get('osfamily', 'N/A')}, Gen: {os_class.get('osgen', 'N/A')}"
+                            )
+        else:
+            summary_lines.append("No OS data available.")
         return "\n".join(summary_lines)
 
     def trigger_scan(self):
@@ -567,5 +653,3 @@ class NmapPage(Gtk.Box):
             self.nmap_apply_button.clicked()
         else:
             logger.warning("Nmap scan button not available or not sensitive, cannot trigger scan.")
-
-[end of src/nmap_page.py]
