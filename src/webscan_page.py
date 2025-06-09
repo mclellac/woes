@@ -259,3 +259,15 @@ class WebScanPage(Adw.PreferencesPage):
             logger.warning("Could not find main window or show_error method to display: %s", message)
 
     # Removed on_error_banner_dismiss_clicked method
+
+    def trigger_scan(self):
+        """Programmatically triggers the WebScan 'Scan' action.
+
+        This method is typically called by a global action/shortcut.
+        It simulates a click on the scan button.
+        """
+        logger.debug("Webscan scan triggered by shortcut.")
+        if self.scan_button and self.scan_button.get_sensitive():
+            self.scan_button.clicked()
+        else:
+            logger.warning("Webscan scan button not available or not sensitive, cannot trigger scan.")

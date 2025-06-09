@@ -72,18 +72,28 @@
               <object class="GtkShortcutsShortcut">
                 <property name="title" translatable="yes" context="shortcut window">Fetch (HTTP Page)</property>
                 <property name="accelerator">&lt;Alt&gt;F</property>
+                <property name="action-name">app.page-action-http-fetch</property>
               </object>
             </child>
             <child>
               <object class="GtkShortcutsShortcut">
                 <property name="title" translatable="yes" context="shortcut window">Scan (Nmap Page)</property>
                 <property name="accelerator">&lt;Alt&gt;S</property>
+                <property name="action-name">app.page-action-nmap-scan</property>
               </object>
             </child>
             <child>
               <object class="GtkShortcutsShortcut">
                 <property name="title" translatable="yes" context="shortcut window">Lookup (DNS Page)</property>
                 <property name="accelerator">&lt;Alt&gt;L</property>
+                <property name="action-name">app.page-action-dns-lookup</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkShortcutsShortcut">
+                <property name="title" translatable="yes" context="shortcut window">Scan (Webscan Page)</property>
+                <property name="accelerator">&lt;Alt&gt;W</property>
+                <property name="action-name">app.page-action-webscan-scan</property>
               </object>
             </child>
           </object>

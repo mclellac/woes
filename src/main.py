@@ -10,9 +10,18 @@ from typing import Optional, List
 import gi
 gi.require_version("Gtk", "4.0")  # Moved require_version before repository imports
 gi.require_version("Adw", "1")    # Moved require_version before repository imports
-from gi.repository import Adw, Gio, GLib
+from gi.repository import Adw, Gio, GLib, Gtk
 
-from .constants import APP_ID, VERSION, RESOURCE_PREFIX, PKGDATADIR # Moved earlier for _load_gresources_early
+from .constants import (
+    APP_ID,
+    VERSION,
+    RESOURCE_PREFIX,
+    PKGDATADIR,
+    APP_WEBSITE_URL,
+    APP_LICENSE_TYPE,
+    APP_DESCRIPTION,
+    APP_ISSUES_URL,
+) # Moved earlier for _load_gresources_early
 
 # GResource loading must happen before any modules that use Gtk.Template are imported.
 def _load_gresources_early():
@@ -137,6 +146,12 @@ class WoesApplication(Adw.Application):
         self.create_action("switch-to-dns", self.switch_to_dns, ["<primary>3"])
         self.create_action("switch-to-webscan", self.switch_to_webscan, ["<primary>4"])
 
+        # Page-specific actions
+        self.create_action("page-action-http-fetch", self.on_page_action_http_fetch, ["<Alt>F"])
+        self.create_action("page-action-nmap-scan", self.on_page_action_nmap_scan, ["<Alt>S"])
+        self.create_action("page-action-dns-lookup", self.on_page_action_dns_lookup, ["<Alt>L"])
+        self.create_action("page-action-webscan-scan", self.on_page_action_webscan_scan, ["<Alt>W"])
+
     def do_handle_local_options(self, options: GLib.VariantDict) -> int:
         """Handle local command-line options.
 
@@ -240,6 +255,75 @@ class WoesApplication(Adw.Application):
         else:
             logging.warning("Cannot switch to webscan_page: window or stack not available.")
 
+    def on_page_action_http_fetch(self, *_args):
+        """Handle the 'page-action-http-fetch' action."""
+        if not self.win or not hasattr(self.win, "stack"):
+            logging.warning("HTTP fetch action: Window or stack not available.")
+            return
+
+        page_name = self.win.stack.get_visible_child_name()
+        page_object = self.win.stack.get_visible_child()
+
+        if page_name == "http" and page_object:
+            if hasattr(page_object, "trigger_fetch"):
+                page_object.trigger_fetch()
+            else:
+                logging.warning("HTTP page object does not have a 'trigger_fetch' method.")
+        elif page_name == "http": # Implies page_object is None
+            logging.warning("HTTP page object is None, cannot trigger fetch.")
+        # No warning if it's not the HTTP page, as the action is specific
+
+    def on_page_action_nmap_scan(self, *_args):
+        """Handle the 'page-action-nmap-scan' action."""
+        if not self.win or not hasattr(self.win, "stack"):
+            logging.warning("Nmap scan action: Window or stack not available.")
+            return
+
+        page_name = self.win.stack.get_visible_child_name()
+        page_object = self.win.stack.get_visible_child()
+
+        if page_name == "nmap" and page_object:
+            if hasattr(page_object, "trigger_scan"):
+                page_object.trigger_scan()
+            else:
+                logging.warning("Nmap page object does not have a 'trigger_scan' method.")
+        elif page_name == "nmap": # Implies page_object is None
+            logging.warning("Nmap page object is None, cannot trigger scan.")
+
+    def on_page_action_dns_lookup(self, *_args):
+        """Handle the 'page-action-dns-lookup' action."""
+        if not self.win or not hasattr(self.win, "stack"):
+            logging.warning("DNS lookup action: Window or stack not available.")
+            return
+
+        page_name = self.win.stack.get_visible_child_name()
+        page_object = self.win.stack.get_visible_child()
+
+        if page_name == "dns" and page_object:
+            if hasattr(page_object, "trigger_lookup"):
+                page_object.trigger_lookup()
+            else:
+                logging.warning("DNS page object does not have a 'trigger_lookup' method.")
+        elif page_name == "dns": # Implies page_object is None
+            logging.warning("DNS page object is None, cannot trigger lookup.")
+
+    def on_page_action_webscan_scan(self, *_args):
+        """Handle the 'page-action-webscan-scan' action."""
+        if not self.win or not hasattr(self.win, "stack"):
+            logging.warning("Webscan scan action: Window or stack not available.")
+            return
+
+        page_name = self.win.stack.get_visible_child_name()
+        page_object = self.win.stack.get_visible_child()
+
+        if page_name == "webscan" and page_object:
+            if hasattr(page_object, "trigger_scan"):
+                page_object.trigger_scan()
+            else:
+                logging.warning("Webscan page object does not have a 'trigger_scan' method.")
+        elif page_name == "webscan": # Implies page_object is None
+            logging.warning("Webscan page object is None, cannot trigger scan.")
+
     def on_about_action(self, _widget: Gio.SimpleAction, _param: Optional[GLib.Variant]):
         """Handle the 'about' action activation.
 
@@ -251,16 +335,37 @@ class WoesApplication(Adw.Application):
             _param: Optional GLib.Variant parameter (unused).
 
         """
-        about = Adw.AboutWindow(
-            transient_for=self.props.active_window,
+        about = self._create_about_window()
+        # Ensure there's an active window before making it transient for
+        # In a typical application flow, active_window would be the main WoesWindow.
+        # For testing, it might be None if do_activate wasn't fully run,
+        # or if a dummy window needs to be set on the application.
+        if self.props.active_window:
+            about.set_transient_for(self.props.active_window)
+        about.present()
+
+    def _create_about_window(self) -> Adw.AboutWindow:
+        """Helper method to create and configure the Adw.AboutWindow.
+
+        Returns
+        -------
+            Adw.AboutWindow: The configured About Window.
+        """
+        # Note: 'transient_for' is typically set by the caller (on_about_action)
+        # if an active window exists. If direct testing _create_about_window,
+        # transient_for might be None unless a window is explicitly managed for the test.
+        return Adw.AboutWindow(
             application_name="woes",
             application_icon=APP_ID,
             developer_name="Carey McLelland",
             version=self.version,
             developers=["Carey McLelland"],
             copyright="© 2025 Carey McLelland",
+            website=APP_WEBSITE_URL,
+            license_type=APP_LICENSE_TYPE,
+            comments=APP_DESCRIPTION,
+            issue_url=APP_ISSUES_URL,
         )
-        about.present()
 
     def on_preferences_action(self, _widget: Gio.SimpleAction, _param: Optional[GLib.Variant]):
         """Handle the 'preferences' action activation.

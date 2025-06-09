@@ -945,3 +945,15 @@ class NmapPage(Gtk.Box):
             summary_lines.append("No OS data available.")
 
         return "\n".join(summary_lines)
+
+    def trigger_scan(self):
+        """Programmatically triggers the Nmap 'Scan' action.
+
+        This method is typically called by a global action/shortcut.
+        It simulates a click on the scan button.
+        """
+        logger.debug("Nmap scan triggered by shortcut.")
+        if self.nmap_apply_button and self.nmap_apply_button.get_sensitive():
+            self.nmap_apply_button.clicked()
+        else:
+            logger.warning("Nmap scan button not available or not sensitive, cannot trigger scan.")

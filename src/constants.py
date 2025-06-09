@@ -1,11 +1,17 @@
 """Global constants for the Woes application."""
 import os
 
+from gi.repository import Gtk
+
 APP_ID = "com.github.mclellac.woes"
 RESOURCE_PREFIX = "/com/github/mclellac/woes/gtk"
 THEME_LIGHT = "style.css"
 THEME_DARK = "style-dark.css"
 VERSION = "0.2.0"
+APP_WEBSITE_URL = "https://github.com/mclellac/woes"
+APP_LICENSE_TYPE = Gtk.License.MIT_X11
+APP_DESCRIPTION = "A simple toolkit for web, nmap, and DNS scans."
+APP_ISSUES_URL = "https://github.com/mclellac/woes/issues"
 
 # PKGDATADIR would typically be set by the build system (e.g., Meson, Autotools)
 # This should match where Meson installs woes.gresource, which is typically
