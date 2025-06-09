@@ -12,7 +12,12 @@ import gi
 from gi.repository import Adw, Gio, Gtk, GLib, GObject, Gdk  # pylint: disable=wrong-import-position # Added GObject and Gdk
 
 from .constants import APP_ID, RESOURCE_PREFIX  # pylint: disable=wrong-import-position
-from .http_page import dns as http_dns_module # Import dns from http_page (corrected)
+
+try:
+    import dns.resolver # Check if dnspython is available
+    dnspython_available = True
+except ImportError:
+    dnspython_available = False
 
 gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
@@ -65,7 +70,7 @@ class Preferences(Adw.PreferencesWindow):
         # Handle dnspython absence for DNS server entry
         if self.dns_server_entryrow: # Ensure the row object exists
             if hasattr(self.dns_server_entryrow, "set_subtitle"):
-                if http_dns_module is None:
+                if not dnspython_available:
                     self.dns_server_entryrow.set_sensitive(False)
                     self.dns_server_entryrow.set_subtitle("Requires 'dnspython' library to be installed.")
                     self.dns_server_entryrow.set_tooltip_text("Custom DNS functionality is disabled because the 'dnspython' library is not installed.")
@@ -79,11 +84,11 @@ class Preferences(Adw.PreferencesWindow):
                         self.prefs_dns_apply_button.set_sensitive(True)
                 logging.info(
                     "'dnspython' status: %s. Custom DNS server entry in preferences updated.",
-                    "found" if http_dns_module else "not found"
+                    "found" if dnspython_available else "not found"
                 )
             else:
                 logging.warning("Adw.EntryRow 'dns_server_entryrow' does not have 'set_subtitle' method. Using tooltip fallback.")
-                if http_dns_module is None:
+                if not dnspython_available:
                     self.dns_server_entryrow.set_sensitive(False)
                     self.dns_server_entryrow.set_tooltip_text("Custom DNS disabled: 'dnspython' library not found. Install it for this feature.")
                     if self.prefs_dns_apply_button:
