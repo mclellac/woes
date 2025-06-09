@@ -6,10 +6,10 @@ and launching the main application window and services.
 import sys
 import os
 import logging
-from typing import Optional, List # Added List
+from typing import Optional, List
 import gi
-gi.require_version("Gtk", "4.0") # Moved require_version before repository imports
-gi.require_version("Adw", "1")   # Moved require_version before repository imports
+gi.require_version("Gtk", "4.0")  # Moved require_version before repository imports
+gi.require_version("Adw", "1")    # Moved require_version before repository imports
 from gi.repository import Adw, Gio, GLib
 
 from .window import WoesWindow
@@ -18,7 +18,7 @@ from .constants import APP_ID, VERSION, RESOURCE_PREFIX, PKGDATADIR
 
 
 def _load_gresources_early():
-    """Loads GResources."""
+    """Load GResources."""  # Changed docstring to imperative mood
     resource_file_path = os.path.join(PKGDATADIR, "woes.gresource")
     logging.info(
         "Attempting to load GResource file from: %s (derived from PKGDATADIR: %s)",
@@ -262,7 +262,7 @@ class WoesApplication(Adw.Application):
         preferences_dialog = Preferences(main_window=self.win)
         preferences_dialog.present()
 
-    def create_action(self, name: str, callback, shortcuts: Optional[List[str]] = None): # Changed to typing.List
+    def create_action(self, name: str, callback, shortcuts: Optional[List[str]] = None):
         """Create and add a Gio.SimpleAction to the application.
 
         Args:

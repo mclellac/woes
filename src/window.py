@@ -17,10 +17,10 @@ from .constants import (
     TEXT_SCALING_FACTOR_KEY,
 )
 from .style_utils import apply_font_size, apply_theme
-from .webscan_page import WebScanPage  # noqa: F401 # pylint: disable=unused-import
-from .nmap_page import NmapPage  # noqa: F401 # pylint: disable=unused-import
-from .http_page import HttpPage  # noqa: F401 # pylint: disable=unused-import
-from .dns_page import DNSPage  # noqa: F401 # pylint: disable=unused-import
+from .webscan_page import WebScanPage  # noqa: F401
+from .nmap_page import NmapPage  # noqa: F401
+from .http_page import HttpPage  # noqa: F401
+from .dns_page import DNSPage  # noqa: F401
 
 
 gi.require_version("Adw", "1")
@@ -83,12 +83,12 @@ class WoesWindow(Adw.ApplicationWindow):
                     "Successfully connected to GNOME interface settings schema: %s",
                     GNOME_INTERFACE_SCHEMA,
                 )
-            except GLib.Error as _e:  # noqa: F841
+            except GLib.Error as e:
                 logging.warning(
                     "Could not connect to GNOME interface settings (%s): %s. "
                     "System font integration will be limited.",
                     GNOME_INTERFACE_SCHEMA,
-                    _e,
+                    e, # Log the exception
                 )
             # Optionally, initialize and connect to GNOME_A11Y_SCHEMA here if needed for high-contrast etc.
 
@@ -101,23 +101,24 @@ class WoesWindow(Adw.ApplicationWindow):
 
         try:
             self.setup_ui()
-        except Exception as _e:  # pylint: disable=broad-except
-            logging.exception("WoesWindow.__init__: Error during self.setup_ui()") # noqa: F841
+        except Exception as e:  # pylint: disable=broad-except
+            logging.exception("WoesWindow.__init__: Error during self.setup_ui(): %s", e)
 
         if self.main_error_banner:
             self.main_error_banner.connect("button-clicked", self._on_main_error_banner_dismissed)
             self.hide_error() # Ensure it's hidden on startup by default
 
     def _on_main_error_banner_dismissed(self, _banner=None, _data=None):
-        """Handles the dismiss signal for the main error banner."""
+        """Handle dismissal of the main error banner.""" # Corrected docstring
         self.hide_error()
 
     def show_error(self, message: str):
-        """Displays a message in the main error banner.
+        """Display a message in the main error banner.
 
         Args:
         ----
             message: The error message to display.
+
         """
         if self.main_error_banner:
             self.main_error_banner.set_title(message)
@@ -148,19 +149,19 @@ class WoesWindow(Adw.ApplicationWindow):
         """
         try:
             self.load_css()
-        except Exception as _e:  # pylint: disable=broad-except
-            logging.exception("WoesWindow.setup_ui: Error during self.load_css()") # noqa: F841
+        except Exception as e:  # pylint: disable=broad-except
+            logging.exception("WoesWindow.setup_ui: Error during self.load_css(): %s", e)
 
         try:
             self.apply_preferences()
-        except Exception as _e:  # pylint: disable=broad-except
-            logging.exception("WoesWindow.setup_ui: Error during self.apply_preferences()") # noqa: F841
+        except Exception as e:  # pylint: disable=broad-except
+            logging.exception("WoesWindow.setup_ui: Error during self.apply_preferences(): %s", e)
 
         if self.switcher_title and self.stack:
             try:
                 self.switcher_title.connect("notify::selected-page", self.on_page_switched)
-            except Exception as _e:  # pylint: disable=broad-except
-                logging.exception("WoesWindow.setup_ui: Error connecting switcher_title signal") # noqa: F841
+            except Exception as e:  # pylint: disable=broad-except
+                logging.exception("WoesWindow.setup_ui: Error connecting switcher_title signal: %s", e)
         else:
             logging.warning("switcher_title or stack not found during setup_ui.")
 
@@ -219,14 +220,14 @@ class WoesWindow(Adw.ApplicationWindow):
                 style_provider,
                 Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
             )
-        except GLib.Error as e:  # noqa: F841
+        except GLib.Error as e:
             logging.error("Failed to load CSS resource from %s: %s", css_path, e)
-        except Exception as _e:  # pylint: disable=broad-except
+        except Exception as e:  # pylint: disable=broad-except
             logging.error(
                 "An unexpected error of type %s occurred while loading CSS from %s: %s",
-                type(_e).__name__,
+                type(e).__name__,
                 css_path,
-                _e,
+                e,
             )
 
     def reload_css(self):
@@ -249,16 +250,16 @@ class WoesWindow(Adw.ApplicationWindow):
             apply_font_size(self.settings)
             apply_theme(self.style_manager, theme_pref)
 
-        except GLib.Error as e:  # noqa: F841
+        except GLib.Error as e:
             logging.error("Error applying preferences (GSettings): %s", e)
-        except Exception as _e:  # pylint: disable=broad-except
+        except Exception as e:  # pylint: disable=broad-except
             logging.error(
                 "An unexpected error of type %s occurred while applying preferences: %s",
-                type(_e).__name__,
-                _e,
+                type(e).__name__,
+                e,
             )
 
-    def on_page_switched(self, _widget: Adw.ViewSwitcherTitle, _gparam: GObject.ParamSpec): # Changed GLib.ParamSpec to GObject.ParamSpec
+    def on_page_switched(self, _widget: Adw.ViewSwitcherTitle, _gparam: GObject.ParamSpec):
         """Handle the page switch event from the Adw.ViewSwitcherTitle.
 
         Logs the name of the newly visible child in the Adw.ViewStack.
