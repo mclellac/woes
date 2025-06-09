@@ -37,6 +37,7 @@ class WebScanPage(Adw.PreferencesPage):
         Sets up signal handlers for UI elements.
         """
         super().__init__(**kwargs)
+        self.current_web_scan_task = None
         logger.debug("WebScanPage initialized")
         self.url_entry.connect("entry-activated", self.on_scan_button_clicked)
 
@@ -90,9 +91,17 @@ class WebScanPage(Adw.PreferencesPage):
 
         self.scan_button.set_sensitive(False)
 
+        if self.current_web_scan_task and not self.current_web_scan_task.get_completed():
+            try:
+                logger.info("Attempting to cancel previous web scan task.")
+                self.current_web_scan_task.get_cancellable().cancel()
+            except Exception as e_cancel: # pylint: disable=broad-except
+                logger.warning(f"Error trying to cancel previous web scan task: {e_cancel}")
+
         cancellable = Gio.Cancellable()
         # Pass self (WebScanPage instance) as source_object, task_data will be None
         task = Gio.Task.new(self, cancellable, self._on_scan_task_done, None)
+        self.current_web_scan_task = task
 
         self._temp_scan_data = {
             "target_url": target_url,
@@ -180,7 +189,7 @@ class WebScanPage(Adw.PreferencesPage):
         except Exception as e:  # pylint: disable=broad-except
             task.return_value((None, str(e), "Exception"))
 
-    def _on_scan_task_done(self, task: Gio.Task, result: Gio.AsyncResult, _user_data: object):
+    def _on_scan_task_done(self, source_object: GObject.Object, async_result_obj: Gio.AsyncResult, _user_data: object):
         """Handle completion of the Nikto scan task.
 
         This callback is executed in the main thread. It retrieves the results
@@ -199,11 +208,19 @@ class WebScanPage(Adw.PreferencesPage):
         if hasattr(self, '_temp_scan_data') and self._temp_scan_data:
             target_url = self._temp_scan_data.get("target_url", target_url)
 
+        active_task = self.current_web_scan_task
+        if not active_task:
+            logger.warning("_on_scan_task_done called but no active_task found.")
+            # Potentially re-enable button if it's stuck disabled
+            if not self.scan_button.get_sensitive():
+                self.scan_button.set_sensitive(True)
+            return
+
         try:
             # This will raise a GLib.Error if the task itself failed fundamentally,
             # but our thread function is designed to return values, not set GLib.Error.
             # However, it's good practice to keep the try-except GLib.Error for robustness.
-            returned_value = task.propagate_value(result)
+            returned_value = active_task.propagate_value(async_result_obj)
             stdout, stderr_or_error_msg, error_type = returned_value
 
             if error_type == "FileNotFoundError":
@@ -233,6 +250,7 @@ class WebScanPage(Adw.PreferencesPage):
             self.scan_button.set_sensitive(True)
             if hasattr(self, '_temp_scan_data'):
                 del self._temp_scan_data
+            self.current_web_scan_task = None
 
     def _update_textview(self, stdout: Optional[str], stderr: Optional[str]):
         """Update the results TextView with Nikto's stdout and stderr.
