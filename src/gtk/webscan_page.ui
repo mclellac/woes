@@ -5,7 +5,9 @@
   <requires lib="gtk" version="4.18"/>
   <requires lib="libadwaita" version="1.7"/>
   <template class="WebScanPage" parent="AdwPreferencesPage">
+    <property name="height-request">600</property>
     <property name="title">Web Scan</property>
+    <property name="width-request">700</property>
     <child>
       <object class="AdwPreferencesGroup">
         <property name="title">Scan Target</property>

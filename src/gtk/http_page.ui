@@ -5,9 +5,11 @@
   <requires lib="gtk" version="4.18"/>
   <requires lib="libadwaita" version="1.7"/>
   <template class="HttpPage" parent="AdwPreferencesPage">
+    <property name="height-request">600</property>
     <property name="icon-name">network-transmit-receive-symbolic</property>
     <property name="title" translatable="yes">HTTP Headers</property>
     <property name="vexpand">True</property>
+    <property name="width-request">700</property>
     <child>
       <object class="AdwPreferencesGroup" id="http_request_group">
         <property name="title" translatable="yes">Request Parameters</property>
