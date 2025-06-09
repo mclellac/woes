@@ -413,190 +413,226 @@ class DNSPage(Adw.PreferencesPage):
             if row:
                 self.dns_results_box_container.append(row)
 
+    # --- Start of new helper methods for _create_record_row ---
+
+    def _build_address_record_row(self, record_data: Dict[str, Any], name: str, base_subtitle: str, record_type: str) -> Adw.ActionRow:
+        """Builds a UI row for A or AAAA DNS records."""
+        row = Adw.ActionRow(title=name, subtitle=f"Type: {record_type}, {base_subtitle}")
+        row.add_prefix(Gtk.Image(icon_name="network-wired-symbolic"))
+        address_value = str(record_data.get('address', 'N/A'))
+        address_label = Gtk.Label(label=address_value, halign=Gtk.Align.START, selectable=True)
+
+        copy_button = Gtk.Button.new_from_icon_name("content-copy-symbolic")
+        copy_button.set_valign(Gtk.Align.CENTER)
+        copy_button.set_tooltip_text(f"Copy Address: {address_value}")
+        copy_button.connect("clicked", lambda _btn, text=address_value, w=row: DNSPage._copy_to_clipboard(text, w))
+
+        suffix_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        suffix_box.append(address_label)
+        suffix_box.append(copy_button)
+
+        summary_a = f"{name} {record_data.get('ttl', '')} {record_data.get('class', '')} {record_type} {address_value}"
+        copy_full_button_a = Gtk.Button.new_from_icon_name("content-copy-symbolic")
+        copy_full_button_a.set_valign(Gtk.Align.CENTER)
+        copy_full_button_a.set_tooltip_text("Copy Full Record Summary")
+        copy_full_button_a.connect("clicked", lambda _btn, text=summary_a, w=row: DNSPage._copy_to_clipboard(text, w))
+        suffix_box.append(copy_full_button_a)
+        row.add_suffix(suffix_box)
+        row.set_selectable(False)
+        return row
+
+    def _build_cname_ns_ptr_record_row(self, record_data: Dict[str, Any], name: str, base_subtitle: str, record_type: str) -> Adw.ActionRow:
+        """Builds a UI row for CNAME, NS, or PTR DNS records."""
+        row = Adw.ActionRow(title=name, subtitle=f"Type: {record_type}, {base_subtitle}")
+        icon_name = "emblem-shared-symbolic"
+        if record_type == "NS":
+            icon_name = "network-server-symbolic"
+        elif record_type == "PTR":
+            icon_name = "system-search-symbolic"
+        row.add_prefix(Gtk.Image(icon_name=icon_name))
+        target_value = str(record_data.get('target', 'N/A'))
+        target_label = Gtk.Label(label=target_value, halign=Gtk.Align.START, selectable=True)
+
+        copy_button_target = Gtk.Button.new_from_icon_name("content-copy-symbolic")
+        copy_button_target.set_valign(Gtk.Align.CENTER)
+        copy_button_target.set_tooltip_text(f"Copy Target: {target_value}")
+        copy_button_target.connect("clicked", lambda _btn, text=target_value, w=row: DNSPage._copy_to_clipboard(text, w))
+
+        suffix_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        suffix_box.append(target_label)
+        suffix_box.append(copy_button_target)
+
+        summary_cname_ns_ptr = f"{name} {record_data.get('ttl', '')} {record_data.get('class', '')} {record_type} {target_value}"
+        copy_full_button_cname = Gtk.Button.new_from_icon_name("content-copy-symbolic")
+        copy_full_button_cname.set_valign(Gtk.Align.CENTER)
+        copy_full_button_cname.set_tooltip_text("Copy Full Record Summary")
+        copy_full_button_cname.connect("clicked", lambda _btn, text=summary_cname_ns_ptr, w=row: DNSPage._copy_to_clipboard(text, w))
+        suffix_box.append(copy_full_button_cname)
+        row.add_suffix(suffix_box)
+        row.set_selectable(False)
+        return row
+
+    def _build_mx_record_row(self, record_data: Dict[str, Any], name: str, base_subtitle: str, record_type: str) -> Adw.ExpanderRow:
+        """Builds a UI row for MX DNS records."""
+        # record_type param is not strictly needed here if we assume it's "MX", but kept for consistency
+        row = Adw.ExpanderRow(title=name, subtitle=f"MX Record ({base_subtitle})")
+        row.add_prefix(Gtk.Image(icon_name="mail-send-receive-symbolic"))
+        exchange_value = str(record_data.get('exchange', 'N/A'))
+        preference_value = str(record_data.get('preference', 'N/A'))
+
+        mx_detail_row_title_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        mx_detail_row_title_box.append(Gtk.Label(label=exchange_value, halign=Gtk.Align.START, selectable=True))
+
+        copy_button_exchange = Gtk.Button.new_from_icon_name("content-copy-symbolic")
+        copy_button_exchange.set_valign(Gtk.Align.CENTER)
+        copy_button_exchange.set_tooltip_text(f"Copy Exchange: {exchange_value}")
+        copy_button_exchange.connect("clicked", lambda _btn, text=exchange_value, w=row: DNSPage._copy_to_clipboard(text, w))
+        mx_detail_row_title_box.append(copy_button_exchange)
+
+        mx_detail_row = Adw.ActionRow(subtitle=f"Preference: {preference_value}")
+        mx_detail_row.add_prefix(mx_detail_row_title_box)
+        mx_detail_row.set_selectable(True) # Note: inner row is selectable
+        row.add_row(mx_detail_row)
+        row.set_expanded(True)
+
+        summary_mx = f"{name} {record_data.get('ttl', '')} {record_data.get('class', '')} MX {preference_value} {exchange_value}"
+        copy_full_mx_button = Gtk.Button.new_from_icon_name("content-copy-symbolic")
+        copy_full_mx_button.set_valign(Gtk.Align.CENTER)
+        copy_full_mx_button.set_tooltip_text("Copy Full MX Record")
+        copy_full_mx_button.connect("clicked", lambda _btn, text=summary_mx, w=row: DNSPage._copy_to_clipboard(text, w))
+        row.add_suffix(copy_full_mx_button)
+        return row
+
+    def _build_txt_record_row(self, record_data: Dict[str, Any], name: str, base_subtitle: str, record_type: str) -> Adw.ExpanderRow:
+        """Builds a UI row for TXT DNS records."""
+        # record_type param is not strictly needed here if we assume it's "TXT", but kept for consistency
+        row = Adw.ExpanderRow(title=name, subtitle=f"TXT Records ({base_subtitle})")
+        row.add_prefix(Gtk.Image(icon_name="document-properties-symbolic"))
+        texts = record_data.get('texts', [])
+        if not texts:
+             row.add_row(Adw.ActionRow(title="No text data.", selectable=False))
+        for text_string in texts:
+            text_label = Gtk.Label(label=text_string, halign=Gtk.Align.START, selectable=True, wrap=True, wrap_mode=Pango.WrapMode.WORD_CHAR)
+
+            copy_button_segment = Gtk.Button.new_from_icon_name("content-copy-symbolic")
+            copy_button_segment.set_valign(Gtk.Align.CENTER)
+            copy_button_segment.set_tooltip_text("Copy Text Segment")
+            copy_button_segment.connect("clicked", lambda _btn, text=text_string, w=row: DNSPage._copy_to_clipboard(text, w))
+
+            text_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            text_box.append(text_label)
+            text_box.append(copy_button_segment)
+
+            text_action_row = Adw.ActionRow()
+            text_action_row.add_prefix(text_box)
+            text_action_row.set_selectable(False)
+            row.add_row(text_action_row)
+        row.set_expanded(True) if texts else row.set_expanded(False)
+
+        texts_str_summary = " ".join([f'"{s}"' for s in texts])
+        summary_txt = f"{name} {record_data.get('ttl', '')} {record_data.get('class', '')} TXT {texts_str_summary}"
+        copy_full_txt_button = Gtk.Button.new_from_icon_name("content-copy-symbolic")
+        copy_full_txt_button.set_valign(Gtk.Align.CENTER)
+        copy_full_txt_button.set_tooltip_text("Copy Full TXT Record")
+        copy_full_txt_button.connect("clicked", lambda _btn, text=summary_txt, w=row: DNSPage._copy_to_clipboard(text, w))
+        row.add_suffix(copy_full_txt_button)
+        return row
+
+    def _build_soa_record_row(self, record_data: Dict[str, Any], name: str, base_subtitle: str, record_type: str) -> Adw.ExpanderRow:
+        """Builds a UI row for SOA DNS records."""
+        # record_type param is not strictly needed here if we assume it's "SOA", but kept for consistency
+        row = Adw.ExpanderRow(title=name, subtitle=f"SOA Record ({base_subtitle})")
+        row.add_prefix(Gtk.Image(icon_name="document-settings-symbolic"))
+        mname_val = str(record_data.get('mname', 'N/A'))
+        rname_val = str(record_data.get('rname', 'N/A'))
+        serial_val = str(record_data.get('serial', 'N/A'))
+        refresh_val = str(record_data.get('refresh', 'N/A'))
+        retry_val = str(record_data.get('retry', 'N/A'))
+        expire_val = str(record_data.get('expire', 'N/A'))
+        minimum_val = str(record_data.get('minimum', 'N/A'))
+
+        soa_fields = [
+            ("MNAME", mname_val), ("RNAME", rname_val), ("Serial", serial_val),
+            ("Refresh", refresh_val), ("Retry", retry_val), ("Expire", expire_val),
+            ("Minimum TTL", minimum_val)
+        ]
+        for field_name_str, field_value in soa_fields:
+            field_label = Gtk.Label(label=field_value, halign=Gtk.Align.START, selectable=True)
+            copy_button_field = Gtk.Button.new_from_icon_name("content-copy-symbolic")
+            copy_button_field.set_valign(Gtk.Align.CENTER)
+            copy_button_field.set_tooltip_text(f"Copy {field_name_str}: {field_value}")
+            copy_button_field.connect("clicked", lambda _btn, text=field_value, w=row: DNSPage._copy_to_clipboard(text, w))
+
+            suffix_box_soa_field = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            suffix_box_soa_field.append(field_label)
+            suffix_box_soa_field.append(copy_button_field)
+
+            soa_field_row = Adw.ActionRow(title=field_name_str)
+            soa_field_row.add_suffix(suffix_box_soa_field)
+            soa_field_row.set_selectable(False)
+            row.add_row(soa_field_row)
+        row.set_expanded(True)
+
+        summary_soa = f"{name} {record_data.get('ttl', '')} {record_data.get('class', '')} SOA {mname_val} {rname_val} {serial_val} {refresh_val} {retry_val} {expire_val} {minimum_val}"
+        copy_full_soa_button = Gtk.Button.new_from_icon_name("content-copy-symbolic")
+        copy_full_soa_button.set_valign(Gtk.Align.CENTER)
+        copy_full_soa_button.set_tooltip_text("Copy Full SOA Record")
+        copy_full_soa_button.connect("clicked", lambda _btn, text=summary_soa, w=row: DNSPage._copy_to_clipboard(text, w))
+        row.add_suffix(copy_full_soa_button)
+        return row
+
+    def _build_generic_record_row(self, record_data: Dict[str, Any], name: str, base_subtitle: str, record_type: str) -> Adw.ActionRow:
+        """Builds a UI row for generic DNS records that have a 'data' field."""
+        row = Adw.ActionRow(title=name, subtitle=f"Type: {record_type}, {base_subtitle}")
+        row.add_prefix(Gtk.Image(icon_name="help-question-symbolic"))
+        data_value = str(record_data.get('data', 'N/A'))
+        data_label = Gtk.Label(label=data_value, halign=Gtk.Align.START, selectable=True, wrap=True)
+
+        copy_button_data = Gtk.Button.new_from_icon_name("content-copy-symbolic")
+        copy_button_data.set_valign(Gtk.Align.CENTER)
+        copy_button_data.set_tooltip_text(f"Copy Data: {data_value}")
+        copy_button_data.connect("clicked", lambda _btn, text=data_value, w=row: DNSPage._copy_to_clipboard(text, w))
+
+        suffix_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        suffix_box.append(data_label)
+        suffix_box.append(copy_button_data)
+
+        summary_data = f"{name} {record_data.get('ttl', '')} {record_data.get('class', '')} {record_type} {data_value}"
+        copy_full_button_data = Gtk.Button.new_from_icon_name("content-copy-symbolic")
+        copy_full_button_data.set_valign(Gtk.Align.CENTER)
+        copy_full_button_data.set_tooltip_text("Copy Full Record Summary")
+        copy_full_button_data.connect("clicked", lambda _btn, text=summary_data, w=row: DNSPage._copy_to_clipboard(text, w))
+        suffix_box.append(copy_full_button_data)
+        row.add_suffix(suffix_box)
+        row.set_selectable(False)
+        return row
+
+    # --- End of new helper methods ---
+
     def _create_record_row(self, record_data: Dict[str, Any]) -> Gtk.Widget | None:
         """Create a UI row for a single DNS record dictionary."""
         record_type = record_data.get('type', '').upper()
         name = record_data.get('name', 'N/A')
-        ttl = record_data.get('ttl', '')
-        rd_class_str = record_data.get('class', '')
+        ttl = record_data.get('ttl', '') # Extracted for base_subtitle, but also used in summaries
+        rd_class_str = record_data.get('class', '') # Extracted for base_subtitle, also used in summaries
 
         base_subtitle = f"Class: {rd_class_str}, TTL: {ttl}"
 
         if record_type in ("A", "AAAA"):
-            row = Adw.ActionRow(title=name, subtitle=f"Type: {record_type}, {base_subtitle}")
-            row.add_prefix(Gtk.Image(icon_name="network-wired-symbolic"))
-            address_value = str(record_data.get('address', 'N/A'))
-            address_label = Gtk.Label(label=address_value, halign=Gtk.Align.START, selectable=True)
-
-            copy_button = Gtk.Button.new_from_icon_name("content-copy-symbolic")
-            copy_button.set_valign(Gtk.Align.CENTER)
-            copy_button.set_tooltip_text(f"Copy Address: {address_value}")
-            copy_button.connect("clicked", lambda _btn, text=address_value, w=row: DNSPage._copy_to_clipboard(text, w))
-
-            suffix_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-            suffix_box.append(address_label)
-            suffix_box.append(copy_button)
-
-            summary_a = f"{name} {ttl} {rd_class_str} {record_type} {address_value}"
-            copy_full_button_a = Gtk.Button.new_from_icon_name("content-copy-symbolic")
-            copy_full_button_a.set_valign(Gtk.Align.CENTER)
-            copy_full_button_a.set_tooltip_text("Copy Full Record Summary")
-            copy_full_button_a.connect("clicked", lambda _btn, text=summary_a, w=row: DNSPage._copy_to_clipboard(text, w))
-            suffix_box.append(copy_full_button_a)
-            row.add_suffix(suffix_box)
+            return self._build_address_record_row(record_data, name, base_subtitle, record_type)
         elif record_type in ("CNAME", "NS", "PTR"):
-            row = Adw.ActionRow(title=name, subtitle=f"Type: {record_type}, {base_subtitle}")
-            icon_name = "emblem-shared-symbolic"
-            if record_type == "NS":
-                icon_name = "network-server-symbolic"
-            elif record_type == "PTR":
-                icon_name = "system-search-symbolic"
-            row.add_prefix(Gtk.Image(icon_name=icon_name))
-            target_value = str(record_data.get('target', 'N/A'))
-            target_label = Gtk.Label(label=target_value, halign=Gtk.Align.START, selectable=True)
-
-            copy_button_target = Gtk.Button.new_from_icon_name("content-copy-symbolic")
-            copy_button_target.set_valign(Gtk.Align.CENTER)
-            copy_button_target.set_tooltip_text(f"Copy Target: {target_value}")
-            copy_button_target.connect("clicked", lambda _btn, text=target_value, w=row: DNSPage._copy_to_clipboard(text, w))
-
-            suffix_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-            suffix_box.append(target_label)
-            suffix_box.append(copy_button_target)
-
-            summary_cname_ns_ptr = f"{name} {ttl} {rd_class_str} {record_type} {target_value}"
-            copy_full_button_cname = Gtk.Button.new_from_icon_name("content-copy-symbolic")
-            copy_full_button_cname.set_valign(Gtk.Align.CENTER)
-            copy_full_button_cname.set_tooltip_text("Copy Full Record Summary")
-            copy_full_button_cname.connect("clicked", lambda _btn, text=summary_cname_ns_ptr, w=row: DNSPage._copy_to_clipboard(text, w))
-            suffix_box.append(copy_full_button_cname)
-            row.add_suffix(suffix_box)
+            return self._build_cname_ns_ptr_record_row(record_data, name, base_subtitle, record_type)
         elif record_type == "MX":
-            row = Adw.ExpanderRow(title=name, subtitle=f"MX Record ({base_subtitle})")
-            row.add_prefix(Gtk.Image(icon_name="mail-send-receive-symbolic"))
-            exchange_value = str(record_data.get('exchange', 'N/A'))
-            preference_value = str(record_data.get('preference', 'N/A'))
-
-            mx_detail_row_title_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-            mx_detail_row_title_box.append(Gtk.Label(label=exchange_value, halign=Gtk.Align.START, selectable=True))
-
-            copy_button_exchange = Gtk.Button.new_from_icon_name("content-copy-symbolic")
-            copy_button_exchange.set_valign(Gtk.Align.CENTER)
-            copy_button_exchange.set_tooltip_text(f"Copy Exchange: {exchange_value}")
-            copy_button_exchange.connect("clicked", lambda _btn, text=exchange_value, w=row: DNSPage._copy_to_clipboard(text, w))
-            mx_detail_row_title_box.append(copy_button_exchange)
-
-            mx_detail_row = Adw.ActionRow(subtitle=f"Preference: {preference_value}")
-            mx_detail_row.add_prefix(mx_detail_row_title_box)
-            mx_detail_row.set_selectable(True)
-            row.add_row(mx_detail_row)
-            row.set_expanded(True)
-
-            summary_mx = f"{name} {ttl} {rd_class_str} MX {preference_value} {exchange_value}"
-            copy_full_mx_button = Gtk.Button.new_from_icon_name("content-copy-symbolic")
-            copy_full_mx_button.set_valign(Gtk.Align.CENTER)
-            copy_full_mx_button.set_tooltip_text("Copy Full MX Record")
-            copy_full_mx_button.connect("clicked", lambda _btn, text=summary_mx, w=row: DNSPage._copy_to_clipboard(text, w))
-            row.add_suffix(copy_full_mx_button)
+            return self._build_mx_record_row(record_data, name, base_subtitle, record_type)
         elif record_type == "TXT":
-            row = Adw.ExpanderRow(title=name, subtitle=f"TXT Records ({base_subtitle})")
-            row.add_prefix(Gtk.Image(icon_name="document-properties-symbolic"))
-            texts = record_data.get('texts', [])
-            if not texts:
-                 row.add_row(Adw.ActionRow(title="No text data.", selectable=False))
-            for text_string in texts:
-                text_label = Gtk.Label(label=text_string, halign=Gtk.Align.START, selectable=True, wrap=True, wrap_mode=Pango.WrapMode.WORD_CHAR)
-
-                copy_button_segment = Gtk.Button.new_from_icon_name("content-copy-symbolic")
-                copy_button_segment.set_valign(Gtk.Align.CENTER)
-                copy_button_segment.set_tooltip_text("Copy Text Segment")
-                copy_button_segment.connect("clicked", lambda _btn, text=text_string, w=row: DNSPage._copy_to_clipboard(text, w))
-
-                text_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-                text_box.append(text_label)
-                text_box.append(copy_button_segment)
-
-                text_action_row = Adw.ActionRow()
-                text_action_row.add_prefix(text_box)
-                text_action_row.set_selectable(False)
-                row.add_row(text_action_row)
-            row.set_expanded(True) if texts else row.set_expanded(False)
-
-            texts_str_summary = " ".join([f'"{s}"' for s in texts])
-            summary_txt = f"{name} {ttl} {rd_class_str} TXT {texts_str_summary}"
-            copy_full_txt_button = Gtk.Button.new_from_icon_name("content-copy-symbolic")
-            copy_full_txt_button.set_valign(Gtk.Align.CENTER)
-            copy_full_txt_button.set_tooltip_text("Copy Full TXT Record")
-            copy_full_txt_button.connect("clicked", lambda _btn, text=summary_txt, w=row: DNSPage._copy_to_clipboard(text, w))
-            row.add_suffix(copy_full_txt_button)
+            return self._build_txt_record_row(record_data, name, base_subtitle, record_type)
         elif record_type == "SOA":
-            row = Adw.ExpanderRow(title=name, subtitle=f"SOA Record ({base_subtitle})")
-            row.add_prefix(Gtk.Image(icon_name="document-settings-symbolic"))
-            mname_val = str(record_data.get('mname', 'N/A'))
-            rname_val = str(record_data.get('rname', 'N/A'))
-            serial_val = str(record_data.get('serial', 'N/A'))
-            refresh_val = str(record_data.get('refresh', 'N/A'))
-            retry_val = str(record_data.get('retry', 'N/A'))
-            expire_val = str(record_data.get('expire', 'N/A'))
-            minimum_val = str(record_data.get('minimum', 'N/A'))
-
-            soa_fields = [
-                ("MNAME", mname_val), ("RNAME", rname_val), ("Serial", serial_val),
-                ("Refresh", refresh_val), ("Retry", retry_val), ("Expire", expire_val),
-                ("Minimum TTL", minimum_val)
-            ]
-            for field_name, field_value in soa_fields:
-                field_label = Gtk.Label(label=field_value, halign=Gtk.Align.START, selectable=True)
-                copy_button_field = Gtk.Button.new_from_icon_name("content-copy-symbolic")
-                copy_button_field.set_valign(Gtk.Align.CENTER)
-                copy_button_field.set_tooltip_text(f"Copy {field_name}: {field_value}")
-                copy_button_field.connect("clicked", lambda _btn, text=field_value, w=row: DNSPage._copy_to_clipboard(text, w))
-
-                suffix_box_soa_field = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-                suffix_box_soa_field.append(field_label)
-                suffix_box_soa_field.append(copy_button_field)
-
-                soa_field_row = Adw.ActionRow(title=field_name)
-                soa_field_row.add_suffix(suffix_box_soa_field)
-                soa_field_row.set_selectable(False)
-                row.add_row(soa_field_row)
-            row.set_expanded(True)
-
-            summary_soa = f"{name} {ttl} {rd_class_str} SOA {mname_val} {rname_val} {serial_val} {refresh_val} {retry_val} {expire_val} {minimum_val}"
-            copy_full_soa_button = Gtk.Button.new_from_icon_name("content-copy-symbolic")
-            copy_full_soa_button.set_valign(Gtk.Align.CENTER)
-            copy_full_soa_button.set_tooltip_text("Copy Full SOA Record")
-            copy_full_soa_button.connect("clicked", lambda _btn, text=summary_soa, w=row: DNSPage._copy_to_clipboard(text, w))
-            row.add_suffix(copy_full_soa_button)
-        elif record_data.get('data'):
-            row = Adw.ActionRow(title=name, subtitle=f"Type: {record_type}, {base_subtitle}")
-            row.add_prefix(Gtk.Image(icon_name="help-question-symbolic"))
-            data_value = str(record_data.get('data', 'N/A'))
-            data_label = Gtk.Label(label=data_value, halign=Gtk.Align.START, selectable=True, wrap=True)
-
-            copy_button_data = Gtk.Button.new_from_icon_name("content-copy-symbolic")
-            copy_button_data.set_valign(Gtk.Align.CENTER)
-            copy_button_data.set_tooltip_text(f"Copy Data: {data_value}")
-            copy_button_data.connect("clicked", lambda _btn, text=data_value, w=row: DNSPage._copy_to_clipboard(text, w))
-
-            suffix_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-            suffix_box.append(data_label)
-            suffix_box.append(copy_button_data)
-
-            summary_data = f"{name} {ttl} {rd_class_str} {record_type} {data_value}"
-            copy_full_button_data = Gtk.Button.new_from_icon_name("content-copy-symbolic")
-            copy_full_button_data.set_valign(Gtk.Align.CENTER)
-            copy_full_button_data.set_tooltip_text("Copy Full Record Summary")
-            copy_full_button_data.connect("clicked", lambda _btn, text=summary_data, w=row: DNSPage._copy_to_clipboard(text, w))
-            suffix_box.append(copy_full_button_data)
-            row.add_suffix(suffix_box)
+            return self._build_soa_record_row(record_data, name, base_subtitle, record_type)
+        elif record_data.get('data'): # For generic types
+            return self._build_generic_record_row(record_data, name, base_subtitle, record_type)
         else:
-            logger.warning("Could not create row for unknown record_data: %s", record_data)
+            logger.warning("Could not create row for unknown record_data type or missing data field: %s (Type: %s)", record_data, record_type)
             return None
-
-        if not isinstance(row, Adw.ExpanderRow):
-             row.set_selectable(False)
-        return row
 
 
     def trigger_lookup(self):
