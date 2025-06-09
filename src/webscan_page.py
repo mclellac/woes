@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 from typing import Optional
 
 import gi
-from gi.repository import Gtk, Adw, Gio, GLib, GObject
+from gi.repository import Gtk, Adw, Gio, GLib, GObject, Gdk # Added Gdk
 
 from .constants import RESOURCE_PREFIX
 
@@ -30,6 +30,11 @@ class WebScanPage(Adw.PreferencesPage):
     force_ssl_switch = Gtk.Template.Child()
     cgi_vulns_switch = Gtk.Template.Child()
     interesting_content_switch = Gtk.Template.Child()
+    evasion_switch = Gtk.Template.Child()
+    mutate_switch = Gtk.Template.Child()
+    maxtime_entry_row = Gtk.Template.Child()
+    clear_results_button = Gtk.Template.Child()
+    copy_results_button = Gtk.Template.Child()
 
     def __init__(self, **kwargs):
         """Initialize the WebScanPage.
@@ -40,6 +45,59 @@ class WebScanPage(Adw.PreferencesPage):
         self.current_web_scan_task = None
         logger.debug("WebScanPage initialized")
         self.url_entry.connect("entry-activated", self.on_scan_button_clicked)
+        if self.clear_results_button: # Check button exists
+            self.clear_results_button.connect("clicked", self._on_clear_results_clicked)
+        if self.copy_results_button: # Check button exists
+            self.copy_results_button.connect("clicked", self._on_copy_results_clicked)
+
+    def _on_clear_results_clicked(self, _button: Gtk.Button):
+        """Handle click of the 'Clear Results' button.
+
+        Clears the content of the results TextView.
+
+        Args:
+        ----
+            _button: The Gtk.Button that was clicked (unused).
+
+        """
+        logger.info("Webscan results cleared by user action.")
+        if self.results_textview: # Check if it exists
+            buffer = self.results_textview.get_buffer()
+            buffer.set_text("")
+        # Optionally, clear any related error banners if desired
+        # main_window = self.get_native()
+        # if main_window and hasattr(main_window, 'hide_error'):
+        # main_window.hide_error()
+
+    def _on_copy_results_clicked(self, _button: Gtk.Button):
+        """Handle click of the 'Copy Results' button.
+
+        Copies the entire content of the results TextView to the clipboard.
+
+        Args:
+        ----
+            _button: The Gtk.Button that was clicked (unused).
+
+        """
+        logger.info("Copying webscan results to clipboard.")
+        if self.results_textview: # Check if it exists
+            buffer = self.results_textview.get_buffer()
+            start_iter = buffer.get_start_iter()
+            end_iter = buffer.get_end_iter()
+            text_content = buffer.get_text(start_iter, end_iter, False) # False for include_hidden_chars
+
+            if text_content:
+                try:
+                    clipboard = Gdk.Display.get_default().get_clipboard()
+                    if clipboard:
+                        clipboard.set(text_content) # Gtk.Clipboard.set_text is deprecated, use set()
+                        logger.info("Webscan results copied to clipboard successfully.")
+                    else:
+                        logger.warning("Failed to get default clipboard for copying webscan results.")
+                except Exception as e: # pylint: disable=broad-except
+                    logger.error(f"Error copying webscan results to clipboard: {e}", exc_info=True)
+            else:
+                logger.info("No webscan results to copy.")
 
     def on_scan_button_clicked(self, _widget: Gtk.Button):
         """Handle the 'Scan' button click event.
@@ -107,7 +165,10 @@ class WebScanPage(Adw.PreferencesPage):
             "target_url": target_url,
             "force_ssl": self.force_ssl_switch.get_active(),
             "cgi_vulns": self.cgi_vulns_switch.get_active(),
-            "interesting_content": self.interesting_content_switch.get_active()
+            "interesting_content": self.interesting_content_switch.get_active(),
+            "evasion": self.evasion_switch.get_active(), # New
+            "mutate": self.mutate_switch.get_active(),   # New
+            "maxtime": self.maxtime_entry_row.get_text().strip() # New, get text from AdwEntryRow
         }
         # task_data is not set on the task directly anymore.
         task.run_in_thread(self._run_scan_task_thread_func)
@@ -138,6 +199,9 @@ class WebScanPage(Adw.PreferencesPage):
         force_ssl = scan_data["force_ssl"]
         cgi_vulns = scan_data["cgi_vulns"]
         interesting_content = scan_data["interesting_content"]
+        evasion_active = scan_data.get("evasion", False)
+        mutate_active = scan_data.get("mutate", False)
+        maxtime_str = scan_data.get("maxtime", "")
 
         if not target_url.startswith(("http://", "https://")):
             target_url = "http://" + target_url
@@ -146,6 +210,20 @@ class WebScanPage(Adw.PreferencesPage):
 
         if force_ssl:
             nikto_command.append('-ssl')
+        if evasion_active:
+            nikto_command.extend(['-evasion', '1'])
+        if mutate_active:
+            nikto_command.extend(['-mutate', '1'])
+        if maxtime_str:
+            # Basic validation: try to convert to int, ensure it's positive
+            try:
+                maxtime_val = int(maxtime_str)
+                if maxtime_val > 0:
+                    nikto_command.extend(['-maxtime', str(maxtime_val) + 's']) # Nikto expects format like '60s'
+                else:
+                    logger.warning(f"Invalid maxtime value '{maxtime_str}', must be positive. Ignoring.")
+            except ValueError:
+                logger.warning(f"Invalid maxtime value '{maxtime_str}', not an integer. Ignoring.")
 
         tuning_options = []
         if cgi_vulns:

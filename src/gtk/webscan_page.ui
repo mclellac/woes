@@ -28,6 +28,37 @@
             </child>
           </object>
         </child>
+            <child>
+              <object class="AdwActionRow" id="evasion_row">
+                <property name="title">IDS Evasion (type 1)</property>
+                <property name="subtitle">Pass -evasion 1 to Nikto</property>
+                <property name="activatable_widget">evasion_switch</property>
+                <child>
+                  <object class="GtkSwitch" id="evasion_switch">
+                    <property name="valign">center</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="AdwActionRow" id="mutate_row">
+                <property name="title">Mutation (type 1)</property>
+                <property name="subtitle">Pass -mutate 1 to Nikto</property>
+                <property name="activatable_widget">mutate_switch</property>
+                <child>
+                  <object class="GtkSwitch" id="mutate_switch">
+                    <property name="valign">center</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="AdwEntryRow" id="maxtime_entry_row">
+                <property name="title">Max Scan Time (seconds)</property>
+                <property name="subtitle">Pass -maxtime &lt;seconds&gt; to Nikto (e.g., 60 or 60s)</property>
+                <property name="input-purpose">number</property> <!-- Hint for numeric input -->
+              </object>
+            </child>
       </object>
     </child>
     <child>
@@ -77,6 +108,28 @@
       <object class="AdwPreferencesGroup">
         <property name="title">Scan Results</property>
         <property name="description">Output from the web vulnerability scan will appear here.</property>
+        <property name="header-suffix">
+          <object class="GtkBox">
+            <property name="orientation">horizontal</property>
+            <property name="spacing">6</property>
+            <child>
+              <object class="GtkButton" id="clear_results_button">
+                <property name="icon-name">edit-clear-all-symbolic</property>
+                <property name="tooltip-text" translatable="yes">Clear Results</property>
+                <property name="valign">center</property>
+                <!-- Add style class if needed, e.g., <style><class name="flat"/></style> -->
+              </object>
+            </child>
+            <child>
+              <object class="GtkButton" id="copy_results_button">
+                <property name="icon-name">edit-copy-symbolic</property>
+                <property name="tooltip-text" translatable="yes">Copy Results</property>
+                <property name="valign">center</property>
+                <!-- Add style class if needed, e.g., <style><class name="flat"/></style> -->
+              </object>
+            </child>
+          </object>
+        </property>
         <child>
           <object class="GtkScrolledWindow">
             <property name="min-content-height">200</property>
