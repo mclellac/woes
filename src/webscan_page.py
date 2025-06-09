@@ -46,29 +46,24 @@ class WebScanPage(Adw.PreferencesPage):
         self.current_web_scan_task = None
         logger.debug("WebScanPage initialized")
 
-        if self.results_textview: # Check if it exists
-            # The buffer is now a GtkSource.Buffer
+        if self.results_textview:
             buffer = self.results_textview.get_buffer()
-            if buffer: # Ensure buffer exists
-                # Set a default language (optional, but good practice)
+            if buffer:
                 lm = GtkSource.LanguageManager.get_default()
-                language = lm.get_language("text") # Use "text" for generic output
+                language = lm.get_language("text")
                 if language:
                     buffer.set_language(language)
                 else:
                     logger.warning("GtkSource language 'text' not found. Syntax highlighting may not apply.")
 
-            # Configure GtkSourceView specific properties (some might be set in UI already)
             self.results_textview.set_show_line_numbers(True)
-            self.results_textview.set_monospace(True) # Ensure monospace
-            self.results_textview.set_wrap_mode(Gtk.WrapMode.WORD_CHAR) # Ensure wrap mode matches UI or intent
-            # self.results_textview.set_highlight_current_line(True) # Optional
-            # self.results_textview.set_auto_indent(True) # Optional, less relevant for plain text output
+            self.results_textview.set_monospace(True)
+            self.results_textview.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
 
         self.url_entry.connect("entry-activated", self.on_scan_button_clicked)
-        if self.clear_results_button: # Check button exists
+        if self.clear_results_button:
             self.clear_results_button.connect("clicked", self._on_clear_results_clicked)
-        if self.copy_results_button: # Check button exists
+        if self.copy_results_button:
             self.copy_results_button.connect("clicked", self._on_copy_results_clicked)
 
     def _on_clear_results_clicked(self, _button: Gtk.Button):
@@ -82,7 +77,7 @@ class WebScanPage(Adw.PreferencesPage):
 
         """
         logger.info("Webscan results cleared by user action.")
-        if self.results_textview: # Check if it exists
+        if self.results_textview:
             buffer = self.results_textview.get_buffer()
             buffer.set_text("")
         # Optionally, clear any related error banners if desired
@@ -101,17 +96,17 @@ class WebScanPage(Adw.PreferencesPage):
 
         """
         logger.info("Copying webscan results to clipboard.")
-        if self.results_textview: # Check if it exists
+        if self.results_textview:
             buffer = self.results_textview.get_buffer()
             start_iter = buffer.get_start_iter()
             end_iter = buffer.get_end_iter()
-            text_content = buffer.get_text(start_iter, end_iter, False) # False for include_hidden_chars
+            text_content = buffer.get_text(start_iter, end_iter, False)
 
             if text_content:
                 try:
                     clipboard = Gdk.Display.get_default().get_clipboard()
                     if clipboard:
-                        clipboard.set(text_content) # Gtk.Clipboard.set_text is deprecated, use set()
+                        clipboard.set(text_content)
                         logger.info("Webscan results copied to clipboard successfully.")
                     else:
                         logger.warning("Failed to get default clipboard for copying webscan results.")
@@ -140,11 +135,11 @@ class WebScanPage(Adw.PreferencesPage):
             r"(?:(?:[1-9]\d?|1\d\d|2[01]\d|22[0-3])"  # IPv4 part 1
             r"(?:\.(?:1?\d{1,2}|2[0-4]\d|25[0-5])){2}"  # IPv4 part 2 & 3
             r"(?:\.(?:[1-9]\d?|1\d\d|2[0-4]\d|25[0-4]))|"  # IPv4 part 4
-            r"(?:(?:[a-z¡-￿0-9]-*)*[a-z¡-￿0-9]+)"  # Domain name parts
-            r"(?:\.(?:[a-z¡-￿0-9]-*)*[a-z¡-￿0-9]+)*"  # Domain name parts
-            r"(?:\.(?:[a-z¡-￿]{2,}))\.?)"  # TLD
+            r"(?:(?:[a-z¡-￿0-9]-*)*[a-z¡-￿0-9]+)"  # Domain name
+            r"(?:\.(?:[a-z¡-￿0-9]-*)*[a-z¡-￿0-9]+)*"  # Optional subdomains
+            r"(?:\.(?:[a-z¡-￿]{2,}))\.?)"  # Top Level Domain
             r"(?::\d{2,5})?"  # Optional port
-            r"(?:[/?#]\S*)?$",  # Optional path, query, fragment
+            r"(?:[/?#]\S*)?$",  # Optional path, query, or fragment
             re.IGNORECASE,
         )
         if not target_url:
@@ -153,7 +148,7 @@ class WebScanPage(Adw.PreferencesPage):
                 main_window.show_toast("Target URL cannot be empty.")
             else:
                 logger.warning("Could not find main window or show_toast method for empty Webscan URL toast.")
-                self._show_main_banner_error("Target URL cannot be empty.") # Fallback
+                self._show_main_banner_error("Target URL cannot be empty.")
             return
 
         if not url_pattern.match(target_url):
@@ -162,7 +157,7 @@ class WebScanPage(Adw.PreferencesPage):
                 main_window.show_toast("Invalid URL format. Please enter a valid URL.")
             else:
                 logger.warning("Could not find main window or show_toast method for invalid Webscan URL toast.")
-                self._show_main_banner_error("Invalid URL format. Please enter a valid URL.") # Fallback
+                self._show_main_banner_error("Invalid URL format. Please enter a valid URL.")
             return
 
         buffer = self.results_textview.get_buffer()
@@ -178,8 +173,7 @@ class WebScanPage(Adw.PreferencesPage):
                 logger.warning(f"Error trying to cancel previous web scan task: {e_cancel}")
 
         cancellable = Gio.Cancellable()
-        # Pass self (WebScanPage instance) as source_object, task_data will be None
-        task = Gio.Task.new(self, cancellable, self._on_scan_task_done, None)
+        task = Gio.Task.new(self, cancellable, self._on_scan_task_done, None) # task_data is None
         self.current_web_scan_task = task
 
         self._temp_scan_data = {
@@ -187,18 +181,17 @@ class WebScanPage(Adw.PreferencesPage):
             "force_ssl": self.force_ssl_switch.get_active(),
             "cgi_vulns": self.cgi_vulns_switch.get_active(),
             "interesting_content": self.interesting_content_switch.get_active(),
-            "evasion": self.evasion_switch.get_active(), # New
-            "mutate": self.mutate_switch.get_active(),   # New
-            "maxtime": self.maxtime_entry_row.get_text().strip() # New, get text from AdwEntryRow
+            "evasion": self.evasion_switch.get_active(),
+            "mutate": self.mutate_switch.get_active(),
+            "maxtime": self.maxtime_entry_row.get_text().strip()
         }
-        # task_data is not set on the task directly anymore.
         task.run_in_thread(self._run_scan_task_thread_func)
 
     def _run_scan_task_thread_func(self,
-                                   task: Gio.Task, # Correct first parameter
+                                   task: Gio.Task,
                                    source_object: GObject.Object, # This is 'self' (WebScanPage instance)
-                                   task_data: object, # This will be None (as passed to Gio.Task.new)
-                                   cancellable: Gio.Cancellable): # Corrected name
+                                   task_data: object, # This will be None as no task_data is passed to Gio.Task.new
+                                   cancellable: Gio.Cancellable):
         """Execute the Nikto scan in a separate thread.
 
         This method is run by `Gio.Task.run_in_thread`. It retrieves scan parameters
@@ -213,7 +206,7 @@ class WebScanPage(Adw.PreferencesPage):
 
         """
         logger.debug("WebScanPage._run_scan_task_thread_func started")
-        page_instance = source_object # source_object is the WebScanPage instance
+        page_instance = source_object # page_instance is 'self' (WebScanPage)
         scan_data = page_instance._temp_scan_data
 
         target_url = scan_data["target_url"]
@@ -236,11 +229,10 @@ class WebScanPage(Adw.PreferencesPage):
         if mutate_active:
             nikto_command.extend(['-mutate', '1'])
         if maxtime_str:
-            # Basic validation: try to convert to int, ensure it's positive
             try:
                 maxtime_val = int(maxtime_str)
                 if maxtime_val > 0:
-                    nikto_command.extend(['-maxtime', str(maxtime_val) + 's']) # Nikto expects format like '60s'
+                    nikto_command.extend(['-maxtime', str(maxtime_val) + 's']) # Nikto expects time with 's' suffix
                 else:
                     logger.warning(f"Invalid maxtime value '{maxtime_str}', must be positive. Ignoring.")
             except ValueError:
@@ -248,25 +240,19 @@ class WebScanPage(Adw.PreferencesPage):
 
         tuning_options = []
         if cgi_vulns:
-            tuning_options.append('2') # Misconfiguration / Default File
+            tuning_options.append('2') # Corresponds to Nikto's "Misconfiguration / Default File"
         if interesting_content:
-            tuning_options.append('1') # Interesting File / Seen in logs
+            tuning_options.append('1') # Corresponds to Nikto's "Interesting File / Seen in logs"
 
-        # Nikto's -Tuning option takes a string of numbers, e.g., "12"
-        # It's important not to pass 'x' if we are specifying numbers,
-        # as 'x' is for excluding options, while numbers are for including specific checks.
-        # The old command used "xCGIVulnerable" which is equivalent to "x2" (excluding CGI checks).
-        # The new logic is to include specific checks if their switches are on.
-        # If both cgi_vulns_switch (2) and interesting_content_switch (1) are on,
-        # and no other default tuning is desired beyond these, the tuning string should be "12".
-        # If no tuning switches are active, we should not add the -Tuning option,
-        # allowing Nikto to use its default tuning.
-
+        # Nikto's -Tuning option takes a string of numbers (e.g., "12") to specify checks.
+        # If no tuning switches are active, the -Tuning option is omitted,
+        # allowing Nikto to use its default set of checks.
         if tuning_options:
-            # Sort to ensure consistent order if needed, e.g., "12" not "21"
-            # Though for Nikto's -Tuning, order usually doesn't matter for inclusion.
-            tuning_string = "".join(sorted(list(set(tuning_options)))) # Use set to avoid duplicates like "11"
-            if tuning_string: # Ensure not empty if logic changes
+            # Using set avoids duplicates (e.g. if '1' was added twice)
+            # and sorted() ensures a consistent order (e.g., "12" not "21"),
+            # though order usually doesn't matter for Nikto's -Tuning inclusion.
+            tuning_string = "".join(sorted(list(set(tuning_options))))
+            if tuning_string:
                 nikto_command.extend(['-Tuning', tuning_string])
 
         logger.debug(f"Constructed Nikto command: {nikto_command}")
@@ -302,25 +288,26 @@ class WebScanPage(Adw.PreferencesPage):
             _user_data: User data passed to the callback (unused).
 
         """
-        # Retrieve target_url from the instance attribute for messages
-        target_url = "Unknown URL" # Default if _temp_scan_data is somehow missing
-        if hasattr(self, '_temp_scan_data') and self._temp_scan_data:
+        target_url = "Unknown URL"
+        if hasattr(self, '_temp_scan_data') and self._temp_scan_data: # Check if scan data exists
             target_url = self._temp_scan_data.get("target_url", target_url)
 
         active_task = self.current_web_scan_task
         if not active_task:
             logger.warning("_on_scan_task_done called but no active_task found.")
-            # Potentially re-enable button if it's stuck disabled
-            if not self.scan_button.get_sensitive():
+            if not self.scan_button.get_sensitive(): # Re-enable button if it got stuck
                 self.scan_button.set_sensitive(True)
             return
 
         try:
-            # This will raise a GLib.Error if the task itself failed fundamentally,
-            # but our thread function is designed to return values, not set GLib.Error.
-            # However, it's good practice to keep the try-except GLib.Error for robustness.
-            returned_value = active_task.propagate_value()
-            stdout, stderr_or_error_msg, error_type = returned_value
+            # Gio.Task.propagate_value() can raise a GLib.Error if the task itself
+            # encountered an unhandled exception (e.g., was cancelled before returning a value).
+            # If successful, it returns a (bool, GObject.Value) tuple.
+            success_flag, actual_gobject_value = active_task.propagate_value()
+
+            # The GObject.Value holds the Python object returned by task.return_value()
+            # in the thread function, which is our 3-element tuple.
+            stdout, stderr_or_error_msg, error_type = actual_gobject_value.get_pyobject()
 
             if error_type == "FileNotFoundError":
                 logger.exception("Nikto command not found. Ensure it's in PATH.")
