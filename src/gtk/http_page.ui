@@ -1,15 +1,11 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<!-- Created with Cambalache 0.96.1 -->
+<!-- Created with Cambalache 0.91.3 -->
 <interface>
-  <!-- interface-name http_page.ui -->
-  <requires lib="gtk" version="4.18"/>
-  <requires lib="libadwaita" version="1.7"/>
+  <requires lib="gtk" version="4.12"/>
+  <requires lib="libadwaita" version="1.4"/>
   <template class="HttpPage" parent="AdwPreferencesPage">
-    <property name="height-request">600</property>
-    <property name="icon-name">network-transmit-receive-symbolic</property>
     <property name="title" translatable="yes">HTTP Headers</property>
-    <property name="vexpand">True</property>
-    <property name="width-request">700</property>
+    <property name="icon-name">network-transmit-receive-symbolic</property>
     <child>
       <object class="AdwPreferencesGroup" id="http_request_group">
         <property name="title" translatable="yes">Request Parameters</property>
@@ -33,11 +29,13 @@
         <child>
           <object class="AdwEntryRow" id="http_host_header_row">
             <property name="title" translatable="yes">Custom Host Header</property>
+            <!-- Add other properties as needed, e.g., placeholder-text -->
           </object>
         </child>
         <child>
           <object class="AdwComboRow" id="http_user_agent_row">
             <property name="title" translatable="yes">User-Agent</property>
+            <!-- Add model and other properties as needed -->
           </object>
         </child>
         <child>
@@ -48,8 +46,10 @@
         </child>
       </object>
     </child>
+    <!-- Removed AdwBanner with id="error_banner" from here -->
     <child>
       <object class="AdwPreferencesGroup" id="http_results_group">
+        <property name="title" translatable="yes">Response Headers</property>
         <property name="description" translatable="yes">HTTP response headers will appear below.</property>
         <property name="header-suffix">
           <object class="GtkBox">
@@ -61,9 +61,7 @@
                 <property name="tooltip-text" translatable="yes">Clear Results</property>
                 <property name="valign">center</property>
                 <signal name="clicked" handler="_on_clear_results_clicked"/>
-                <style>
-                  <class name="destructive-action"/>
-                </style>
+                <style><class name="destructive-action"/></style>
               </object>
             </child>
             <child>
@@ -71,25 +69,20 @@
                 <property name="icon-name">edit-copy-symbolic</property>
                 <property name="tooltip-text" translatable="yes">Copy All Headers</property>
                 <property name="valign">center</property>
-                <style>
-                  <class name="flat"/>
-                </style>
+                <style><class name="flat"/></style>
               </object>
             </child>
           </object>
         </property>
-        <property name="title" translatable="yes">Response Headers</property>
-        <property name="visible">False</property>
+        <property name="visible">False</property> <!-- Initially hidden, shown when there are results -->
         <child>
           <object class="GtkColumnView" id="http_column_view">
             <property name="enable-rubberband">True</property>
             <property name="hexpand">True</property>
+            <property name="vexpand">True</property> <!-- Allow vertical expansion -->
             <!-- Model and columns are set up in code -->
             <property name="show-column-separators">true</property>
             <property name="show-row-separators">true</property>
-            <property name="vexpand">True</property>
-            <property name="vexpand-set">True</property>
-            <property name="width-request">800</property>
           </object>
         </child>
       </object>

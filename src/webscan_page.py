@@ -10,12 +10,13 @@ logger = logging.getLogger(__name__)
 from typing import Optional
 
 import gi
-from gi.repository import Gtk, Adw, Gio, GLib, GObject, Gdk # Added Gdk
+from gi.repository import Gtk, Adw, Gio, GLib, GObject, Gdk, GtkSource # Added Gdk and GtkSource
 
 from .constants import RESOURCE_PREFIX
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
+gi.require_version("GtkSource", "5") # Match version from UI file
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/webscan_page.ui")
@@ -44,6 +45,26 @@ class WebScanPage(Adw.PreferencesPage):
         super().__init__(**kwargs)
         self.current_web_scan_task = None
         logger.debug("WebScanPage initialized")
+
+        if self.results_textview: # Check if it exists
+            # The buffer is now a GtkSource.Buffer
+            buffer = self.results_textview.get_buffer()
+            if buffer: # Ensure buffer exists
+                # Set a default language (optional, but good practice)
+                lm = GtkSource.LanguageManager.get_default()
+                language = lm.get_language("text") # Use "text" for generic output
+                if language:
+                    buffer.set_language(language)
+                else:
+                    logger.warning("GtkSource language 'text' not found. Syntax highlighting may not apply.")
+
+            # Configure GtkSourceView specific properties (some might be set in UI already)
+            self.results_textview.set_show_line_numbers(True)
+            self.results_textview.set_monospace(True) # Ensure monospace
+            self.results_textview.set_wrap_mode(Gtk.WrapMode.WORD_CHAR) # Ensure wrap mode matches UI or intent
+            # self.results_textview.set_highlight_current_line(True) # Optional
+            # self.results_textview.set_auto_indent(True) # Optional, less relevant for plain text output
+
         self.url_entry.connect("entry-activated", self.on_scan_button_clicked)
         if self.clear_results_button: # Check button exists
             self.clear_results_button.connect("clicked", self._on_clear_results_clicked)
