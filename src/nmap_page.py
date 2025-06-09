@@ -9,7 +9,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 import re
-from typing import Optional, List, Dict, Any # Added List, Dict, Any
+from enum import Enum
+from typing import Optional, List, Dict, Any
 import yaml
 
 import gi

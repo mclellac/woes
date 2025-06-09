@@ -13,7 +13,7 @@ import shutil
 import time # Added for sleep in polling loop
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
-from typing import Any, Dict, Union, List, Optional, Tuple, TypedDict # Added TypedDict
+from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
 
 # Import Gio for Cancellable type hint, actual object passed by caller
 try:

@@ -1,5 +1,6 @@
 """Global constants for the Woes application."""
 import os
+from typing import Dict, List
 
 from gi.repository import Gtk
 
