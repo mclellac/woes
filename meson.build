@@ -29,8 +29,8 @@ endif
 # Declare runtime dependencies
 dependencies = [
     dependency('glib-2.0', version: '>= 2.78.0'),
-    dependency('gtk4', version: '>= 4.14.0'),
-    dependency('libadwaita-1', version: '>= 1.5.0'),
+    dependency('gtk4', version: '>= 4.18.0'),
+    dependency('libadwaita-1', version: '>= 1.7.0'),
     dependency('pygobject-3.0', version: '>= 3.46.0'),
 ]
 
