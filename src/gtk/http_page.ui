@@ -7,6 +7,7 @@
   <template class="HttpPage" parent="AdwPreferencesPage">
     <property name="icon-name">network-transmit-receive-symbolic</property>
     <property name="title" translatable="yes">HTTP Headers</property>
+    <property name="vexpand">True</property>
     <child>
       <object class="AdwPreferencesGroup" id="http_request_group">
         <property name="title" translatable="yes">Request Parameters</property>
@@ -85,6 +86,8 @@
             <property name="show-column-separators">true</property>
             <property name="show-row-separators">true</property>
             <property name="vexpand">True</property>
+            <property name="vexpand-set">True</property>
+            <property name="width-request">800</property>
           </object>
         </child>
       </object>

@@ -4,4 +4,7 @@
 <cambalache-project version="0.96.0" target_tk="gtk-4.0">
   <ui template-class="WoesWindow" filename="window.cmb.ui" sha256="7390a31cba75cb9ac198f1f66c14a2e48e85f3fc83a076e6ddc355b5d3c6f7ae"/>
   <ui template-class="WebScanPage" filename="webscan_page.ui" sha256="a834a80f0d007ec2a7de2477a7f3b346f859833c9f4e1da29797d88b0f990cd5"/>
+  <ui template-class="NmapPage" filename="nmap_page.ui" sha256="af85745edff88d7f567ffaa390d678826d646e457466b701579dbd5a436c0747"/>
+  <ui template-class="HttpPage" filename="http_page.ui" sha256="125350fe306d79fbdbfe0d8f71c83428a6fede4307138f5844a4bb26dafc8655"/>
+  <ui template-class="DNSPage" filename="dns_page.ui" sha256="c8057dcac4de3f73042e3f9fc6e53768e2db035879fe2de136e5a2183fcd50ab"/>
 </cambalache-project>
