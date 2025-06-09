@@ -77,6 +77,8 @@
                       <item translatable="yes">130%</item>
                       <item translatable="yes">140%</item>
                       <item translatable="yes">150%</item>
+                      <item translatable="yes">175%</item>
+                      <item translatable="yes">200%</item>
                     </items>
                   </object>
                 </property>
