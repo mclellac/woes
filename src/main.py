@@ -8,8 +8,8 @@ import os
 import logging
 from typing import Optional, List
 import gi
-gi.require_version("Gtk", "4.0")  # Moved require_version before repository imports
-gi.require_version("Adw", "1")    # Moved require_version before repository imports
+gi.require_version("Gtk", "4.0")
+gi.require_version("Adw", "1")
 from gi.repository import Adw, Gio, GLib, Gtk
 
 from .constants import (
@@ -21,7 +21,7 @@ from .constants import (
     APP_LICENSE_TYPE,
     APP_DESCRIPTION,
     APP_ISSUES_URL,
-) # Moved earlier for _load_gresources_early
+)
 
 # GResource loading must happen before any modules that use Gtk.Template are imported.
 def _load_gresources_early():
@@ -269,7 +269,7 @@ class WoesApplication(Adw.Application):
                 page_object.trigger_fetch()
             else:
                 logging.warning("HTTP page object does not have a 'trigger_fetch' method.")
-        elif page_name == "http": # Implies page_object is None
+        elif page_name == "http":
             logging.warning("HTTP page object is None, cannot trigger fetch.")
         # No warning if it's not the HTTP page, as the action is specific
 
@@ -287,7 +287,7 @@ class WoesApplication(Adw.Application):
                 page_object.trigger_scan()
             else:
                 logging.warning("Nmap page object does not have a 'trigger_scan' method.")
-        elif page_name == "nmap": # Implies page_object is None
+        elif page_name == "nmap":
             logging.warning("Nmap page object is None, cannot trigger scan.")
 
     def on_page_action_dns_lookup(self, *_args):
@@ -304,7 +304,7 @@ class WoesApplication(Adw.Application):
                 page_object.trigger_lookup()
             else:
                 logging.warning("DNS page object does not have a 'trigger_lookup' method.")
-        elif page_name == "dns": # Implies page_object is None
+        elif page_name == "dns":
             logging.warning("DNS page object is None, cannot trigger lookup.")
 
     def on_page_action_webscan_scan(self, *_args):
@@ -321,7 +321,7 @@ class WoesApplication(Adw.Application):
                 page_object.trigger_scan()
             else:
                 logging.warning("Webscan page object does not have a 'trigger_scan' method.")
-        elif page_name == "webscan": # Implies page_object is None
+        elif page_name == "webscan":
             logging.warning("Webscan page object is None, cannot trigger scan.")
 
     def on_about_action(self, _widget: Gio.SimpleAction, _param: Optional[GLib.Variant]):

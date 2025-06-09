@@ -29,7 +29,7 @@
             </child>
           </object>
         </child>
-        <child> <!-- This is the new banner -->
+        <child>
           <object class="AdwBanner" id="main_error_banner">
             <property name="revealed">False</property>
             <property name="button_label" translatable="yes">Dismiss</property>
@@ -158,7 +158,6 @@
                         </child>
                       </object>
                     </property>
-                    <!-- <property name="description">TODO</property> --> <!-- Description removed -->
                     <property name="icon-name" bind-source="webscan_page" bind-property="icon-name" bind-flags="sync-create">org.gnome.Loupe-symbolic</property>
                     <property name="title" bind-source="webscan_page" bind-property="title" bind-flags="sync-create">Web Scanner</property>
                     <property name="valign">start</property>
