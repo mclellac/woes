@@ -262,7 +262,7 @@ class NmapScanner:
                 error_message = "User cancelled the request for administrator privileges or authentication failed."
         return error_message
 
-    def run_nmap_scan(  # pylint: disable=too-many-locals # Keep for now, may resolve with further refactoring
+    def run_nmap_scan(  # pylint: disable=too-many-locals # Justified: manages subprocess lifecycle, I/O, and multiple error states.
         self, params: NmapScanParameters,
         cancellable: Optional[Gio.Cancellable] = None,
     ) -> nmap.PortScanner:
@@ -280,7 +280,7 @@ class NmapScanner:
 
         logger.info("Executing Nmap command (first few parts): %s...", " ".join(shlex.quote(part) for part in final_command_parts[:4]))
 
-        stdout_str, stderr_str, returncode = "", "", -1 # Initialize
+        stdout_str, stderr_str, returncode = "", "", -1
 
         try:
             if self.current_cancellable and self.current_cancellable.is_cancelled():

@@ -8,8 +8,8 @@ logger = logging.getLogger(__name__)
 
 # DNS library imports (dns.resolver, etc.) are now primarily in dns_client.py
 import gi
-from gi.repository import Adw, Gio, Gtk, Pango, GObject # Added GObject
-from typing import Optional, Tuple, Sequence, Any, List, Dict # Kept for type hints, added Optional
+from gi.repository import Adw, Gio, Gtk, Pango, GObject
+from typing import Optional, Tuple, Sequence, Any, List, Dict
 
 from .constants import APP_ID, RESOURCE_PREFIX
 from .utils import show_global_error, show_global_toast, is_valid_ip, is_valid_domain
@@ -130,6 +130,82 @@ class DNSPage(Adw.PreferencesPage):
     # _fetch_dns_records logic is now part of _perform_lookup using DnsResolverClient
     # _lookup_record was moved to DnsResolverClient (as _lookup_record_internal)
 
+    # --- Helper methods for building record rows ---
+
+    def _create_copy_button(self, text_to_copy: str, tooltip_text: str, widget_for_clipboard: Gtk.Widget) -> Gtk.Button:
+        """Creates a Gtk.Button for copying text."""
+        button = Gtk.Button.new_from_icon_name("content-copy-symbolic")
+        button.set_valign(Gtk.Align.CENTER)
+        button.set_tooltip_text(tooltip_text)
+        button.connect("clicked", lambda _btn, text=text_to_copy, w=widget_for_clipboard: DNSPage._copy_to_clipboard(text, w))
+        return button
+
+    def _create_base_action_row(self, name: str, record_type_label: str, base_subtitle_text: str, icon_name: Optional[str]) -> Adw.ActionRow:
+        """Creates a basic Adw.ActionRow with title, subtitle, and optional icon."""
+        row = Adw.ActionRow(title=name, subtitle=f"Type: {record_type_label}, {base_subtitle_text}") # type: ignore
+        if icon_name:
+            row.add_prefix(Gtk.Image(icon_name=icon_name)) # type: ignore
+        row.set_selectable(False)
+        return row
+
+    def _add_standard_suffix_box_to_row(
+        self,
+        row: Adw.ActionRow,
+        main_value_text: str,
+        main_value_tooltip_prefix: str,
+        full_summary_text: str
+    ) -> None:
+        """Adds a standard suffix box (label, copy value button, copy summary button) to an ActionRow."""
+        suffix_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+
+        value_label = Gtk.Label(label=main_value_text, halign=Gtk.Align.START, selectable=True, wrap=True, wrap_mode=Pango.WrapMode.WORD_CHAR)
+        suffix_box.append(value_label)
+
+        copy_value_button = self._create_copy_button(main_value_text, f"{main_value_tooltip_prefix}: {main_value_text}", row)
+        suffix_box.append(copy_value_button)
+
+        copy_full_summary_button = self._create_copy_button(full_summary_text, "Copy Full Record Summary", row)
+        suffix_box.append(copy_full_summary_button)
+
+        row.add_suffix(suffix_box) # type: ignore
+
+    def _create_base_expander_row(self, name: str, subtitle_text: str, icon_name: Optional[str], full_summary_text: str) -> Adw.ExpanderRow:
+        """Creates a basic Adw.ExpanderRow with title, subtitle, icon, and a full summary copy button."""
+        row = Adw.ExpanderRow(title=name, subtitle=subtitle_text) # type: ignore
+        if icon_name:
+            row.add_prefix(Gtk.Image(icon_name=icon_name)) # type: ignore
+
+        copy_full_button = self._create_copy_button(full_summary_text, "Copy Full Record Summary", row)
+        row.add_suffix(copy_full_button) # type: ignore
+        # row.set_expanded(True) # Decided by caller, as TXT/SOA might be empty initially
+        return row
+
+    def _add_expander_detail_row(
+            self,
+            expander_row: Adw.ExpanderRow,
+            title: Optional[str],
+            value_text: str,
+            copy_tooltip_prefix: str,
+            is_value_primary_content: bool = False
+        ):
+        """Adds a detail row (Adw.ActionRow) to an Adw.ExpanderRow."""
+        detail_row = Adw.ActionRow(title=title if title else None) # type: ignore
+
+        value_label = Gtk.Label(label=value_text, halign=Gtk.Align.START, selectable=True, wrap=True, wrap_mode=Pango.WrapMode.WORD_CHAR)
+        copy_button = self._create_copy_button(value_text, f"{copy_tooltip_prefix}: {value_text}", expander_row)
+
+        content_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        content_box.append(value_label)
+        content_box.append(copy_button)
+
+        if is_value_primary_content : # For TXT segments where the value is the main content of the row
+            detail_row.add_prefix(content_box) # type: ignore
+        else: # For SOA fields where title is present and value is a suffix
+            detail_row.add_suffix(content_box) # type: ignore
+
+        detail_row.set_selectable(False)
+        expander_row.add_row(detail_row) # type: ignore
+
     def _set_loading_state(self, active: bool) -> None:
         """Sets the UI loading state (spinner, sensitivity)."""
         if self.dns_lookup_spinner:
@@ -139,8 +215,8 @@ class DNSPage(Adw.PreferencesPage):
             else:
                 self.dns_lookup_spinner.stop() # type: ignore
         # Potentially disable/enable other controls like domain_entry or apply_button here
-        # self.domain_entry.set_sensitive(not active) # type: ignore
-        # self.dns_apply_button.set_sensitive(not active) # type: ignore
+        # self.domain_entry.set_sensitive(not active)
+        # self.dns_apply_button.set_sensitive(not active)
 
     def _validate_dns_input(self, user_input: str) -> bool:
         """
@@ -150,7 +226,7 @@ class DNSPage(Adw.PreferencesPage):
         if not user_input:
             show_global_toast(self, "Input cannot be empty.") # type: ignore
             main_window = self.get_native() # type: ignore
-            if not (main_window and hasattr(main_window, 'show_toast')):
+            if not (main_window and hasattr(main_window, 'show_toast')): # type: ignore
                 show_global_error(self, "Input cannot be empty.") # type: ignore
             return False
 
@@ -289,13 +365,13 @@ class DNSPage(Adw.PreferencesPage):
         rows based on the lookup outcome.
 
         :param result_records: A list of parsed DNS record dictionaries.
-        :type result_records: list[dict[str, any]]
+        :type result_records: List[Dict[str, Any]]
         :param domain_or_ip: The domain or IP that was queried.
         :type domain_or_ip: str
         :param record_type: The record type that was queried.
         :type record_type: str
         :param dns_servers: A sequence of DNS server addresses used for the query.
-        :type dns_servers: collections.abc.Sequence[any]
+        :type dns_servers: Sequence[Any]
         """
         logger.debug("Displaying %d results for %s (type %s) using servers %s.", len(result_records), domain_or_ip, record_type, dns_servers)
         logger.info("Query for %s, type %s, using servers %s, returned %d records.", domain_or_ip, record_type, dns_servers, len(result_records))
@@ -303,12 +379,12 @@ class DNSPage(Adw.PreferencesPage):
         while (child := self.dns_results_box_container.get_first_child()): # type: ignore
             self.dns_results_box_container.remove(child) # type: ignore
 
-        query_info_row = Adw.ActionRow(title=f"Query: {domain_or_ip}", subtitle=f"Record type queried: {record_type}") # type: ignore
+        query_info_row = Adw.ActionRow(title=f"Query: {domain_or_ip}", subtitle=f"Record type queried: {record_type}")
         query_info_row.set_selectable(False)
         self.dns_results_box_container.append(query_info_row) # type: ignore
 
         servers_str = ", ".join(map(str, dns_servers)) if dns_servers else "System default"
-        servers_info_row = Adw.ActionRow(title="DNS Servers Used", subtitle=servers_str) # type: ignore
+        servers_info_row = Adw.ActionRow(title="DNS Servers Used", subtitle=servers_str)
         servers_info_row.set_selectable(False)
         self.dns_results_box_container.append(servers_info_row) # type: ignore
         self.dns_results_box_container.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)) # type: ignore
@@ -319,7 +395,7 @@ class DNSPage(Adw.PreferencesPage):
                 no_records_message = f"No PTR records found for IP address {domain_or_ip}."
             elif record_type == "PTR": # For domain name PTR queries (less common but possible)
                 no_records_message = f"No PTR records found for {domain_or_ip}."
-            no_records_row = Adw.ActionRow(title=no_records_message) # type: ignore
+            no_records_row = Adw.ActionRow(title=no_records_message)
             no_records_row.set_selectable(False)
             self.dns_results_box_container.append(no_records_row) # type: ignore
             return
@@ -502,11 +578,11 @@ class DNSPage(Adw.PreferencesPage):
         Delegates to specific `_build_*_record_row` methods based on record type.
 
         :param record_data: A dictionary containing the parsed data for one DNS record.
-        :type record_data: dict[str, any]
+        :type record_data: Dict[str, Any]
         :return: A :class:`Gtk.Widget` (typically an :class:`Adw.ActionRow` or
                  :class:`Adw.ExpanderRow`) representing the record, or ``None`` if
                  the record type is unknown or cannot be displayed.
-        :rtype: Gtk.Widget | None
+        :rtype: Optional[Gtk.Widget]
         """
         record_type = record_data.get('type', '').upper()
         name = record_data.get('name', 'N/A')

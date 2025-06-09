@@ -69,7 +69,7 @@ class DnsResolverClient:
         :raises DnsNoAnswerError: If the query name is valid but no records of the requested type exist.
         :raises DnsGenericError: For other DNS lookup failures.
         :return: A list of dictionaries, where each dictionary represents a parsed DNS record.
-        :rtype: list[dict[str, any]]
+        :rtype: List[Dict[str, Any]]
         """
         try:
             answer = self.resolver.resolve(query_name_str, record_type_str)
@@ -126,7 +126,7 @@ class DnsResolverClient:
         :type record_type: str
         :raises DnsClientError: and its subclasses for various DNS resolution issues.
         :return: A list of dictionaries, each representing a parsed DNS record.
-        :rtype: list[dict[str, any]]
+        :rtype: List[Dict[str, Any]]
         """
         logger.debug("DnsResolverClient: resolve called for %s, type %s", domain_or_ip, record_type)
 

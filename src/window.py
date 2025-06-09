@@ -110,6 +110,7 @@ class WoesWindow(Adw.ApplicationWindow):
         :param _banner: The banner widget that emitted the signal (unused).
         :type _banner: Adw.Banner, optional
         :param _data: Additional data passed with the signal (unused).
+        :type _data: Any, optional
         """
         self.hide_error()
 
