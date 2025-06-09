@@ -86,6 +86,7 @@ class CustomDNSAdapter(HTTPAdapter):
         self.custom_dns_server = custom_dns_server
         self.default_sni_for_ip_url = default_sni
         self._resolved_sni: Optional[str] = None  # SNI derived from hostname resolution by this adapter.
+        self.resolved_ip_cache = {}
         super().__init__(*args, **kwargs)
 
     def _resolve_hostname_to_ip(self, hostname: str) -> Optional[str]:
@@ -212,33 +213,64 @@ class CustomDNSAdapter(HTTPAdapter):
             if resolved_ip:
                 # Store original hostname for SNI and certificate validation
                 self._resolved_sni = original_hostname
+                self.resolved_ip_cache[original_hostname] = resolved_ip
 
-                # Modify the request URL to point to the resolved IP address.
-                # The Host header (in request.headers) should still be the original hostname.
-                # `requests` uses the hostname from request.url to generate the Host header
-                # if not already present. We must ensure it's the original, or set it manually.
-                # However, initial_request_specific_headers["Host"] in _fetch_headers_task_thread_func
-                # usually sets this correctly based on user input or original URL.
-
-                new_netloc = resolved_ip
-                if parsed_url.port:
-                    new_netloc += f":{parsed_url.port}"
-
-                # Create new URL parts list for urlunparse
-                # (scheme, netloc, path, params, query, fragment)
-                new_url_parts = list(parsed_url[:])  # Make a mutable copy
-                new_url_parts[1] = new_netloc  # Index 1 is 'netloc'
-                request.url = requests.utils.urlunparse(new_url_parts)
+                # request.url is NOT modified here.
+                # The resolved IP will be used by get_connection.
                 logger.info(
-                    "CustomDNSAdapter.send: Modified request URL for IP connection: %s (Original Host: %s, SNI will be: %s)",
-                    request.url,
-                    original_hostname,
+                    "CustomDNSAdapter.send: Original request URL %s will be used. Connection will target resolved IP %s (SNI will be: %s)",
+                    request.url, # This is still the original URL
+                    resolved_ip,
                     self._resolved_sni,
                 )
 
         # The actual SNI value to be used by init_poolmanager is determined there based on
         # self._resolved_sni or self.default_sni_for_ip_url.
         return super().send(request, stream, timeout, verify, cert, proxies)
+
+    def get_connection(self, url: str, proxies=None):
+        # url here is the original request.url
+        parsed_url = requests.utils.urlparse(url)
+        original_hostname = parsed_url.hostname
+
+        resolved_ip_for_connection = None
+        # Check cache only if custom DNS is enabled for this adapter instance and dnspython is available
+        if self.custom_dns_server and dns and original_hostname and original_hostname in self.resolved_ip_cache:
+            resolved_ip_for_connection = self.resolved_ip_cache[original_hostname]
+
+        if resolved_ip_for_connection:
+            logger.info(
+                "CustomDNSAdapter.get_connection: Using resolved IP %s for connection to original host %s (URL: %s)",
+                resolved_ip_for_connection,
+                original_hostname,
+                url
+            )
+
+            conn_url_parts = list(parsed_url[:]) # Make a mutable copy
+            new_netloc = resolved_ip_for_connection
+            if parsed_url.port:
+                new_netloc += f":{parsed_url.port}"
+            conn_url_parts[1] = new_netloc # Index 1 is 'netloc'
+
+            # Ensure scheme is present for urlunparse
+            if not conn_url_parts[0]: # If scheme is empty
+                conn_url_parts[0] = "https" if parsed_url.scheme == "https" else "http"
+
+            connection_target_url = requests.utils.urlunparse(conn_url_parts)
+
+            logger.debug(
+                "CustomDNSAdapter.get_connection: PoolManager will connect to IP-based URL: %s (SNI via _resolved_sni: %s)",
+                connection_target_url,
+                self._resolved_sni
+            )
+            # self._resolved_sni (original hostname) is set in send()
+            # init_poolmanager uses _resolved_sni to set server_hostname for new pools.
+            return self.poolmanager.connection_from_url(connection_target_url)
+        else:
+            logger.debug(
+                "CustomDNSAdapter.get_connection: Proceeding with default connection for URL: %s. Cache miss or custom DNS not used for this host.", url
+            )
+            return super().get_connection(url, proxies=proxies)
 
     def init_poolmanager(self, connections: int, maxsize: int, block: bool = False, **pool_kwargs):
         """Initialize the `urllib3.PoolManager`.
