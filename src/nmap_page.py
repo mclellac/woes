@@ -956,5 +956,3 @@ class NmapPage(Gtk.Box):
             self.nmap_apply_button.clicked()
         else:
             logger.warning("Nmap scan button not available or not sensitive, cannot trigger scan.")
-
-```
