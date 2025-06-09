@@ -56,7 +56,6 @@
             <child>
               <object class="AdwEntryRow" id="maxtime_entry_row">
                 <property name="title">Max Scan Time (seconds)</property>
-                <property name="subtitle">Pass -maxtime &lt;seconds&gt; to Nikto (e.g., 60 or 60s)</property>
                 <property name="input-purpose">number</property> <!-- Hint for numeric input -->
               </object>
             </child>
