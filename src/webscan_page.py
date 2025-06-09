@@ -200,7 +200,11 @@ class WebScanPage(Adw.PreferencesPage):
             target_url = self._temp_scan_data.get("target_url", target_url)
 
         try:
-            stdout, stderr_or_error_msg, error_type = task.run_in_thread_finish(result)
+            # This will raise a GLib.Error if the task itself failed fundamentally,
+            # but our thread function is designed to return values, not set GLib.Error.
+            # However, it's good practice to keep the try-except GLib.Error for robustness.
+            returned_value = task.propagate_value(result)
+            stdout, stderr_or_error_msg, error_type = returned_value
 
             if error_type == "FileNotFoundError":
                 logger.exception("Nikto command not found. Ensure it's in PATH.")
