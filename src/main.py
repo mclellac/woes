@@ -178,8 +178,7 @@ class WoesApplication(Adw.Application):
 
         """
         options = command_line.get_options_dict()
-        # This will call do_handle_local_options if options are present
-        if self.handle_local_options(options):
+        if self.handle_local_options(options): # do_handle_local_options is called by this
             logging.debug("Local options handled.")
 
         self.activate()

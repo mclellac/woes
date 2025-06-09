@@ -4,12 +4,6 @@ Provides UI for adjusting font scaling, theme, source view style schemes,
 custom DNS server, and HTTP output colors. Interacts with GSettings to
 load and save these preferences.
 """
-"""Manages the application's preferences window and settings.
-
-Provides UI for adjusting font scaling, theme, source view style schemes,
-custom DNS server, and HTTP output colors. Interacts with GSettings to
-load and save these preferences.
-"""
 import logging
 import re
 from typing import Optional # Added for type hinting
@@ -69,18 +63,33 @@ class Preferences(Adw.PreferencesWindow):
         self.load_preferences()
 
         # Handle dnspython absence for DNS server entry
-        if http_dns_module is None:
-            if self.dns_server_entryrow:
-                self.dns_server_entryrow.set_sensitive(False)
-                self.dns_server_entryrow.set_subtitle("Requires 'dnspython' library to be installed.")
-                # Consider also disabling prefs_dns_apply_button if it makes sense
-                # if self.prefs_dns_apply_button:
-                # self.prefs_dns_apply_button.set_sensitive(False)
-            logging.info("'dnspython' not found; Custom DNS server entry in preferences is disabled.")
+        if self.dns_server_entryrow: # Ensure the row object exists
+            if hasattr(self.dns_server_entryrow, "set_subtitle"):
+                if http_dns_module is None:
+                    self.dns_server_entryrow.set_sensitive(False)
+                    self.dns_server_entryrow.set_subtitle("Requires 'dnspython' library to be installed.")
+                    self.dns_server_entryrow.set_tooltip_text("Custom DNS functionality is disabled because the 'dnspython' library is not installed.")
+                    if self.prefs_dns_apply_button: self.prefs_dns_apply_button.set_sensitive(False)
+                else:
+                    self.dns_server_entryrow.set_sensitive(True)
+                    self.dns_server_entryrow.set_subtitle("") # Clear subtitle
+                    self.dns_server_entryrow.set_tooltip_text("Enter your custom DNS server IP address. Leave empty to use system default.")
+                    if self.prefs_dns_apply_button: self.prefs_dns_apply_button.set_sensitive(True)
+                logging.info(
+                    "'dnspython' status: %s. Custom DNS server entry in preferences updated.",
+                    "found" if http_dns_module else "not found"
+                )
+            else:
+                logging.warning("Adw.EntryRow 'dns_server_entryrow' does not have 'set_subtitle' method. Using tooltip fallback.")
+                if http_dns_module is None:
+                    self.dns_server_entryrow.set_sensitive(False)
+                    self.dns_server_entryrow.set_tooltip_text("Custom DNS disabled: 'dnspython' library not found. Install it for this feature.")
+                    if self.prefs_dns_apply_button: self.prefs_dns_apply_button.set_sensitive(False)
+                else:
+                    self.dns_server_entryrow.set_sensitive(True)
+                    self.dns_server_entryrow.set_tooltip_text("Enter custom DNS server IP. Leave empty for system default.")
         else:
-            if self.dns_server_entryrow:
-                 # Ensure subtitle is cleared if dnspython IS available (e.g., if it was installed later)
-                self.dns_server_entryrow.set_subtitle("")
+            logging.error("'dns_server_entryrow' template child not found during __init__.")
 
 
     def load_ui(self):

@@ -294,7 +294,7 @@ class NmapPage(Gtk.Box):
             custom_dns_server: Optional custom DNS server IP to use for the scan.
 
         """
-        logger.debug( # Added logger.debug
+        logger.debug(
             "_run_nmap_scan_task started for target: %s with options - OSScan:%s, AllPorts:%s, Script:%s, Ver:%s, NoPing:%s, Time:%s, CustomDNS:%s",
             target, os_fingerprinting, all_ports, script_name, service_version_detection, no_ping_scan, timing_template, custom_dns_server
         )

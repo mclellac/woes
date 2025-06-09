@@ -373,11 +373,10 @@ class DNSPage(Adw.PreferencesPage):
             dns_servers: A list of DNS servers that were used.
 
         """
-        logger.debug( # Added logger.debug
+        logger.debug(
             "Displaying %d results for %s (type %s) using servers %s.",
             len(result_records), domain_or_ip, record_type, dns_servers
         )
-        # The existing logging.info and logging.debug for individual records are good.
         logger.info(
             "Query for %s, type %s, using servers %s, returned %d records.",
             domain_or_ip,

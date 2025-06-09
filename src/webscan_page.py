@@ -5,11 +5,6 @@ and display the results.
 """
 import subprocess
 import re
-"""Defines the WebScan page for the Woes application.
-
-This page provides a simple interface to run Nikto scans against a target URL
-and display the results.
-"""
 import logging
 logger = logging.getLogger(__name__)
 from typing import Optional # Added for type hinting
@@ -264,13 +259,3 @@ class WebScanPage(Adw.PreferencesPage):
             logger.warning("Could not find main window or show_error method to display: %s", message)
 
     # Removed on_error_banner_dismiss_clicked method
-    # def on_error_banner_dismiss_clicked(self, _widget: Adw.Banner, *_args):
-    #     """Handle the dismissal of the error banner.
-    #
-    #     Args:
-    #     ----
-    #         _widget: The Adw.Banner or its dismiss button.
-    #         *_args: Additional arguments (unused).
-    #
-    #     """
-    #     self.error_banner_webscan.set_revealed(False)

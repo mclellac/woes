@@ -255,7 +255,7 @@ class NmapScanner:
             logger.info("Using custom DNS server for Nmap scan: %s", custom_dns_server.strip())
 
         nmap_args_list.extend(["-oX", "-", target])  # XML output to stdout, target last
-        logger.debug("Built Nmap arguments: %s", nmap_args_list) # Already present, changed to logger
+        logger.debug("Built Nmap arguments: %s", nmap_args_list)
         return nmap_args_list
 
     def _execute_nmap_command(
@@ -294,7 +294,7 @@ class NmapScanner:
                 )
             final_command_parts = [nmap_path] + nmap_args_list[1:]
 
-        logger.info( # Already present, changed to logger
+        logger.info(
             "Executing Nmap command (first few parts): %s...",
             " ".join(shlex.quote(part) for part in final_command_parts[:4]),
         )
@@ -309,7 +309,7 @@ class NmapScanner:
             )
             return process.stdout, process.stderr, process.returncode
         except Exception as e_subproc:
-            logger.exception("Subprocess execution failed for Nmap:") # Changed to logger.exception
+            logger.exception("Subprocess execution failed for Nmap:")
             raise PortScannerError(f"Nmap subprocess execution failed: {e_subproc}") from e_subproc
 
     def _parse_nmap_error_message(
@@ -372,7 +372,7 @@ class NmapScanner:
         timing_template: str = "T3",
         custom_dns_server: Optional[str] = None,
     ) -> nmap.PortScanner:
-        logger.debug( # Added logger.debug
+        logger.debug(
             "run_nmap_scan called with target: %s, OS:%s, AllPorts:%s, Script:%s, Ver:%s, NoPing:%s, Time:%s, DNS:%s",
             target, os_fingerprinting, scan_all_ports, selected_script, service_version, no_ping, timing_template, custom_dns_server
         )
@@ -446,7 +446,7 @@ class NmapScanner:
                 )
                 self.nm.analyse_nmap_xml_scan(nmap_xml_output=nmap_xml_output)
             except PortScannerError as e_parse:
-                logger.exception("Failed to parse Nmap XML output:") # Changed to logger.exception
+                logger.exception("Failed to parse Nmap XML output:")
                 logger.debug(
                     "Problematic Nmap XML Output (full, on parse error):\n%s", nmap_xml_output
                 )
@@ -457,17 +457,17 @@ class NmapScanner:
             return self.nm
 
         except FileNotFoundError as e_fnf:
-            logger.exception("Nmap execution prerequisite not found:") # Changed to logger.exception
+            logger.exception("Nmap execution prerequisite not found:")
             raise PortScannerError(f"Nmap execution prerequisite not found: {e_fnf}") from e_fnf
         except NotImplementedError as e_ni:
-            logger.exception("Privilege escalation not implemented for this platform:") # Changed to logger.exception
+            logger.exception("Privilege escalation not implemented for this platform:")
             raise PortScannerError(
                 f"Privilege escalation not implemented for this platform: {e_ni}"
             ) from e_ni
         except PortScannerError: # Specific re-raise, keep as is or add logger.debug if needed
             raise
         except Exception as e_unexpected: # General catch-all
-            logger.exception( # Changed to logger.exception
+            logger.exception(
                 "An unexpected error occurred during the Nmap scan process:"
             )
             raise PortScannerError(
@@ -487,7 +487,7 @@ class NmapScanner:
             YAML strings representing the scan results for that host.
 
         """
-        logger.debug(f"Converting Nmap results to YAML for {len(nm.all_hosts())} hosts.") # Added logger.debug
+        logger.debug(f"Converting Nmap results to YAML for {len(nm.all_hosts())} hosts.")
         all_results = {}
         prescan_scripts_data = nm.scaninfo().get('prescript', [])
         logger.debug("Pre-scan script data: %s", prescan_scripts_data)
@@ -515,7 +515,7 @@ class NmapScanner:
             A plain dictionary or list representation of the input data.
 
         """
-        logger.debug(f"to_plain_dict called with data of type: {type(data)}") # Added logger.debug
+        logger.debug(f"to_plain_dict called with data of type: {type(data)}")
         if isinstance(data, nmap.PortScannerHostDict):
             return {k: self.to_plain_dict(v) for k, v in data.items()}
         if isinstance(data, list):  # R1705 (no-else-return makes this an if)

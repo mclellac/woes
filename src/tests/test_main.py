@@ -7,6 +7,7 @@ import os
 
 from unittest.mock import MagicMock
 
+# Mock gi repository modules before other src imports that might depend on them
 sys.modules["gi"] = MagicMock()
 sys.modules["gi.repository"] = MagicMock()
 gi_repo_mock = sys.modules["gi.repository"]
@@ -16,7 +17,6 @@ setattr(gi_repo_mock, "Gtk", MagicMock())
 setattr(gi_repo_mock, "GObject", MagicMock())
 setattr(gi_repo_mock, "GtkSource", MagicMock())
 setattr(gi_repo_mock, "Pango", MagicMock())
-
 
 current_script_path = os.path.abspath(__file__)
 tests_dir = os.path.dirname(current_script_path)
