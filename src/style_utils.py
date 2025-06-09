@@ -15,7 +15,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("GtkSource", "5")
 from gi.repository import Adw, Gdk, Gio, Gtk, GtkSource, GLib
 
-BASE_FONT_SIZE_PT = 10.0
+BASE_FONT_SIZE_PT = 12.0
 
 GNOME_INTERFACE_SCHEMA = "org.gnome.desktop.interface"
 FONT_NAME_KEY = "font-name"

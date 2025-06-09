@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "woes"
-version = "0.2.0"
+version = "0.99.0"
 description = "A simple GTK application"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -16,7 +16,6 @@ classifiers = [
 dependencies = [
     "PyGObject~=3.48.2",
     "requests",
-    # "some-other-package"
 ]
 
 [project.scripts]

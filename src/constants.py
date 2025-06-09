@@ -20,6 +20,9 @@ _default_pkgdatadir = "/usr/local/share/woes"
 PKGDATADIR = os.environ.get("WOES_PKGDATADIR", _default_pkgdatadir)
 # This allows overriding with an environment variable for testing or different installations.
 
+GNOME_INTERFACE_SCHEMA = "org.gnome.desktop.interface"
+FONT_NAME_KEY = "font-name"
+TEXT_SCALING_FACTOR_KEY = "text-scaling-factor"
 USER_AGENTS = [
     {
         "title": "Chrome (Windows)",
@@ -155,6 +158,4 @@ USER_AGENTS = [
     }
 ]
 
-GNOME_INTERFACE_SCHEMA = "org.gnome.desktop.interface"
-FONT_NAME_KEY = "font-name"
-TEXT_SCALING_FACTOR_KEY = "text-scaling-factor"
+
