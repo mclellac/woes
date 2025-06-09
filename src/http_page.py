@@ -1430,3 +1430,15 @@ class HttpPage(Adw.PreferencesPage):
         factory.connect("bind", bind_func_internal)
 
         return factory
+
+    def trigger_fetch(self):
+        """Programmatically triggers the 'Fetch' action.
+
+        This method is typically called by a global action/shortcut.
+        It simulates a click on the fetch button.
+        """
+        logging.debug("HTTP fetch triggered by shortcut.")
+        if self.http_apply_button and self.http_apply_button.get_sensitive():
+            self.http_apply_button.clicked()
+        else:
+            logging.warning("HTTP fetch button not available or not sensitive, cannot trigger fetch.")

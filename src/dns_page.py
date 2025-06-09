@@ -605,3 +605,15 @@ class DNSPage(Adw.PreferencesPage):
         return row
 
     # Removed _format_result_in_buffer
+
+    def trigger_lookup(self):
+        """Programmatically triggers the DNS 'Lookup' action.
+
+        This method is typically called by a global action/shortcut.
+        It simulates a click on the lookup button.
+        """
+        logger.debug("DNS lookup triggered by shortcut.")
+        if self.dns_apply_button and self.dns_apply_button.get_sensitive():
+            self.dns_apply_button.clicked()
+        else:
+            logger.warning("DNS lookup button not available or not sensitive, cannot trigger lookup.")
