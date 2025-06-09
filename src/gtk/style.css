@@ -20,3 +20,22 @@
     background-color: rgba(0, 120, 212, 0.08); /* Light blueish background */
     border-left: 3px solid rgba(0, 120, 212, 0.7); /* Blueish border */
 }
+
+button.suggested-action {
+    background-image: none; /* Ensure no gradient overrides */
+    background-color: @accent_bg_color;
+    color: @accent_fg_color;
+    border-color: @accent_bg_color; /* Or a slightly darker shade if available */
+}
+
+/* Ensure dark theme also gets this explicit override, though Adwaita should handle it */
+/* This might be redundant if @accent_bg_color and @accent_fg_color adapt automatically */
+/* but including for thoroughness in diagnostics */
+@media (prefers-color-scheme: dark) {
+    button.suggested-action {
+        background-image: none;
+        background-color: @accent_bg_color; /* These should be dark theme's accent by default */
+        color: @accent_fg_color;
+        border-color: @accent_bg_color;
+    }
+}
