@@ -147,10 +147,16 @@
                     <property name="child">
                       <object class="GtkBox" id="webscan_box">
                         <property name="orientation">vertical</property>
-                        <property name="valign">center</property>
+                        <property name="valign">start</property> <!-- Changed to start for better layout with PreferencesPage -->
+                        <child>
+                          <object class="WebScanPage">
+                            <property name="hexpand">true</property>
+                            <property name="vexpand">true</property>
+                          </object>
+                        </child>
                       </object>
                     </property>
-                    <property name="description">TODO</property>
+                    <!-- <property name="description">TODO</property> --> <!-- Description removed -->
                     <property name="icon-name" bind-source="webscan_page" bind-property="icon-name" bind-flags="sync-create">org.gnome.Loupe-symbolic</property>
                     <property name="title" bind-source="webscan_page" bind-property="title" bind-flags="sync-create">Web Scanner</property>
                     <property name="valign">start</property>
