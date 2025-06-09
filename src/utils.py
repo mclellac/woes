@@ -1,12 +1,16 @@
 """General utility functions for the Woes application."""
 import logging
-from typing import Tuple
+import ipaddress # Added for is_valid_ip
+import re # Added for is_valid_domain
+from urllib.parse import urlparse # Added for is_valid_url
+from typing import Tuple, List # Added List for type hint
+
 import gi
 from gi.repository import Gtk, GtkSource, Adw
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("GtkSource", "5")
-gi.require_version("Adw", "1") # Added for Adw.ToastPriority
+gi.require_version("Adw", "1")
 
 logger = logging.getLogger(__name__)
 
@@ -113,3 +117,83 @@ def show_global_toast(
             "An unexpected error occurred while trying to show global toast '%s': %s",
             message, e
         )
+
+# --- New Validation Functions ---
+
+def is_valid_ip(address: str) -> bool:
+    """Check if the given string is a valid IPv4 or IPv6 address.
+
+    Args:
+    ----
+        address: The string to validate.
+
+    Returns:
+    -------
+        True if the string is a valid IP address, False otherwise.
+    """
+    if not address or not isinstance(address, str):
+        return False
+    try:
+        ipaddress.ip_address(address)
+        return True
+    except ValueError:
+        return False
+
+def is_valid_domain(domain: str) -> bool:
+    """Check if the given string is a syntactically valid domain name (ASCII).
+
+    Args:
+    ----
+        domain: The string to validate.
+
+    Returns:
+    -------
+        True if the string is a valid domain name, False otherwise.
+    """
+    if not domain or not isinstance(domain, str):
+        return False
+    # Regex for domain names:
+    # - Each label (part between dots) is 1-63 chars.
+    # - Labels consist of LDH (letters, digits, hyphen).
+    # - Labels do not start or end with a hyphen.
+    # - The TLD (last label) must be at least 2 chars and all alphabetic.
+    # - Total length up to 253 chars is often cited, but regex focuses on structure.
+    # This regex is a common one for ASCII domain names.
+    # It allows for subdomains and ensures TLD is alphabetic.
+    domain_regex = re.compile(
+        r"^(?:[a-zA-Z0-9]"  # First character of a label
+        r"(?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)"  # Subsequent characters of a label, then a dot
+        r"+[a-zA-Z]{2,63}$"  # TLD (all letters, 2-63 chars)
+    )
+    # Using fullmatch to ensure the entire string conforms.
+    return bool(domain_regex.fullmatch(domain))
+
+
+def is_valid_url(url: str, schemes: List[str] = None) -> bool:
+    """Check if the given string is a syntactically valid URL with specific schemes.
+
+    Args:
+    ----
+        url: The string to validate.
+        schemes: A list of allowed schemes (e.g., ['http', 'https']).
+                 If None or empty, any scheme is effectively allowed as long as one is present.
+                 Defaults to ['http', 'https'].
+
+    Returns:
+    -------
+        True if the string is a valid URL with an allowed scheme, False otherwise.
+    """
+    if schemes is None: # Default to http and https if not provided
+        schemes = ['http', 'https']
+
+    if not url or not isinstance(url, str):
+        return False
+    try:
+        parsed_url = urlparse(url)
+        if not (parsed_url.scheme and parsed_url.netloc):
+            return False
+        if schemes and parsed_url.scheme not in schemes:
+            return False
+        return True
+    except ValueError: # urlparse can raise ValueError for some malformed URLs, though it's rare
+        return False
