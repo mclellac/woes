@@ -9,7 +9,7 @@ It also supports using a custom DNS server for domain resolution via a custom HT
 import logging
 import re
 import ssl
-import socket  # Used by CustomDNSAdapter for IP family checks, not for patching.
+import socket
 from enum import Enum
 from typing import Optional, List
 

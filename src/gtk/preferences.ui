@@ -1,9 +1,9 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<!-- Created with Cambalache 0.91.3 -->
+<!-- Created with Cambalache 0.96.1 -->
 <interface>
   <!-- interface-name preferences.ui -->
-  <requires lib="gtk" version="4.12"/>
-  <requires lib="libadwaita" version="1.4"/>
+  <requires lib="gtk" version="4.18"/>
+  <requires lib="libadwaita" version="1.7"/>
   <template class="Preferences" parent="AdwPreferencesWindow">
     <property name="modal">true</property>
     <property name="title">Preferences</property>
@@ -11,11 +11,13 @@
       <object class="AdwPreferencesPage" id="preferences_page">
         <child>
           <object class="AdwBanner" id="preferences_error_banner">
-            <property name="revealed">False</property> <!-- Initially hidden -->
-            <property name="valign">start</property> <!-- Keep it at the top -->
             <!-- Title/message will be set from code -->
-             <property name="button-label" translatable="yes">Dismiss</property> <!-- Optional: if you want a dismiss button -->
-             <signal name="button-clicked" handler="on_error_banner_dismiss_clicked"/>
+            <property name="button-label" translatable="yes">Dismiss</property>
+            <property name="revealed">False</property>
+            <!-- Initially hidden -->
+            <property name="valign">start</property>
+            <!-- Optional: if you want a dismiss button -->
+            <signal name="button-clicked" handler="on_error_banner_dismiss_clicked"/>
           </object>
         </child>
         <child>
@@ -24,8 +26,6 @@
             <property name="title">Appearance</property>
             <child>
               <object class="AdwComboRow" id="theme_combo_row">
-                <property name="title" translatable="yes">Theme</property>
-                <property name="subtitle" translatable="yes">Choose the application theme</property>
                 <property name="model">
                   <object class="GtkStringList">
                     <items>
@@ -36,6 +36,8 @@
                   </object>
                 </property>
                 <property name="selected">0</property>
+                <property name="subtitle" translatable="yes">Choose the application theme</property>
+                <property name="title" translatable="yes">Theme</property>
               </object>
             </child>
             <child>
@@ -66,8 +68,6 @@
             </child>
             <child>
               <object class="AdwComboRow" id="font_scale_combo_row">
-                <property name="title" translatable="yes">Font Size</property>
-                <property name="subtitle" translatable="yes">Select text scaling percentage</property>
                 <property name="model">
                   <object class="GtkStringList">
                     <items>
@@ -77,10 +77,14 @@
                       <item translatable="yes">130%</item>
                       <item translatable="yes">140%</item>
                       <item translatable="yes">150%</item>
+                      <item translatable="yes">175%</item>
+                      <item translatable="yes">200%</item>
                     </items>
                   </object>
                 </property>
                 <property name="selected">0</property>
+                <property name="subtitle" translatable="yes">Select text scaling percentage</property>
+                <property name="title" translatable="yes">Font Size</property>
               </object>
             </child>
           </object>
@@ -92,7 +96,6 @@
               <object class="AdwEntryRow" id="dns_server_entryrow">
                 <property name="activates-default">True</property>
                 <property name="title">Custom DNS Server (Optional)</property>
-                <!-- <property name="subtitle">Leave empty to use system default DNS</property> -->
                 <child type="suffix">
                   <object class="GtkButton" id="prefs_dns_apply_button">
                     <property name="icon-name">object-select-symbolic</property>
@@ -105,7 +108,6 @@
                 </child>
               </object>
             </child>
-            <!-- Removed empty AdwActionRow -->
           </object>
         </child>
         <child>
@@ -145,8 +147,8 @@
         </child>
         <child>
           <object class="AdwPreferencesGroup" id="custom_ua_group">
-            <property name="title" translatable="yes">Custom User Agents</property>
             <property name="description" translatable="yes">Manage your list of custom User-Agent strings for the HTTP Page.</property>
+            <property name="title" translatable="yes">Custom User Agents</property>
             <child>
               <object class="AdwEntryRow" id="new_custom_ua_title_entry">
                 <property name="title" translatable="yes">Display Title</property>
@@ -161,17 +163,19 @@
             </child>
             <child>
               <object class="GtkBox">
-                <property name="orientation">horizontal</property>
                 <property name="halign">end</property>
-                <property name="spacing">6</property>
-                <property name="margin-top">6</property>
                 <property name="margin-bottom">6</property>
+                <property name="margin-top">6</property>
+                <property name="orientation">horizontal</property>
+                <property name="spacing">6</property>
                 <child>
                   <object class="GtkButton" id="add_custom_ua_button">
-                    <property name="label" translatable="yes">Add User Agent</property>
                     <property name="icon-name">list-add-symbolic</property>
+                    <property name="label" translatable="yes">Add User Agent</property>
                     <property name="tooltip-text" translatable="yes">Add the new User-Agent (Title and String) to the list</property>
-                    <style><class name="pill"/></style>
+                    <style>
+                      <class name="pill"/>
+                    </style>
                   </object>
                 </child>
               </object>
@@ -179,11 +183,11 @@
             <child>
               <!-- This Gtk.ListBox will act as a container for dynamically added Adw.ActionRows -->
               <object class="GtkListBox" id="custom_ua_list_container">
-                <property name="selection-mode">none</property> <!-- We don't want rows to be selectable -->
+                <property name="selection-mode">none</property>
+                <!-- We don't want rows to be selectable -->
                 <style>
-                  <class name="boxed-list"/> <!-- Adwaita style for a list of rows -->
+                  <class name="boxed-list"/>
                 </style>
-                <!-- Adw.ActionRows representing custom UAs will be added here from code -->
               </object>
             </child>
           </object>

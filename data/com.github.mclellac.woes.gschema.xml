@@ -11,6 +11,8 @@
         <choice value='130%'/>
         <choice value='140%'/>
         <choice value='150%'/>
+        <choice value='175%'/>
+        <choice value='200%'/>
       </choices>
       <summary>Font scaling percentage</summary>
       <description>Allows users to select a scaling factor for the application font size.</description>
