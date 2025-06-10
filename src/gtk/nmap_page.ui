@@ -5,6 +5,10 @@
   <requires lib="gtk" version="4.10"/>
   <requires lib="libadwaita" version="1.4"/>
   <template class="NmapPage" parent="GtkBox">
+    <property name="margin-bottom">40</property>
+    <property name="margin-end">40</property>
+    <property name="margin-start">40</property>
+    <property name="margin-top">40</property>
     <property name="width-request">700</property>
     <child>
       <object class="GtkBox" id="page_vbox">
@@ -138,8 +142,8 @@
                 </child>
                 <child type="suffix">
                   <object class="GtkButton" id="nmap_cancel_scan_button">
-                    <property name="label" translatable="yes">Cancel</property>
                     <property name="icon-name">process-stop-symbolic</property>
+                    <property name="label" translatable="yes">Cancel</property>
                     <property name="visible">False</property>
                   </object>
                 </child>
@@ -149,7 +153,10 @@
         </child>
         <child>
           <object class="GtkPaned" id="main_paned_view">
+            <property name="halign">baseline-fill</property>
             <property name="hexpand">true</property>
+            <property name="margin-bottom">40</property>
+            <property name="margin-top">40</property>
             <property name="orientation">horizontal</property>
             <property name="vexpand">true</property>
             <property name="wide-handle">true</property>
@@ -158,19 +165,15 @@
                 <property name="halign">baseline-fill</property>
                 <property name="hexpand">true</property>
                 <property name="hscrollbar-policy">never</property>
-                <property name="margin-bottom">40</property>
-                <property name="margin-end">40</property>
-                <property name="margin-start">40</property>
-                <property name="margin-top">40</property>
                 <property name="min-content-width">300</property>
                 <property name="vexpand">True</property>
                 <property name="width-request">600</property>
                 <child>
                   <object class="GtkListBox" id="nmap_host_listbox">
                     <property name="hexpand">true</property>
-                    <property name="hexpand-set">true</property>
+                    <property name="margin-end">30</property>
                     <property name="selection-mode">single</property>
-                    <property name="vexpand">true</property>
+                    <property name="vexpand">True</property>
                   </object>
                 </child>
               </object>
@@ -190,11 +193,11 @@
                     <property name="hexpand">true</property>
                     <property name="orientation">vertical</property>
                     <property name="spacing">12</property>
+                    <property name="valign">baseline-fill</property>
                     <property name="vexpand">true</property>
                     <child>
                       <object class="AdwStatusPage" id="nmap_detail_placeholder">
                         <property name="description" translatable="yes">Select a host from the list on the left to view details.</property>
-                        <property name="halign">baseline-fill</property>
                         <property name="hexpand">true</property>
                         <property name="hexpand-set">true</property>
                         <property name="icon-name">network-workgroup-symbolic</property>
