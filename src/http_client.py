@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Module for fetching HTTP headers and processing responses.
+"""Module for fetching HTTP headers and processing responses.
 """
 import logging
 from typing import Optional, Tuple, Dict, List, Any
@@ -38,14 +37,17 @@ logger = logging.getLogger(__name__)
 # Custom Exceptions
 class HttpClientError(Exception):
     """Base exception for HttpFetcher errors."""
+
     pass
 
 class HttpRequestTimeoutError(HttpClientError):
     """Exception for request timeouts."""
+
     pass
 
 class HttpConnectionError(HttpClientError):
     """Exception for connection errors."""
+
     pass
 
 class HttpProcessingError(HttpClientError):
@@ -56,6 +58,7 @@ class HttpProcessingError(HttpClientError):
     :ivar url: The URL associated with the error, if available.
     :vartype url: str, optional
     """
+
     def __init__(self, message, status_code=None, url=None):
         super().__init__(message)
         self.status_code = status_code
@@ -63,11 +66,11 @@ class HttpProcessingError(HttpClientError):
 
 class HttpGenericRequestError(HttpClientError):
     """Exception for other requests-related errors."""
+
     pass
 
 class HttpFetcher:
-    """
-    Encapsulates logic for making HTTP requests and processing responses.
+    """Encapsulates logic for making HTTP requests and processing responses.
     """
 
     def __init__(self,
@@ -77,8 +80,7 @@ class HttpFetcher:
                  user_agent: Optional[str] = None,
                  custom_dns_server: Optional[str] = None,
                  cancellable: Optional[Gio.Cancellable] = None):
-        """
-        Initialize HttpFetcher.
+        """Initialize HttpFetcher.
 
         :param url: The URL to fetch.
         :type url: str
@@ -285,8 +287,7 @@ class HttpFetcher:
         return f"HTTP Error {status_code} ({reason}) for URL: {url}."
 
     def fetch_headers(self) -> List[Dict[str, Any]]:
-        """
-        Main method to fetch and process HTTP headers.
+        """Main method to fetch and process HTTP headers.
 
         :raises HttpRequestTimeoutError: If the request times out.
         :raises HttpConnectionError: If a connection error occurs.

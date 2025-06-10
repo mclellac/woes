@@ -6,7 +6,7 @@ parsing, and launching the main application window and services.
 import sys
 import os
 import logging
-from typing import Any, Callable, List, Optional
+from typing import Callable, List, Optional
 import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")

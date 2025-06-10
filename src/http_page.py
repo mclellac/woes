@@ -12,6 +12,7 @@ import logging
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 # Note: Most HTTP client logic, including requests and dnspython, is now in http_client.py
+
 import gi
 from gi.repository import Adw, Gio, GObject, Gtk, GLib, Gdk, Pango
 
