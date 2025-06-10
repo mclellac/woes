@@ -5,16 +5,18 @@
   <requires lib="gtk" version="4.10"/>
   <requires lib="libadwaita" version="1.4"/>
   <template class="NmapPage" parent="GtkBox">
-    <property name="margin-bottom">40</property>
-    <property name="margin-end">40</property>
-    <property name="margin-start">40</property>
-    <property name="margin-top">40</property>
     <property name="width-request">700</property>
     <child>
       <object class="GtkBox" id="page_vbox">
-        <property name="hexpand">true</property>
-        <property name="hexpand-set">true</property>
+        <property name="halign">baseline-fill</property>
+        <property name="hexpand">True</property>
+        <property name="margin-bottom">40</property>
+        <property name="margin-end">40</property>
+        <property name="margin-start">40</property>
+        <property name="margin-top">40</property>
         <property name="orientation">vertical</property>
+        <property name="valign">baseline-fill</property>
+        <property name="vexpand">True</property>
         <child>
           <object class="AdwBanner" id="error_banner">
             <property name="button-label" translatable="yes">Dismiss</property>
@@ -165,14 +167,18 @@
                 <property name="halign">baseline-fill</property>
                 <property name="hexpand">true</property>
                 <property name="hscrollbar-policy">never</property>
-                <property name="min-content-width">300</property>
-                <property name="vexpand">True</property>
-                <property name="width-request">600</property>
+                <property name="max-content-width">200</property>
+                <property name="min-content-width">100</property>
+                <property name="propagate-natural-height">True</property>
+                <property name="propagate-natural-width">True</property>
+                <property name="valign">start</property>
+                <property name="vexpand-set">True</property>
                 <child>
                   <object class="GtkListBox" id="nmap_host_listbox">
-                    <property name="hexpand">true</property>
+                    <property name="halign">baseline-fill</property>
                     <property name="margin-end">30</property>
                     <property name="selection-mode">single</property>
+                    <property name="valign">baseline-fill</property>
                     <property name="vexpand">True</property>
                   </object>
                 </child>
@@ -180,16 +186,15 @@
             </child>
             <child>
               <object class="GtkScrolledWindow" id="nmap_detail_scrolled_window">
+                <property name="halign">baseline-fill</property>
                 <property name="hexpand">true</property>
                 <property name="hexpand-set">true</property>
-                <property name="margin-bottom">40</property>
-                <property name="margin-end">40</property>
-                <property name="margin-start">40</property>
-                <property name="margin-top">40</property>
                 <property name="min-content-width">300</property>
+                <property name="valign">baseline-fill</property>
                 <property name="vexpand">true</property>
                 <child>
                   <object class="GtkBox" id="nmap_detail_box">
+                    <property name="halign">baseline-fill</property>
                     <property name="hexpand">true</property>
                     <property name="orientation">vertical</property>
                     <property name="spacing">12</property>
@@ -198,11 +203,13 @@
                     <child>
                       <object class="AdwStatusPage" id="nmap_detail_placeholder">
                         <property name="description" translatable="yes">Select a host from the list on the left to view details.</property>
+                        <property name="halign">baseline-fill</property>
                         <property name="hexpand">true</property>
                         <property name="hexpand-set">true</property>
                         <property name="icon-name">network-workgroup-symbolic</property>
+                        <property name="margin-start">30</property>
                         <property name="title" translatable="yes">No Host Selected</property>
-                        <property name="valign">start</property>
+                        <property name="valign">baseline-fill</property>
                         <property name="vexpand">true</property>
                         <property name="visible">true</property>
                       </object>
