@@ -15,7 +15,7 @@ gi.require_version("Adw", "1")
 logger = logging.getLogger(__name__)
 
 
-def create_source_view(language_name: str = "txt") -> Tuple[GtkSource.View, GtkSource.Buffer]:
+def create_source_view(language_name: str = "text") -> Tuple[GtkSource.View, GtkSource.Buffer]:
     """Create and configure a GtkSource.View and its associated GtkSource.Buffer.
 
     Sets up common properties for the source view like line numbers, monospace font,
@@ -23,7 +23,7 @@ def create_source_view(language_name: str = "txt") -> Tuple[GtkSource.View, GtkS
     for the specified language.
 
     :param language_name: The language ID for syntax highlighting
-                          (e.g., "yaml", "python", "txt"). Defaults to "txt".
+                          (e.g., "yaml", "python", "text"). Defaults to "text".
     :type language_name: str
     :return: A tuple containing the configured :class:`GtkSource.View` and
              :class:`GtkSource.Buffer`.
@@ -31,13 +31,15 @@ def create_source_view(language_name: str = "txt") -> Tuple[GtkSource.View, GtkS
     """
     language_manager = GtkSource.LanguageManager.get_default()
     if language_name is None:  # Ensure fallback even if None is explicitly passed
-        language_name = "txt"
+        language_name = "text" # Changed from "txt"
     language = language_manager.get_language(language_name)
 
     if language is None:
+        # Ensure the warning message accurately reflects what was searched for, esp. if default was overridden
+        searched_lang_id = language_name if language_name else "text" # Use "text" if language_name became None then defaulted
         logger.warning(
-            "GtkSourceView language '%s' not found. Falling back to a plain buffer.",
-            language_name,
+            "GtkSource language '%s' not found. Falling back to a plain buffer.",
+            searched_lang_id, # Use the actual ID that was searched
         )
         source_buffer = GtkSource.Buffer()
     else:
