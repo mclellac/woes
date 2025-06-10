@@ -224,9 +224,9 @@ class DNSPage(Adw.PreferencesPage):
         full_summary_text: str
     ) -> None:
         """Adds a standard suffix box (label, copy value button, copy summary button) to an ActionRow."""
-        suffix_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        suffix_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6, hexpand=True)
 
-        value_label = Gtk.Label(label=main_value_text, halign=Gtk.Align.START, selectable=True, wrap=False)
+        value_label = Gtk.Label(label=main_value_text, halign=Gtk.Align.FILL, hexpand=True, selectable=True, wrap=False, ellipsize=Pango.EllipsizeMode.END)
         suffix_box.append(value_label)
 
         copy_value_button = self._create_copy_button(main_value_text, f"{main_value_tooltip_prefix}: {main_value_text}", row)
@@ -258,10 +258,10 @@ class DNSPage(Adw.PreferencesPage):
         """Adds a detail row (Adw.ActionRow) to an Adw.ExpanderRow."""
         detail_row = Adw.ActionRow(title=title if title else None) # type: ignore
 
-        value_label = Gtk.Label(label=value_text, halign=Gtk.Align.START, selectable=True, wrap=False)
+        value_label = Gtk.Label(label=value_text, halign=Gtk.Align.FILL, hexpand=True, selectable=True, wrap=False, ellipsize=Pango.EllipsizeMode.END)
         copy_button = self._create_copy_button(value_text, f"{copy_tooltip_prefix}: {value_text}", expander_row)
 
-        content_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        content_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6, hexpand=True)
         content_box.append(value_label)
         content_box.append(copy_button)
 
@@ -636,8 +636,8 @@ class DNSPage(Adw.PreferencesPage):
         row = self._create_base_expander_row(name, f"MX Record ({base_subtitle})", "mail-send-receive-symbolic", summary_mx)
 
         # MX detail row is specific
-        mx_detail_row_title_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        mx_detail_row_title_box.append(Gtk.Label(label=exchange_value, halign=Gtk.Align.START, selectable=True, wrap=False))
+        mx_detail_row_title_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6, hexpand=True)
+        mx_detail_row_title_box.append(Gtk.Label(label=exchange_value, halign=Gtk.Align.FILL, hexpand=True, selectable=True, wrap=False, ellipsize=Pango.EllipsizeMode.END))
         copy_button_exchange = self._create_copy_button(exchange_value, f"Copy Exchange: {exchange_value}", row)
         mx_detail_row_title_box.append(copy_button_exchange)
 
