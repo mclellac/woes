@@ -518,7 +518,7 @@ class HttpPage(Adw.PreferencesPage):
                 self.http_entry_row.set_sensitive(True) # type: ignore
             if hasattr(self, "http_apply_button") and self.http_apply_button:
                 self.http_apply_button.set_sensitive(True)
-                self.http_apply_button.set_icon_name("")  # Remove spinner
+                self.http_apply_button.set_icon_name(None)  # Correct way to remove spinner icon
 
     @staticmethod
     def _ensure_scheme(url: str) -> str:
