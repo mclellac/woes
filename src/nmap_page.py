@@ -19,7 +19,7 @@ from gi.repository import Adw, Gio, GLib, GObject, Gtk, GtkSource
 import nmap
 
 from .constants import APP_ID, RESOURCE_PREFIX
-from .nmap_scanner import NmapScanner, ScanStatus
+from .nmap_scanner import NmapScanner, ScanStatus, ScanCancelledError
 from .style_utils import apply_source_style_scheme
 from .utils import create_source_view, show_global_error, show_global_toast
 
@@ -135,8 +135,6 @@ class NmapPage(Gtk.Box):
         self.scan_spinner.set_visible(False)
         self.status_row.set_subtitle("Idle")
 
-        # nmap_cancel_scan_button is now defined in the UI file and bound via Gtk.Template.Child
-
         logger.debug("NmapPage _init_page_ui completed.")
 
     def _clear_dynamic_details(self):
@@ -154,7 +152,7 @@ class NmapPage(Gtk.Box):
         self.nmap_target_entryrow.connect("entry-activated", self._on_target_activate)
         self.nmap_apply_button.connect("clicked", self._on_target_activate)
         self.nmap_host_listbox.connect("row-selected", self._on_target_selected)
-        if self.nmap_cancel_scan_button: # Now a Template.Child, will exist after init_template
+        if self.nmap_cancel_scan_button:
             self.nmap_cancel_scan_button.connect("clicked", self._on_cancel_scan_clicked)
 
     def _on_cancel_scan_clicked(self, _button: Gtk.Button) -> None:
@@ -236,7 +234,6 @@ class NmapPage(Gtk.Box):
         """Execute the Nmap scan in a separate thread via NmapScanner, for Gio.Task."""
         page_instance: NmapPage = _source_object # type: ignore
         params = page_instance._current_nmap_scan_params
-        # page_instance._current_nmap_scan_params = None # Optional: Clear after reading
 
         if not params:
             logger.error("NmapPage: _run_nmap_scan_thread_func: _current_nmap_scan_params is None. This indicates a programming error.")
@@ -273,19 +270,6 @@ class NmapPage(Gtk.Box):
 
     def _nmap_scan_task_done_cb(self, _source_object: GObject.Object, result: Gio.AsyncResult, _user_data: Optional[Any]): # type: ignore # pylint: disable=unused-argument
         """Callback for when the Nmap scan Gio.Task completes."""
-        # _source_object is self (NmapPage instance)
-        # _user_data is None (as passed to Gio.Task.new)
-        # The 'result' parameter is the Gio.Task object for this callback.
-
-        # Retrieve original target from instance variable if task data was not used,
-        # or ensure it's still available if needed for context.
-        # For now, assuming original_target might still be useful for logging or UI.
-        # If _current_nmap_scan_params was cleared in the thread, this needs adjustment.
-        # For simplicity, let's assume it's NOT cleared yet or use a temporary variable if it was.
-        # This part might need careful handling depending on when _current_nmap_scan_params is cleared.
-        # Sticking to the original logic of trying to get it from the task if possible,
-        # but this will fail if set_task_data was not used.
-        # Safest is to use the instance variable that was set.
         original_target = self._current_nmap_scan_params["target"] if self._current_nmap_scan_params else "unknown target"
 
         logger.info(f"Nmap scan task done for {original_target}.")
