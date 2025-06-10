@@ -11,10 +11,7 @@ via a :class:`.custom_dns_adapter.CustomDNSAdapter`.
 import logging
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
-
-# Removed requests, requests.utils, dns.resolver, urllib3.exceptions as they moved to http_client
-# CustomDNSAdapter is now used by HttpFetcher, not directly here.
-# dns variable for checking dnspython availability is also implicitly handled by HttpFetcher
+# Note: Most HTTP client logic, including requests and dnspython, is now in http_client.py
 import gi
 from gi.repository import Adw, Gio, GObject, Gtk, GLib, Gdk, Pango
 
@@ -109,8 +106,8 @@ class HttpPage(Adw.PreferencesPage):
         logger.debug("HttpPage initialized.")
         self.current_http_task: Optional[Gio.Task] = None
         self._current_header_items: List[HeaderItem] = []
-        self._http_task_data_for_thread: Dict[str, Any] = {} # Changed dict to Dict
-        self._ua_title_to_value_map: Dict[str, Optional[str]] = {} # Changed dict to Dict
+        self._http_task_data_for_thread: Dict[str, Any] = {}
+        self._ua_title_to_value_map: Dict[str, Optional[str]] = {}
         self.settings = Gio.Settings(schema_id=APP_ID)
         self._header_key_color = self.settings.get_string("http-output-header-key-color")
         self._header_value_color = self.settings.get_string("http-output-header-value-color")
@@ -264,15 +261,13 @@ class HttpPage(Adw.PreferencesPage):
             selected_title = selected_title_obj.get_string() # type: ignore
             user_agent_to_send = self._ua_title_to_value_map.get(selected_title)
         custom_dns_server = self.settings.get_string("custom-dns-server")
-        # HttpPage no longer needs to check for `dns` module availability directly for HttpFetcher,
-        # but it was checked above for the logger warning. This is fine.
         # Store parameters for the thread to access
         self._http_task_data_for_thread = {
             "url": url,
             "use_akamai_pragma": self.http_pragma_switch_row.get_active(), # type: ignore
             "host_header": host_header if host_header else None,
             "user_agent": user_agent_to_send,
-            "custom_dns_server": custom_dns_server if custom_dns_server else None, # Retain for HttpFetcher
+            "custom_dns_server": custom_dns_server if custom_dns_server else None,
         }
         logger.debug(f"HttpPage: Starting header fetch task with data: {self._http_task_data_for_thread}")
 
@@ -280,18 +275,12 @@ class HttpPage(Adw.PreferencesPage):
         self.current_http_task = task
         task.run_in_thread(self._fetch_headers_task_thread_func) # type: ignore
 
-    # _prepare_request_headers moved to HttpFetcher
-    # _execute_http_request moved to HttpFetcher
-    # _process_http_response moved to HttpFetcher
-    # _get_detailed_connection_error_message moved to HttpFetcher
-    # _format_http_error moved to HttpFetcher
-
     def _fetch_headers_task_thread_func(
         self,
-        task: Gio.Task, # The task itself, passed by run_in_thread
+        task: Gio.Task,
         _source_object: GObject.Object, # type: ignore
-        _task_data_arg: Dict[str, Any], # type: ignore # Not used, self._http_task_data_for_thread is used
-        cancellable: Optional[Gio.Cancellable], # Provided by Gio.Task
+        _task_data_arg: Dict[str, Any], # type: ignore # Unused (params retrieved from self._http_task_data_for_thread)
+        cancellable: Optional[Gio.Cancellable],
     ) -> None:
         """Background thread function for fetching HTTP headers.
 
@@ -518,7 +507,7 @@ class HttpPage(Adw.PreferencesPage):
                 self.http_entry_row.set_sensitive(True) # type: ignore
             if hasattr(self, "http_apply_button") and self.http_apply_button:
                 self.http_apply_button.set_sensitive(True)
-                # self.http_apply_button.set_icon_name(None) # Removed
+                # Spinner icon logic for http_apply_button was removed
 
     @staticmethod
     def _ensure_scheme(url: str) -> str:
@@ -532,12 +521,10 @@ class HttpPage(Adw.PreferencesPage):
         :return: The URL string, with 'https://' prepended if no scheme was present.
         :rtype: str
         """
-        if "://" not in url: # Basic check
+        if "://" not in url:
             logger.debug("HttpPage: URL '%s' has no scheme, prepending 'https://'.", url)
             return "https://" + url
         return url
-
-    # _format_http_error was moved to HttpFetcher and its functionality is now part of HttpFetcher's exceptions.
 
     def _on_pragma_toggled(self, _widget: Gtk.Switch, _gparam: GObject.ParamSpec) -> None:
         """Handle toggling of the Akamai Pragma switch.
@@ -663,11 +650,11 @@ class HttpPage(Adw.PreferencesPage):
                 display_titles.append(title)
                 self._ua_title_to_value_map[title] = value
 
-        # "None" option
-        none_title = "None" # This is the display title for "no override"
+        # "None" option (represents no override)
+        none_title = "None"
         if none_title not in self._ua_title_to_value_map:
             display_titles.append(none_title)
-        self._ua_title_to_value_map[none_title] = None  # Actual value is None
+        self._ua_title_to_value_map[none_title] = None # Actual value for "None" selection
 
         # Default UAs from constants
         for ua_dict in USER_AGENTS:

@@ -71,7 +71,7 @@ class NmapPage(Gtk.Box):
     nmap_timing_template_comborow = Gtk.Template.Child("nmap_timing_template_comborow")
     status_row = Gtk.Template.Child("status_row")
     scan_spinner = Gtk.Template.Child("scan_spinner")
-    nmap_cancel_scan_button = Gtk.Template.Child() # Added binding
+    nmap_cancel_scan_button = Gtk.Template.Child()
 
     left_vbox_content = Gtk.Template.Child("left_vbox_content")
     nmap_host_listbox = Gtk.Template.Child("nmap_host_listbox")
@@ -232,7 +232,7 @@ class NmapPage(Gtk.Box):
         _source_object: GObject.Object,
         _task_data: Optional[Dict[str, Any]], # pylint: disable=unused-argument # This arg from run_in_thread is not used
         cancellable: Optional[Gio.Cancellable]
-    ): # _source_object is self (NmapPage instance)
+    ):
         """Execute the Nmap scan in a separate thread via NmapScanner, for Gio.Task."""
         page_instance: NmapPage = _source_object # type: ignore
         params = page_instance._current_nmap_scan_params
@@ -240,7 +240,6 @@ class NmapPage(Gtk.Box):
 
         if not params:
             logger.error("NmapPage: _run_nmap_scan_thread_func: _current_nmap_scan_params is None. This indicates a programming error.")
-            # The task object is available for error reporting.
             task.return_new_error_literal(NMAP_SCAN_ERROR_DOMAIN, NmapScanErrorType.UNEXPECTED.value, "Internal error: Scan parameters not found.") # type: ignore
             return
 
@@ -252,7 +251,6 @@ class NmapPage(Gtk.Box):
             return
 
         try:
-            # Call run_nmap_scan with the params dictionary and cancellable
             nm = self.scanner.run_nmap_scan(params, cancellable=cancellable)
 
             if cancellable and cancellable.is_cancelled():
@@ -292,20 +290,28 @@ class NmapPage(Gtk.Box):
 
         logger.info(f"Nmap scan task done for {original_target}.")
 
-        nm_results: Optional[nmap.PortScanner] = None
+        nm_results_final: Optional[nmap.PortScanner] = None
         try:
-            # Use 'result' (the Gio.AsyncResult/Gio.Task object) to propagate value
-            nm_results = result.propagate_value() # type: ignore
-            if isinstance(nm_results, nmap.PortScanner):
-                 self._process_scan_results(nm_results, original_target)
-            # Ensure nm_results is not None and is of the expected type before processing further.
-            # This condition might be redundant if task.propagate_value() already guarantees a PortScanner object or raises.
-            # However, if task.return_value(None) was possible, this check would be useful.
-            # Given the current logic of _run_nmap_scan_thread_func, it should always return PortScanner or raise.
-            elif nm_results is not None: # Should not happen if task.return_value(nm) was called with PortScanner object
-                 logger.error(f"Nmap scan for {original_target} returned unexpected result type: {type(nm_results)}")
-                 self._handle_scan_error(original_target, "Scan returned unexpected data.")
-            # If nm_results is None, it means an error was already raised and handled by GLib.Error block.
+            propagated_value = result.propagate_value() # type: ignore
+
+            if isinstance(propagated_value, nmap.PortScanner):
+                nm_results_final = propagated_value
+            elif hasattr(propagated_value, 'value') and isinstance(getattr(propagated_value, 'value'), nmap.PortScanner):
+                logger.warning(f"NmapPage: Received wrapped object {type(propagated_value)} with .value attribute containing nmap.PortScanner. Unwrapping.")
+                nm_results_final = getattr(propagated_value, 'value')
+            elif hasattr(propagated_value, 'value'):
+                logger.error(f"NmapPage: Received wrapped object {type(propagated_value)} with .value of type {type(getattr(propagated_value, 'value'))}. Expected nmap.PortScanner.")
+                self._handle_scan_error(original_target, "Scan returned unexpectedly wrapped data of the wrong type.")
+            else:
+                logger.error(f"Nmap scan for {original_target} returned unexpected result type: {type(propagated_value)}")
+                self._handle_scan_error(original_target, "Scan returned an unexpected data type.")
+
+            if nm_results_final: # Only proceed if we successfully got a PortScanner object
+                self._process_scan_results(nm_results_final, original_target)
+            # If nm_results_final is None here and no GLib.Error was raised,
+            # it means an unexpected type was received and handled by one of the error logs above.
+            # The _handle_scan_error calls would have updated the status.
+
         except GLib.Error as e:
             logger.warning(f"Nmap scan for {original_target} failed or was cancelled. Domain: {e.domain}, Code: {e.code}, Message: {e.message}")
             if e.matches(NMAP_SCAN_ERROR_DOMAIN, NmapScanErrorType.CANCELLED.value): # type: ignore
