@@ -220,7 +220,7 @@ class NmapPage(Gtk.Box):
         logger.info(f"NmapPage: Starting Nmap scan task with params: {scan_params}")
 
         self.current_nmap_task = Gio.Task.new(
-            self, self.current_nmap_cancellable, self._nmap_scan_task_done_cb # type: ignore
+            self, self.current_nmap_cancellable, self._nmap_scan_task_done_cb, None # type: ignore
         )
         self._current_nmap_scan_params = scan_params # Store params in instance variable
         self.current_nmap_task.run_in_thread(self._run_nmap_scan_thread_func) # type: ignore
@@ -273,10 +273,10 @@ class NmapPage(Gtk.Box):
             logger.info("Nmap scan thread finished for %s.", target)
             # UI sensitivity updates are handled in _nmap_scan_task_done_cb
 
-    def _nmap_scan_task_done_cb(self, _source_object: GObject.Object, result: Gio.AsyncResult, _user_data: object): # type: ignore # pylint: disable=unused-argument
+    def _nmap_scan_task_done_cb(self, _source_object: GObject.Object, result: Gio.AsyncResult, _user_data: Optional[Any]): # type: ignore # pylint: disable=unused-argument
         """Callback for when the Nmap scan Gio.Task completes."""
         # _source_object is self (NmapPage instance)
-        # _user_data is None (as passed in Gio.Task.new)
+        # _user_data is None (as passed to Gio.Task.new)
         # The 'result' parameter is the Gio.Task object for this callback.
 
         # Retrieve original target from instance variable if task data was not used,
@@ -295,7 +295,7 @@ class NmapPage(Gtk.Box):
         nm_results: Optional[nmap.PortScanner] = None
         try:
             # Use 'result' (the Gio.AsyncResult/Gio.Task object) to propagate value
-            nm_results = result.propagate_value().value if hasattr(result.propagate_value(), 'value') else result.propagate_value() # type: ignore
+            nm_results = result.propagate_value() # type: ignore
             if isinstance(nm_results, nmap.PortScanner):
                  self._process_scan_results(nm_results, original_target)
             # Ensure nm_results is not None and is of the expected type before processing further.
