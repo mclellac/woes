@@ -38,6 +38,7 @@ class WebScanPage(Adw.PreferencesPage):
     maxtime_entry_row = Gtk.Template.Child()
     clear_results_button = Gtk.Template.Child()
     copy_results_button = Gtk.Template.Child()
+    webscan_status_action_row = Gtk.Template.Child() # Added
     webscan_status_spinner = Gtk.Template.Child("webscan_status_spinner")
     webscan_cancel_button = Gtk.Template.Child()
 
@@ -51,9 +52,14 @@ class WebScanPage(Adw.PreferencesPage):
         # self._temp_scan_data was used previously; now using self._current_webscan_params
         logger.debug("WebScanPage initialized")
 
+        if self.webscan_status_action_row:
+            self.webscan_status_action_row.set_subtitle("Idle") # type: ignore
         if self.webscan_status_spinner:
             self.webscan_status_spinner.set_spinning(False) # type: ignore
             self.webscan_status_spinner.set_visible(False) # type: ignore
+        if self.webscan_cancel_button:
+             self.webscan_cancel_button.set_visible(False) # type: ignore
+             self.webscan_cancel_button.set_sensitive(False) # type: ignore
 
 
         if self.results_textview:
@@ -64,7 +70,7 @@ class WebScanPage(Adw.PreferencesPage):
                 if language:
                     buffer.set_language(language)
                 else:
-                    logger.warning("GtkSource language 'text' not found. Syntax highlighting may not apply.")
+                    logger.warning("GtkSource language '%s' not found. Syntax highlighting may not apply.", "text")
 
             self.results_textview.set_show_line_numbers(True)
             self.results_textview.set_monospace(True)
@@ -163,13 +169,16 @@ class WebScanPage(Adw.PreferencesPage):
         buffer = self.results_textview.get_buffer()
         buffer.set_text(f"Scanning {target_url}...\n\n")
 
-        self.scan_button.set_sensitive(False)
-
         self.scan_button.set_sensitive(False) # type: ignore
-        if hasattr(self, 'webscan_cancel_button'):
-            self.webscan_cancel_button.set_visible(True)
-            self.webscan_cancel_button.set_sensitive(True)
-        if self.webscan_status_spinner: self.webscan_status_spinner.start() # type: ignore
+
+        if self.webscan_status_action_row:
+            self.webscan_status_action_row.set_subtitle("Scanning...") # type: ignore
+        if self.webscan_status_spinner:
+            self.webscan_status_spinner.set_visible(True) # type: ignore
+            self.webscan_status_spinner.start() # type: ignore
+        if self.webscan_cancel_button:
+            self.webscan_cancel_button.set_visible(True) # type: ignore
+            self.webscan_cancel_button.set_sensitive(True) # type: ignore
 
 
         if self.current_web_scan_task and not self.current_web_scan_task.is_done():
@@ -355,6 +364,8 @@ class WebScanPage(Adw.PreferencesPage):
 
             if stdout is not None or stderr is not None: # If successful (even with stderr info)
                 self._update_textview(stdout, stderr, is_error_message=False)
+                if self.webscan_status_action_row:
+                    self.webscan_status_action_row.set_subtitle("Scan complete.") # type: ignore
 
         except GLib.Error as e:
             logger.warning(f"Nikto scan task for {target_url} failed or was cancelled: {e.message} (Domain: {e.domain}, Code: {e.code})")
@@ -379,22 +390,34 @@ class WebScanPage(Adw.PreferencesPage):
                     nikto_log_output = e.message.split(nikto_failure_prefix, 1)[-1]
                     detailed_output_for_textview = f"Error: Nikto scan failed.\n--- Output ---\n{nikto_log_output}"
                 else: # Generic error that isn't a Nikto output failure
-                    brief_user_message = f"Scan failed for {target_url}: {e.message}"
+                    brief_user_message = f"Scan failed for {target_url}: {e.message}" # type: ignore
                     detailed_output_for_textview = f"Error: {brief_user_message}"
 
+            if self.webscan_status_action_row:
+                self.webscan_status_action_row.set_subtitle(brief_user_message) # type: ignore
             show_global_error(self, brief_user_message) # type: ignore
             self._update_textview(None, detailed_output_for_textview, is_error_message=True) # Display error in textview as well
         except Exception: # Catch any other Python exceptions from this callback itself # pylint: disable=broad-except # Ensure UI updates if callback logic fails
             logger.exception(f"Unexpected Python error in _on_scan_task_done for {target_url}:")
-            user_message = "An unexpected error occurred while processing scan results."
-            show_global_error(self, user_message) # type: ignore
+            user_message = "An unexpected error occurred." # Kept brief for status row
+            if self.webscan_status_action_row:
+                self.webscan_status_action_row.set_subtitle(user_message) # type: ignore
+            show_global_error(self, user_message + " Check logs for details.") # type: ignore
             self._update_textview(None, f"Error: {user_message}", is_error_message=True)
         finally:
             self.scan_button.set_sensitive(True) # type: ignore
-            if hasattr(self, 'webscan_cancel_button'):
-                self.webscan_cancel_button.set_sensitive(False)
-                self.webscan_cancel_button.set_visible(False)
-            if self.webscan_status_spinner: self.webscan_status_spinner.stop() # type: ignore
+            if self.webscan_cancel_button:
+                self.webscan_cancel_button.set_sensitive(False) # type: ignore
+                self.webscan_cancel_button.set_visible(False) # type: ignore
+            if self.webscan_status_spinner:
+                self.webscan_status_spinner.stop() # type: ignore
+                self.webscan_status_spinner.set_visible(False) # type: ignore
+
+            # Set status to Idle or Finished if it was still "Scanning..."
+            if self.webscan_status_action_row :
+                current_subtitle = self.webscan_status_action_row.get_subtitle() # type: ignore
+                if current_subtitle == "Scanning...":
+                     self.webscan_status_action_row.set_subtitle("Scan finished.") # type: ignore
 
             self.current_web_scan_task = None
             self.current_web_scan_cancellable = None

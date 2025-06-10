@@ -56,7 +56,7 @@ class NmapTargetRow(Gtk.ListBoxRow):
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/nmap_page.ui")
-class NmapPage(Gtk.Box):
+class NmapPage(Adw.Bin):
     """Activity page for performing Nmap scans and viewing results."""
 
     __gtype_name__ = "NmapPage"

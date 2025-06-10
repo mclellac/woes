@@ -130,7 +130,7 @@ class HttpPage(Adw.PreferencesPage):
             self.http_column_view.append_column(col_name)
             self.http_column_view.append_column(col_value)
         self._connect_signals()
-        self._clear_error()
+        # self._clear_error() # Removed from __init__
         self._hide_results()
         self._update_user_agent_model()
         self.settings.connect("changed::custom-user-agents", lambda _s, _k: self._update_user_agent_model())
