@@ -8,29 +8,31 @@
     <child>
       <object class="AdwPreferencesGroup">
         <property name="title">Scan Target</property>
+        <property name="description" translatable="yes">Enter a URL to scan for common web vulnerabilities using Nikto.</property>
         <child>
           <object class="AdwEntryRow" id="url_entry">
             <property name="title">Target URL</property>
+            <child type="suffix">
+              <object class="GtkButton" id="scan_button">
+                <property name="label">Start Scan</property>
+                <property name="halign">end</property>
+                <property name="valign">center</property>
+                <signal name="clicked" handler="on_scan_button_clicked"/>
+                <style>
+                  <class name="suggested-action"/>
+                </style>
+              </object>
+            </child>
           </object>
         </child>
         <child>
           <object class="AdwActionRow">
-            <property name="title">Actions</property>
+            <property name="title">Scan Status</property> <!-- Changed title -->
             <child type="suffix">
               <object class="GtkBox">
                 <property name="orientation">horizontal</property>
                 <property name="spacing">6</property>
-                <child>
-                  <object class="GtkButton" id="scan_button">
-                    <property name="label">Start Scan</property>
-                    <property name="halign">end</property>
-                    <property name="valign">center</property>
-                    <signal name="clicked" handler="on_scan_button_clicked"/>
-                    <style>
-                      <class name="suggested-action"/>
-                    </style>
-                  </object>
-                </child>
+                <!-- scan_button removed from here -->
                 <child>
                   <object class="GtkButton" id="webscan_cancel_button">
                     <property name="label" translatable="yes">Cancel Scan</property>
