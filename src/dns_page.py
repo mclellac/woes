@@ -224,7 +224,7 @@ class DNSPage(Adw.PreferencesPage):
         full_summary_text: str
     ) -> None:
         """Adds a standard suffix box (label, copy value button, copy summary button) to an ActionRow."""
-        value_label = Gtk.Label(label=main_value_text, halign=Gtk.Align.FILL, hexpand=True, selectable=True, wrap=False, ellipsize=Pango.EllipsizeMode.END)
+        value_label = Gtk.Label(label=main_value_text, halign=Gtk.Align.FILL, hexpand=True, selectable=True, wrap=False, lines=1, ellipsize=Pango.EllipsizeMode.END)
         # suffix_box removed
         row.add_suffix(value_label) # type: ignore
         row.add_suffix(self._create_copy_button(main_value_text, f"{main_value_tooltip_prefix}: {main_value_text}", row)) # type: ignore
@@ -251,7 +251,7 @@ class DNSPage(Adw.PreferencesPage):
         """Adds a detail row (Adw.ActionRow) to an Adw.ExpanderRow."""
         detail_row = Adw.ActionRow(title=title if title else None) # type: ignore
 
-        value_label = Gtk.Label(label=value_text, halign=Gtk.Align.FILL, hexpand=True, selectable=True, wrap=False, ellipsize=Pango.EllipsizeMode.END)
+        value_label = Gtk.Label(label=value_text, halign=Gtk.Align.FILL, hexpand=True, selectable=True, wrap=False, lines=1, ellipsize=Pango.EllipsizeMode.END)
         copy_button = self._create_copy_button(value_text, f"{copy_tooltip_prefix}: {value_text}", expander_row)
 
         # content_box removed
@@ -628,7 +628,7 @@ class DNSPage(Adw.PreferencesPage):
         row = self._create_base_expander_row(name, f"MX Record ({base_subtitle})", "mail-send-receive-symbolic", summary_mx)
 
         # MX detail row is specific
-        exchange_value_label = Gtk.Label(label=exchange_value, halign=Gtk.Align.FILL, hexpand=True, selectable=True, wrap=False, ellipsize=Pango.EllipsizeMode.END)
+        exchange_value_label = Gtk.Label(label=exchange_value, halign=Gtk.Align.FILL, hexpand=True, selectable=True, wrap=False, lines=1, ellipsize=Pango.EllipsizeMode.END)
         copy_button_exchange = self._create_copy_button(exchange_value, f"Copy Exchange: {exchange_value}", row)
         # mx_detail_row_title_box removed
 
