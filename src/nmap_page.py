@@ -90,7 +90,7 @@ class NmapPage(Gtk.Box):
         self.current_nmap_cancellable: Optional[Gio.Cancellable] = None
         self._current_nmap_scan_params: Optional[Dict[str, Any]] = None
 
-        self._init_page_ui() # Includes adding cancel button now
+        self._init_page_ui()
         self._connect_signals()
         if self.nmap_apply_button:
             self.nmap_apply_button.set_use_underline(True)
@@ -134,17 +134,7 @@ class NmapPage(Gtk.Box):
         self.scan_spinner.set_visible(False)
         self.status_row.set_subtitle("Idle")
 
-        # Programmatically create and add the Cancel Scan button
-        self.nmap_cancel_scan_button = Gtk.Button(label="Cancel Scan", icon_name="process-stop-symbolic")
-        self.nmap_cancel_scan_button.set_sensitive(False)
-        self.nmap_cancel_scan_button.set_visible(False) # Initially hidden
-        self.nmap_cancel_scan_button.add_css_class("destructive-action")
-        # Add it as a suffix to the status_row (Adw.ActionRow)
-        if isinstance(self.status_row, Adw.ActionRow):
-            self.status_row.add_suffix(self.nmap_cancel_scan_button)
-            self.status_row.set_activatable_widget(self.nmap_cancel_scan_button) # Or None if row itself not activatable
-        else:
-            logger.warning("status_row is not an Adw.ActionRow, cannot add cancel button as suffix.")
+        # nmap_cancel_scan_button is now defined in the UI file and bound via Gtk.Template.Child
 
         logger.debug("NmapPage _init_page_ui completed.")
 
@@ -208,17 +198,17 @@ class NmapPage(Gtk.Box):
 
         self.current_nmap_cancellable = Gio.Cancellable()
 
-        scan_params = {
+        scan_params: Dict[str, Any] = {
             "target": target,
             "os_fingerprinting": self.nmap_fingerprint_switchrow.get_active(),
-            "all_ports": self.nmap_all_ports_switchrow.get_active(),
-            "script_name": (
+            "scan_all_ports": self.nmap_all_ports_switchrow.get_active(),
+            "selected_script": (
                 item.get_string()
                 if isinstance(item := self.nmap_scripts_dropdown.get_selected_item(), Gtk.StringObject) and item.get_string() != "None"
                 else None
             ),
-            "service_version_detection": self.nmap_service_version_switchrow.get_active(),
-            "no_ping_scan": self.nmap_no_ping_switchrow.get_active(),
+            "service_version": self.nmap_service_version_switchrow.get_active(),
+            "no_ping": self.nmap_no_ping_switchrow.get_active(),
             "timing_template": (
                 f"T{m.group(1)}"
                 if (m := re.search(r"\(T([0-5])\)", self.nmap_timing_template_comborow.get_selected_item().get_string()))
@@ -248,9 +238,9 @@ class NmapPage(Gtk.Box):
         # page_instance._current_nmap_scan_params = None # Optional: Clear after reading
 
         if not params:
-            logger.error("NmapPage: _run_nmap_scan_thread_func: _current_nmap_scan_params is None. This should not happen.")
-            # Cannot use task.return_new_error_literal if task is not used.
-            # This situation indicates a programming error.
+            logger.error("NmapPage: _run_nmap_scan_thread_func: _current_nmap_scan_params is None. This indicates a programming error.")
+            # The task object is available for error reporting.
+            task.return_new_error_literal(NMAP_SCAN_ERROR_DOMAIN, NmapScanErrorType.UNEXPECTED.value, "Internal error: Scan parameters not found.") # type: ignore
             return
 
         target = params["target"]
@@ -261,25 +251,21 @@ class NmapPage(Gtk.Box):
             return
 
         try:
-            nm = self.scanner.run_nmap_scan(
-                target=params["target"],
-                os_fingerprinting=params["os_fingerprinting"],
-                all_ports=params["all_ports"],
-                script_name=params["script_name"],
-                service_version_detection=params["service_version_detection"],
-                no_ping_scan=params["no_ping_scan"],
-                timing_template=params["timing_template"],
-                custom_dns_server=params["custom_dns_server"],
-                cancellable=cancellable # Pass cancellable here
-            )
+            # Call run_nmap_scan with the params dictionary and cancellable
+            nm = self.scanner.run_nmap_scan(params, cancellable=cancellable)
+
             if cancellable and cancellable.is_cancelled():
+                # This check handles cancellation if run_nmap_scan completed but cancellation was flagged during its execution.
                 task.return_new_error_literal(NMAP_SCAN_ERROR_DOMAIN, NmapScanErrorType.CANCELLED.value, "Scan cancelled during operation.")
             else:
                 task.return_value(nm) # type: ignore
-        except nmap.PortScannerError as e:
+        except ScanCancelledError as e: # Specific handling for cancellation
+            logger.info("Nmap scan for %s was cancelled: %s", target, e)
+            task.return_new_error_literal(NMAP_SCAN_ERROR_DOMAIN, NmapScanErrorType.CANCELLED.value, str(e))
+        except nmap.PortScannerError as e: # For other Nmap-related errors
             logger.exception("Nmap PortScannerError for %s:", target)
             task.return_new_error_literal(NMAP_SCAN_ERROR_DOMAIN, NmapScanErrorType.SCAN_FAILED.value, f"Nmap scan error: {e}")
-        except Exception as e:
+        except Exception as e: # Catch-all for any other unexpected errors
             logger.exception("Unexpected exception in Nmap scan task for %s (%s):", target, type(e).__name__)
             task.return_new_error_literal(NMAP_SCAN_ERROR_DOMAIN, NmapScanErrorType.UNEXPECTED.value, f"Scan failed unexpectedly: {e}")
         finally:
@@ -290,8 +276,7 @@ class NmapPage(Gtk.Box):
         """Callback for when the Nmap scan Gio.Task completes."""
         # _source_object is self (NmapPage instance)
         # _user_data is None (as passed in Gio.Task.new)
-        # Task object might not be strictly needed here if not using its data, but good for consistency.
-        finished_task = result.get_source_object() if hasattr(result, 'get_source_object') else self.current_nmap_task
+        # The 'result' parameter is the Gio.Task object for this callback.
 
         # Retrieve original target from instance variable if task data was not used,
         # or ensure it's still available if needed for context.
@@ -308,8 +293,8 @@ class NmapPage(Gtk.Box):
 
         nm_results: Optional[nmap.PortScanner] = None
         try:
-            # Use finished_task (derived from result) to propagate value
-            nm_results = finished_task.propagate_value().value if hasattr(finished_task.propagate_value(), 'value') else finished_task.propagate_value() # type: ignore
+            # Use 'result' (the Gio.AsyncResult/Gio.Task object) to propagate value
+            nm_results = result.propagate_value().value if hasattr(result.propagate_value(), 'value') else result.propagate_value() # type: ignore
             if isinstance(nm_results, nmap.PortScanner):
                  self._process_scan_results(nm_results, original_target)
             # Ensure nm_results is not None and is of the expected type before processing further.

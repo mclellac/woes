@@ -10,7 +10,7 @@ import platform
 import subprocess
 import shlex
 import shutil
-import time # Added for sleep in polling loop
+import time
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
