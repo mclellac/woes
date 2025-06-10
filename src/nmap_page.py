@@ -280,7 +280,7 @@ class NmapPage(Gtk.Box):
             if isinstance(propagated_value, nmap.PortScanner):
                 nm_results_final = propagated_value
             elif hasattr(propagated_value, 'value') and isinstance(getattr(propagated_value, 'value'), nmap.PortScanner):
-                logger.warning(f"NmapPage: Received wrapped object {type(propagated_value)} with .value attribute containing nmap.PortScanner. Unwrapping.")
+                logger.debug(f"NmapPage: Received wrapped object {type(propagated_value)} with .value attribute containing nmap.PortScanner. Unwrapping.") # Changed to debug
                 nm_results_final = getattr(propagated_value, 'value')
             elif hasattr(propagated_value, 'value'):
                 logger.error(f"NmapPage: Received wrapped object {type(propagated_value)} with .value of type {type(getattr(propagated_value, 'value'))}. Expected nmap.PortScanner.")
