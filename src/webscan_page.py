@@ -40,6 +40,7 @@ class WebScanPage(Adw.PreferencesPage):
     clear_results_button = Gtk.Template.Child()
     copy_results_button = Gtk.Template.Child()
     webscan_status_spinner = Gtk.Template.Child("webscan_status_spinner")
+    webscan_cancel_button = Gtk.Template.Child()
 
     def __init__(self, **kwargs):
         """Initialize the WebScanPage."""
@@ -49,26 +50,6 @@ class WebScanPage(Adw.PreferencesPage):
         self.current_nikto_process: Optional[subprocess.Popen] = None
         # self._temp_scan_data was used to pass data to thread, now using task.set_task_data()
         logger.debug("WebScanPage initialized")
-
-        # Programmatically create and add the Cancel Scan button
-        self.webscan_cancel_button = Gtk.Button(label="Cancel Scan", icon_name="process-stop-symbolic")
-        self.webscan_cancel_button.set_sensitive(False)
-        self.webscan_cancel_button.set_visible(False)
-        self.webscan_cancel_button.add_css_class("destructive-action")
-        self.webscan_cancel_button.connect("clicked", self._on_cancel_scan_clicked)
-
-        # Add cancel button next to scan_button. Assuming scan_button is in a Gtk.Box.
-        if self.scan_button and isinstance(self.scan_button.get_parent(), Gtk.Box):
-            parent_box = self.scan_button.get_parent()
-            parent_box.append(self.webscan_cancel_button)
-        else:
-            # Fallback: if scan_button's parent is not a Box, or scan_button not found,
-            # try adding to url_entry row if it's an ActionRow. This might need UI file adjustment.
-            if isinstance(self.url_entry, Adw.ActionRow):
-                 logger.info("Adding cancel button to url_entry row as a suffix.")
-                 self.url_entry.add_suffix(self.webscan_cancel_button)
-            else:
-                 logger.warning("Could not programmatically add Cancel Scan button to a suitable container.")
 
         if self.webscan_status_spinner:
             self.webscan_status_spinner.set_spinning(False) # type: ignore
@@ -90,6 +71,9 @@ class WebScanPage(Adw.PreferencesPage):
             self.results_textview.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
 
         self.url_entry.connect("entry-activated", self.on_scan_button_clicked)
+        # Connect signal for the cancel button now that it's a template child
+        if self.webscan_cancel_button:
+            self.webscan_cancel_button.connect("clicked", self._on_cancel_scan_clicked)
         if self.clear_results_button:
             self.clear_results_button.connect("clicked", self._on_clear_results_clicked)
         if self.copy_results_button:
