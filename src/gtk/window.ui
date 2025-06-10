@@ -71,7 +71,7 @@
                   </object>
                 </property>
                 <property name="icon-name">network-transmit-receive-symbolic</property>
-                <property name="name">http_page</property>
+                <property name="name">http</property>
                 <property name="title">HTTP Headers</property>
                 <property name="use-underline">true</property>
               </object>
@@ -105,7 +105,7 @@
                   </object>
                 </property>
                 <property name="icon-name">face-devilish</property>
-                <property name="name">nmap_page</property>
+                <property name="name">nmap</property>
                 <property name="title">Port Scan</property>
                 <property name="use-underline">true</property>
               </object>
@@ -138,6 +138,7 @@
                   </object>
                 </property>
                 <property name="icon-name">org.gnome.Epiphany-symbolic</property>
+                <property name="name">dns</property>
                 <property name="title">DNS</property>
                 <property name="use-underline">true</property>
               </object>
@@ -164,7 +165,7 @@
                   </object>
                 </property>
                 <property name="icon-name">face-cool</property>
-                <property name="name">webscan_page</property>
+                <property name="name">webscan</property>
                 <property name="title">Web Scan</property>
                 <property name="use-underline">true</property>
               </object>
