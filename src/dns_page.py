@@ -224,18 +224,11 @@ class DNSPage(Adw.PreferencesPage):
         full_summary_text: str
     ) -> None:
         """Adds a standard suffix box (label, copy value button, copy summary button) to an ActionRow."""
-        suffix_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6, hexpand=True)
-
-        value_label = Gtk.Label(label=main_value_text, halign=Gtk.Align.FILL, hexpand=True, selectable=True, wrap=False, ellipsize=Pango.EllipsizeMode.END)
-        suffix_box.append(value_label)
-
-        copy_value_button = self._create_copy_button(main_value_text, f"{main_value_tooltip_prefix}: {main_value_text}", row)
-        suffix_box.append(copy_value_button)
-
-        copy_full_summary_button = self._create_copy_button(full_summary_text, "Copy Full Record Summary", row)
-        suffix_box.append(copy_full_summary_button)
-
-        row.add_suffix(suffix_box) # type: ignore
+        value_label = Gtk.Label(label=main_value_text, halign=Gtk.Align.FILL, hexpand=True, selectable=True, wrap=False, lines=1, ellipsize=Pango.EllipsizeMode.END)
+        # suffix_box removed
+        row.add_suffix(value_label) # type: ignore
+        row.add_suffix(self._create_copy_button(main_value_text, f"{main_value_tooltip_prefix}: {main_value_text}", row)) # type: ignore
+        row.add_suffix(self._create_copy_button(full_summary_text, "Copy Full Record Summary", row)) # type: ignore
 
     def _create_base_expander_row(self, name: str, subtitle_text: str, icon_name: Optional[str], full_summary_text: str) -> Adw.ExpanderRow:
         """Creates a basic Adw.ExpanderRow with title, subtitle, icon, and a full summary copy button."""
@@ -258,17 +251,16 @@ class DNSPage(Adw.PreferencesPage):
         """Adds a detail row (Adw.ActionRow) to an Adw.ExpanderRow."""
         detail_row = Adw.ActionRow(title=title if title else None) # type: ignore
 
-        value_label = Gtk.Label(label=value_text, halign=Gtk.Align.FILL, hexpand=True, selectable=True, wrap=False, ellipsize=Pango.EllipsizeMode.END)
+        value_label = Gtk.Label(label=value_text, halign=Gtk.Align.FILL, hexpand=True, selectable=True, wrap=False, lines=1, ellipsize=Pango.EllipsizeMode.END)
         copy_button = self._create_copy_button(value_text, f"{copy_tooltip_prefix}: {value_text}", expander_row)
 
-        content_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6, hexpand=True)
-        content_box.append(value_label)
-        content_box.append(copy_button)
-
+        # content_box removed
         if is_value_primary_content : # For TXT segments where the value is the main content of the row
-            detail_row.add_prefix(content_box) # type: ignore
+            detail_row.add_prefix(value_label) # type: ignore
+            detail_row.add_prefix(copy_button) # type: ignore
         else: # For SOA fields where title is present and value is a suffix
-            detail_row.add_suffix(content_box) # type: ignore
+            detail_row.add_suffix(value_label) # type: ignore
+            detail_row.add_suffix(copy_button) # type: ignore
 
         detail_row.set_selectable(False)
         expander_row.add_row(detail_row) # type: ignore
@@ -636,13 +628,13 @@ class DNSPage(Adw.PreferencesPage):
         row = self._create_base_expander_row(name, f"MX Record ({base_subtitle})", "mail-send-receive-symbolic", summary_mx)
 
         # MX detail row is specific
-        mx_detail_row_title_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6, hexpand=True)
-        mx_detail_row_title_box.append(Gtk.Label(label=exchange_value, halign=Gtk.Align.FILL, hexpand=True, selectable=True, wrap=False, ellipsize=Pango.EllipsizeMode.END))
+        exchange_value_label = Gtk.Label(label=exchange_value, halign=Gtk.Align.FILL, hexpand=True, selectable=True, wrap=False, lines=1, ellipsize=Pango.EllipsizeMode.END)
         copy_button_exchange = self._create_copy_button(exchange_value, f"Copy Exchange: {exchange_value}", row)
-        mx_detail_row_title_box.append(copy_button_exchange)
+        # mx_detail_row_title_box removed
 
         mx_detail_row = Adw.ActionRow(subtitle=f"Preference: {preference_value}") # type: ignore
-        mx_detail_row.add_prefix(mx_detail_row_title_box) # type: ignore
+        mx_detail_row.add_prefix(exchange_value_label) # type: ignore
+        mx_detail_row.add_prefix(copy_button_exchange) # type: ignore
         mx_detail_row.set_selectable(True) # Allow selecting to copy preference if needed, though not directly copyable via button
         row.add_row(mx_detail_row) # type: ignore
         row.set_expanded(True)
