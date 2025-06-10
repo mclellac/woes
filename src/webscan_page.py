@@ -47,6 +47,7 @@ class WebScanPage(Adw.PreferencesPage):
         self.current_web_scan_task: Optional[Gio.Task] = None
         self.current_web_scan_cancellable: Optional[Gio.Cancellable] = None
         self.current_nikto_process: Optional[subprocess.Popen] = None
+        self._current_webscan_params: Optional[Dict[str, Any]] = None
         # self._temp_scan_data was used to pass data to thread, now using task.set_task_data()
         logger.debug("WebScanPage initialized")
 
@@ -191,21 +192,26 @@ class WebScanPage(Adw.PreferencesPage):
             "mutate": self.mutate_switch.get_active(), # type: ignore
             "maxtime": self.maxtime_entry_row.get_text().strip() # type: ignore
         }
-        task.set_task_data(task_data_for_thread) # type: ignore
+        self._current_webscan_params = task_data_for_thread # Store params in instance variable
         task.run_in_thread(self._run_scan_task_thread_func) # type: ignore
 
     def _run_scan_task_thread_func(self,
-                                   task: Gio.Task,
+                                   task: Gio.Task, # Task object is still used for returning values/errors
                                    _source_object: GObject.Object,
-                                   _task_data_unused: Any, # Parameter from Gio.Task.run_in_thread, but we use task.get_task_data()
+                                   _task_data_unused: Any, # Parameter from Gio.Task.run_in_thread, not used for params
                                    cancellable: Gio.Cancellable):
         """Execute the Nikto scan in a separate thread, with cancellation support."""
         logger.debug("WebScanPage._run_scan_task_thread_func started")
 
-        scan_params = task.get_task_data()
-        if not scan_params: # Should not happen if set correctly
-            logger.error("No scan parameters found in task data.")
-            task.return_new_error_literal(WEB_SCAN_ERROR_DOMAIN, WebScanErrorType.GENERIC.value, "Missing scan parameters.") # type: ignore
+        page_instance: WebScanPage = _source_object # type: ignore
+        scan_params = page_instance._current_webscan_params
+        # Optional: page_instance._current_webscan_params = None # To clear after reading
+
+        if not scan_params:
+            logger.error("WebScanPage: _run_scan_task_thread_func: _current_webscan_params is None.")
+            # This indicates a programming error if scan_params is None.
+            # The task object (if needed for error reporting) is 'task'.
+            task.return_new_error_literal(WEB_SCAN_ERROR_DOMAIN, WebScanErrorType.GENERIC.value, "Missing scan parameters in thread.") # type: ignore
             return
 
         target_url = scan_params["target_url"]
@@ -313,11 +319,16 @@ class WebScanPage(Adw.PreferencesPage):
     def _on_scan_task_done(self, _source_object: GObject.Object, result: Gio.AsyncResult, _user_data: object): # type: ignore
         """Handle completion of the Nikto scan task."""
         target_url = "Unknown URL"
-        if self.current_web_scan_task and self.current_web_scan_task.get_task_data():
-            task_data_retrieved = self.current_web_scan_task.get_task_data()
-            if isinstance(task_data_retrieved, dict): # Check if it's the dict we set
-                 target_url = task_data_retrieved.get("target_url", target_url)
+        # Retrieve target_url from instance variable
+        if self._current_webscan_params:
+            target_url = self._current_webscan_params.get("target_url", target_url)
 
+        # It's good practice to clear the stored params now if they are no longer needed,
+        # especially if the page can start a new scan before this callback fully completes
+        # for a previous one (though current_web_scan_task should prevent that).
+        # self._current_webscan_params = None # Consider clearing later or if issues arise.
+
+        finished_task = result.get_source_object() if hasattr(result, 'get_source_object') else self.current_web_scan_task
         logger.info(f"Nikto scan task done for {target_url}.")
         stdout: Optional[str] = None
         stderr: Optional[str] = None
@@ -325,7 +336,7 @@ class WebScanPage(Adw.PreferencesPage):
         try:
             # propagate_value() will return the (stdout, stderr) tuple on success
             # or raise GLib.Error if task.return_new_error_literal was called.
-            returned_data = self.current_web_scan_task.propagate_value() # type: ignore
+            returned_data = finished_task.propagate_value() # type: ignore
             if isinstance(returned_data, tuple) and len(returned_data) == 2:
                 stdout, stderr = returned_data
             elif hasattr(returned_data, 'value') and isinstance(returned_data.value, tuple) and len(returned_data.value) == 2: # Handle potential Gio.DBusCallFlags like wrapper

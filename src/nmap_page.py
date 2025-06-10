@@ -88,6 +88,7 @@ class NmapPage(Gtk.Box):
 
         self.current_nmap_task: Optional[Gio.Task] = None
         self.current_nmap_cancellable: Optional[Gio.Cancellable] = None
+        self._current_nmap_scan_params: Optional[Dict[str, Any]] = None
 
         self._init_page_ui() # Includes adding cancel button now
         self._connect_signals()
@@ -230,21 +231,28 @@ class NmapPage(Gtk.Box):
         self.current_nmap_task = Gio.Task.new(
             self, self.current_nmap_cancellable, self._nmap_scan_task_done_cb # type: ignore
         )
-        self.current_nmap_task.set_task_data(scan_params) # Store params for the thread
+        self._current_nmap_scan_params = scan_params # Store params in instance variable
         self.current_nmap_task.run_in_thread(self._run_nmap_scan_thread_func) # type: ignore
 
 
     def _run_nmap_scan_thread_func(
         self,
         task: Gio.Task,
-        _source_object: GObject.Object, # type: ignore # Standard GIO Task parameter, page instance
-        _task_data: Optional[Dict[str, Any]], # Standard GIO Task parameter, data from set_task_data()
+        _source_object: GObject.Object,
+        _task_data: Optional[Dict[str, Any]], # pylint: disable=unused-argument # This arg from run_in_thread is not used
         cancellable: Optional[Gio.Cancellable]
-    ): # pylint: disable=unused-argument
+    ): # _source_object is self (NmapPage instance)
         """Execute the Nmap scan in a separate thread via NmapScanner, for Gio.Task."""
-        # _source_object is self (NmapPage instance)
-        # _task_data is the data set by task.set_task_data(), also retrievable via task.get_task_data()
-        params = task.get_task_data() # Use this to get data for clarity
+        page_instance: NmapPage = _source_object # type: ignore
+        params = page_instance._current_nmap_scan_params
+        # page_instance._current_nmap_scan_params = None # Optional: Clear after reading
+
+        if not params:
+            logger.error("NmapPage: _run_nmap_scan_thread_func: _current_nmap_scan_params is None. This should not happen.")
+            # Cannot use task.return_new_error_literal if task is not used.
+            # This situation indicates a programming error.
+            return
+
         target = params["target"]
         logger.debug(f"_run_nmap_scan_thread_func started for target: {target}")
 
@@ -282,14 +290,26 @@ class NmapPage(Gtk.Box):
         """Callback for when the Nmap scan Gio.Task completes."""
         # _source_object is self (NmapPage instance)
         # _user_data is None (as passed in Gio.Task.new)
-        task = self.current_nmap_task # Should match the task that finished
-        original_target = task.get_task_data()["target"] if task and task.get_task_data() else "unknown target"
+        # Task object might not be strictly needed here if not using its data, but good for consistency.
+        finished_task = result.get_source_object() if hasattr(result, 'get_source_object') else self.current_nmap_task
+
+        # Retrieve original target from instance variable if task data was not used,
+        # or ensure it's still available if needed for context.
+        # For now, assuming original_target might still be useful for logging or UI.
+        # If _current_nmap_scan_params was cleared in the thread, this needs adjustment.
+        # For simplicity, let's assume it's NOT cleared yet or use a temporary variable if it was.
+        # This part might need careful handling depending on when _current_nmap_scan_params is cleared.
+        # Sticking to the original logic of trying to get it from the task if possible,
+        # but this will fail if set_task_data was not used.
+        # Safest is to use the instance variable that was set.
+        original_target = self._current_nmap_scan_params["target"] if self._current_nmap_scan_params else "unknown target"
 
         logger.info(f"Nmap scan task done for {original_target}.")
 
         nm_results: Optional[nmap.PortScanner] = None
         try:
-            nm_results = task.propagate_value().value if hasattr(task.propagate_value(), 'value') else task.propagate_value()
+            # Use finished_task (derived from result) to propagate value
+            nm_results = finished_task.propagate_value().value if hasattr(finished_task.propagate_value(), 'value') else finished_task.propagate_value() # type: ignore
             if isinstance(nm_results, nmap.PortScanner):
                  self._process_scan_results(nm_results, original_target)
             # Ensure nm_results is not None and is of the expected type before processing further.
