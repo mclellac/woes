@@ -46,6 +46,7 @@ class WoesWindow(Adw.ApplicationWindow):
         A banner widget used to display application-wide error messages.
     toast_overlay : Adw.ToastOverlay
         An overlay for displaying non-intrusive toast messages.
+
     """
 
     __gtype_name__ = "WoesWindow"

@@ -6,7 +6,7 @@ and display the results.
 import subprocess
 import logging
 logger = logging.getLogger(__name__)
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Any
 import time # Added for polling loop
 from enum import Enum
 
@@ -370,7 +370,7 @@ class WebScanPage(Adw.PreferencesPage):
 
             show_global_error(self, user_message) # type: ignore
             self._update_textview(None, f"Error: {user_message}") # Display error in textview as well
-        except Exception as e: # Catch any other Python exceptions from this callback itself # pylint: disable=broad-except # Ensure UI updates if callback logic fails
+        except Exception: # Catch any other Python exceptions from this callback itself # pylint: disable=broad-except # Ensure UI updates if callback logic fails
             logger.exception(f"Unexpected Python error in _on_scan_task_done for {target_url}:")
             user_message = "An unexpected error occurred while processing scan results."
             show_global_error(self, user_message) # type: ignore
@@ -413,6 +413,7 @@ WEB_SCAN_ERROR_DOMAIN = "web-scan-error-domain"
 
 class WebScanErrorType(int, Enum):
     """Enumeration of Web Scan error types for Gio.Task error reporting."""
+
     NIKTO_NOT_FOUND = 0
     TIMEOUT = 1         # If a global scan timeout is implemented
     CANCELLED = 2

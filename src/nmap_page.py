@@ -752,6 +752,7 @@ NMAP_SCAN_ERROR_DOMAIN = "nmap-scan-error-domain"
 
 class NmapScanErrorType(int, Enum):
     """Enumeration of Nmap scan error types for Gio.Task error reporting."""
+
     SCAN_FAILED = 0     # Corresponds to nmap.PortScannerError
     UNEXPECTED = 1      # For other unexpected exceptions during scan
     CANCELLED = 2       # If the scan was cancelled

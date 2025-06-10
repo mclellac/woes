@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Module for performing DNS lookups.
+"""Module for performing DNS lookups.
 """
 import logging
 from typing import Optional, List, Dict, Any
@@ -17,33 +16,36 @@ logger = logging.getLogger(__name__)
 # Custom Exceptions
 class DnsClientError(Exception):
     """Base exception for DnsResolverClient errors."""
+
     pass
 
 class DnsResolutionTimeoutError(DnsClientError):
     """Exception for DNS resolution timeouts."""
+
     pass
 
 class DnsNxDomainError(DnsClientError):
     """Exception for NXDOMAIN errors (non-existent domain)."""
+
     pass
 
 class DnsNoAnswerError(DnsClientError):
     """Exception for NoAnswer errors (query name exists, but not for specified type)."""
+
     pass
 
 class DnsGenericError(DnsClientError):
     """Exception for other DNS resolution errors."""
+
     pass
 
 
 class DnsResolverClient:
-    """
-    Encapsulates logic for performing DNS lookups.
+    """Encapsulates logic for performing DNS lookups.
     """
 
     def __init__(self, custom_dns_server: Optional[str] = None):
-        """
-        Initialize DnsResolverClient.
+        """Initialize DnsResolverClient.
 
         :param custom_dns_server: Optional IP address of a custom DNS server.
         :type custom_dns_server: str, optional
@@ -56,8 +58,7 @@ class DnsResolverClient:
         self.resolver.lifetime = 2.0 # Total time for resolution attempt
 
     def _lookup_record_internal(self, query_name_str: str, record_type_str: str) -> List[Dict[str, Any]]:
-        """
-        Internal method to look up DNS records and parse them.
+        """Internal method to look up DNS records and parse them.
         Adapted from DNSPage._lookup_record.
 
         :param query_name_str: The domain name or reverse IP to query.
@@ -116,8 +117,7 @@ class DnsResolverClient:
             raise DnsGenericError(f"DNS error for {query_name_str}: {e}") from e
 
     def resolve(self, domain_or_ip: str, record_type: str) -> List[Dict[str, Any]]:
-        """
-        Resolve DNS records for the given domain/IP and record type.
+        """Resolve DNS records for the given domain/IP and record type.
 
         :param domain_or_ip: The domain name or IP address to query.
         :type domain_or_ip: str

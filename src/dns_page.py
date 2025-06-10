@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 # DNS library imports (dns.resolver, etc.) are now primarily in dns_client.py
 import gi
 from gi.repository import Adw, Gio, Gtk, Pango, GObject
-from typing import Optional, Tuple, Sequence, Any, List, Dict
+from typing import Optional, Sequence, Any, List, Dict
 
 from .constants import APP_ID, RESOURCE_PREFIX
 from .utils import show_global_error, show_global_toast, is_valid_ip, is_valid_domain
@@ -221,8 +221,7 @@ class DNSPage(Adw.PreferencesPage):
             self.dns_apply_button.set_sensitive(not active) # type: ignore
 
     def _validate_dns_input(self, user_input: str) -> bool:
-        """
-        Validates the DNS user input. Shows global error/toast if invalid.
+        """Validates the DNS user input. Shows global error/toast if invalid.
         :return: True if valid, False otherwise.
         """
         if not user_input:
@@ -241,8 +240,7 @@ class DNSPage(Adw.PreferencesPage):
         return True
 
     def _update_ptr_dropdown(self, user_input: str, requested_record_type: str) -> str:
-        """
-        Updates the record type dropdown to PTR if an IP was entered and PTR was requested.
+        """Updates the record type dropdown to PTR if an IP was entered and PTR was requested.
         Returns the record type that was effectively used or set.
         """
         actual_record_type_used = requested_record_type

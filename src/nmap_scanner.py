@@ -13,7 +13,7 @@ import shutil
 import time
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
+from typing import Any, Dict, List, Optional, TypedDict, Union
 
 # Import Gio for Cancellable type hint, actual object passed by caller
 try:
@@ -32,6 +32,7 @@ from .utils import is_valid_ip, is_valid_domain
 
 class ScanOptions(Enum):
     """Enumeration of common Nmap command-line option fragments."""
+
     DEFAULT = "-T4"
     OS_FINGERPRINTING = "-O -A"
     ALL_PORTS = "-p-"
@@ -40,6 +41,7 @@ class ScanOptions(Enum):
 
 class ScanStatus(Enum):
     """Enumeration representing the status of an Nmap scan."""
+
     IN_PROGRESS = (0.0, "Scanning {target}...")
     COMPLETE = (1.0, "Scan complete")
     FAILED = (1.0, "Scan failed unexpectedly")
@@ -48,11 +50,13 @@ class ScanStatus(Enum):
 
 class ScanCancelledError(PortScannerError): # Inherit from PortScannerError for consistency if desired
     """Exception raised when an Nmap scan is cancelled."""
+
     pass
 
 
 class NmapScanParameters(TypedDict, total=False):
     """TypedDict for Nmap scan parameters."""
+
     target: str
     os_fingerprinting: bool
     scan_all_ports: bool

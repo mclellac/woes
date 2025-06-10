@@ -10,7 +10,7 @@ via a :class:`.custom_dns_adapter.CustomDNSAdapter`.
 # ruff: noqa: E501
 import logging
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 # Removed requests, requests.utils, dns.resolver, urllib3.exceptions as they moved to http_client
 # CustomDNSAdapter is now used by HttpFetcher, not directly here.
