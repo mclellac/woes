@@ -71,6 +71,7 @@ class NmapPage(Gtk.Box):
     nmap_timing_template_comborow = Gtk.Template.Child("nmap_timing_template_comborow")
     status_row = Gtk.Template.Child("status_row")
     scan_spinner = Gtk.Template.Child("scan_spinner")
+    nmap_cancel_scan_button = Gtk.Template.Child() # Added binding
 
     left_vbox_content = Gtk.Template.Child("left_vbox_content")
     nmap_host_listbox = Gtk.Template.Child("nmap_host_listbox")
