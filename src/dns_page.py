@@ -40,7 +40,6 @@ class DNSPage(Adw.PreferencesPage):
     __gtype_name__ = "DNSPage"
 
     domain_entry = Gtk.Template.Child()
-    # dns_lookup_spinner was removed from UI, replaced by dns_status_spinner
     dns_apply_button = Gtk.Template.Child()
     dns_record_type_dropdown = Gtk.Template.Child()
     dns_results_box_container = Gtk.Template.Child()
@@ -64,8 +63,6 @@ class DNSPage(Adw.PreferencesPage):
         self.settings = Gio.Settings.new(APP_ID)
         if self.dns_apply_button:
             self.dns_apply_button.set_use_underline(True)
-
-        # Removed old dns_lookup_spinner initialization
 
         # Initialize new status row and spinner
         if self.dns_status_row:
@@ -95,9 +92,6 @@ class DNSPage(Adw.PreferencesPage):
         logger.info("Clearing DNS results.")
         while (child := self.dns_results_box_container.get_first_child()): # type: ignore
             self.dns_results_box_container.remove(child) # type: ignore
-
-        # Optionally, add a placeholder back if desired, or leave it empty.
-        # For now, just clear.
 
         if self.dns_clear_results_button:
             self.dns_clear_results_button.set_sensitive(False)
@@ -204,10 +198,6 @@ class DNSPage(Adw.PreferencesPage):
         """
         self._perform_lookup()
 
-    # _prepare_resolver was moved to DnsResolverClient
-    # _fetch_dns_records logic is now part of _perform_lookup using DnsResolverClient
-    # _lookup_record was moved to DnsResolverClient (as _lookup_record_internal)
-
     # --- Helper methods for building record rows ---
 
     def _create_copy_button(self, text_to_copy: str, tooltip_text: str, widget_for_clipboard: Gtk.Widget) -> Gtk.Button:
@@ -255,7 +245,6 @@ class DNSPage(Adw.PreferencesPage):
 
         copy_full_button = self._create_copy_button(full_summary_text, "Copy Full Record Summary", row)
         row.add_suffix(copy_full_button) # type: ignore
-        # row.set_expanded(True) # Decided by caller, as TXT/SOA might be empty initially
         return row
 
     def _add_expander_detail_row(
@@ -368,7 +357,6 @@ class DNSPage(Adw.PreferencesPage):
         if self.dns_status_row:
             self.dns_status_row.set_subtitle(status_message) # type: ignore
         # show_global_toast is good for transient notifications, status row is persistent.
-        # Consider if toast is still needed or if status row is sufficient. Keeping for now.
         show_global_toast(self, status_message) # type: ignore
 
     def _handle_dns_lookup_exception(
@@ -467,8 +455,6 @@ class DNSPage(Adw.PreferencesPage):
             main_window.hide_error() # type: ignore
         else:
             logger.warning("Could not find main window or hide_error method to clear error.")
-
-    # _lookup_record is now part of DnsResolverClient
 
     def _display_result(
         self,

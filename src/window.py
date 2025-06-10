@@ -75,7 +75,6 @@ class WoesWindow(Adw.ApplicationWindow):
 
         self.style_manager = Adw.StyleManager.get_default()
         self.gnome_interface_settings = None
-        # self.gnome_a11y_settings = None # Placeholder for if a11y settings are needed later
 
         if platform.system() == "Linux":
             try:
@@ -88,7 +87,6 @@ class WoesWindow(Adw.ApplicationWindow):
                     "Could not connect to GNOME interface settings (%s): %s. System font integration will be limited.",
                     GNOME_INTERFACE_SCHEMA, e
                 )
-            # Optionally, initialize and connect to GNOME_A11Y_SCHEMA here if needed for high-contrast etc.
 
         self.settings.connect("changed::theme-preference", self._on_theme_preference_setting_changed)
         self.settings.connect("changed::font-scaling-percentage", self._on_font_scaling_setting_changed)

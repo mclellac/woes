@@ -226,6 +226,17 @@ class WoesApplication(Adw.Application):
                 "WoesApplication.do_activate: Window object is None after creation attempt, cannot proceed."
             )
 
+    def _switch_to_page(self, page_name: str):
+        """Switch the main window's view to the specified page.
+
+        :param page_name: The name of the page to switch to (e.g., "http", "nmap").
+        :type page_name: str
+        """
+        if self.win and hasattr(self.win, "stack"):
+            self.win.stack.set_visible_child_name(page_name)
+        else:
+            logging.warning(f"Cannot switch to {page_name}_page: window or stack not available.")
+
     def switch_to_http(self, _action: Gio.SimpleAction, _param: Optional[GLib.Variant]):
         """Switch the main window's view to the HTTP page.
 
@@ -234,10 +245,7 @@ class WoesApplication(Adw.Application):
         :param _param: Optional parameter for the action (unused).
         :type _param: GLib.Variant, optional
         """
-        if self.win and hasattr(self.win, "stack"):
-            self.win.stack.set_visible_child_name("http")
-        else:
-            logging.warning("Cannot switch to http_page: window or stack not available.")
+        self._switch_to_page("http")
 
     def switch_to_nmap(self, _action: Gio.SimpleAction, _param: Optional[GLib.Variant]):
         """Switch the main window's view to the Nmap page.
@@ -247,10 +255,7 @@ class WoesApplication(Adw.Application):
         :param _param: Optional parameter for the action (unused).
         :type _param: GLib.Variant, optional
         """
-        if self.win and hasattr(self.win, "stack"):
-            self.win.stack.set_visible_child_name("nmap")
-        else:
-            logging.warning("Cannot switch to nmap_page: window or stack not available.")
+        self._switch_to_page("nmap")
 
     def switch_to_dns(self, _action: Gio.SimpleAction, _param: Optional[GLib.Variant]):
         """Switch the main window's view to the DNS page.
@@ -260,10 +265,7 @@ class WoesApplication(Adw.Application):
         :param _param: Optional parameter for the action (unused).
         :type _param: GLib.Variant, optional
         """
-        if self.win and hasattr(self.win, "stack"):
-            self.win.stack.set_visible_child_name("dns")
-        else:
-            logging.warning("Cannot switch to dns_page: window or stack not available.")
+        self._switch_to_page("dns")
 
     def switch_to_webscan(self, _action: Gio.SimpleAction, _param: Optional[GLib.Variant]):
         """Switch the main window's view to the WebScan page.
@@ -273,10 +275,33 @@ class WoesApplication(Adw.Application):
         :param _param: Optional parameter for the action (unused).
         :type _param: GLib.Variant, optional
         """
-        if self.win and hasattr(self.win, "stack"):
-            self.win.stack.set_visible_child_name("webscan")
-        else:
-            logging.warning("Cannot switch to webscan_page: window or stack not available.")
+        self._switch_to_page("webscan")
+
+    def _trigger_page_action(self, expected_page_name: str, action_method_name: str, action_description: str):
+        """Trigger an action on the currently visible page if it matches the expected page.
+
+        :param expected_page_name: The name of the page on which the action is expected to occur.
+        :type expected_page_name: str
+        :param action_method_name: The name of the method to call on the page object.
+        :type action_method_name: str
+        :param action_description: A human-readable description of the action for logging.
+        :type action_description: str
+        """
+        if not self.win or not hasattr(self.win, "stack"):
+            logging.warning(f"{action_description} action: Window or stack not available.")
+            return
+
+        page_name = self.win.stack.get_visible_child_name()
+        page_object = self.win.stack.get_visible_child()
+
+        if page_name == expected_page_name and page_object:
+            if hasattr(page_object, action_method_name):
+                getattr(page_object, action_method_name)()
+            else:
+                logging.warning(f"{expected_page_name.capitalize()} page object does not have a '{action_method_name}' method.")
+        elif page_name == expected_page_name: # page_object is None
+            logging.warning(f"{expected_page_name.capitalize()} page object is None, cannot trigger {action_method_name}.")
+        # No warning if it's not the expected_page_name page, as the action is specific to that page.
 
     def on_page_action_http_fetch(self, _action: Gio.SimpleAction, _param: Optional[GLib.Variant]):
         """Handle the 'page-action-http-fetch' action.
@@ -288,21 +313,7 @@ class WoesApplication(Adw.Application):
         :param _param: Optional parameter for the action (unused).
         :type _param: GLib.Variant, optional
         """
-        if not self.win or not hasattr(self.win, "stack"):
-            logging.warning("HTTP fetch action: Window or stack not available.")
-            return
-
-        page_name = self.win.stack.get_visible_child_name()
-        page_object = self.win.stack.get_visible_child()
-
-        if page_name == "http" and page_object:
-            if hasattr(page_object, "trigger_fetch"):
-                page_object.trigger_fetch()
-            else:
-                logging.warning("HTTP page object does not have a 'trigger_fetch' method.")
-        elif page_name == "http":
-            logging.warning("HTTP page object is None, cannot trigger fetch.")
-        # No warning if it's not the HTTP page, as the action is specific
+        self._trigger_page_action("http", "trigger_fetch", "HTTP fetch")
 
     def on_page_action_nmap_scan(self, _action: Gio.SimpleAction, _param: Optional[GLib.Variant]):
         """Handle the 'page-action-nmap-scan' action.
@@ -314,20 +325,7 @@ class WoesApplication(Adw.Application):
         :param _param: Optional parameter for the action (unused).
         :type _param: GLib.Variant, optional
         """
-        if not self.win or not hasattr(self.win, "stack"):
-            logging.warning("Nmap scan action: Window or stack not available.")
-            return
-
-        page_name = self.win.stack.get_visible_child_name()
-        page_object = self.win.stack.get_visible_child()
-
-        if page_name == "nmap" and page_object:
-            if hasattr(page_object, "trigger_scan"):
-                page_object.trigger_scan()
-            else:
-                logging.warning("Nmap page object does not have a 'trigger_scan' method.")
-        elif page_name == "nmap":
-            logging.warning("Nmap page object is None, cannot trigger scan.")
+        self._trigger_page_action("nmap", "trigger_scan", "Nmap scan")
 
     def on_page_action_dns_lookup(self, _action: Gio.SimpleAction, _param: Optional[GLib.Variant]):
         """Handle the 'page-action-dns-lookup' action.
@@ -339,20 +337,7 @@ class WoesApplication(Adw.Application):
         :param _param: Optional parameter for the action (unused).
         :type _param: GLib.Variant, optional
         """
-        if not self.win or not hasattr(self.win, "stack"):
-            logging.warning("DNS lookup action: Window or stack not available.")
-            return
-
-        page_name = self.win.stack.get_visible_child_name()
-        page_object = self.win.stack.get_visible_child()
-
-        if page_name == "dns" and page_object:
-            if hasattr(page_object, "trigger_lookup"):
-                page_object.trigger_lookup()
-            else:
-                logging.warning("DNS page object does not have a 'trigger_lookup' method.")
-        elif page_name == "dns":
-            logging.warning("DNS page object is None, cannot trigger lookup.")
+        self._trigger_page_action("dns", "trigger_lookup", "DNS lookup")
 
     def on_page_action_webscan_scan(self, _action: Gio.SimpleAction, _param: Optional[GLib.Variant]):
         """Handle the 'page-action-webscan-scan' action.
@@ -364,20 +349,7 @@ class WoesApplication(Adw.Application):
         :param _param: Optional parameter for the action (unused).
         :type _param: GLib.Variant, optional
         """
-        if not self.win or not hasattr(self.win, "stack"):
-            logging.warning("Webscan scan action: Window or stack not available.")
-            return
-
-        page_name = self.win.stack.get_visible_child_name()
-        page_object = self.win.stack.get_visible_child()
-
-        if page_name == "webscan" and page_object:
-            if hasattr(page_object, "trigger_scan"):
-                page_object.trigger_scan()
-            else:
-                logging.warning("Webscan page object does not have a 'trigger_scan' method.")
-        elif page_name == "webscan":
-            logging.warning("Webscan page object is None, cannot trigger scan.")
+        self._trigger_page_action("webscan", "trigger_scan", "Webscan scan")
 
     def on_about_action(self, _widget: Gio.SimpleAction, _param: Optional[GLib.Variant]):
         """Handle the 'about' action activation.

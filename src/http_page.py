@@ -18,6 +18,7 @@ from gi.repository import Adw, Gio, GObject, Gtk, GLib, Gdk, Pango
 
 from .constants import RESOURCE_PREFIX, USER_AGENTS, APP_ID
 from .utils import show_global_error, show_global_toast, is_valid_url
+from .helper import Helper
 from .http_client import (
     HttpFetcher,
     HttpClientError,
@@ -130,7 +131,6 @@ class HttpPage(Adw.PreferencesPage):
             self.http_column_view.append_column(col_name)
             self.http_column_view.append_column(col_value)
         self._connect_signals()
-        # self._clear_error() # Removed from __init__
         self._hide_results()
         self._update_user_agent_model()
         self.settings.connect("changed::custom-user-agents", lambda _s, _k: self._update_user_agent_model())
@@ -146,6 +146,8 @@ class HttpPage(Adw.PreferencesPage):
         if self.http_status_spinner:
             self.http_status_spinner.set_spinning(False) # type: ignore
             self.http_status_spinner.set_visible(False) # type: ignore
+
+        self.column_view_helper = Helper(widget=self.http_column_view, parent_window=self.get_native()) # type: ignore
 
     def _connect_signals(self) -> None:
         """Connect signals for UI elements to their respective handlers."""

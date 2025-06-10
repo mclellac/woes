@@ -51,7 +51,6 @@ class WebScanPage(Adw.PreferencesPage):
         self.current_web_scan_cancellable: Optional[Gio.Cancellable] = None
         self.current_nikto_process: Optional[subprocess.Popen] = None
         self._current_webscan_params: Optional[Dict[str, Any]] = None
-        # self._temp_scan_data was used previously; now using self._current_webscan_params
         logger.debug("WebScanPage initialized")
 
         if self.webscan_status_action_row:
@@ -93,17 +92,6 @@ class WebScanPage(Adw.PreferencesPage):
            not self.current_web_scan_cancellable.is_cancelled():
             logger.info("WebScanPage being destroyed, cancelling ongoing Nikto scan.")
             self.current_web_scan_cancellable.cancel()
-
-        # If self.current_nikto_process was managed directly by the page (it's not in current plan)
-        # if self.current_nikto_process and self.current_nikto_process.poll() is None:
-        #    logger.info("Terminating Nikto process from WebScanPage.__del__")
-        #    self.current_nikto_process.terminate()
-        #    try:
-        #        self.current_nikto_process.wait(timeout=1)
-        #    except subprocess.TimeoutExpired:
-        #        self.current_nikto_process.kill()
-        # self.current_nikto_process = None
-        # super().__del__() # If inheriting from GObject.Object directly and needing its __del__
 
     def _on_cancel_scan_clicked(self, _button: Gtk.Button) -> None:
         """Handles click on the 'Cancel Scan' button."""
