@@ -4,12 +4,11 @@ This page provides a simple interface to run Nikto scans against a target URL
 and display the results.
 """
 import subprocess
-# import re # No longer used in this file
 import logging
 logger = logging.getLogger(__name__)
 from typing import Optional, Dict, Any, Tuple
 import time # Added for polling loop
-from enum import Enum # Added for WebScanErrorType
+from enum import Enum
 
 import gi
 from gi.repository import Gtk, Adw, Gio, GLib, GObject, Gdk, GtkSource
@@ -134,7 +133,7 @@ class WebScanPage(Adw.PreferencesPage):
                         logger.info("Webscan results copied to clipboard successfully.")
                     else:
                         logger.warning("Failed to get default clipboard for copying webscan results.")
-                except Exception as e: # pylint: disable=broad-except
+                except Exception as e: # pylint: disable=broad-except # Clipboard operations can be unreliable
                     logger.error(f"Error copying webscan results to clipboard: {e}", exc_info=True)
             else:
                 logger.info("No webscan results to copy.")
@@ -183,7 +182,6 @@ class WebScanPage(Adw.PreferencesPage):
         task = Gio.Task.new(self, self.current_web_scan_cancellable, self._on_scan_task_done, None) # type: ignore
         self.current_web_scan_task = task
 
-        # Store scan parameters for the thread function to access via task_data
         task_data_for_thread: Dict[str, Any] = {
             "target_url": target_url,
             "force_ssl": self.force_ssl_switch.get_active(), # type: ignore
@@ -281,7 +279,7 @@ class WebScanPage(Adw.PreferencesPage):
                         except subprocess.TimeoutExpired:
                             logger.warning("Nikto process did not terminate gracefully, killing.")
                             process.kill()
-                        except Exception as e_term: # pylint: disable=broad-except
+                        except Exception as e_term: # pylint: disable=broad-except # Process termination can have diverse errors
                             logger.error(f"Error terminating Nikto process: {e_term}")
                     task.return_new_error_literal(WEB_SCAN_ERROR_DOMAIN, WebScanErrorType.CANCELLED.value, "Scan cancelled by user.") # type: ignore
                     self.current_nikto_process = None
@@ -306,7 +304,7 @@ class WebScanPage(Adw.PreferencesPage):
             task.return_new_error_literal(WEB_SCAN_ERROR_DOMAIN, WebScanErrorType.NIKTO_NOT_FOUND.value, "Nikto command not found. Please ensure it is installed and in your system's PATH.") # type: ignore
         # TimeoutExpired for process.communicate() is removed as we poll.
         # A global timeout for the entire scan could be implemented by checking time in the polling loop.
-        except Exception as e: # pylint: disable=broad-except
+        except Exception as e: # pylint: disable=broad-except # Catch all for thread to report error via Gio.Task
             logger.exception(f"An unexpected error occurred during Nikto scan task: {e}")
             task.return_new_error_literal(WEB_SCAN_ERROR_DOMAIN, WebScanErrorType.GENERIC.value, str(e)) # type: ignore
         finally:
@@ -351,11 +349,11 @@ class WebScanPage(Adw.PreferencesPage):
             elif e.matches(WEB_SCAN_ERROR_DOMAIN, WebScanErrorType.CANCELLED.value): # type: ignore
                 user_message = f"Scan for {target_url} was cancelled."
             elif e.matches(WEB_SCAN_ERROR_DOMAIN, WebScanErrorType.GENERIC.value): # type: ignore
-                user_message = f"Scan failed for {target_url}: {e.message}" # e.message already contains details
+                user_message = f"Scan failed for {target_url}: {e.message}" # e.message already contains details for this error type
 
             show_global_error(self, user_message) # type: ignore
             self._update_textview(None, f"Error: {user_message}") # Display error in textview as well
-        except Exception as e: # Catch any other Python exceptions from this callback itself
+        except Exception as e: # Catch any other Python exceptions from this callback itself # pylint: disable=broad-except # Ensure UI updates if callback logic fails
             logger.exception(f"Unexpected Python error in _on_scan_task_done for {target_url}:")
             user_message = "An unexpected error occurred while processing scan results."
             show_global_error(self, user_message) # type: ignore

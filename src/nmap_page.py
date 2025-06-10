@@ -162,7 +162,7 @@ class NmapPage(Gtk.Box):
         self.nmap_target_entryrow.connect("entry-activated", self._on_target_activate)
         self.nmap_apply_button.connect("clicked", self._on_target_activate)
         self.nmap_host_listbox.connect("row-selected", self._on_target_selected)
-        if hasattr(self, 'nmap_cancel_scan_button') and self.nmap_cancel_scan_button: # Ensure it was created
+        if self.nmap_cancel_scan_button: # Now a Template.Child, will exist after init_template
             self.nmap_cancel_scan_button.connect("clicked", self._on_cancel_scan_clicked)
 
     def _on_cancel_scan_clicked(self, _button: Gtk.Button) -> None:
