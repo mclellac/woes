@@ -501,9 +501,7 @@ class HttpPage(Adw.PreferencesPage):
                                 headers_for_this_response,
                             )
                         if i < len(actual_list_of_responses) - 1:
-                            processed_headers_for_store.append(
-                                HeaderItem(key="Redirected to -> ", value="", is_special_row=True)
-                            )
+                            processed_headers_for_store.append(HeaderItem(key=" ", value="", is_special_row=True))
                     self._current_header_items = processed_headers_for_store
                     self._update_column_view_model(processed_headers_for_store)
                 if hasattr(self, "http_entry_row") and self.http_entry_row:
