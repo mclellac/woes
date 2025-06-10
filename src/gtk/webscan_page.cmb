@@ -1,0 +1,6 @@
+<?xml version='1.0' encoding='UTF-8' standalone='no'?>
+<!DOCTYPE cambalache-project SYSTEM "cambalache-project.dtd">
+<!-- Created with Cambalache 0.96.1 -->
+<cambalache-project version="0.96.0" target_tk="gtk-4.0">
+  <ui template-class="WebScanPage" filename="webscan_page.cmb.ui" sha256="c90e718edfc59303d7b1addc4745f8fd7830ce7d80cb0ad513fbe62078548f83"/>
+</cambalache-project>
