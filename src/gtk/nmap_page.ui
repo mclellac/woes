@@ -4,9 +4,8 @@
   <!-- interface-name nmap_page.ui -->
   <requires lib="gtk" version="4.10"/>
   <requires lib="libadwaita" version="1.4"/>
-  <template class="NmapPage" parent="GtkBox">
-    <property name="halign">baseline-fill</property>
-    <property name="valign">baseline-fill</property>
+  <template class="NmapPage" parent="AdwBin">
+    <property name="width-request">700</property>
     <child>
       <object class="GtkBox" id="page_vbox">
         <property name="halign">baseline-fill</property>

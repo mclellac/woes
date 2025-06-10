@@ -31,8 +31,9 @@
           </object>
         </child>
         <child>
-          <object class="AdwActionRow">
-            <property name="title">Scan Status</property>
+          <object class="AdwActionRow" id="webscan_status_action_row">
+            <property name="title">Status</property>
+            <!-- Subtitle will be set from Python code -->
             <child type="suffix">
               <object class="GtkBox">
                 <property name="orientation">horizontal</property>
