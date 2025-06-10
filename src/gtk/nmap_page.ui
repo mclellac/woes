@@ -22,6 +22,132 @@
           </object>
         </child>
         <child>
+          <object class="AdwPreferencesGroup" id="nmap_scan_parameters_group">
+            <property name="hexpand">True</property>
+            <property name="title" translatable="yes">Scan Parameters</property>
+            <child>
+              <object class="AdwEntryRow" id="nmap_target_entryrow">
+                <property name="activates-default">true</property>
+                <property name="hexpand">true</property>
+                <property name="hexpand-set">true</property>
+                <property name="input-purpose">url</property>
+                <property name="title" translatable="yes">Target (IP/CIDR/Hostname)</property>
+                <child type="suffix">
+                  <object class="GtkButton" id="nmap_apply_button">
+                    <property name="label" translatable="yes">_Scan</property>
+                    <property name="valign">center</property>
+                    <style>
+                      <class name="suggested-action"/>
+                    </style>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="AdwExpanderRow" id="nmap_advanced_options_expander">
+                <property name="hexpand">true</property>
+                <property name="hexpand-set">true</property>
+                <property name="title" translatable="yes">Advanced Scan Options</property>
+                <child>
+                  <object class="AdwSwitchRow" id="nmap_fingerprint_switchrow">
+                    <property name="subtitle" translatable="yes">Enable this to attempt OS detection (often requires root/administrator privileges)</property>
+                    <property name="title" translatable="yes">OS Fingerprinting</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="AdwSwitchRow" id="nmap_all_ports_switchrow">
+                    <property name="subtitle" translatable="yes">Scan all 65535 TCP ports (default is top ~1000)</property>
+                    <property name="title" translatable="yes">Scan All Ports</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="AdwComboRow" id="nmap_scripts_dropdown">
+                    <property name="icon-name">emblem-documents-symbolic</property>
+                    <property name="model">
+                      <object class="GtkStringList" id="nmap_scripts_list_store">
+                        <property name="strings">None</property>
+                        <items>
+                          <item>default</item>
+                          <item>vuln</item>
+                          <item>discovery</item>
+                          <item>broadcast</item>
+                          <item>exploit</item>
+                          <item>http-grep</item>
+                          <item>http-enum</item>
+                          <item>http-config-backup</item>
+                          <item>http-wordpress-enum</item>
+                          <item>http-cors</item>
+                          <item>http-csrf</item>
+                          <item>http-cross-domain-policy</item>
+                          <item>mysql-users</item>
+                          <item>vulscan/vulscan</item>
+                          <item>firewalk</item>
+                        </items>
+                      </object>
+                    </property>
+                    <property name="selected">0</property>
+                    <property name="subtitle" translatable="yes">Select a script or script category</property>
+                    <property name="title" translatable="yes">Nmap Scripting Engine (NSE)</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="AdwSwitchRow" id="nmap_service_version_switchrow">
+                    <property name="subtitle" translatable="yes">Attempt to determine the version of the service running on port</property>
+                    <property name="title" translatable="yes">Service Version Detection (-sV)</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="AdwSwitchRow" id="nmap_no_ping_switchrow">
+                    <property name="subtitle" translatable="yes">Skip host discovery, scan all targets</property>
+                    <property name="title" translatable="yes">No Ping Scan (-Pn)</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="AdwComboRow" id="nmap_timing_template_comborow">
+                    <property name="model">
+                      <object class="GtkStringList">
+                        <items>
+                          <item translatable="yes">Polite (T0)</item>
+                          <item translatable="yes">Sneaky (T1)</item>
+                          <item translatable="yes">Paranoid (T2)</item>
+                          <item translatable="yes">Normal (T3)</item>
+                          <item translatable="yes">Aggressive (T4)</item>
+                          <item translatable="yes">Insane (T5)</item>
+                        </items>
+                      </object>
+                    </property>
+                    <property name="selected">3</property>
+                    <property name="title" translatable="yes">Timing Template (-T)</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="AdwActionRow" id="status_row">
+                <property name="activatable">False</property>
+                <property name="hexpand">true</property>
+                <property name="hexpand-set">true</property>
+                <property name="subtitle" translatable="yes">Idle</property>
+                <property name="title" translatable="yes">Scan Status</property>
+                <property name="visible">true</property>
+                <child>
+                  <object class="GtkSpinner" id="scan_spinner">
+                    <property name="spinning">False</property>
+                    <property name="visible">False</property>
+                  </object>
+                </child>
+                <child type="suffix">
+                  <object class="GtkButton" id="nmap_cancel_scan_button">
+                    <property name="label" translatable="yes">Cancel</property>
+                    <property name="icon-name">process-stop-symbolic</property>
+                    <property name="visible">False</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
           <object class="GtkPaned" id="main_paned_view">
             <property name="hexpand">true</property>
             <property name="orientation">horizontal</property>
@@ -40,149 +166,11 @@
                 <property name="vexpand">True</property>
                 <property name="width-request">600</property>
                 <child>
-                  <object class="GtkBox" id="left_vbox_content">
+                  <object class="GtkListBox" id="nmap_host_listbox">
                     <property name="hexpand">true</property>
                     <property name="hexpand-set">true</property>
-                    <property name="margin-bottom">6</property>
-                    <property name="margin-end">6</property>
-                    <property name="margin-start">6</property>
-                    <property name="margin-top">6</property>
-                    <property name="orientation">vertical</property>
-                    <property name="spacing">12</property>
-                    <child>
-                      <object class="AdwPreferencesGroup" id="nmap_scan_parameters_group">
-                        <property name="hexpand">True</property>
-                        <property name="title" translatable="yes">Scan Parameters</property>
-                        <child>
-                          <object class="AdwEntryRow" id="nmap_target_entryrow">
-                            <property name="activates-default">true</property>
-                            <property name="hexpand">true</property>
-                            <property name="hexpand-set">true</property>
-                            <property name="input-purpose">url</property>
-                            <property name="title" translatable="yes">Target (IP/CIDR/Hostname)</property>
-                            <child type="suffix">
-                              <object class="GtkButton" id="nmap_apply_button">
-                                <property name="label" translatable="yes">_Scan</property>
-                                <property name="valign">center</property>
-                                <style>
-                                  <class name="suggested-action"/>
-                                </style>
-                              </object>
-                            </child>
-                          </object>
-                        </child>
-                        <child>
-                          <object class="AdwExpanderRow" id="nmap_advanced_options_expander">
-                            <property name="hexpand">true</property>
-                            <property name="hexpand-set">true</property>
-                            <property name="title" translatable="yes">Advanced Scan Options</property>
-                            <child>
-                              <object class="AdwSwitchRow" id="nmap_fingerprint_switchrow">
-                                <property name="subtitle" translatable="yes">Enable this to attempt OS detection (often requires root/administrator privileges)</property>
-                                <property name="title" translatable="yes">OS Fingerprinting</property>
-                              </object>
-                            </child>
-                            <child>
-                              <object class="AdwSwitchRow" id="nmap_all_ports_switchrow">
-                                <property name="subtitle" translatable="yes">Scan all 65535 TCP ports (default is top ~1000)</property>
-                                <property name="title" translatable="yes">Scan All Ports</property>
-                              </object>
-                            </child>
-                            <child>
-                              <object class="AdwComboRow" id="nmap_scripts_dropdown">
-                                <property name="icon-name">emblem-documents-symbolic</property>
-                                <property name="model">
-                                  <object class="GtkStringList" id="nmap_scripts_list_store">
-                                    <property name="strings">None</property>
-                                    <items>
-                                      <item>default</item>
-                                      <item>vuln</item>
-                                      <item>discovery</item>
-                                      <item>broadcast</item>
-                                      <item>exploit</item>
-                                      <item>http-grep</item>
-                                      <item>http-enum</item>
-                                      <item>http-config-backup</item>
-                                      <item>http-wordpress-enum</item>
-                                      <item>http-cors</item>
-                                      <item>http-csrf</item>
-                                      <item>http-cross-domain-policy</item>
-                                      <item>mysql-users</item>
-                                      <item>vulscan/vulscan</item>
-                                      <item>firewalk</item>
-                                    </items>
-                                  </object>
-                                </property>
-                                <property name="selected">0</property>
-                                <property name="subtitle" translatable="yes">Select a script or script category</property>
-                                <property name="title" translatable="yes">Nmap Scripting Engine (NSE)</property>
-                              </object>
-                            </child>
-                            <child>
-                              <object class="AdwSwitchRow" id="nmap_service_version_switchrow">
-                                <property name="subtitle" translatable="yes">Attempt to determine the version of the service running on port</property>
-                                <property name="title" translatable="yes">Service Version Detection (-sV)</property>
-                              </object>
-                            </child>
-                            <child>
-                              <object class="AdwSwitchRow" id="nmap_no_ping_switchrow">
-                                <property name="subtitle" translatable="yes">Skip host discovery, scan all targets</property>
-                                <property name="title" translatable="yes">No Ping Scan (-Pn)</property>
-                              </object>
-                            </child>
-                            <child>
-                              <object class="AdwComboRow" id="nmap_timing_template_comborow">
-                                <property name="model">
-                                  <object class="GtkStringList">
-                                    <items>
-                                      <item translatable="yes">Polite (T0)</item>
-                                      <item translatable="yes">Sneaky (T1)</item>
-                                      <item translatable="yes">Paranoid (T2)</item>
-                                      <item translatable="yes">Normal (T3)</item>
-                                      <item translatable="yes">Aggressive (T4)</item>
-                                      <item translatable="yes">Insane (T5)</item>
-                                    </items>
-                                  </object>
-                                </property>
-                                <property name="selected">3</property>
-                                <property name="title" translatable="yes">Timing Template (-T)</property>
-                              </object>
-                            </child>
-                          </object>
-                        </child>
-                        <child>
-                          <object class="AdwActionRow" id="status_row">
-                            <property name="activatable">False</property>
-                            <property name="hexpand">true</property>
-                            <property name="hexpand-set">true</property>
-                            <property name="subtitle" translatable="yes">Idle</property>
-                            <property name="title" translatable="yes">Scan Status</property>
-                            <property name="visible">true</property>
-                            <child>
-                              <object class="GtkSpinner" id="scan_spinner">
-                                <property name="spinning">False</property>
-                                <property name="visible">False</property>
-                              </object>
-                            </child>
-                            <child type="suffix">
-                              <object class="GtkButton" id="nmap_cancel_scan_button">
-                                <property name="label" translatable="yes">Cancel</property>
-                                <property name="icon-name">process-stop-symbolic</property>
-                                <property name="visible">False</property>
-                              </object>
-                            </child>
-                          </object>
-                        </child>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkListBox" id="nmap_host_listbox">
-                        <property name="hexpand">true</property>
-                        <property name="hexpand-set">true</property>
-                        <property name="selection-mode">single</property>
-                        <property name="vexpand">true</property>
-                      </object>
-                    </child>
+                    <property name="selection-mode">single</property>
+                    <property name="vexpand">true</property>
                   </object>
                 </child>
               </object>

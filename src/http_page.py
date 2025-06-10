@@ -92,6 +92,8 @@ class HttpPage(Adw.PreferencesPage):
     http_results_group = Gtk.Template.Child("http_results_group")
     clear_results_button = Gtk.Template.Child("clear_results_button")
     copy_results_button = Gtk.Template.Child()
+    http_status_row = Gtk.Template.Child()
+    http_status_spinner = Gtk.Template.Child()
 
     def __init__(self, **kwargs: GObject.GObject):
         """Initialize the HttpPage.
@@ -138,6 +140,12 @@ class HttpPage(Adw.PreferencesPage):
             self._on_host_header_changed(self.http_host_header_row)
         if self.http_user_agent_row:
             self._on_user_agent_changed(self.http_user_agent_row, None)
+
+        if self.http_status_row:
+            self.http_status_row.set_subtitle("Idle") # type: ignore
+        if self.http_status_spinner:
+            self.http_status_spinner.set_spinning(False) # type: ignore
+            self.http_status_spinner.set_visible(False) # type: ignore
 
     def _connect_signals(self) -> None:
         """Connect signals for UI elements to their respective handlers."""
@@ -248,13 +256,12 @@ class HttpPage(Adw.PreferencesPage):
             if not (main_window and hasattr(main_window, "show_toast")):
                 show_global_error(self, toast_message) # type: ignore
             self._update_column_view_model(None)
+            self._set_loading_state(False, "Idle - Invalid URL.")
             return
 
         self._clear_error()
-        self.http_entry_row.set_sensitive(False) # type: ignore
-        if hasattr(self, "http_apply_button") and self.http_apply_button:
-            self.http_apply_button.set_sensitive(False)
-            # self.http_apply_button.set_icon_name("process-working-symbolic") # Removed
+        self._set_loading_state(True, "Fetching headers...")
+
         host_header = self.http_host_header_row.get_text().strip() # type: ignore
         user_agent_to_send: Optional[str] = None
         selected_title_obj = self.http_user_agent_row.get_selected_item() # type: ignore
@@ -482,20 +489,21 @@ class HttpPage(Adw.PreferencesPage):
                 if hasattr(self, "http_entry_row") and self.http_entry_row:
                     self.http_entry_row.add_css_class("error") # type: ignore
                 self._update_column_view_model(None)
+            self._set_loading_state(False, "Error: Failed to process data.")
         except GLib.Error as e:  # Errors set by task.return_new_error_literal in _fetch_headers_task_thread_func
             logger.warning(
                 "HttpPage: Task failed with GLib.Error (Domain: %s, Code: %d, Message: %s)",
                  e.domain, e.code, e.message
             )
             display_message = e.message if e.message else "An unknown error occurred."
-            # Basic sanitization, could be more robust if needed
-            if "<b>" in display_message or "<" in display_message:
+            if "<b>" in display_message or "<" in display_message: # Basic sanitization
                 display_message = GLib.markup_escape_text(display_message)
 
             show_global_error(self, display_message) # type: ignore
             if hasattr(self, "http_entry_row") and self.http_entry_row:
                 self.http_entry_row.add_css_class("error") # type: ignore
-                self._update_column_view_model(None)
+            self._update_column_view_model(None)
+            self._set_loading_state(False, f"Error: {display_message.splitlines()[0]}")
         except Exception as e:  # Catch any other Python exceptions from this callback itself
             logger.exception("HttpPage: Unexpected Python error in _fetch_headers_task_done_cb:")
             error_message = f"An unexpected application error occurred: {e}"
@@ -503,12 +511,42 @@ class HttpPage(Adw.PreferencesPage):
             if hasattr(self, "http_entry_row") and self.http_entry_row:
                 self.http_entry_row.add_css_class("error") # type: ignore
             self._update_column_view_model(None)
+            self._set_loading_state(False, f"Error: {error_message.splitlines()[0]}")
         finally:
-            if hasattr(self, "http_entry_row") and self.http_entry_row:
-                self.http_entry_row.set_sensitive(True) # type: ignore
-            if hasattr(self, "http_apply_button") and self.http_apply_button:
-                self.http_apply_button.set_sensitive(True)
-                # Spinner icon logic for http_apply_button was removed
+            # _set_loading_state(False, ...) called in success/error blocks handles sensitivity
+            # and spinner. If no specific message for success/error, it defaults to "Idle".
+            # If an error occurred, the error message is set as status.
+            # If successful, a success message should be set.
+            if self.current_http_task is None: # Task finished (successfully or with error)
+                 if not propagate_result: # check if success
+                    if self.http_status_row and self.http_status_row.get_subtitle() == "Fetching headers...": # type: ignore
+                        self._set_loading_state(False, "Headers loaded.") # Default success
+                 # Error messages are set above. If no error, and success, subtitle should be "Headers loaded."
+
+    def _set_loading_state(self, active: bool, message: str = "Idle") -> None:
+        """Sets the UI loading state (spinner, status message, sensitivity of input fields)."""
+        if self.http_status_spinner:
+            self.http_status_spinner.set_visible(active) # type: ignore
+            if active:
+                self.http_status_spinner.start() # type: ignore
+            else:
+                self.http_status_spinner.stop() # type: ignore
+
+        if self.http_status_row:
+            self.http_status_row.set_subtitle(message) # type: ignore
+
+        sensitive = not active
+        if self.http_entry_row:
+            self.http_entry_row.set_sensitive(sensitive) # type: ignore
+        if self.http_apply_button:
+            self.http_apply_button.set_sensitive(sensitive) # type: ignore
+        if self.http_host_header_row:
+            self.http_host_header_row.set_sensitive(sensitive) # type: ignore
+        if self.http_user_agent_row:
+            self.http_user_agent_row.set_sensitive(sensitive) # type: ignore
+        if self.http_pragma_switch_row:
+            self.http_pragma_switch_row.set_sensitive(sensitive) # type: ignore
+
 
     @staticmethod
     def _ensure_scheme(url: str) -> str:
