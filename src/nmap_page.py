@@ -236,14 +236,14 @@ class NmapPage(Gtk.Box):
 
         if not params:
             logger.error("NmapPage: _run_nmap_scan_thread_func: _current_nmap_scan_params is None. This indicates a programming error.")
-            task.return_new_error_literal(NMAP_SCAN_ERROR_DOMAIN, NmapScanErrorType.UNEXPECTED.value, "Internal error: Scan parameters not found.") # type: ignore
+            task.return_new_error_literal(GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN), NmapScanErrorType.UNEXPECTED.value, "Internal error: Scan parameters not found.") # type: ignore
             return
 
         target = params["target"]
         logger.debug(f"_run_nmap_scan_thread_func started for target: {target}")
 
         if cancellable and cancellable.is_cancelled():
-            task.return_new_error_literal(NMAP_SCAN_ERROR_DOMAIN, NmapScanErrorType.CANCELLED.value, "Scan cancelled before start.")
+            task.return_new_error_literal(GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN), NmapScanErrorType.CANCELLED.value, "Scan cancelled before start.")
             return
 
         try:
@@ -251,18 +251,18 @@ class NmapPage(Gtk.Box):
 
             if cancellable and cancellable.is_cancelled():
                 # This check handles cancellation if run_nmap_scan completed but cancellation was flagged during its execution.
-                task.return_new_error_literal(NMAP_SCAN_ERROR_DOMAIN, NmapScanErrorType.CANCELLED.value, "Scan cancelled during operation.")
+                task.return_new_error_literal(GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN), NmapScanErrorType.CANCELLED.value, "Scan cancelled during operation.")
             else:
                 task.return_value(nm) # type: ignore
         except ScanCancelledError as e: # Specific handling for cancellation
             logger.info("Nmap scan for %s was cancelled: %s", target, e)
-            task.return_new_error_literal(NMAP_SCAN_ERROR_DOMAIN, NmapScanErrorType.CANCELLED.value, str(e))
+            task.return_new_error_literal(GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN), NmapScanErrorType.CANCELLED.value, str(e))
         except nmap.PortScannerError as e: # For other Nmap-related errors
             logger.exception("Nmap PortScannerError for %s:", target)
-            task.return_new_error_literal(NMAP_SCAN_ERROR_DOMAIN, NmapScanErrorType.SCAN_FAILED.value, f"Nmap scan error: {e}")
+            task.return_new_error_literal(GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN), NmapScanErrorType.SCAN_FAILED.value, f"Nmap scan error: {e}")
         except Exception as e: # Catch-all for any other unexpected errors
             logger.exception("Unexpected exception in Nmap scan task for %s (%s):", target, type(e).__name__)
-            task.return_new_error_literal(NMAP_SCAN_ERROR_DOMAIN, NmapScanErrorType.UNEXPECTED.value, f"Scan failed unexpectedly: {e}")
+            task.return_new_error_literal(GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN), NmapScanErrorType.UNEXPECTED.value, f"Scan failed unexpectedly: {e}")
         finally:
             logger.info("Nmap scan thread finished for %s.", target)
             # UI sensitivity updates are handled in _nmap_scan_task_done_cb

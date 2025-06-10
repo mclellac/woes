@@ -211,7 +211,7 @@ class WebScanPage(Adw.PreferencesPage):
             logger.error("WebScanPage: _run_scan_task_thread_func: _current_webscan_params is None.")
             # This indicates a programming error if scan_params is None.
             # The task object (if needed for error reporting) is 'task'.
-            task.return_new_error_literal(WEB_SCAN_ERROR_DOMAIN, WebScanErrorType.GENERIC.value, "Missing scan parameters in thread.") # type: ignore
+            task.return_new_error_literal(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.GENERIC.value, "Missing scan parameters in thread.") # type: ignore
             return
 
         target_url = scan_params["target_url"]
@@ -272,7 +272,7 @@ class WebScanPage(Adw.PreferencesPage):
 
         try:
             if cancellable.is_cancelled():
-                task.return_new_error_literal(WEB_SCAN_ERROR_DOMAIN, WebScanErrorType.CANCELLED.value, "Scan cancelled before Nikto process start.") # type: ignore
+                task.return_new_error_literal(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.CANCELLED.value, "Scan cancelled before Nikto process start.") # type: ignore
                 return
 
             process = subprocess.Popen(nikto_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8")
@@ -293,7 +293,7 @@ class WebScanPage(Adw.PreferencesPage):
                             process.kill()
                         except Exception as e_term: # pylint: disable=broad-except # Process termination can have diverse errors
                             logger.error(f"Error terminating Nikto process: {e_term}")
-                    task.return_new_error_literal(WEB_SCAN_ERROR_DOMAIN, WebScanErrorType.CANCELLED.value, "Scan cancelled by user.") # type: ignore
+                    task.return_new_error_literal(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.CANCELLED.value, "Scan cancelled by user.") # type: ignore
                     self.current_nikto_process = None
                     return
 
@@ -307,18 +307,18 @@ class WebScanPage(Adw.PreferencesPage):
 
             if process.returncode != 0:
                  logger.error(f"Nikto process finished with error code {process.returncode}. Stderr: {stderr_str}")
-                 task.return_new_error_literal(WEB_SCAN_ERROR_DOMAIN, WebScanErrorType.GENERIC.value, f"Nikto scan failed. Output:\n{stderr_str or stdout_str}") # type: ignore
+                 task.return_new_error_literal(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.GENERIC.value, f"Nikto scan failed. Output:\n{stderr_str or stdout_str}") # type: ignore
                  return
 
             task.return_value((stdout_str, stderr_str)) # type: ignore
         except FileNotFoundError:
             logger.error("Nikto command not found. Ensure it's in PATH.")
-            task.return_new_error_literal(WEB_SCAN_ERROR_DOMAIN, WebScanErrorType.NIKTO_NOT_FOUND.value, "Nikto command not found. Please ensure it is installed and in your system's PATH.") # type: ignore
+            task.return_new_error_literal(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.NIKTO_NOT_FOUND.value, "Nikto command not found. Please ensure it is installed and in your system's PATH.") # type: ignore
         # TimeoutExpired for process.communicate() is removed as we poll.
         # A global timeout for the entire scan could be implemented by checking time in the polling loop.
         except Exception as e: # pylint: disable=broad-except # Catch all for thread to report error via Gio.Task
             logger.exception(f"An unexpected error occurred during Nikto scan task: {e}")
-            task.return_new_error_literal(WEB_SCAN_ERROR_DOMAIN, WebScanErrorType.GENERIC.value, str(e)) # type: ignore
+            task.return_new_error_literal(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.GENERIC.value, str(e)) # type: ignore
         finally:
             self.current_nikto_process = None # Ensure cleared
 
