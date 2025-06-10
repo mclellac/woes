@@ -353,19 +353,42 @@ class WebScanPage(Adw.PreferencesPage):
             # The 'result' parameter itself is the Gio.Task object here.
             returned_data = result.propagate_value() # type: ignore
             if isinstance(returned_data, tuple) and len(returned_data) == 2:
-                stdout, stderr = returned_data
+                s_out, s_err = returned_data
             elif hasattr(returned_data, 'value') and isinstance(returned_data.value, tuple) and len(returned_data.value) == 2: # Handle potential Gio.DBusCallFlags like wrapper
-                stdout, stderr = returned_data.value
+                s_out, s_err = returned_data.value
             else:
+                s_out, s_err = None, None # Ensure they are defined for the error case below
                 logger.error(f"Nikto scan for {target_url} returned unexpected result format: {type(returned_data)}")
                 show_global_error(self, "Scan returned unexpected data format.") # type: ignore
-                self._update_textview(None, "Error: Scan returned unexpected data format.")
-                # Fall through to finally block for UI reset
+                self._update_textview(None, "Error: Scan returned unexpected data format.", is_error_message=True)
+                # Fall through to finally block for UI reset, status will be updated there
 
-            if stdout is not None or stderr is not None: # If successful (even with stderr info)
-                self._update_textview(stdout, stderr, is_error_message=False)
+            # Ensure stdout and stderr are strings or None
+            final_stdout: Optional[str] = None
+            if s_out is not None:
+                if not isinstance(s_out, str):
+                    logger.warning(f"Nikto stdout was type {type(s_out)}, expected str. Converting. Value: {s_out}")
+                    final_stdout = str(s_out)
+                else:
+                    final_stdout = s_out
+
+            final_stderr: Optional[str] = None
+            if s_err is not None:
+                if not isinstance(s_err, str):
+                    logger.warning(f"Nikto stderr was type {type(s_err)}, expected str. Converting. Value: {s_err}")
+                    final_stderr = str(s_err)
+                else:
+                    final_stderr = s_err
+
+            if final_stdout is not None or final_stderr is not None: # If successful (even with stderr info)
+                self._update_textview(final_stdout, final_stderr, is_error_message=False)
                 if self.webscan_status_action_row:
                     self.webscan_status_action_row.set_subtitle("Scan complete.") # type: ignore
+            # If both are None after conversion (e.g. unexpected data format led to s_out/s_err being None)
+            # and no other error was caught, the status might remain "Scanning...".
+            # The finally block will handle this.
+            # Consider if an explicit "No output received" status is needed here if both are None
+            # but no GLib.Error was raised. For now, relying on finally block.
 
         except GLib.Error as e:
             logger.warning(f"Nikto scan task for {target_url} failed or was cancelled: {e.message} (Domain: {e.domain}, Code: {e.code})")

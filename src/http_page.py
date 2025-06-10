@@ -483,13 +483,14 @@ class HttpPage(Adw.PreferencesPage):
                     self._update_column_view_model(processed_headers_for_store)
                 if hasattr(self, "http_entry_row") and self.http_entry_row:
                     self.http_entry_row.remove_css_class("error") # type: ignore
+                self._set_loading_state(False, "Headers loaded successfully.") # Explicit success message
             else: # actual_list_of_responses is None or not a list after attempted extraction
                 logger.error(f"HttpPage: Failed to obtain a valid list of responses. Value: {actual_list_of_responses}")
                 show_global_error(self, "Failed to process data from background task.") # type: ignore
                 if hasattr(self, "http_entry_row") and self.http_entry_row:
                     self.http_entry_row.add_css_class("error") # type: ignore
                 self._update_column_view_model(None)
-            self._set_loading_state(False, "Error: Failed to process data.")
+                self._set_loading_state(False, "Error: Failed to process data.")
         except GLib.Error as e:  # Errors set by task.return_new_error_literal in _fetch_headers_task_thread_func
             logger.warning(
                 "HttpPage: Task failed with GLib.Error (Domain: %s, Code: %d, Message: %s)",
@@ -517,11 +518,15 @@ class HttpPage(Adw.PreferencesPage):
             # and spinner. If no specific message for success/error, it defaults to "Idle".
             # If an error occurred, the error message is set as status.
             # If successful, a success message should be set.
-            if self.current_http_task is None: # Task finished (successfully or with error)
-                 if not propagate_result: # check if success
-                    if self.http_status_row and self.http_status_row.get_subtitle() == "Fetching headers...": # type: ignore
-                        self._set_loading_state(False, "Headers loaded.") # Default success
-                 # Error messages are set above. If no error, and success, subtitle should be "Headers loaded."
+            # The explicit calls to _set_loading_state in try/except blocks handle this.
+            # This finally block ensures controls are re-enabled if an unexpected exit happens,
+            # but the status message should reflect the outcome from try/except.
+            # If no specific status was set by success/error handlers (e.g. if an error happened before status was set),
+            # and the task is done, default to "Idle" or a generic "Finished".
+            if self.current_http_task is None: # Should always be true here if task is done
+                if self.http_status_row and self.http_status_row.get_subtitle() == "Fetching headers...": # type: ignore
+                     # This means neither success nor specific error message was set for status_row
+                    self._set_loading_state(False, "Idle - operation ended.")
 
     def _set_loading_state(self, active: bool, message: str = "Idle") -> None:
         """Sets the UI loading state (spinner, status message, sensitivity of input fields)."""
