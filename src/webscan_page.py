@@ -48,7 +48,7 @@ class WebScanPage(Adw.PreferencesPage):
         self.current_web_scan_cancellable: Optional[Gio.Cancellable] = None
         self.current_nikto_process: Optional[subprocess.Popen] = None
         self._current_webscan_params: Optional[Dict[str, Any]] = None
-        # self._temp_scan_data was used to pass data to thread, now using task.set_task_data()
+        # self._temp_scan_data was used previously; now using self._current_webscan_params
         logger.debug("WebScanPage initialized")
 
         if self.webscan_status_spinner:
@@ -215,6 +215,12 @@ class WebScanPage(Adw.PreferencesPage):
             return
 
         target_url = scan_params["target_url"]
+        force_ssl = scan_params.get("force_ssl", False)
+        cgi_vulns = scan_params.get("cgi_vulns", False)
+        interesting_content = scan_params.get("interesting_content", False)
+        evasion_active = scan_params.get("evasion", False)
+        mutate_active = scan_params.get("mutate", False)
+        maxtime_str = scan_params.get("maxtime", "")
 
         # is_valid_url (used in on_scan_button_clicked) ensures target_url has a scheme from
         # ['http', 'https', 'ftp']. Nikto prepends 'http://' if no scheme is given,
@@ -328,7 +334,6 @@ class WebScanPage(Adw.PreferencesPage):
         # for a previous one (though current_web_scan_task should prevent that).
         # self._current_webscan_params = None # Consider clearing later or if issues arise.
 
-        finished_task = result.get_source_object() if hasattr(result, 'get_source_object') else self.current_web_scan_task
         logger.info(f"Nikto scan task done for {target_url}.")
         stdout: Optional[str] = None
         stderr: Optional[str] = None
@@ -336,7 +341,8 @@ class WebScanPage(Adw.PreferencesPage):
         try:
             # propagate_value() will return the (stdout, stderr) tuple on success
             # or raise GLib.Error if task.return_new_error_literal was called.
-            returned_data = finished_task.propagate_value() # type: ignore
+            # The 'result' parameter itself is the Gio.Task object here.
+            returned_data = result.propagate_value() # type: ignore
             if isinstance(returned_data, tuple) and len(returned_data) == 2:
                 stdout, stderr = returned_data
             elif hasattr(returned_data, 'value') and isinstance(returned_data.value, tuple) and len(returned_data.value) == 2: # Handle potential Gio.DBusCallFlags like wrapper
