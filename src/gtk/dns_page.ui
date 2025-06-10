@@ -1,14 +1,16 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<!-- Created with Cambalache 0.91.3 -->
+<!-- Created with Cambalache 0.96.1 -->
 <interface>
+  <!-- interface-name dns_page.ui -->
   <requires lib="gtk" version="4.10"/>
   <requires lib="libadwaita" version="1.4"/>
   <template class="DNSPage" parent="AdwPreferencesPage">
-    <property name="title" translatable="yes">DNS Lookup</property>
     <property name="icon-name">org.gnome.Epiphany-symbolic</property>
+    <property name="title" translatable="yes">DNS Lookup</property>
     <child>
       <object class="AdwPreferencesGroup">
         <property name="title" translatable="yes">Lookup Parameters</property>
+        <property name="width-request">800</property>
         <child>
           <object class="AdwActionRow" id="dns_ip_entryrow">
             <property name="title" translatable="yes">Domain or IP Address</property>
@@ -17,14 +19,13 @@
               <object class="GtkEntry" id="domain_entry">
                 <property name="hexpand">True</property>
                 <property name="valign">center</property>
-                <!-- Consider adding placeholder-text -->
               </object>
             </child>
             <child type="suffix">
               <object class="GtkSpinner" id="dns_lookup_spinner">
                 <property name="spinning">False</property>
-                <property name="visible">False</property>
                 <property name="valign">center</property>
+                <property name="visible">False</property>
               </object>
             </child>
             <child type="suffix">
@@ -43,14 +44,15 @@
             <property name="icon-name">preferences-system-network-symbolic</property>
             <property name="model">
               <object class="GtkStringList" id="dns_record_type_list">
-                <property name="strings">A</property> <!-- Default selection -->
+                <property name="strings">A</property>
+                <!-- Default selection -->
                 <items>
                   <item>AAAA</item>
                   <item>TXT</item>
                   <item>CNAME</item>
                   <item>MX</item>
                   <item>NS</item>
-                  <item>PTR</item> <!-- Added PTR for completeness, though it's auto-selected for IPs -->
+                  <item>PTR</item>
                 </items>
               </object>
             </property>
@@ -62,15 +64,15 @@
     </child>
     <child>
       <object class="AdwPreferencesGroup">
-        <property name="title" translatable="yes">Results</property>
         <property name="description" translatable="yes">DNS lookup results will appear below.</property>
+        <property name="title" translatable="yes">Results</property>
+        <property name="width-request">1000</property>
         <child>
           <object class="GtkBox" id="dns_results_box_container">
-            <property name="orientation">vertical</property>
-            <property name="vexpand">True</property>
             <property name="hexpand">True</property>
-            <property name="spacing">6</property> <!-- Optional: add some spacing between dynamic rows -->
-            <!-- Dynamically populated DNS result rows will be added here -->
+            <property name="orientation">vertical</property>
+            <property name="spacing">6</property>
+            <property name="vexpand">True</property>
           </object>
         </child>
       </object>
