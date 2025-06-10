@@ -354,27 +354,41 @@ class WebScanPage(Adw.PreferencesPage):
                 # Fall through to finally block for UI reset
 
             if stdout is not None or stderr is not None: # If successful (even with stderr info)
-                self._update_textview(stdout, stderr)
+                self._update_textview(stdout, stderr, is_error_message=False)
 
         except GLib.Error as e:
             logger.warning(f"Nikto scan task for {target_url} failed or was cancelled: {e.message} (Domain: {e.domain}, Code: {e.code})")
-            user_message = e.message # Default to the error message from the task
-            if e.matches(WEB_SCAN_ERROR_DOMAIN, WebScanErrorType.NIKTO_NOT_FOUND.value): # type: ignore
-                user_message = "Nikto command not found. Please ensure Nikto is installed and in your system's PATH."
-            elif e.matches(WEB_SCAN_ERROR_DOMAIN, WebScanErrorType.TIMEOUT.value): # type: ignore
-                user_message = f"Scan for {target_url} timed out." # This error type might not be used if timeout is only for process.communicate
-            elif e.matches(WEB_SCAN_ERROR_DOMAIN, WebScanErrorType.CANCELLED.value): # type: ignore
-                user_message = f"Scan for {target_url} was cancelled."
-            elif e.matches(WEB_SCAN_ERROR_DOMAIN, WebScanErrorType.GENERIC.value): # type: ignore
-                user_message = f"Scan failed for {target_url}: {e.message}" # e.message already contains details for this error type
 
-            show_global_error(self, user_message) # type: ignore
-            self._update_textview(None, f"Error: {user_message}") # Display error in textview as well
+            brief_user_message = e.message # Default
+            detailed_output_for_textview = f"Error: {e.message}"
+
+            if e.matches(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.NIKTO_NOT_FOUND.value): # type: ignore
+                brief_user_message = "Nikto command not found. Please ensure Nikto is installed and in your system's PATH."
+                detailed_output_for_textview = f"Error: {brief_user_message}"
+            elif e.matches(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.TIMEOUT.value): # type: ignore
+                brief_user_message = f"Scan for {target_url} timed out."
+                detailed_output_for_textview = f"Error: {brief_user_message}"
+            elif e.matches(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.CANCELLED.value): # type: ignore
+                brief_user_message = f"Scan for {target_url} was cancelled."
+                detailed_output_for_textview = f"Error: {brief_user_message}"
+            elif e.matches(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.GENERIC.value): # type: ignore
+                nikto_failure_prefix = "Nikto scan failed. Output:\n"
+                if e.message.startswith(nikto_failure_prefix):
+                    brief_user_message = "Nikto scan failed. See results view for output."
+                    # Extract the actual Nikto output part for the textview
+                    nikto_log_output = e.message.split(nikto_failure_prefix, 1)[-1]
+                    detailed_output_for_textview = f"Error: Nikto scan failed.\n--- Output ---\n{nikto_log_output}"
+                else: # Generic error that isn't a Nikto output failure
+                    brief_user_message = f"Scan failed for {target_url}: {e.message}"
+                    detailed_output_for_textview = f"Error: {brief_user_message}"
+
+            show_global_error(self, brief_user_message) # type: ignore
+            self._update_textview(None, detailed_output_for_textview, is_error_message=True) # Display error in textview as well
         except Exception: # Catch any other Python exceptions from this callback itself # pylint: disable=broad-except # Ensure UI updates if callback logic fails
             logger.exception(f"Unexpected Python error in _on_scan_task_done for {target_url}:")
             user_message = "An unexpected error occurred while processing scan results."
             show_global_error(self, user_message) # type: ignore
-            self._update_textview(None, f"Error: {user_message}")
+            self._update_textview(None, f"Error: {user_message}", is_error_message=True)
         finally:
             self.scan_button.set_sensitive(True) # type: ignore
             if hasattr(self, 'webscan_cancel_button'):
@@ -386,13 +400,17 @@ class WebScanPage(Adw.PreferencesPage):
             self.current_web_scan_cancellable = None
             self.current_nikto_process = None # Ensure cleared
 
-    def _update_textview(self, stdout: Optional[str], stderr: Optional[str]):
-        """Update the results TextView with Nikto's stdout and stderr."""
+    def _update_textview(self, stdout_content: Optional[str], stderr_content: Optional[str], is_error_message: bool = False):
+        """Update the results TextView with Nikto's stdout and error messages/stderr."""
         buffer = self.results_textview.get_buffer()
-        if stdout:
-            buffer.insert(buffer.get_end_iter(), stdout)
-        if stderr:
-            buffer.insert(buffer.get_end_iter(), "\n--- Errors ---\n" + stderr)
+        if stdout_content:
+            buffer.insert(buffer.get_end_iter(), stdout_content)
+
+        if stderr_content:
+            if is_error_message: # This is a pre-formatted error message for the text view
+                buffer.insert(buffer.get_end_iter(), "\n" + stderr_content) # Add newline before error block
+            else: # This is raw stderr from Nikto on a successful run
+                buffer.insert(buffer.get_end_iter(), "\n--- Nikto Standard Error Output ---\n" + stderr_content)
 
         scroll_adj = self.results_textview.get_parent().get_vadjustment()
         if scroll_adj:
