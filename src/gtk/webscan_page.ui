@@ -27,6 +27,29 @@
                 </style>
               </object>
             </child>
+            <property name="header-suffix"> <!-- Changed from child to header-suffix for proper layout -->
+              <object class="GtkBox">
+                <property name="orientation">horizontal</property>
+                <property name="spacing">6</property>
+                <child>
+                  <object class="GtkSpinner" id="webscan_status_spinner">
+                    <property name="spinning">False</property>
+                    <property name="visible">False</property>
+                    <property name="valign">center</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkButton" id="webscan_cancel_button">
+                    <property name="label" translatable="yes">Cancel Scan</property>
+                    <property name="icon-name">process-stop-symbolic</property>
+                    <property name="sensitive">False</property>
+                    <property name="visible">False</property>
+                    <property name="valign">center</property>
+                    <style><class name="destructive-action"/></style>
+                  </object>
+                </child>
+              </object>
+            </property>
           </object>
         </child>
             <child>
