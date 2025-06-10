@@ -164,6 +164,13 @@
                                 <property name="visible">False</property>
                               </object>
                             </child>
+                            <child type="suffix">
+                              <object class="GtkButton" id="nmap_cancel_scan_button">
+                                <property name="label" translatable="yes">Cancel</property>
+                                <property name="icon-name">process-stop-symbolic</property>
+                                <property name="visible">False</property>
+                              </object>
+                            </child>
                           </object>
                         </child>
                       </object>
