@@ -16,26 +16,19 @@
         <child>
           <object class="AdwActionRow">
             <property name="title">Actions</property>
-            <child>
-              <object class="GtkButton" id="scan_button">
-                <property name="label">Start Scan</property>
-                <property name="halign">end</property>
-                <property name="valign">center</property>
-                <signal name="clicked" handler="on_scan_button_clicked"/>
-                <style>
-                  <class name="suggested-action"/>
-                </style>
-              </object>
-            </child>
-            <property name="header-suffix"> <!-- Changed from child to header-suffix for proper layout -->
+            <child type="suffix">
               <object class="GtkBox">
                 <property name="orientation">horizontal</property>
                 <property name="spacing">6</property>
                 <child>
-                  <object class="GtkSpinner" id="webscan_status_spinner">
-                    <property name="spinning">False</property>
-                    <property name="visible">False</property>
+                  <object class="GtkButton" id="scan_button">
+                    <property name="label">Start Scan</property>
+                    <property name="halign">end</property>
                     <property name="valign">center</property>
+                    <signal name="clicked" handler="on_scan_button_clicked"/>
+                    <style>
+                      <class name="suggested-action"/>
+                    </style>
                   </object>
                 </child>
                 <child>
@@ -48,8 +41,15 @@
                     <style><class name="destructive-action"/></style>
                   </object>
                 </child>
+                <child>
+                  <object class="GtkSpinner" id="webscan_status_spinner">
+                    <property name="spinning">False</property>
+                    <property name="visible">False</property>
+                    <property name="valign">center</property>
+                  </object>
+                </child>
               </object>
-            </property>
+            </child>
           </object>
         </child>
             <child>
