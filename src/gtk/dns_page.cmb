@@ -1,0 +1,6 @@
+<?xml version='1.0' encoding='UTF-8' standalone='no'?>
+<!DOCTYPE cambalache-project SYSTEM "cambalache-project.dtd">
+<!-- Created with Cambalache 0.96.1 -->
+<cambalache-project version="0.96.0" target_tk="gtk-4.0">
+  <ui template-class="DNSPage" filename="dns_page.ui" sha256="1ce2cc6aa1213a01f1e2c41a5e131d6a1f0a9841a0a8cd1f40679abf0623bebc"/>
+</cambalache-project>
