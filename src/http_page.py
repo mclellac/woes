@@ -36,7 +36,7 @@ gi.require_version("Gtk", "4.0")
 
 logger = logging.getLogger(__name__)
 
-WOES_HTTP_ERROR_DOMAIN = "woes-http-error-domain" # Used for Gio.Task errors
+WOES_HTTP_ERROR_DOMAIN = "woes-http-error-domain"  # Used for Gio.Task errors
 
 
 class HttpErrorType(int, Enum):
@@ -109,8 +109,8 @@ class HttpPage(Adw.PreferencesPage):
         logger.debug("HttpPage initialized.")
         self.current_http_task: Optional[Gio.Task] = None
         self._current_header_items: List[HeaderItem] = []
-        self._http_task_data_for_thread: Dict[str, Any] = {} # Changed dict to Dict
-        self._ua_title_to_value_map: Dict[str, Optional[str]] = {} # Changed dict to Dict
+        self._http_task_data_for_thread: Dict[str, Any] = {}  # Changed dict to Dict
+        self._ua_title_to_value_map: Dict[str, Optional[str]] = {}  # Changed dict to Dict
         self.settings = Gio.Settings(schema_id=APP_ID)
         self._header_key_color = self.settings.get_string("http-output-header-key-color")
         self._header_value_color = self.settings.get_string("http-output-header-value-color")
@@ -145,7 +145,7 @@ class HttpPage(Adw.PreferencesPage):
         """Connect signals for UI elements to their respective handlers."""
         self.http_entry_row.connect("entry-activated", self._on_entry_row_activated)
         self.http_apply_button.connect("clicked", self._on_entry_row_activated)
-        self.http_pragma_switch_row.connect("notify::active", self._on_pragma_toggled) # type: ignore
+        self.http_pragma_switch_row.connect("notify::active", self._on_pragma_toggled)  # type: ignore
         self.clear_results_button.connect("clicked", self._on_clear_results_clicked)
         if self.copy_results_button:
             self.copy_results_button.connect("clicked", self._on_copy_results_clicked)
@@ -164,7 +164,7 @@ class HttpPage(Adw.PreferencesPage):
         """
         if not entry_row:
             return
-        text = entry_row.get_text().strip() # type: ignore
+        text = entry_row.get_text().strip()  # type: ignore
         if text:
             entry_row.add_css_class("active-override")
         else:
@@ -183,10 +183,10 @@ class HttpPage(Adw.PreferencesPage):
         if not combo_row:
             return
         selected_item_obj = combo_row.get_selected_item()
-        if isinstance(selected_item_obj, Gtk.StringObject): # type: ignore
-            selected_title = selected_item_obj.get_string() # type: ignore
+        if isinstance(selected_item_obj, Gtk.StringObject):  # type: ignore
+            selected_title = selected_item_obj.get_string()  # type: ignore
             effective_ua_value = self._ua_title_to_value_map.get(selected_title)
-            if effective_ua_value: # i.e., not the "None" option which maps to None
+            if effective_ua_value:  # i.e., not the "None" option which maps to None
                 combo_row.add_css_class("active-override")
             else:
                 combo_row.remove_css_class("active-override")
@@ -238,30 +238,31 @@ class HttpPage(Adw.PreferencesPage):
         :param _widget: The widget that triggered the activation (unused).
         :type _widget: Gtk.Widget
         """
-        original_url = self.http_entry_row.get_text().strip() # type: ignore
+        original_url = self.http_entry_row.get_text().strip()  # type: ignore
         url = self._ensure_scheme(original_url)
         logger.info("Fetching headers for URL: %s (original input: %s)", url, original_url)
 
         if not is_valid_url(url):
             logger.warning("Invalid URL provided: %s (processed as: %s)", original_url, url)
             toast_message = "Invalid URL format. Please enter a valid URL (e.g., https://example.com)."
-            show_global_toast(self, toast_message) # type: ignore
+            show_global_toast(self, toast_message)  # type: ignore
             main_window = self.get_native()
             if not (main_window and hasattr(main_window, "show_toast")):
-                show_global_error(self, toast_message) # type: ignore
+                show_global_error(self, toast_message)  # type: ignore
             self._update_column_view_model(None)
             return
 
         self._clear_error()
-        self.http_entry_row.set_sensitive(False) # type: ignore
+        self.http_entry_row.set_sensitive(False)  # type: ignore
         if hasattr(self, "http_apply_button") and self.http_apply_button:
             self.http_apply_button.set_sensitive(False)
-            # self.http_apply_button.set_icon_name("process-working-symbolic") # Removed
+
         host_header = self.http_host_header_row.get_text().strip() # type: ignore
+
         user_agent_to_send: Optional[str] = None
-        selected_title_obj = self.http_user_agent_row.get_selected_item() # type: ignore
-        if isinstance(selected_title_obj, Gtk.StringObject): # type: ignore
-            selected_title = selected_title_obj.get_string() # type: ignore
+        selected_title_obj = self.http_user_agent_row.get_selected_item()  # type: ignore
+        if isinstance(selected_title_obj, Gtk.StringObject):  # type: ignore
+            selected_title = selected_title_obj.get_string()  # type: ignore
             user_agent_to_send = self._ua_title_to_value_map.get(selected_title)
         custom_dns_server = self.settings.get_string("custom-dns-server")
         # HttpPage no longer needs to check for `dns` module availability directly for HttpFetcher,
@@ -269,16 +270,16 @@ class HttpPage(Adw.PreferencesPage):
         # Store parameters for the thread to access
         self._http_task_data_for_thread = {
             "url": url,
-            "use_akamai_pragma": self.http_pragma_switch_row.get_active(), # type: ignore
+            "use_akamai_pragma": self.http_pragma_switch_row.get_active(),  # type: ignore
             "host_header": host_header if host_header else None,
             "user_agent": user_agent_to_send,
-            "custom_dns_server": custom_dns_server if custom_dns_server else None, # Retain for HttpFetcher
+            "custom_dns_server": custom_dns_server if custom_dns_server else None,  # Retain for HttpFetcher
         }
         logger.debug(f"HttpPage: Starting header fetch task with data: {self._http_task_data_for_thread}")
 
-        task = Gio.Task.new(self, None, self._fetch_headers_task_done_cb, None) # type: ignore
+        task = Gio.Task.new(self, None, self._fetch_headers_task_done_cb, None)  # type: ignore
         self.current_http_task = task
-        task.run_in_thread(self._fetch_headers_task_thread_func) # type: ignore
+        task.run_in_thread(self._fetch_headers_task_thread_func)  # type: ignore
 
     # _prepare_request_headers moved to HttpFetcher
     # _execute_http_request moved to HttpFetcher
@@ -288,10 +289,10 @@ class HttpPage(Adw.PreferencesPage):
 
     def _fetch_headers_task_thread_func(
         self,
-        task: Gio.Task, # The task itself, passed by run_in_thread
-        _source_object: GObject.Object, # type: ignore
-        _task_data_arg: Dict[str, Any], # type: ignore # Not used, self._http_task_data_for_thread is used
-        cancellable: Optional[Gio.Cancellable], # Provided by Gio.Task
+        task: Gio.Task,  # The task itself, passed by run_in_thread
+        _source_object: GObject.Object,  # type: ignore
+        _task_data_arg: Dict[str, Any],  # type: ignore # Not used, self._http_task_data_for_thread is used
+        cancellable: Optional[Gio.Cancellable],  # Provided by Gio.Task
     ) -> None:
         """Background thread function for fetching HTTP headers.
 
@@ -313,10 +314,10 @@ class HttpPage(Adw.PreferencesPage):
         url_to_fetch: str = current_task_data["url"]
 
         if cancellable and cancellable.is_cancelled():
-            task.return_new_error_literal( # type: ignore
+            task.return_new_error_literal(  # type: ignore
                 GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
                 HttpErrorType.CANCELLED.value,
-                "Task cancelled before fetching."
+                "Task cancelled before fetching.",
             )
             return
 
@@ -327,56 +328,63 @@ class HttpPage(Adw.PreferencesPage):
             host_header=current_task_data.get("host_header"),
             user_agent=current_task_data.get("user_agent"),
             custom_dns_server=current_task_data.get("custom_dns_server"),
-            cancellable=cancellable  # Pass the cancellable to HttpFetcher
+            cancellable=cancellable,  # Pass the cancellable to HttpFetcher
         )
 
         try:
             # Execute the fetch operation via HttpFetcher
             processed_data = fetcher.fetch_headers()
-            if cancellable and cancellable.is_cancelled(): # Check again after fetch_headers returns
-                task.return_new_error_literal( # type: ignore
-                    GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN), HttpErrorType.CANCELLED.value, "Task cancelled after fetching."
+            if cancellable and cancellable.is_cancelled():  # Check again after fetch_headers returns
+                task.return_new_error_literal(  # type: ignore
+                    GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
+                    HttpErrorType.CANCELLED.value,
+                    "Task cancelled after fetching.",
                 )
             else:
-                task.return_value(processed_data) # type: ignore
+                task.return_value(processed_data)  # type: ignore
         except HttpRequestTimeoutError as e:
             logger.warning("HttpPage Task: Timeout for '%s': %s", url_to_fetch, e)
-            task.return_new_error_literal( # type: ignore
+            task.return_new_error_literal(  # type: ignore
                 GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN), HttpErrorType.TIMEOUT.value, str(e)
             )
         except HttpConnectionError as e:
             logger.warning("HttpPage Task: ConnectionError for '%s': %s", url_to_fetch, e)
-            task.return_new_error_literal( # type: ignore
+            task.return_new_error_literal(  # type: ignore
                 GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN), HttpErrorType.CONNECTION_ERROR.value, str(e)
             )
-        except HttpProcessingError as e: # Raised by HttpFetcher for HTTP 4xx/5xx errors
+        except HttpProcessingError as e:  # Raised by HttpFetcher for HTTP 4xx/5xx errors
             logger.warning("HttpPage Task: HttpProcessingError for '%s': %s", url_to_fetch, e)
-            task.return_new_error_literal( # type: ignore
+            task.return_new_error_literal(  # type: ignore
                 GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN), HttpErrorType.HTTP_ERROR.value, str(e)
             )
-        except HttpGenericRequestError as e: # Other requests library errors
+        except HttpGenericRequestError as e:  # Other requests library errors
             logger.warning("HttpPage Task: HttpGenericRequestError for '%s': %s", url_to_fetch, e)
-            task.return_new_error_literal( # type: ignore
+            task.return_new_error_literal(  # type: ignore
                 GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN), HttpErrorType.REQUEST_EXCEPTION.value, str(e)
             )
-        except HttpClientError as e: # Catches other client errors including cancellation from HttpFetcher
+        except HttpClientError as e:  # Catches other client errors including cancellation from HttpFetcher
             logger.warning("HttpPage Task: HttpClientError for '%s': %s", url_to_fetch, e)
-            if "cancelled" in str(e).lower(): # Check if it's a cancellation error from HttpFetcher
-                 task.return_new_error_literal( # type: ignore
+            if "cancelled" in str(e).lower():  # Check if it's a cancellation error from HttpFetcher
+                task.return_new_error_literal(  # type: ignore
                     GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN), HttpErrorType.CANCELLED.value, str(e)
                 )
             else:
-                task.return_new_error_literal( # type: ignore # General client error
+                task.return_new_error_literal(  # type: ignore # General client error
                     GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN), HttpErrorType.GENERIC_UNEXPECTED.value, str(e)
                 )
-        except Exception as e: # Catch any other unexpected errors from HttpFetcher or this layer
+        except Exception as e:  # Catch any other unexpected errors from HttpFetcher or this layer
             logger.exception("HttpPage Task: Unexpected generic error for URL '%s':", url_to_fetch)
-            task.return_new_error_literal( # type: ignore
-                GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN), HttpErrorType.GENERIC_UNEXPECTED.value, f"Unexpected internal error: {e}"
+            task.return_new_error_literal(  # type: ignore
+                GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
+                HttpErrorType.GENERIC_UNEXPECTED.value,
+                f"Unexpected internal error: {e}",
             )
 
     def _fetch_headers_task_done_cb(
-        self, _source_object: GObject.Object, result: Gio.AsyncResult, _user_data: object # type: ignore
+        self,
+        _source_object: GObject.Object,
+        result: Gio.AsyncResult,
+        _user_data: object,  # type: ignore
     ) -> None:
         """Callback for when the :meth:`_fetch_headers_task_thread_func` completes.
 
@@ -393,8 +401,8 @@ class HttpPage(Adw.PreferencesPage):
         task_being_processed = self.current_http_task
         if task_being_processed is None:
             logger.warning("_fetch_headers_task_done_cb: current_http_task is None.")
-            if hasattr(self, "http_entry_row") and self.http_entry_row and not self.http_entry_row.get_sensitive(): # type: ignore
-                self.http_entry_row.set_sensitive(True) # type: ignore
+            if hasattr(self, "http_entry_row") and self.http_entry_row and not self.http_entry_row.get_sensitive():  # type: ignore
+                self.http_entry_row.set_sensitive(True)  # type: ignore
             if (
                 hasattr(self, "http_apply_button")
                 and self.http_apply_button
@@ -410,61 +418,74 @@ class HttpPage(Adw.PreferencesPage):
             # actual_list_of_responses is now the direct result from HttpFetcher if successful
             actual_list_of_responses: Optional[List[Dict[str, Any]]] = None
 
-            if isinstance(propagate_result, list): # Check for list first, as it's the most direct expected type
+            if isinstance(propagate_result, list):  # Check for list first, as it's the most direct expected type
                 actual_list_of_responses = propagate_result
-            elif hasattr(propagate_result, '_asdict') and hasattr(propagate_result, '_fields'): # Heuristic for a namedtuple
-                logger.info(f"HttpPage: Received namedtuple-like object {type(propagate_result)}, attempting to extract data.")
+            elif hasattr(propagate_result, "_asdict") and hasattr(
+                propagate_result, "_fields"
+            ):  # Heuristic for a namedtuple
+                logger.info(
+                    f"HttpPage: Received namedtuple-like object {type(propagate_result)}, attempting to extract data."
+                )
                 # Assuming the list is the first field, or a field named 'result' or 'data'
-                if 'result' in propagate_result._fields and isinstance(propagate_result.result, list):
+                if "result" in propagate_result._fields and isinstance(propagate_result.result, list):
                     actual_list_of_responses = propagate_result.result
-                elif 'data' in propagate_result._fields and isinstance(propagate_result.data, list):
+                elif "data" in propagate_result._fields and isinstance(propagate_result.data, list):
                     actual_list_of_responses = propagate_result.data
-                elif propagate_result._fields and hasattr(propagate_result, propagate_result._fields[0]) and isinstance(getattr(propagate_result, propagate_result._fields[0]), list):
+                elif (
+                    propagate_result._fields
+                    and hasattr(propagate_result, propagate_result._fields[0])
+                    and isinstance(getattr(propagate_result, propagate_result._fields[0]), list)
+                ):
                     actual_list_of_responses = getattr(propagate_result, propagate_result._fields[0])
-                else: # Fallback if fields are empty, not matching, or not a list
-                    logger.error(f"HttpPage: namedtuple-like object detected, but could not extract List[Dict[str, Any]] data: {propagate_result}")
-                    actual_list_of_responses = None # Ensure it's None if extraction fails
+                else:  # Fallback if fields are empty, not matching, or not a list
+                    logger.error(
+                        f"HttpPage: namedtuple-like object detected, but could not extract List[Dict[str, Any]] data: {propagate_result}"
+                    )
+                    actual_list_of_responses = None  # Ensure it's None if extraction fails
             elif isinstance(propagate_result, Gio.DBusCallFlags):
-                 # This was a workaround, ideally HttpFetcher's result is directly a list or raises.
-                 # If HttpFetcher returns list directly, this might not be needed.
-                 # For now, keeping it if task.return_value() could still wrap.
-                 logger.debug("HttpPage: propagate_result is Gio.DBusCallFlags, accessing .value")
-                 actual_list_of_responses = propagate_result.value # type: ignore
-            elif hasattr(propagate_result, 'value'): # Generic fallback for a wrapper with a .value attribute
+                # This was a workaround, ideally HttpFetcher's result is directly a list or raises.
+                # If HttpFetcher returns list directly, this might not be needed.
+                # For now, keeping it if task.return_value() could still wrap.
+                logger.debug("HttpPage: propagate_result is Gio.DBusCallFlags, accessing .value")
+                actual_list_of_responses = propagate_result.value  # type: ignore
+            elif hasattr(propagate_result, "value"):  # Generic fallback for a wrapper with a .value attribute
                 logger.warning(f"HttpPage: Received wrapped object {type(propagate_result)} with .value attribute.")
                 actual_list_of_responses = propagate_result.value
             else:
                 logger.error(f"HttpPage: Unexpected type from propagate_value: {type(propagate_result)}")
                 # This path implies an error that wasn't caught and converted to GLib.Error by the thread func
                 # or HttpFetcher didn't return a list as expected upon success.
-                show_global_error(self, "Unexpected result type from background task.") # type: ignore
+                show_global_error(self, "Unexpected result type from background task.")  # type: ignore
                 if hasattr(self, "http_entry_row") and self.http_entry_row:
-                    self.http_entry_row.add_css_class("error") # type: ignore
+                    self.http_entry_row.add_css_class("error")  # type: ignore
                 self._update_column_view_model(None)
-                return # Early exit
+                return  # Early exit
 
             # This block is reached if propagate_result was successfully coerced or extracted.
             # Ensure actual_list_of_responses is a list before proceeding.
             if actual_list_of_responses is not None and isinstance(actual_list_of_responses, list):
-                logger.info("HttpPage: Successfully processed task result: %d response stages.", len(actual_list_of_responses))
+                logger.info(
+                    "HttpPage: Successfully processed task result: %d response stages.", len(actual_list_of_responses)
+                )
                 processed_headers_for_store: list[HeaderItem] = []
-                if not actual_list_of_responses: # Empty list is a valid success case (e.g. no data)
+                if not actual_list_of_responses:  # Empty list is a valid success case (e.g. no data)
                     logger.info("HttpPage: Received empty list of responses.")
-                    self._update_column_view_model(None) # Clear view or show "no data"
+                    self._update_column_view_model(None)  # Clear view or show "no data"
                 else:
                     for i, response_data_dict_item in enumerate(actual_list_of_responses):
                         # Ensure each item is a dict, as expected by HttpFetcher's contract
                         if not isinstance(response_data_dict_item, dict):
                             logger.error(
                                 "HttpPage: Expected dict item in response list, got %s. Data: %s",
-                                type(response_data_dict_item), response_data_dict_item,
+                                type(response_data_dict_item),
+                                response_data_dict_item,
                             )
                             continue
-                        response_data_dict: Dict[str, Any] = response_data_dict_item # Explicitly type hint
-                        url_display = f"URL: {response_data_dict.get('url', 'N/A')}"
-                        status_code = response_data_dict.get('status_code', 'N/A')
-                        response_type = response_data_dict.get('type', 'unknown')
-                        status_display = f"Status: {status_code} ({str(response_type).capitalize()})"
+                        response_data_dict: Dict[str, Any] = response_data_dict_item  # Explicitly type hint
+                        url_display = f"{response_data_dict.get('url', 'N/A')}"
+                        status_code = response_data_dict.get("status_code", "N/A")
+                        response_type = response_data_dict.get("type", "unknown")
+                        status_display = f"HTTP status: {status_code} ({str(response_type).capitalize()})"
                         processed_headers_for_store.append(
                             HeaderItem(key=url_display, value=status_display, is_special_row=True)
                         )
@@ -476,46 +497,45 @@ class HttpPage(Adw.PreferencesPage):
                                 )
                         else:
                             logger.warning(
-                                "HttpPage: Headers data for response stage %d is not a dict: %s", i, headers_for_this_response
+                                "HttpPage: Headers data for response stage %d is not a dict: %s",
+                                i,
+                                headers_for_this_response,
                             )
                         if i < len(actual_list_of_responses) - 1:
-                            processed_headers_for_store.append(
-                                HeaderItem(key="--- Redirected To ---", value="", is_special_row=True)
-                            )
+                            processed_headers_for_store.append(HeaderItem(key=" ", value="", is_special_row=True))
                     self._current_header_items = processed_headers_for_store
                     self._update_column_view_model(processed_headers_for_store)
                 if hasattr(self, "http_entry_row") and self.http_entry_row:
-                    self.http_entry_row.remove_css_class("error") # type: ignore
-            else: # actual_list_of_responses is None or not a list after attempted extraction
+                    self.http_entry_row.remove_css_class("error")  # type: ignore
+            else:  # actual_list_of_responses is None or not a list after attempted extraction
                 logger.error(f"HttpPage: Failed to obtain a valid list of responses. Value: {actual_list_of_responses}")
-                show_global_error(self, "Failed to process data from background task.") # type: ignore
+                show_global_error(self, "Failed to process data from background task.")  # type: ignore
                 if hasattr(self, "http_entry_row") and self.http_entry_row:
-                    self.http_entry_row.add_css_class("error") # type: ignore
+                    self.http_entry_row.add_css_class("error")  # type: ignore
                 self._update_column_view_model(None)
         except GLib.Error as e:  # Errors set by task.return_new_error_literal in _fetch_headers_task_thread_func
             logger.warning(
-                "HttpPage: Task failed with GLib.Error (Domain: %s, Code: %d, Message: %s)",
-                 e.domain, e.code, e.message
+                "HttpPage: Task failed with GLib.Error (Domain: %s, Code: %d, Message: %s)", e.domain, e.code, e.message
             )
             display_message = e.message if e.message else "An unknown error occurred."
             # Basic sanitization, could be more robust if needed
             if "<b>" in display_message or "<" in display_message:
                 display_message = GLib.markup_escape_text(display_message)
 
-            show_global_error(self, display_message) # type: ignore
+            show_global_error(self, display_message)  # type: ignore
             if hasattr(self, "http_entry_row") and self.http_entry_row:
-                self.http_entry_row.add_css_class("error") # type: ignore
+                self.http_entry_row.add_css_class("error")  # type: ignore
                 self._update_column_view_model(None)
         except Exception as e:  # Catch any other Python exceptions from this callback itself
             logger.exception("HttpPage: Unexpected Python error in _fetch_headers_task_done_cb:")
             error_message = f"An unexpected application error occurred: {e}"
-            show_global_error(self, error_message) # type: ignore
+            show_global_error(self, error_message)  # type: ignore
             if hasattr(self, "http_entry_row") and self.http_entry_row:
-                self.http_entry_row.add_css_class("error") # type: ignore
+                self.http_entry_row.add_css_class("error")  # type: ignore
             self._update_column_view_model(None)
         finally:
             if hasattr(self, "http_entry_row") and self.http_entry_row:
-                self.http_entry_row.set_sensitive(True) # type: ignore
+                self.http_entry_row.set_sensitive(True)  # type: ignore
             if hasattr(self, "http_apply_button") and self.http_apply_button:
                 self.http_apply_button.set_sensitive(True)
                 # self.http_apply_button.set_icon_name(None) # Removed
@@ -532,7 +552,7 @@ class HttpPage(Adw.PreferencesPage):
         :return: The URL string, with 'https://' prepended if no scheme was present.
         :rtype: str
         """
-        if "://" not in url: # Basic check
+        if "://" not in url:  # Basic check
             logger.debug("HttpPage: URL '%s' has no scheme, prepending 'https://'.", url)
             return "https://" + url
         return url
@@ -549,9 +569,9 @@ class HttpPage(Adw.PreferencesPage):
         :param _gparam: The :class:`GObject.ParamSpec` of the property that changed (unused).
         :type _gparam: GObject.ParamSpec
         """
-        logger.debug("Akamai Pragma toggled: %s. Re-fetching if URL present.", self.http_pragma_switch_row.get_active()) # type: ignore
-        if self.http_entry_row.get_text().strip(): # type: ignore
-            self._on_entry_row_activated(self.http_entry_row) # type: ignore
+        logger.debug("Akamai Pragma toggled: %s. Re-fetching if URL present.", self.http_pragma_switch_row.get_active())  # type: ignore
+        if self.http_entry_row.get_text().strip():  # type: ignore
+            self._on_entry_row_activated(self.http_entry_row)  # type: ignore
 
     def _update_column_view_model(self, header_items: Optional[List["HeaderItem"]]) -> None:
         """Update the :class:`Gio.ListStore` for the header :class:`Gtk.ColumnView`.
@@ -587,13 +607,13 @@ class HttpPage(Adw.PreferencesPage):
         Hides the main window's error banner and removes the 'error' CSS class
         from the URL entry row.
         """
-        main_window = self.get_native() # type: ignore
+        main_window = self.get_native()  # type: ignore
         if main_window and hasattr(main_window, "hide_error"):
-            main_window.hide_error() # type: ignore
+            main_window.hide_error()  # type: ignore
         else:
             logger.warning("Could not find main window or hide_error method to clear error.")
         if self.http_entry_row:
-            self.http_entry_row.remove_css_class("error") # type: ignore
+            self.http_entry_row.remove_css_class("error")  # type: ignore
 
     def _on_clear_results_clicked(self, _button: Gtk.Button) -> None:
         """Handle the click event for the 'Clear Results' button.
@@ -608,7 +628,7 @@ class HttpPage(Adw.PreferencesPage):
         self._update_column_view_model(None)
         self._clear_error()
         if self.http_entry_row:
-            self.http_entry_row.set_text("") # type: ignore
+            self.http_entry_row.set_text("")  # type: ignore
 
     def _on_color_setting_changed(self, settings: Gio.Settings, key: str) -> None:
         """Handle changes to color-related GSettings.
@@ -645,18 +665,18 @@ class HttpPage(Adw.PreferencesPage):
         self._ua_title_to_value_map.clear()
         current_selection_text: Optional[str] = None
         if (
-            self.http_user_agent_row.get_model() # type: ignore
-            and self.http_user_agent_row.get_selected() != Gtk.INVALID_LIST_POSITION # type: ignore
+            self.http_user_agent_row.get_model()  # type: ignore
+            and self.http_user_agent_row.get_selected() != Gtk.INVALID_LIST_POSITION  # type: ignore
         ):
-            selected_item = self.http_user_agent_row.get_selected_item() # type: ignore
-            if isinstance(selected_item, Gtk.StringObject): # type: ignore
-                current_selection_text = selected_item.get_string() # type: ignore
+            selected_item = self.http_user_agent_row.get_selected_item()  # type: ignore
+            if isinstance(selected_item, Gtk.StringObject):  # type: ignore
+                current_selection_text = selected_item.get_string()  # type: ignore
 
         display_titles: list[str] = []
         # Custom UAs from GSettings
         variant = self.settings.get_value("custom-user-agents")
         custom_ua_pairs: list[tuple[str, str]] = list(
-            variant.unpack() if variant and variant.get_type_string() == "a(ss)" else [] # type: ignore
+            variant.unpack() if variant and variant.get_type_string() == "a(ss)" else []  # type: ignore
         )
         for title, value in custom_ua_pairs:
             if title not in self._ua_title_to_value_map:
@@ -664,7 +684,7 @@ class HttpPage(Adw.PreferencesPage):
                 self._ua_title_to_value_map[title] = value
 
         # "None" option
-        none_title = "None" # This is the display title for "no override"
+        none_title = "None"  # This is the display title for "no override"
         if none_title not in self._ua_title_to_value_map:
             display_titles.append(none_title)
         self._ua_title_to_value_map[none_title] = None  # Actual value is None
@@ -676,24 +696,23 @@ class HttpPage(Adw.PreferencesPage):
                 display_titles.append(title)
                 self._ua_title_to_value_map[title] = value
 
-        self.http_user_agent_row.set_model(Gtk.StringList.new(display_titles)) # type: ignore
+        self.http_user_agent_row.set_model(Gtk.StringList.new(display_titles))  # type: ignore
 
         # Restore selection
         if current_selection_text and current_selection_text in display_titles:
             try:
                 idx = display_titles.index(current_selection_text)
-                self.http_user_agent_row.set_selected(idx) # type: ignore
+                self.http_user_agent_row.set_selected(idx)  # type: ignore
             except ValueError:
                 logger.warning(
                     "Error restoring User-Agent selection: '%s' not found in new list.", current_selection_text
                 )
-                if display_titles: # Default to first if old selection is gone
-                    self.http_user_agent_row.set_selected(0) # type: ignore
+                if display_titles:  # Default to first if old selection is gone
+                    self.http_user_agent_row.set_selected(0)  # type: ignore
         elif display_titles:  # Default to first item if no prior or unmatchable selection
-            self.http_user_agent_row.set_selected(0) # type: ignore
-        else: # Model is empty
-             self.http_user_agent_row.set_selected(Gtk.INVALID_LIST_POSITION) # type: ignore
-
+            self.http_user_agent_row.set_selected(0)  # type: ignore
+        else:  # Model is empty
+            self.http_user_agent_row.set_selected(Gtk.INVALID_LIST_POSITION)  # type: ignore
 
         self._on_user_agent_changed(self.http_user_agent_row, None)  # Update visual cue
         logging.info("User-Agent dropdown model updated with %d titles.", len(display_titles))
@@ -751,7 +770,7 @@ class HttpPage(Adw.PreferencesPage):
             else:  # Standard header rows
                 color_to_use = self._header_key_color if attr_name == "key" else self._header_value_color
                 escaped_text = GLib.markup_escape_text(str(text_to_display))
-                label.set_markup(f"<b><span foreground='{color_to_use}'>{escaped_text}</span></b>") # type: ignore
+                label.set_markup(f"<b><span foreground='{color_to_use}'>{escaped_text}</span></b>")  # type: ignore
 
         factory.connect("setup", setup_func)
         factory.connect("bind", bind_func_internal)
