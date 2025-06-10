@@ -256,8 +256,9 @@ class HttpPage(Adw.PreferencesPage):
         self.http_entry_row.set_sensitive(False)  # type: ignore
         if hasattr(self, "http_apply_button") and self.http_apply_button:
             self.http_apply_button.set_sensitive(False)
-            self.http_apply_button.set_icon_name("process-working-symbolic")
-        host_header = self.http_host_header_row.get_text().strip()  # type: ignore
+
+        host_header = self.http_host_header_row.get_text().strip() # type: ignore
+
         user_agent_to_send: Optional[str] = None
         selected_title_obj = self.http_user_agent_row.get_selected_item()  # type: ignore
         if isinstance(selected_title_obj, Gtk.StringObject):  # type: ignore
@@ -537,7 +538,7 @@ class HttpPage(Adw.PreferencesPage):
                 self.http_entry_row.set_sensitive(True)  # type: ignore
             if hasattr(self, "http_apply_button") and self.http_apply_button:
                 self.http_apply_button.set_sensitive(True)
-                self.http_apply_button.set_icon_name(None)  # Correct way to remove spinner icon
+                # self.http_apply_button.set_icon_name(None) # Removed
 
     @staticmethod
     def _ensure_scheme(url: str) -> str:

@@ -215,8 +215,10 @@ class DNSPage(Adw.PreferencesPage):
             else:
                 self.dns_lookup_spinner.stop() # type: ignore
         # Potentially disable/enable other controls like domain_entry or apply_button here
-        # self.domain_entry.set_sensitive(not active)
-        # self.dns_apply_button.set_sensitive(not active)
+        if self.domain_entry: # Check if bound
+            self.domain_entry.set_sensitive(not active) # type: ignore
+        if self.dns_apply_button: # Check if bound
+            self.dns_apply_button.set_sensitive(not active) # type: ignore
 
     def _validate_dns_input(self, user_input: str) -> bool:
         """
