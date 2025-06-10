@@ -5,7 +5,8 @@
   <requires lib="gtk" version="4.10"/>
   <requires lib="libadwaita" version="1.4"/>
   <template class="NmapPage" parent="GtkBox">
-    <property name="width-request">700</property>
+    <property name="halign">baseline-fill</property>
+    <property name="valign">baseline-fill</property>
     <child>
       <object class="GtkBox" id="page_vbox">
         <property name="halign">baseline-fill</property>
@@ -29,13 +30,14 @@
         </child>
         <child>
           <object class="AdwPreferencesGroup" id="nmap_scan_parameters_group">
+            <property name="halign">center</property>
             <property name="hexpand">True</property>
             <property name="title" translatable="yes">Scan Parameters</property>
             <child>
               <object class="AdwEntryRow" id="nmap_target_entryrow">
                 <property name="activates-default">true</property>
-                <property name="hexpand">true</property>
-                <property name="hexpand-set">true</property>
+                <property name="halign">baseline-fill</property>
+                <property name="hexpand">True</property>
                 <property name="input-purpose">url</property>
                 <property name="title" translatable="yes">Target (IP/CIDR/Hostname)</property>
                 <child type="suffix">
