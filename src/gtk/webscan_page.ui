@@ -147,6 +147,9 @@
                 <property name="icon-name">edit-clear-all-symbolic</property>
                 <property name="tooltip-text" translatable="yes">Clear Results</property>
                 <property name="valign">center</property>
+                <style>
+                  <class name="flat"/>
+                </style>
               </object>
             </child>
             <child>
@@ -154,6 +157,9 @@
                 <property name="icon-name">edit-copy-symbolic</property>
                 <property name="tooltip-text" translatable="yes">Copy Results</property>
                 <property name="valign">center</property>
+                <style>
+                  <class name="flat"/>
+                </style>
               </object>
             </child>
           </object>
@@ -166,6 +172,15 @@
             <property name="min-content-height">200</property>
             <property name="vexpand">True</property>
             <property name="width-request">800</property>
+            <child>
+              <object class="GtkSourceView" id="results_textview">
+                <property name="hexpand">True</property>
+                <property name="vexpand">True</property>
+                <property name="monospace">True</property>
+                <property name="show-line-numbers">True</property>
+                <property name="wrap-mode">GTK_WRAP_WORD_CHAR</property>
+              </object>
+            </child>
           </object>
         </child>
       </object>

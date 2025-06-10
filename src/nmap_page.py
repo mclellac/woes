@@ -73,7 +73,6 @@ class NmapPage(Gtk.Box):
     scan_spinner = Gtk.Template.Child("scan_spinner")
     nmap_cancel_scan_button = Gtk.Template.Child()
 
-    left_vbox_content = Gtk.Template.Child("left_vbox_content")
     nmap_host_listbox = Gtk.Template.Child("nmap_host_listbox")
     nmap_detail_box = Gtk.Template.Child("nmap_detail_box")
     nmap_detail_placeholder = Gtk.Template.Child("nmap_detail_placeholder")
@@ -426,7 +425,40 @@ class NmapPage(Gtk.Box):
         scrolled_window.set_max_content_height(400)
         scrolled_window.set_vexpand(True)
         expander.add_row(scrolled_window)
+
+        # Add Copy button to the expander's header-suffix
+        header_suffix_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        copy_summary_button = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
+        copy_summary_button.set_tooltip_text("Copy Host Summary")
+        copy_summary_button.get_style_context().add_class("flat")
+        # Pass the summary text to the handler.
+        # Using a lambda that captures human_readable_summary.
+        copy_summary_button.connect("clicked", lambda _btn, text=human_readable_summary: self._on_copy_host_summary_clicked(text))
+        header_suffix_box.append(copy_summary_button)
+        expander.add_suffix(header_suffix_box)
+
         self.nmap_detail_box.append(expander)
+
+    def _on_copy_host_summary_clicked(self, summary_text: str):
+        """Handles the click of the 'Copy Host Summary' button."""
+        logger.info("Copying Nmap host summary to clipboard.")
+        if not summary_text:
+            show_global_toast(self, "No summary text available to copy.") # type: ignore
+            return
+
+        try:
+            clipboard = self.get_clipboard() # type: ignore
+            if clipboard:
+                clipboard.set(summary_text) # type: ignore
+                show_global_toast(self, "Host summary copied to clipboard.") # type: ignore
+                logger.info("Copied Nmap host summary to clipboard.")
+            else:
+                logger.warning("Could not get clipboard for NmapPage.")
+                show_global_toast(self, "Failed to access clipboard.") # type: ignore
+        except Exception as e: # pylint: disable=broad-except
+            logger.exception("Error copying Nmap host summary to clipboard:")
+            show_global_toast(self, f"Error copying: {e}") # type: ignore
+
 
     def _add_host_details_expander(self, host_data: Dict[str, Any], host_key: str):  # pylint: disable=too-many-locals # UI construction method with many data points
         """Add an Adw.ExpanderRow to display general host information."""

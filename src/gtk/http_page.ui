@@ -45,6 +45,19 @@
             <property name="title" translatable="yes">Akamai Debug Headers</property>
           </object>
         </child>
+        <child>
+          <object class="AdwActionRow" id="http_status_row">
+            <property name="title" translatable="yes">Status</property>
+            <property name="subtitle" translatable="yes">Idle</property>
+            <child type="suffix">
+              <object class="GtkSpinner" id="http_status_spinner">
+                <property name="spinning">False</property>
+                <property name="valign">center</property>
+                <property name="visible">False</property>
+              </object>
+            </child>
+          </object>
+        </child>
       </object>
     </child>
     <child>
@@ -62,6 +75,7 @@
                 <signal name="clicked" handler="_on_clear_results_clicked"/>
                 <style>
                   <class name="destructive-action"/>
+                  <class name="flat"/>
                 </style>
               </object>
             </child>

@@ -40,10 +40,14 @@ class DNSPage(Adw.PreferencesPage):
     __gtype_name__ = "DNSPage"
 
     domain_entry = Gtk.Template.Child()
-    dns_lookup_spinner = Gtk.Template.Child()
+    # dns_lookup_spinner was removed from UI, replaced by dns_status_spinner
     dns_apply_button = Gtk.Template.Child()
     dns_record_type_dropdown = Gtk.Template.Child()
     dns_results_box_container = Gtk.Template.Child()
+    dns_clear_results_button = Gtk.Template.Child()
+    dns_copy_all_results_button = Gtk.Template.Child()
+    dns_status_row = Gtk.Template.Child()
+    dns_status_spinner = Gtk.Template.Child()
 
     def __init__(self, **kwargs: GObject.GObject):
         """Initialize the DNSPage.
@@ -61,15 +65,89 @@ class DNSPage(Adw.PreferencesPage):
         if self.dns_apply_button:
             self.dns_apply_button.set_use_underline(True)
 
-        if self.dns_lookup_spinner:
-            self.dns_lookup_spinner.set_spinning(False)
-            self.dns_lookup_spinner.set_visible(False)
+        # Removed old dns_lookup_spinner initialization
+
+        # Initialize new status row and spinner
+        if self.dns_status_row:
+            self.dns_status_row.set_subtitle("Idle") # type: ignore
+        if self.dns_status_spinner:
+            self.dns_status_spinner.set_spinning(False) # type: ignore
+            self.dns_status_spinner.set_visible(False) # type: ignore
+
+        # Initially disable clear/copy buttons as there are no results
+        if self.dns_clear_results_button:
+            self.dns_clear_results_button.set_sensitive(False)
+        if self.dns_copy_all_results_button:
+            self.dns_copy_all_results_button.set_sensitive(False)
 
     def _connect_signals(self) -> None:
         """Connect signals for UI elements to their respective handlers."""
         self.domain_entry.connect("activate", self._on_entry_activated) # type: ignore
         self.dns_apply_button.connect("clicked", self._on_entry_activated) # type: ignore
         self.dns_record_type_dropdown.connect("notify::selected", self._on_record_type_changed) # type: ignore
+        if self.dns_clear_results_button:
+            self.dns_clear_results_button.connect("clicked", self._on_clear_results_clicked)
+        if self.dns_copy_all_results_button:
+            self.dns_copy_all_results_button.connect("clicked", self._on_copy_all_results_clicked)
+
+    def _on_clear_results_clicked(self, _button: Gtk.Button) -> None:
+        """Clear all DNS lookup results from the UI."""
+        logger.info("Clearing DNS results.")
+        while (child := self.dns_results_box_container.get_first_child()): # type: ignore
+            self.dns_results_box_container.remove(child) # type: ignore
+
+        # Optionally, add a placeholder back if desired, or leave it empty.
+        # For now, just clear.
+
+        if self.dns_clear_results_button:
+            self.dns_clear_results_button.set_sensitive(False)
+        if self.dns_copy_all_results_button:
+            self.dns_copy_all_results_button.set_sensitive(False)
+
+    def _on_copy_all_results_clicked(self, _button: Gtk.Button) -> None:
+        """Copy all displayed DNS results to the clipboard."""
+        logger.info("Copying all DNS results to clipboard.")
+        all_results_text = []
+
+        # Iterate through children of dns_results_box_container
+        child = self.dns_results_box_container.get_first_child() # type: ignore
+        while child:
+            text_parts_for_child = []
+            if isinstance(child, Adw.ActionRow):
+                title = child.get_title()
+                subtitle = child.get_subtitle()
+                if title: text_parts_for_child.append(title)
+                if subtitle: text_parts_for_child.append(subtitle)
+
+                # Attempt to get text from suffixes if they are labels
+                # This is a simplified approach; real implementation might need to traverse deeper
+                # or access data from the model that generated the rows.
+                # For this example, we'll focus on title/subtitle of ActionRows.
+                # If the row has a Gtk.Label in a suffix, try to get its text.
+                # This part is heuristic as direct access to full record data isn't stored on rows.
+
+            elif isinstance(child, Adw.ExpanderRow):
+                title = child.get_title()
+                subtitle = child.get_subtitle()
+                if title: text_parts_for_child.append(title)
+                if subtitle: text_parts_for_child.append(subtitle)
+                # Could iterate expander's rows too, but keeping it simple for now.
+                # A more robust way would be to have the data that generated these rows
+                # stored in an instance variable and iterate that.
+
+            if text_parts_for_child:
+                all_results_text.append(" - ".join(text_parts_for_child))
+
+            child = child.get_next_sibling()
+
+        if not all_results_text:
+            show_global_toast(self, "No results to copy.") # type: ignore
+            return
+
+        final_text_to_copy = "\n".join(all_results_text)
+        DNSPage._copy_to_clipboard(final_text_to_copy, self)
+        show_global_toast(self, "All results copied to clipboard.") # type: ignore
+
 
     @staticmethod
     def _copy_to_clipboard(text: str, widget: Gtk.Widget) -> None:
@@ -206,19 +284,31 @@ class DNSPage(Adw.PreferencesPage):
         detail_row.set_selectable(False)
         expander_row.add_row(detail_row) # type: ignore
 
-    def _set_loading_state(self, active: bool) -> None:
-        """Sets the UI loading state (spinner, sensitivity)."""
-        if self.dns_lookup_spinner:
-            self.dns_lookup_spinner.set_visible(active) # type: ignore
+    def _set_loading_state(self, active: bool, message: Optional[str] = None) -> None:
+        """Sets the UI loading state (spinner, status message, sensitivity)."""
+        if self.dns_status_spinner:
+            self.dns_status_spinner.set_visible(active) # type: ignore
             if active:
-                self.dns_lookup_spinner.start() # type: ignore
+                self.dns_status_spinner.start() # type: ignore
             else:
-                self.dns_lookup_spinner.stop() # type: ignore
-        # Potentially disable/enable other controls like domain_entry or apply_button here
-        if self.domain_entry: # Check if bound
+                self.dns_status_spinner.stop() # type: ignore
+
+        if self.dns_status_row:
+            current_subtitle = self.dns_status_row.get_subtitle() # type: ignore
+            if message:
+                self.dns_status_row.set_subtitle(message) # type: ignore
+            elif active and current_subtitle != "Looking up...": # Default message when starting an operation
+                self.dns_status_row.set_subtitle("Looking up...") # type: ignore
+            elif not active and not message : # Default message when stopping (idle) and no specific message given
+                self.dns_status_row.set_subtitle("Idle") # type: ignore
+            # If not active and a message is present (e.g. error or success), it will be set by the caller.
+
+        if self.domain_entry:
             self.domain_entry.set_sensitive(not active) # type: ignore
-        if self.dns_apply_button: # Check if bound
+        if self.dns_apply_button:
             self.dns_apply_button.set_sensitive(not active) # type: ignore
+        if self.dns_record_type_dropdown:
+            self.dns_record_type_dropdown.set_sensitive(not active) # type: ignore
 
     def _validate_dns_input(self, user_input: str) -> bool:
         """Validates the DNS user input. Shows global error/toast if invalid.
@@ -274,6 +364,13 @@ class DNSPage(Adw.PreferencesPage):
         nameservers_used = dns_client.resolver.nameservers
         self._display_result(result_data, user_input, actual_record_type_displayed, nameservers_used)
 
+        status_message = f"{len(result_data)} {actual_record_type_displayed} record(s) found." if result_data else f"No {actual_record_type_displayed} records found for {user_input}."
+        if self.dns_status_row:
+            self.dns_status_row.set_subtitle(status_message) # type: ignore
+        # show_global_toast is good for transient notifications, status row is persistent.
+        # Consider if toast is still needed or if status row is sufficient. Keeping for now.
+        show_global_toast(self, status_message) # type: ignore
+
     def _handle_dns_lookup_exception(
         self,
         error: Exception,
@@ -282,36 +379,51 @@ class DNSPage(Adw.PreferencesPage):
         dns_client: DnsResolverClient # Pass client to get nameservers for NoAnswer
     ) -> None:
         """Handles exceptions from DnsResolverClient."""
+        error_message = str(error) # Original full error message
+        status_subtitle = f"Error: {error_message.splitlines()[0]}" # Default status: first line of error
+
         if isinstance(error, DnsNxDomainError):
-            show_global_error(self, str(error)) # type: ignore
+            show_global_error(self, error_message) # type: ignore
+            status_subtitle = f"NXDOMAIN: Domain '{user_input}' not found."
         elif isinstance(error, DnsNoAnswerError):
-            logger.info("DNSPage: %s", str(error))
+            logger.info("DNSPage: %s", error_message)
             nameservers_used = dns_client.resolver.nameservers
-            self._display_result([], user_input, requested_record_type, nameservers_used)
+            self._display_result([], user_input, requested_record_type, nameservers_used) # Shows "No records found" in results area
+            # Override the "No records found" status from _display_result with the actual error for clarity in status row
+            status_subtitle = f"No {requested_record_type} records found for {user_input} (No Answer)."
         elif isinstance(error, DnsResolutionTimeoutError):
-            show_global_error(self, str(error)) # type: ignore
+            show_global_error(self, error_message) # type: ignore
+            status_subtitle = f"Timeout: Could not resolve {user_input}."
         elif isinstance(error, DnsGenericError):
             logger.exception("DNSPage: DNS lookup failed for %s, type %s (DnsGenericError):", user_input, requested_record_type)
-            show_global_error(self, str(error)) # type: ignore
+            show_global_error(self, error_message) # type: ignore
+            status_subtitle = f"DNS Error: {error_message.splitlines()[0]}"
         elif isinstance(error, DnsClientError): # Base client error
             logger.exception("DNSPage: Unexpected DnsClientError for %s, type %s:", user_input, requested_record_type)
-            show_global_error(self, f"DNS Client Error: {str(error)}") # type: ignore
+            show_global_error(self, f"DNS Client Error: {error_message}") # type: ignore
+            status_subtitle = f"Client Error: {error_message.splitlines()[0]}"
         else: # Generic Exception
             logger.exception("DNSPage: Unexpected error during DNS lookup for %s, type %s:", user_input, requested_record_type)
-            show_global_error(self, f"An unexpected error occurred: {str(error)}") # type: ignore
+            error_message_short = f"An unexpected error occurred: {error_message.splitlines()[0]}"
+            show_global_error(self, error_message_short) # type: ignore
+            status_subtitle = error_message_short
+
+        if self.dns_status_row:
+            self.dns_status_row.set_subtitle(status_subtitle) # type: ignore
+
 
     def _perform_lookup(self) -> None: # noqa: C901
         """Perform the DNS lookup based on user input and selected record type.
 
         Orchestrates input validation, client interaction, and result/error display.
         """
-        self._set_loading_state(True)
+        self._set_loading_state(True, "Looking up...")
         user_input = self.domain_entry.get_text().strip() # type: ignore
         requested_record_type = self._get_selected_record_type()
         logger.debug(f"DNSPage: Performing DNS lookup for: {user_input}, type: {requested_record_type}")
 
         if not self._validate_dns_input(user_input):
-            self._set_loading_state(False)
+            self._set_loading_state(False, "Idle - Invalid input.") # Reset status to Idle with specific message
             return
 
         self._clear_error()
@@ -322,10 +434,16 @@ class DNSPage(Adw.PreferencesPage):
         try:
             result_data = dns_client.resolve(user_input, requested_record_type)
             self._handle_dns_lookup_success(result_data, user_input, requested_record_type, dns_client)
+            # Status is set by _handle_dns_lookup_success
         except Exception as e: # Catch all exceptions here and delegate to the handler
             self._handle_dns_lookup_exception(e, user_input, requested_record_type, dns_client)
+            # Status is set by _handle_dns_lookup_exception
         finally:
+            # Ensure loading state is always reset (spinner off, controls on),
+            # but preserve the status message set by success/error handlers.
+            # Call _set_loading_state without a message to achieve this.
             self._set_loading_state(False)
+
 
     def _get_selected_record_type(self) -> str:
         """Get the currently selected DNS record type from the dropdown.
@@ -398,12 +516,24 @@ class DNSPage(Adw.PreferencesPage):
             no_records_row = Adw.ActionRow(title=no_records_message)
             no_records_row.set_selectable(False)
             self.dns_results_box_container.append(no_records_row) # type: ignore
+            # Update button sensitivity: No results, so disable
+            if self.dns_clear_results_button:
+                self.dns_clear_results_button.set_sensitive(False)
+            if self.dns_copy_all_results_button:
+                self.dns_copy_all_results_button.set_sensitive(False)
             return
 
         for record_data in result_records:
             row = self._create_record_row(record_data)
             if row:
                 self.dns_results_box_container.append(row) # type: ignore
+
+        # Update button sensitivity: Results are present, so enable
+        if self.dns_clear_results_button:
+            self.dns_clear_results_button.set_sensitive(True)
+        if self.dns_copy_all_results_button:
+            self.dns_copy_all_results_button.set_sensitive(True)
+
 
     # --- Helper methods for building record rows ---
 
