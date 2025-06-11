@@ -6,6 +6,7 @@
   <requires lib="libadwaita" version="1.4"/>
   <template class="NmapPage" parent="AdwBin">
     <property name="width-request">700</property>
+    <property name="height_request">600</property>
     <child>
       <object class="GtkBox" id="page_vbox">
         <property name="hexpand">true</property>

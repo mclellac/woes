@@ -58,7 +58,6 @@ class DNSPage(Adw.PreferencesPage):
         :type kwargs: GObject.GObject
         """
         super().__init__(**kwargs)
-        self.set_size_request(1000, -1)
         logger.debug("DNSPage initialized.")
         self._connect_signals()
         self.settings = Gio.Settings.new(APP_ID)
