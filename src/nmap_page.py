@@ -92,8 +92,6 @@ class NmapPage(Adw.Bin):
 
         self._init_page_ui()
         self._connect_signals()
-        if self.nmap_apply_button:
-            self.nmap_apply_button.set_use_underline(True)
         logger.info("NmapPage initialized.")
         logger.debug("NmapPage __init__ completed.")
 
@@ -125,14 +123,10 @@ class NmapPage(Adw.Bin):
     def _init_page_ui(self):
         logger.debug("Initializing NmapPage UI components.")
         self.nmap_host_listbox.bind_model(self.nmap_target_listbox_store, self._create_target_listbox_row)
-        self.nmap_detail_placeholder.set_visible(True)
         child = self.nmap_detail_box.get_first_child()
         while child and child != self.nmap_detail_placeholder:
             self.nmap_detail_box.remove(child)
             child = self.nmap_detail_box.get_first_child()
-        self.scan_spinner.set_spinning(False)
-        self.scan_spinner.set_visible(False)
-        self.status_row.set_subtitle("Idle")
 
         logger.debug("NmapPage _init_page_ui completed.")
 

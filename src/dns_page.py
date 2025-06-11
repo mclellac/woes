@@ -61,21 +61,9 @@ class DNSPage(Adw.PreferencesPage):
         logger.debug("DNSPage initialized.")
         self._connect_signals()
         self.settings = Gio.Settings.new(APP_ID)
-        if self.dns_apply_button:
-            self.dns_apply_button.set_use_underline(True)
 
         # Initialize new status row and spinner
-        if self.dns_status_row:
-            self.dns_status_row.set_subtitle("Idle") # type: ignore
-        if self.dns_status_spinner:
-            self.dns_status_spinner.set_spinning(False) # type: ignore
-            self.dns_status_spinner.set_visible(False) # type: ignore
-
         # Initially disable clear/copy buttons as there are no results
-        if self.dns_clear_results_button:
-            self.dns_clear_results_button.set_sensitive(False)
-        if self.dns_copy_all_results_button:
-            self.dns_copy_all_results_button.set_sensitive(False)
 
     def _connect_signals(self) -> None:
         """Connect signals for UI elements to their respective handlers."""

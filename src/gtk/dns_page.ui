@@ -25,6 +25,7 @@
             <child type="suffix">
               <object class="GtkButton" id="dns_apply_button">
                 <property name="label" translatable="yes">_Lookup</property>
+                <property name="use_underline">True</property>
                 <property name="valign">center</property>
                 <style>
                   <class name="suggested-action"/>
@@ -79,6 +80,7 @@
             <child>
               <object class="GtkButton" id="dns_clear_results_button">
                 <property name="icon-name">edit-clear-all-symbolic</property>
+                <property name="sensitive">False</property>
                 <property name="tooltip-text" translatable="yes">Clear Results</property>
                 <property name="valign">center</property>
                 <style>
@@ -89,6 +91,7 @@
             <child>
               <object class="GtkButton" id="dns_copy_all_results_button">
                 <property name="icon-name">edit-copy-symbolic</property>
+                <property name="sensitive">False</property>
                 <property name="tooltip-text" translatable="yes">Copy All Results</property>
                 <property name="valign">center</property>
                 <style>

@@ -152,7 +152,7 @@
         <child>
           <object class="AdwActionRow" id="webscan_status_action_row">
             <property name="title">Status</property>
-            <!-- Subtitle will be set from Python code -->
+            <property name="subtitle" translatable="yes">Idle</property>
             <child type="suffix">
               <object class="GtkBox">
                 <property name="orientation">horizontal</property>
