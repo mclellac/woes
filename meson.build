@@ -17,8 +17,8 @@ if not python_bin.found()
 endif
 
 # Ensure Python 3.10 or newer is used
-if not python_bin.language_version().version_compare('>= 3.12')
-    error('Python 3.12 or newer is required.')
+if not python_bin.language_version().version_compare('>= 3.10')
+    error('Python 3.10 or newer is required.')
 endif
 
 # macOS-specific prefix correction
