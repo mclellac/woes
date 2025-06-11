@@ -303,11 +303,9 @@ class HttpFetcher:
         adapter_sni_hint: Optional[str] = None
         if self.host_header: # If a host header is provided, it might be for an IP-based URL
             parsed_url = requests.utils.urlparse(self.url)
-            try: # Check if netloc is an IP address
-                requests.utils.ipaddress.ip_address(parsed_url.hostname)
-                adapter_sni_hint = self.host_header
-            except ValueError: # Not an IP address, SNI hint not needed based on Host header
-                pass
+            # The try...except block for IP address check and setting adapter_sni_hint has been removed.
+            # adapter_sni_hint will retain its initial None value if self.host_header is set,
+            # or remain None if self.host_header was not set.
 
 
         effective_custom_dns_server = self.custom_dns_server if dns else None
