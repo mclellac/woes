@@ -5,6 +5,7 @@
   <requires lib="gtk" version="4.10"/>
   <requires lib="libadwaita" version="1.4"/>
   <template class="DNSPage" parent="AdwPreferencesPage">
+    <property name="width_request">1000</property>
     <property name="icon-name">org.gnome.Epiphany-symbolic</property>
     <property name="title" translatable="yes">DNS Lookup</property>
     <child>
