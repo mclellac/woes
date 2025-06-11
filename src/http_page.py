@@ -107,6 +107,7 @@ class HttpPage(Adw.PreferencesPage):
         :type kwargs: GObject.GObject
         """
         super().__init__(**kwargs)
+        self.set_size_request(800, -1)
         logger.debug("HttpPage initialized.")
         self.current_http_task: Optional[Gio.Task] = None
         self._current_header_items: List[HeaderItem] = []

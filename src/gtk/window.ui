@@ -184,10 +184,10 @@
     </property>
     <property name="default-height">1000</property>
     <property name="default-width">1000</property>
-    <property name="height-request">500</property>
+    <property name="height-request">600</property>
     <property name="overflow">hidden</property>
     <property name="title" translatable="yes">Woes</property>
-    <property name="width-request">800</property>
+    <property name="width-request">1000</property>
     <child>
       <object class="AdwBreakpoint">
         <!-- Custom object fragments -->

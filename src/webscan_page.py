@@ -52,6 +52,7 @@ class WebScanPage(Adw.PreferencesPage):
     def __init__(self, **kwargs):
         """Initialize the WebScanPage."""
         super().__init__(**kwargs)
+        self.set_size_request(800, -1)
         self.current_web_scan_task: Optional[Gio.Task] = None
         self.current_web_scan_cancellable: Optional[Gio.Cancellable] = None
         self.current_nikto_process: Optional[subprocess.Popen] = None

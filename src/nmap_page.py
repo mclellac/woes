@@ -80,6 +80,7 @@ class NmapPage(Adw.Bin):
     def __init__(self, **kwargs):
         """Initialize the NmapPage."""
         super().__init__(**kwargs)
+        self.set_size_request(700, 600)
         logger.info("Initializing NmapPage...")
         self.results_by_host = {}
         self.nmap_target_listbox_store = Gio.ListStore(item_type=NmapItem)
