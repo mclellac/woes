@@ -31,37 +31,6 @@
           </object>
         </child>
         <child>
-          <object class="AdwActionRow" id="webscan_status_action_row">
-            <property name="title">Status</property>
-            <!-- Subtitle will be set from Python code -->
-            <child type="suffix">
-              <object class="GtkBox">
-                <property name="orientation">horizontal</property>
-                <property name="spacing">6</property>
-                <child>
-                  <object class="GtkButton" id="webscan_cancel_button">
-                    <property name="icon-name">process-stop-symbolic</property>
-                    <property name="label" translatable="yes">Cancel Scan</property>
-                    <property name="sensitive">False</property>
-                    <property name="valign">center</property>
-                    <property name="visible">False</property>
-                    <style>
-                      <class name="destructive-action"/>
-                    </style>
-                  </object>
-                </child>
-                <child>
-                  <object class="GtkSpinner" id="webscan_status_spinner">
-                    <property name="spinning">False</property>
-                    <property name="valign">center</property>
-                    <property name="visible">False</property>
-                  </object>
-                </child>
-              </object>
-            </child>
-          </object>
-        </child>
-        <child>
           <object class="AdwExpanderRow" id="nikto_options_expander">
             <property name="title">Nikto Scan Options</property>
             <property name="expanded">false</property>
@@ -171,6 +140,37 @@
                 <child>
                   <object class="GtkSwitch" id="auth_bypass_switch">
                     <property name="valign">center</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="AdwActionRow" id="webscan_status_action_row">
+            <property name="title">Status</property>
+            <!-- Subtitle will be set from Python code -->
+            <child type="suffix">
+              <object class="GtkBox">
+                <property name="orientation">horizontal</property>
+                <property name="spacing">6</property>
+                <child>
+                  <object class="GtkButton" id="webscan_cancel_button">
+                    <property name="icon-name">process-stop-symbolic</property>
+                    <property name="label" translatable="yes">Cancel Scan</property>
+                    <property name="sensitive">False</property>
+                    <property name="valign">center</property>
+                    <property name="visible">False</property>
+                    <style>
+                      <class name="destructive-action"/>
+                    </style>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkSpinner" id="webscan_status_spinner">
+                    <property name="spinning">False</property>
+                    <property name="valign">center</property>
+                    <property name="visible">False</property>
                   </object>
                 </child>
               </object>
