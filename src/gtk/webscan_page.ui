@@ -61,75 +61,123 @@
             </child>
           </object>
         </child>
-        <child>
-          <object class="AdwActionRow" id="evasion_row">
-            <property name="activatable-widget">evasion_switch</property>
-            <property name="subtitle">Pass -evasion 1 to Nikto</property>
-            <property name="title">IDS Evasion (type 1)</property>
-            <child>
-              <object class="GtkSwitch" id="evasion_switch">
-                <property name="valign">center</property>
-              </object>
-            </child>
-          </object>
-        </child>
-        <child>
-          <object class="AdwActionRow" id="mutate_row">
-            <property name="activatable-widget">mutate_switch</property>
-            <property name="subtitle">Pass -mutate 1 to Nikto</property>
-            <property name="title">Mutation (type 1)</property>
-            <child>
-              <object class="GtkSwitch" id="mutate_switch">
-                <property name="valign">center</property>
-              </object>
-            </child>
-          </object>
-        </child>
-        <child>
-          <object class="AdwEntryRow" id="maxtime_entry_row">
-            <property name="input-purpose">number</property>
-            <property name="title">Max Scan Time (seconds)</property>
-          </object>
-        </child>
       </object>
     </child>
     <child>
       <object class="AdwPreferencesGroup">
         <property name="title">Scan Options</property>
         <child>
-          <object class="AdwActionRow">
-            <property name="activatable-widget">force_ssl_switch</property>
-            <property name="subtitle">Equivalent to Nikto's -ssl option</property>
-            <property name="title">Force SSL Scan</property>
+          <object class="AdwExpanderRow" id="nikto_options_expander">
+            <property name="title">Nikto Scan Options</property>
+            <property name="expanded">false</property>
             <child>
-              <object class="GtkSwitch" id="force_ssl_switch">
-                <property name="valign">center</property>
+              <object class="AdwActionRow">
+                <property name="activatable-widget">force_ssl_switch</property>
+                <property name="subtitle">Equivalent to Nikto's -ssl option</property>
+                <property name="title">Force SSL Scan</property>
+                <child>
+                  <object class="GtkSwitch" id="force_ssl_switch">
+                    <property name="valign">center</property>
+                  </object>
+                </child>
               </object>
             </child>
-          </object>
-        </child>
-        <child>
-          <object class="AdwActionRow">
-            <property name="activatable-widget">cgi_vulns_switch</property>
-            <property name="subtitle">Nikto Tuning Option: 2 (Misconfiguration/Default File)</property>
-            <property name="title">Check CGI Vulnerabilities</property>
             <child>
-              <object class="GtkSwitch" id="cgi_vulns_switch">
-                <property name="active">true</property>
-                <property name="valign">center</property>
+              <object class="AdwActionRow">
+                <property name="activatable-widget">cgi_vulns_switch</property>
+                <property name="subtitle">Nikto Tuning Option: 2 (Misconfiguration/Default File)</property>
+                <property name="title">Check CGI Vulnerabilities</property>
+                <child>
+                  <object class="GtkSwitch" id="cgi_vulns_switch">
+                    <property name="active">true</property>
+                    <property name="valign">center</property>
+                  </object>
+                </child>
               </object>
             </child>
-          </object>
-        </child>
-        <child>
-          <object class="AdwActionRow">
-            <property name="activatable-widget">interesting_content_switch</property>
-            <property name="subtitle">Nikto Tuning Option: 1 (Interesting File / Seen in logs)</property>
-            <property name="title">Check Interesting Files/Directories</property>
             <child>
-              <object class="GtkSwitch" id="interesting_content_switch">
-                <property name="active">true</property>
-                <property name="valign">center</property>
+              <object class="AdwActionRow">
+                <property name="activatable-widget">interesting_content_switch</property>
+                <property name="subtitle">Nikto Tuning Option: 1 (Interesting File / Seen in logs)</property>
+                <property name="title">Check Interesting Files/Directories</property>
+                <child>
+                  <object class="GtkSwitch" id="interesting_content_switch">
+                    <property name="active">true</property>
+                    <property name="valign">center</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="AdwActionRow" id="evasion_row">
+                <property name="activatable-widget">evasion_switch</property>
+                <property name="subtitle">Pass -evasion 1 to Nikto</property>
+                <property name="title">IDS Evasion (type 1)</property>
+                <child>
+                  <object class="GtkSwitch" id="evasion_switch">
+                    <property name="valign">center</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="AdwActionRow" id="mutate_row">
+                <property name="activatable-widget">mutate_switch</property>
+                <property name="subtitle">Pass -mutate 1 to Nikto</property>
+                <property name="title">Mutation (type 1)</property>
+                <child>
+                  <object class="GtkSwitch" id="mutate_switch">
+                    <property name="valign">center</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="AdwEntryRow" id="maxtime_entry_row">
+                <property name="input-purpose">number</property>
+                <property name="title">Max Scan Time (seconds)</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwComboRow" id="nikto_format_combo_row">
+                <property name="title">Output Format</property>
+                <property name="subtitle">Select Nikto's output format</property>
+                <property name="model">
+                  <object class="GtkStringList">
+                    <items>
+                      <item>default (text)</item>
+                      <item>txt (text)</item>
+                      <item>csv</item>
+                      <item>xml</item>
+                      <item>html</item>
+                    </items>
+                  </object>
+                </property>
+                <property name="selected">0</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwActionRow" id="no404_row">
+                <property name="title">Disable 404 Checking</property>
+                <property name="subtitle">Pass -no404 to Nikto</property>
+                <property name="activatable-widget">no404_switch</property>
+                <child>
+                  <object class="GtkSwitch" id="no404_switch">
+                    <property name="valign">center</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="AdwActionRow" id="auth_bypass_row">
+                <property name="title">Authentication Bypass</property>
+                <property name="subtitle">Nikto Tuning Option: 9 (Authentication Bypass)</property>
+                <property name="activatable-widget">auth_bypass_switch</property>
+                <child>
+                  <object class="GtkSwitch" id="auth_bypass_switch">
+                    <property name="valign">center</property>
+                  </object>
+                </child>
               </object>
             </child>
           </object>

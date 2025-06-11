@@ -44,6 +44,11 @@ class WebScanPage(Adw.PreferencesPage):
     webscan_status_spinner = Gtk.Template.Child("webscan_status_spinner")
     webscan_cancel_button = Gtk.Template.Child()
 
+    # New UI elements for Nikto options
+    nikto_format_combo_row = Gtk.Template.Child()
+    no404_switch = Gtk.Template.Child()
+    auth_bypass_switch = Gtk.Template.Child()
+
     def __init__(self, **kwargs):
         """Initialize the WebScanPage."""
         super().__init__(**kwargs)
@@ -189,7 +194,11 @@ class WebScanPage(Adw.PreferencesPage):
             "interesting_content": self.interesting_content_switch.get_active(), # type: ignore
             "evasion": self.evasion_switch.get_active(), # type: ignore
             "mutate": self.mutate_switch.get_active(), # type: ignore
-            "maxtime": self.maxtime_entry_row.get_text().strip() # type: ignore
+            "maxtime": self.maxtime_entry_row.get_text().strip(), # type: ignore
+            # New options for task_data_for_thread
+            "nikto_format": self.nikto_format_combo_row.get_selected_item().get_string() if self.nikto_format_combo_row.get_selected_item() else "default (text)", # type: ignore
+            "no404": self.no404_switch.get_active(), # type: ignore
+            "auth_bypass": self.auth_bypass_switch.get_active() # type: ignore
         }
         self._current_webscan_params = task_data_for_thread # Store params in instance variable
         task.run_in_thread(self._run_scan_task_thread_func) # type: ignore
@@ -220,6 +229,10 @@ class WebScanPage(Adw.PreferencesPage):
         evasion_active = scan_params.get("evasion", False)
         mutate_active = scan_params.get("mutate", False)
         maxtime_str = scan_params.get("maxtime", "")
+        # New params from scan_params
+        nikto_format_str = scan_params.get("nikto_format", "default (text)")
+        no404_active = scan_params.get("no404", False)
+        auth_bypass_active = scan_params.get("auth_bypass", False)
 
         # is_valid_url (used in on_scan_button_clicked) ensures target_url has a scheme from
         # ['http', 'https', 'ftp']. Nikto prepends 'http://' if no scheme is given,
@@ -258,6 +271,9 @@ class WebScanPage(Adw.PreferencesPage):
         tuning_options = []
         if cgi_vulns: tuning_options.append('2') # Corresponds to Nikto's "Misconfiguration / Default File"
         if interesting_content: tuning_options.append('1') # Corresponds to Nikto's "Interesting File / Seen in logs"
+        # Add new tuning options
+        if auth_bypass_active:
+            tuning_options.append('9') # '9' for Authentication Bypass
 
         # Nikto's -Tuning option takes a string of numbers (e.g., "12") to specify checks.
         # If no tuning switches are active, the -Tuning option is omitted.
@@ -266,6 +282,20 @@ class WebScanPage(Adw.PreferencesPage):
             tuning_string = "".join(sorted(list(set(tuning_options))))
             if tuning_string:
                 nikto_command.extend(['-Tuning', tuning_string])
+
+        # Add format option
+        if nikto_format_str and nikto_format_str not in ["default (text)", "txt (text)"]:
+            format_cli_value = nikto_format_str
+            if nikto_format_str == "html":
+                format_cli_value = "htm" # Nikto uses 'htm' for HTML
+            # 'csv', 'xml' are fine as is. 'txt' is default, so no need to add.
+            # Other formats like 'nbe' could be added here if UI supports them.
+            if format_cli_value not in ["txt"]: # Nikto's default is text, -Format txt is redundant
+                 nikto_command.extend(['-Format', format_cli_value])
+
+        # Add no404 option
+        if no404_active:
+            nikto_command.append('-no404')
 
         logger.debug(f"Constructed Nikto command: {nikto_command}")
 
