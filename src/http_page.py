@@ -131,21 +131,12 @@ class HttpPage(Adw.PreferencesPage):
             self.http_column_view.append_column(col_name)
             self.http_column_view.append_column(col_value)
         self._connect_signals()
-        self._hide_results()
         self._update_user_agent_model()
         self.settings.connect("changed::custom-user-agents", lambda _s, _k: self._update_user_agent_model())
-        if self.http_apply_button:
-            self.http_apply_button.set_use_underline(True)
         if self.http_host_header_row:
             self._on_host_header_changed(self.http_host_header_row)
         if self.http_user_agent_row:
             self._on_user_agent_changed(self.http_user_agent_row, None)
-
-        if self.http_status_row:
-            self.http_status_row.set_subtitle("Idle") # type: ignore
-        if self.http_status_spinner:
-            self.http_status_spinner.set_spinning(False) # type: ignore
-            self.http_status_spinner.set_visible(False) # type: ignore
 
         self.column_view_helper = Helper(widget=self.http_column_view, parent_window=self.get_native()) # type: ignore
 

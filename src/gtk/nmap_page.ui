@@ -36,6 +36,7 @@
                 <child type="suffix">
                   <object class="GtkButton" id="nmap_apply_button">
                     <property name="label" translatable="yes">_Scan</property>
+                    <property name="use_underline">True</property>
                     <property name="valign">center</property>
                     <style>
                       <class name="suggested-action"/>

@@ -58,16 +58,6 @@ class WebScanPage(Adw.PreferencesPage):
         self._current_webscan_params: Optional[Dict[str, Any]] = None
         logger.debug("WebScanPage initialized")
 
-        if self.webscan_status_action_row:
-            self.webscan_status_action_row.set_subtitle("Idle") # type: ignore
-        if self.webscan_status_spinner:
-            self.webscan_status_spinner.set_spinning(False) # type: ignore
-            self.webscan_status_spinner.set_visible(False) # type: ignore
-        if self.webscan_cancel_button:
-             self.webscan_cancel_button.set_visible(False) # type: ignore
-             self.webscan_cancel_button.set_sensitive(False) # type: ignore
-
-
         if self.results_textview:
             buffer = self.results_textview.get_buffer()
             if buffer:
@@ -77,10 +67,6 @@ class WebScanPage(Adw.PreferencesPage):
                     buffer.set_language(language)
                 else:
                     logger.warning("GtkSource language '%s' not found. Syntax highlighting may not apply.", "text")
-
-            self.results_textview.set_show_line_numbers(True)
-            self.results_textview.set_monospace(True)
-            self.results_textview.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
 
         self.url_entry.connect("entry-activated", self.on_scan_button_clicked)
         # Connect signal for the cancel button now that it's a template child
