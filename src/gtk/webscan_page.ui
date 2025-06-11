@@ -17,6 +17,7 @@
         <child>
           <object class="AdwEntryRow" id="url_entry">
             <property name="title">Target URL</property>
+            <property name="min-width-chars">30</property>
             <child type="suffix">
               <object class="GtkButton" id="scan_button">
                 <property name="halign">end</property>
@@ -100,6 +101,7 @@
               <object class="AdwEntryRow" id="maxtime_entry_row">
                 <property name="input-purpose">number</property>
                 <property name="title">Max Scan Time (seconds)</property>
+                <property name="min-width-chars">8</property>
               </object>
             </child>
             <child>
