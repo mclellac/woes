@@ -77,7 +77,6 @@
                 <signal name="clicked" handler="_on_clear_results_clicked"/>
                 <style>
                   <class name="destructive-action"/>
-                  <class name="flat"/>
                 </style>
               </object>
             </child>

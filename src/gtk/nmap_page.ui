@@ -143,6 +143,9 @@
                     <property name="label" translatable="yes">Cancel</property>
                     <property name="icon-name">process-stop-symbolic</property>
                     <property name="visible">False</property>
+                    <style>
+                      <class name="destructive-action"/>
+                    </style>
                   </object>
                 </child>
               </object>

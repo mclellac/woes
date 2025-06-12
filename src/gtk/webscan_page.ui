@@ -192,7 +192,7 @@
                 <property name="tooltip-text" translatable="yes">Clear Results</property>
                 <property name="valign">center</property>
                 <style>
-                  <class name="flat"/>
+                  <class name="destructive-action"/>
                 </style>
               </object>
             </child>
