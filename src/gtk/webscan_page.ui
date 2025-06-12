@@ -9,7 +9,7 @@
     <property name="hexpand">True</property>
     <property name="title">Web Scan</property>
     <child>
-      <object class="AdwPreferencesGroup" id="scan_target_group_widget">
+      <object class="AdwPreferencesGroup">
         <property name="description" translatable="yes">Enter a URL to scan for common web vulnerabilities using Nikto.</property>
         <property name="hexpand">True</property>
         <property name="title">Scan Target</property>
@@ -17,7 +17,6 @@
         <child>
           <object class="AdwEntryRow" id="url_entry">
             <property name="title">Target URL</property>
-            <property name="min-width-chars">30</property>
             <child type="suffix">
               <object class="GtkButton" id="scan_button">
                 <property name="halign">end</property>
@@ -182,7 +181,7 @@
       </object>
     </child>
     <child>
-      <object class="AdwPreferencesGroup" id="scan_results_group_widget">
+      <object class="AdwPreferencesGroup">
         <property name="description">Output from the web vulnerability scan will appear here.</property>
         <property name="header-suffix">
           <object class="GtkBox">
