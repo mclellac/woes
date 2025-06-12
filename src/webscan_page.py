@@ -420,23 +420,80 @@ class WebScanPage(Adw.PreferencesPage):
 
             if stderr_str:
                 cleaned_stderr_str = stderr_str.strip()
-                if cleaned_stderr_str.startswith("('") and cleaned_stderr_str.endswith("', '')"):
+                logger.debug(f"Attempting to parse Nikto output from stderr. Cleaned stderr string (first 500 chars): {cleaned_stderr_str[:500]}")
+
+                # Regex to find a string that looks like ('stuff', '') or ("stuff", '') at the start of cleaned_stderr_str
+                # It captures the quote type (group 1) and the content (group 2)
+                # It allows for optional whitespace around parentheses and comma.
+                # Using placeholder for actual quotes in regex pattern to avoid issues with diff format
+                # Placeholder Q1 for match.group(1)'s quote, Q2 for match.group(3)'s quote
+                # Pattern: ^\(\s*(['"])(.*?)Q1\s*,\s*(['"])Q2\s*\)$
+                # In Python code, this will be r"^\(\s*(['"])(.*?)\s*,\s*(['"])\s*\)$"
+                # where  refers to group 1 and  to group 3.
+                # For the diff, we'll use a simpler string that won't break the diff parser,
+                # and assume the actual regex is used in the final code.
+                # The key change is the structure of the if/else blocks and the regex logic.
+
+                # Correct regex with backreferences for re.search:
+                # The r"..." string itself is what's used.
+                # In the context of a diff, using the literal characters \1 and \3 can be problematic.
+                # The actual Python code will use re.search(r"^\(\s*(['"])(.*?)(\1)\s*,\s*(['"])(\3)\s*\)$", cleaned_stderr_str, re.DOTALL)
+                # For the purpose of this diff, let's represent the logic flow.
+                # The literal regex string with \1 and \3 is r"^\(\s*(['"])(.*?)(\1)\s*,\s*(['"])(\3)\s*\)$"
+                # If the diff tool has issues with \1, I'll use a placeholder and note it.
+                # Trying with the literal regex for now. If it fails, I'll adjust.
+                # Corrected regex after seeing the original request: `r"^\(\s*(['"])(.*?)\s*,\s*(['"])\s*\)$"`
+                # This regex means: group 1 is quote, group 2 is content, then match group 1 again.
+                # Then group 3 is quote, then match group 3 again (for empty string).
+
+                match = re.search(r"^\(\s*(['"])(.*?)\1\s*,\s*(['"])\3\s*\)$", cleaned_stderr_str, re.DOTALL)
+
+                if match:
+                    nikto_output_raw_string = match.group(2)  # This is the "stuff" part, still with its own escapes
+                    quote_char_for_literal_eval = match.group(1) # The quote used for the string content itself
+
+                    logger.info(f"Regex matched tuple-like string in stderr. Raw content (first 200 chars): {nikto_output_raw_string[:200]}")
                     try:
-                        parsed_content = ast.literal_eval(cleaned_stderr_str)
-                        if isinstance(parsed_content, tuple) and len(parsed_content) == 2 and \
-                           isinstance(parsed_content[0], str) and parsed_content[1] == '':
-                            actual_nikto_output = parsed_content[0]
-                            parsed_output_from_stderr = True
-                            logger.info("Successfully parsed Nikto's primary output from its stderr channel (which contained a stringified tuple).")
-                            if stdout_str: # Log if stdout also had content, as it will be ignored
-                                logger.info(f"Nikto stdout channel contained: '{stdout_str[:200]}...' (will be ignored as primary output was found in stderr).")
-                        else:
-                            logger.warning(f"Nikto stderr appeared to be a stringified tuple but did not match the expected structure: {cleaned_stderr_str}")
-                    except (SyntaxError, ValueError) as e:
-                        logger.warning(f"Could not parse Nikto stderr string as a Python literal: {e}. Stderr content: {cleaned_stderr_str}")
+                        # To correctly unescape, ast.literal_eval needs a valid Python string literal.
+                        # So, we reconstruct one: quote_char + nikto_output_raw_string + quote_char
+                        string_to_evaluate = quote_char_for_literal_eval + nikto_output_raw_string + quote_char_for_literal_eval
+                        actual_nikto_output = ast.literal_eval(string_to_evaluate)
+
+                        # The regex r"^\(\s*(['"])(.*?)(\1)\s*,\s*(['"])(\3)\s*\)$" ensures the second part is ('') or ("").
+                        # group(3) is the quote of the second empty string.
+                        # The content of the second string is implicitly empty due to (\3) immediately following (['"]).
+
+                        parsed_output_from_stderr = True
+                        logger.info("Successfully parsed Nikto's primary output from stderr using regex and ast.literal_eval.")
+                        if stdout_str:
+                            logger.info(f"Nikto stdout channel contained (will be ignored): '{stdout_str[:200]}...'")
+                    except Exception as e:
+                        logger.warning(f"ast.literal_eval failed for extracted string: {e}. String (first 200 chars): {nikto_output_raw_string[:200]}", exc_info=True)
+                else:
+                    logger.info("Nikto stderr did not match tuple-like string pattern via regex. Trying original startswith/endswith check.")
+                    # Fallback to original logic if regex doesn't match
+                    if cleaned_stderr_str.startswith("('") and cleaned_stderr_str.endswith("', '')"):
+                        try:
+                            parsed_content_tuple = ast.literal_eval(cleaned_stderr_str)
+                            if isinstance(parsed_content_tuple, tuple) and len(parsed_content_tuple) == 2 and \
+                               isinstance(parsed_content_tuple[0], str) and parsed_content_tuple[1] == '':
+                                actual_nikto_output = parsed_content_tuple[0]
+                                parsed_output_from_stderr = True
+                                logger.info("Successfully parsed Nikto's primary output from stderr using original startswith/endswith method.")
+                                if stdout_str:
+                                    logger.info(f"Nikto stdout channel contained (original method, will be ignored): '{stdout_str[:200]}...'")
+                            else:
+                                logger.warning(f"Original method: Nikto stderr matched start/end but internal structure was not as expected. Data: {cleaned_stderr_str[:200]}...")
+                        except (SyntaxError, ValueError) as e:
+                            logger.warning(f"Original method: ast.literal_eval failed for cleaned_stderr_str: {e}. Data (first 200 chars): {cleaned_stderr_str[:200]}", exc_info=True)
+                    else:
+                        logger.info("Nikto stderr did not match any known tuple-like string pattern. It will be treated as plain text.")
+
+                # If parsed_output_from_stderr is True, actual_nikto_output contains the desired string.
+                # If False, the original stdout_str and stderr_str will be used later.
 
             if process.returncode not in [0, 1]:
-                error_output_detail = actual_nikto_output if parsed_output_from_stderr else (stderr_str or stdout_str)
+                error_output_detail = actual_nikto_output if parsed_output_from_stderr else (stderr_str or stdout_str) # Ensure this line is not duplicated if it's outside the 'if stderr_str:' block
                 logger.error(f"Nikto process finished with an unexpected error code {process.returncode}. Output/Stderr: {error_output_detail}")
                 task.return_new_error_literal(
                     GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN),
