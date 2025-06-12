@@ -211,19 +211,13 @@
         <property name="title">Scan Results</property>
         <property name="width-request">800</property>
         <child>
-          <object class="GtkScrolledWindow">
+          <object class="GtkScrolledWindow" id="results_scrolled_window">
             <property name="hexpand">True</property>
             <property name="min-content-height">200</property>
             <property name="vexpand">True</property>
             <property name="width-request">800</property>
             <child>
-              <object class="GtkSourceView" id="results_textview">
-                <property name="hexpand">True</property>
-                <property name="vexpand">True</property>
-                <property name="monospace">True</property>
-                <property name="show-line-numbers">True</property>
-                <property name="wrap-mode">GTK_WRAP_WORD_CHAR</property>
-              </object>
+
             </child>
           </object>
         </child>
