@@ -422,47 +422,29 @@ class WebScanPage(Adw.PreferencesPage):
                 cleaned_stderr_str = stderr_str.strip()
                 logger.debug(f"Attempting to parse Nikto output from stderr. Cleaned stderr string (first 500 chars): {cleaned_stderr_str[:500]}")
 
-                # Regex to find a string that looks like ('stuff', '') or ("stuff", '') at the start of cleaned_stderr_str
-                # It captures the quote type (group 1) and the content (group 2)
-                # It allows for optional whitespace around parentheses and comma.
-                # Using placeholder for actual quotes in regex pattern to avoid issues with diff format
-                # Placeholder Q1 for match.group(1)'s quote, Q2 for match.group(3)'s quote
-                # Pattern: ^\(\s*(['"])(.*?)Q1\s*,\s*(['"])Q2\s*\)$
-                # In Python code, this will be r"^\(\s*(['"])(.*?)\s*,\s*(['"])\s*\)$"
-                # where  refers to group 1 and  to group 3.
-                # For the diff, we'll use a simpler string that won't break the diff parser,
-                # and assume the actual regex is used in the final code.
-                # The key change is the structure of the if/else blocks and the regex logic.
-
-                # Correct regex with backreferences for re.search:
-                # The r"..." string itself is what's used.
-                # In the context of a diff, using the literal characters \1 and \3 can be problematic.
-                # The actual Python code will use re.search(r"^\(\s*(['"])(.*?)(\1)\s*,\s*(['"])(\3)\s*\)$", cleaned_stderr_str, re.DOTALL)
-                # For the purpose of this diff, let's represent the logic flow.
-                # The literal regex string with \1 and \3 is r"^\(\s*(['"])(.*?)(\1)\s*,\s*(['"])(\3)\s*\)$"
-                # If the diff tool has issues with \1, I'll use a placeholder and note it.
-                # Trying with the literal regex for now. If it fails, I'll adjust.
-                # Corrected regex after seeing the original request: `r"^\(\s*(['"])(.*?)\s*,\s*(['"])\s*\)$"`
-                # This regex means: group 1 is quote, group 2 is content, then match group 1 again.
-                # Then group 3 is quote, then match group 3 again (for empty string).
-
-                match = re.search(r"^\(\s*(['"])(.*?)\1\s*,\s*(['"])\3\s*\)$", cleaned_stderr_str, re.DOTALL)
+                # Regex to find a string like "('nikto output', '')" in stderr.
+                # Note: \x5B is '[', \x27 is ''', \x22 is '"', \x5D is ']'.
+                # These hex escapes were used to resolve a severe parser issue in the environment.
+                regex_part1 = r"^\(\s*(\x5B\x27\x22\x5D)(.*?)"
+                regex_part2 = r"\1\s*,\s*(\x5B\x27\x22\x5D)"
+                regex_part3 = r"\3\s*\)$"
+                regex_pattern_str = regex_part1 + regex_part2 + regex_part3
+                try:
+                    pattern = re.compile(regex_pattern_str, re.DOTALL)
+                    match = pattern.search(cleaned_stderr_str)
+                except re.error as e_regex: # Should not happen with this fixed pattern
+                    logger.error(f"Regex compilation failed: {e_regex}")
+                    match = None # Ensure match is defined
 
                 if match:
-                    nikto_output_raw_string = match.group(2)  # This is the "stuff" part, still with its own escapes
-                    quote_char_for_literal_eval = match.group(1) # The quote used for the string content itself
+                    nikto_output_raw_string = match.group(2)
+                    quote_char_for_literal_eval = match.group(1)
 
                     logger.info(f"Regex matched tuple-like string in stderr. Raw content (first 200 chars): {nikto_output_raw_string[:200]}")
                     try:
-                        # To correctly unescape, ast.literal_eval needs a valid Python string literal.
-                        # So, we reconstruct one: quote_char + nikto_output_raw_string + quote_char
+                        # Reconstruct a valid Python string literal for ast.literal_eval to unescape.
                         string_to_evaluate = quote_char_for_literal_eval + nikto_output_raw_string + quote_char_for_literal_eval
                         actual_nikto_output = ast.literal_eval(string_to_evaluate)
-
-                        # The regex r"^\(\s*(['"])(.*?)(\1)\s*,\s*(['"])(\3)\s*\)$" ensures the second part is ('') or ("").
-                        # group(3) is the quote of the second empty string.
-                        # The content of the second string is implicitly empty due to (\3) immediately following (['"]).
-
                         parsed_output_from_stderr = True
                         logger.info("Successfully parsed Nikto's primary output from stderr using regex and ast.literal_eval.")
                         if stdout_str:
@@ -471,7 +453,7 @@ class WebScanPage(Adw.PreferencesPage):
                         logger.warning(f"ast.literal_eval failed for extracted string: {e}. String (first 200 chars): {nikto_output_raw_string[:200]}", exc_info=True)
                 else:
                     logger.info("Nikto stderr did not match tuple-like string pattern via regex. Trying original startswith/endswith check.")
-                    # Fallback to original logic if regex doesn't match
+                    # Fallback to original logic if regex doesn't match.
                     if cleaned_stderr_str.startswith("('") and cleaned_stderr_str.endswith("', '')"):
                         try:
                             parsed_content_tuple = ast.literal_eval(cleaned_stderr_str)
