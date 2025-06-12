@@ -48,7 +48,7 @@ class DnsResolverClient:
         """Initialize DnsResolverClient.
 
         :param custom_dns_server: Optional IP address of a custom DNS server.
-        :type custom_dns_server: str, optional
+        :type custom_dns_server: Optional[str]
         """
         self.resolver = dns.resolver.Resolver()
         if custom_dns_server:

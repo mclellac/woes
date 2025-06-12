@@ -1,4 +1,5 @@
-"""Provides the NmapScanner class and related utilities for performing Nmap scans.
+"""
+Provides the NmapScanner class and related utilities for performing Nmap scans.
 
 This module includes functionality for building Nmap commands, handling
 privilege escalation, executing scans, and processing results.
@@ -31,8 +32,9 @@ from .utils import is_valid_ip, is_valid_domain
 
 
 class ScanOptions(Enum):
-    """Enumeration of common Nmap command-line option fragments."""
-
+    """
+    Enumeration of common Nmap command-line option fragments.
+    """
     DEFAULT = "-T4"
     OS_FINGERPRINTING = "-O -A"
     ALL_PORTS = "-p-"
@@ -40,23 +42,43 @@ class ScanOptions(Enum):
 
 
 class ScanStatus(Enum):
-    """Enumeration representing the status of an Nmap scan."""
-
+    """
+    Enumeration representing the status of an Nmap scan.
+    """
     IN_PROGRESS = (0.0, "Scanning {target}...")
     COMPLETE = (1.0, "Scan complete")
     FAILED = (1.0, "Scan failed unexpectedly")
     IDLE = (0.0, "Idle")
 
 
-class ScanCancelledError(PortScannerError): # Inherit from PortScannerError for consistency if desired
-    """Exception raised when an Nmap scan is cancelled."""
-
+class ScanCancelledError(PortScannerError):
+    """
+    Exception raised when an Nmap scan is cancelled.
+    """
     pass
 
 
 class NmapScanParameters(TypedDict, total=False):
-    """TypedDict for Nmap scan parameters."""
+    """
+    TypedDict for Nmap scan parameters.
 
+    :param target: The target for the Nmap scan.
+    :type target: str
+    :param os_fingerprinting: Whether to enable OS fingerprinting.
+    :type os_fingerprinting: bool
+    :param scan_all_ports: Whether to scan all ports.
+    :type scan_all_ports: bool
+    :param selected_script: The Nmap script to use.
+    :type selected_script: Optional[str]
+    :param service_version: Whether to detect service versions.
+    :type service_version: bool
+    :param no_ping: Whether to disable host discovery ping.
+    :type no_ping: bool
+    :param timing_template: The timing template to use (e.g., "T3", "T4").
+    :type timing_template: str
+    :param custom_dns_server: Custom DNS server to use for the scan.
+    :type custom_dns_server: Optional[str]
+    """
     target: str
     os_fingerprinting: bool
     scan_all_ports: bool
@@ -68,7 +90,14 @@ class NmapScanParameters(TypedDict, total=False):
 
 
 def _is_scan_root_required(nmap_args_list: List[str]) -> bool:
-    """Check if the given Nmap arguments require root privileges."""
+    """
+    Check if the given Nmap arguments require root privileges.
+
+    :param nmap_args_list: A list of Nmap command arguments.
+    :type nmap_args_list: List[str]
+    :return: True if root privileges are required, False otherwise.
+    :rtype: bool
+    """
     logger.debug("Checking if root is required for args: %s", nmap_args_list)
     # Common options requiring root: -sS (TCP SYN scan), -O (OS detection), -A (Aggressive scan)
     root_options = ["-sS", "-O", "-A"]
@@ -78,7 +107,16 @@ def _is_scan_root_required(nmap_args_list: List[str]) -> bool:
 
 
 def get_escalated_command(command_parts: List[str]) -> List[str]:
-    """Construct a command list for privilege escalation based on the OS."""
+    """
+    Construct a command list for privilege escalation based on the OS.
+
+    :param command_parts: The command parts to escalate.
+    :type command_parts: List[str]
+    :raises FileNotFoundError: If nmap or a required escalation tool (pkexec, osascript) is not found.
+    :raises NotImplementedError: If privilege escalation is not supported on the current platform.
+    :return: The command list with privilege escalation.
+    :rtype: List[str]
+    """
     system = platform.system()
     logger.debug("Getting escalated command for: %s on system: %s", command_parts, system)
     if not command_parts:
@@ -115,7 +153,13 @@ def get_escalated_command(command_parts: List[str]) -> List[str]:
 
 
 class NmapScanner:
-    """A wrapper around the python-nmap library to perform network scans."""
+    """
+    A wrapper around the python-nmap library to perform network scans.
+
+    This class manages the execution of Nmap scans, including building
+    command arguments, handling privilege escalation if needed, running
+    the scan process, and parsing the results.
+    """
 
     def __init__(self):
         """Initialize the NmapScanner."""
@@ -127,7 +171,9 @@ class NmapScanner:
 
 
     def __del__(self):
-        """Ensure the ThreadPoolExecutor is shut down and any running Nmap process is terminated."""
+        """
+        Ensure the ThreadPoolExecutor is shut down and any running Nmap process is terminated.
+        """
         logger.debug("NmapScanner.__del__ called.")
         if self.current_process and self.current_process.poll() is None:
             logger.info("Terminating active Nmap process during NmapScanner deletion.")
@@ -147,7 +193,18 @@ class NmapScanner:
 
 
     def validate_target_input(self, target: str) -> bool:
-        """Validate the target string for Nmap scanning."""
+        """
+        Validate the target string for Nmap scanning.
+
+        The target can be an IP address, a domain name, a CIDR block,
+        or 'localhost'. Multiple targets can be specified, separated by
+        commas or spaces.
+
+        :param target: The target string to validate.
+        :type target: str
+        :return: True if the target string is valid, False otherwise.
+        :rtype: bool
+        """
         if not target or not isinstance(target, str): # Handle empty or non-string input early
             return False
 
@@ -187,7 +244,18 @@ class NmapScanner:
     def build_nmap_options(
         self, os_fingerprinting: bool, scan_all_ports: bool, selected_script: str
     ) -> str:
-        """Construct Nmap command-line options string."""
+        """
+        Construct Nmap command-line options string based on boolean flags.
+
+        :param os_fingerprinting: If True, add OS fingerprinting options.
+        :type os_fingerprinting: bool
+        :param scan_all_ports: If True, add all ports scan option.
+        :type scan_all_ports: bool
+        :param selected_script: Name of the Nmap script to use (or "None").
+        :type selected_script: str
+        :return: A string of Nmap command-line options.
+        :rtype: str
+        """
         options = ScanOptions.DEFAULT.value
         if os_fingerprinting:
             options += f" {ScanOptions.OS_FINGERPRINTING.value}"
@@ -199,7 +267,14 @@ class NmapScanner:
         return options
 
     def _build_nmap_arguments(self, params: NmapScanParameters) -> List[str]:
-        """Build the list of arguments for the Nmap command."""
+        """
+        Build the list of arguments for the Nmap command.
+
+        :param params: A dictionary of Nmap scan parameters.
+        :type params: NmapScanParameters
+        :return: A list of arguments for the Nmap command.
+        :rtype: List[str]
+        """
         nmap_args_list = ["nmap", "-sS"] # -sS (TCP SYN scan) requires root.
 
         if params.get("os_fingerprinting"): nmap_args_list.append("-O")
@@ -225,7 +300,18 @@ class NmapScanner:
         return nmap_args_list
 
     def _prepare_final_nmap_command(self, nmap_args_list: List[str], needs_escalation: bool) -> List[str]:
-        """Prepares the final Nmap command list, including path resolution and escalation."""
+        """
+        Prepare the final Nmap command list, including path resolution and escalation.
+
+        :param nmap_args_list: The base list of Nmap arguments.
+        :type nmap_args_list: List[str]
+        :param needs_escalation: Whether privilege escalation is required.
+        :type needs_escalation: bool
+        :raises PortScannerError: If escalation fails or nmap executable is not found.
+        :raises FileNotFoundError: If nmap executable is not found for non-escalated command.
+        :return: The final list of command parts for execution.
+        :rtype: List[str]
+        """
         final_command_parts: List[str] = []
         if needs_escalation:
             logger.info("Escalation required for Nmap scan execution.")
@@ -248,7 +334,20 @@ class NmapScanner:
     def _parse_nmap_error_message(
         self, returncode: int, nmap_xml_output: str, nmap_stderr: str, needs_escalation: bool,
     ) -> str:
-        """Construct a detailed error message from Nmap's output when a scan fails."""
+        """
+        Construct a detailed error message from Nmap's output when a scan fails.
+
+        :param returncode: The exit code from the Nmap process.
+        :type returncode: int
+        :param nmap_xml_output: The stdout (XML output) from Nmap.
+        :type nmap_xml_output: str
+        :param nmap_stderr: The stderr output from Nmap.
+        :type nmap_stderr: str
+        :param needs_escalation: Whether the scan attempted privilege escalation.
+        :type needs_escalation: bool
+        :return: A detailed error message string.
+        :rtype: str
+        """
         error_message = f"Nmap scan failed with exit code {returncode}."
         if "QUITTING" in nmap_xml_output or "requires root privileges" in nmap_xml_output:
             output_lines = nmap_xml_output.strip().split("\n")
@@ -270,6 +369,22 @@ class NmapScanner:
         self, params: NmapScanParameters,
         cancellable: Optional[Gio.Cancellable] = None,
     ) -> nmap.PortScanner:
+        """
+        Run an Nmap scan with the given parameters and handle cancellation.
+
+        This method constructs the Nmap command, executes it as a subprocess,
+        monitors for cancellation, and parses the XML output.
+
+        :param params: The parameters for the Nmap scan.
+        :type params: NmapScanParameters
+        :param cancellable: An optional Gio.Cancellable object to monitor for cancellation requests.
+        :type cancellable: Optional[Gio.Cancellable]
+        :raises ScanCancelledError: If the scan is cancelled.
+        :raises PortScannerError: If the Nmap scan fails, prerequisites are missing,
+                                  or output parsing fails.
+        :return: An nmap.PortScanner object containing the scan results.
+        :rtype: nmap.PortScanner
+        """
         logger.debug(
             "run_nmap_scan called with params: %s, Cancellable: %s",
             params, bool(cancellable)
@@ -353,7 +468,15 @@ class NmapScanner:
 
 
     def convert_results_to_yaml(self, nm: nmap.PortScanner) -> Dict[str, str]:
-        """Convert Nmap scan results to YAML for each host."""
+        """
+        Convert Nmap scan results to YAML for each host.
+
+        :param nm: The nmap.PortScanner object containing the scan results.
+        :type nm: nmap.PortScanner
+        :return: A dictionary where keys are host IPs and values are YAML strings
+                 representing the scan results for that host.
+        :rtype: Dict[str, str]
+        """
         logger.debug(f"Converting Nmap results to YAML for {len(nm.all_hosts())} hosts.")
         all_results = {}
         prescan_scripts_data = nm.scaninfo().get('prescript', [])
@@ -369,7 +492,16 @@ class NmapScanner:
         return all_results
 
     def to_plain_dict(self, data: Any) -> Union[Dict[str, Any], Any]:
-        """Recursively convert Nmap data to plain dicts/lists for serialization."""
+        """
+        Recursively convert Nmap data (potentially custom nmap types) to plain dicts/lists.
+
+        This is necessary for proper serialization to formats like YAML or JSON.
+
+        :param data: The Nmap data to convert.
+        :type data: Any
+        :return: The data converted to plain Python dicts, lists, and primitive types.
+        :rtype: Union[Dict[str, Any], Any]
+        """
         # logger.debug(f"to_plain_dict called with data of type: {type(data)}") # Can be very verbose
         if isinstance(data, nmap.PortScannerHostDict):
             return {k: self.to_plain_dict(v) for k, v in data.items()}

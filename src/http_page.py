@@ -522,7 +522,13 @@ class HttpPage(Adw.PreferencesPage):
                     self._set_loading_state(False, "Idle - operation ended.")
 
     def _set_loading_state(self, active: bool, message: str = "Idle") -> None:
-        """Sets the UI loading state (spinner, status message, sensitivity of input fields)."""
+        """Sets the UI loading state (spinner, status message, sensitivity of input fields).
+
+        :param active: True to set loading state, False to unset.
+        :type active: bool
+        :param message: Optional message to display in the status row. Defaults to "Idle".
+        :type message: str
+        """
         if self.http_status_spinner:
             self.http_status_spinner.set_visible(active) # type: ignore
             if active:

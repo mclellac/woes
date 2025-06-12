@@ -1,4 +1,5 @@
-"""Utility functions for managing application styling.
+"""
+Utility functions for managing application styling.
 
 This module provides functions for applying font preferences, themes,
 and GtkSourceView style schemes. It interacts with GSettings to retrieve
@@ -28,19 +29,16 @@ HIGH_CONTRAST_KEY = "high-contrast"
 def _get_linux_font_preferences(
     base_font_size_pt: float,
 ) -> Tuple[Optional[str], float]:
-    """Get font preferences from GNOME settings on Linux.
+    """
+    Get font preferences from GNOME settings on Linux.
 
     Retrieves font family and size from `org.gnome.desktop.interface` schema.
     Applies GNOME's text scaling factor.
 
-    Args:
-    ----
-        base_font_size_pt: The base font size to use if system settings are unavailable.
-
-    Returns:
-    -------
-        A tuple containing the font family (str or None) and the calculated font size in points.
-
+    :param base_font_size_pt: The base font size to use if system settings are unavailable.
+    :type base_font_size_pt: float
+    :return: A tuple containing the font family (str or None) and the calculated font size in points.
+    :rtype: Tuple[Optional[str], float]
     """
     font_family = None
     font_size_pt = base_font_size_pt
@@ -78,19 +76,16 @@ def _get_linux_font_preferences(
 
 
 def _get_app_font_scaling(app_settings: Gio.Settings) -> float:
-    """Get app-specific font scaling percentage from GSettings.
+    """
+    Get app-specific font scaling percentage from GSettings.
 
     Parses the 'font-scaling-percentage' string (e.g., "100%") and returns it as a float.
     Defaults to 100.0 if parsing fails.
 
-    Args:
-    ----
-        app_settings: The application's Gio.Settings object.
-
-    Returns:
-    -------
-        The font scaling percentage as a float (e.g., 100.0, 120.0).
-
+    :param app_settings: The application's Gio.Settings object.
+    :type app_settings: Gio.Settings
+    :return: The font scaling percentage as a float (e.g., 100.0, 120.0).
+    :rtype: float
     """
     font_scale_percentage_str = app_settings.get_string("font-scaling-percentage")
     parsed_app_percentage = 100.0
@@ -112,16 +107,15 @@ def _get_app_font_scaling(app_settings: Gio.Settings) -> float:
 
 
 def apply_system_font_preferences(app_settings: Gio.Settings):
-    """Apply font preferences system-wide.
+    """
+    Apply font preferences system-wide.
 
     Considers system-wide GNOME settings (if on Linux) for base font family and size,
     then applies the application's own font scaling percentage from GSettings.
     The resulting font style is applied globally using a Gtk.CssProvider.
 
-    Args:
-    ----
-        app_settings: The application's Gio.Settings object.
-
+    :param app_settings: The application's Gio.Settings object.
+    :type app_settings: Gio.Settings
     """
     font_family_to_apply = None
     font_size_to_apply_pt = BASE_FONT_SIZE_PT
@@ -160,26 +154,25 @@ def apply_system_font_preferences(app_settings: Gio.Settings):
 
 
 def apply_font_size(settings: Gio.Settings):
-    """Apply font size preferences based on system and application settings.
+    """
+    Apply font size preferences based on system and application settings.
 
     This function is a wrapper around `apply_system_font_preferences`.
 
-    Args:
-    ----
-        settings: The application's Gio.Settings object.
-
+    :param settings: The application's Gio.Settings object.
+    :type settings: Gio.Settings
     """
     apply_system_font_preferences(settings)
 
 
 def apply_theme(style_manager: Adw.StyleManager, theme_preference: str):
-    """Apply the selected color scheme (theme) to the application.
+    """
+    Apply the selected color scheme (theme) to the application.
 
-    Args:
-    ----
-        style_manager: The Adw.StyleManager instance for the application.
-        theme_preference: The theme preference string ("Light", "Dark", or "System").
-
+    :param style_manager: The Adw.StyleManager instance for the application.
+    :type style_manager: Adw.StyleManager
+    :param theme_preference: The theme preference string ("Light", "Dark", or "System").
+    :type theme_preference: str
     """
     if theme_preference == "Light":
         style_manager.set_color_scheme(Adw.ColorScheme.FORCE_LIGHT)
@@ -194,16 +187,17 @@ def apply_source_style_scheme(
     buffer: GtkSource.Buffer,
     source_style_scheme: str,
 ):
-    """Apply the selected style scheme to a GtkSource.Buffer.
+    """
+    Apply the selected style scheme to a GtkSource.Buffer.
 
     If the specified scheme is not found, it attempts to fall back to "Adwaita".
 
-    Args:
-    ----
-        scheme_manager: The GtkSource.StyleSchemeManager.
-        buffer: The GtkSource.Buffer to apply the scheme to.
-        source_style_scheme: The name of the style scheme to apply.
-
+    :param scheme_manager: The GtkSource.StyleSchemeManager.
+    :type scheme_manager: GtkSource.StyleSchemeManager
+    :param buffer: The GtkSource.Buffer to apply the scheme to.
+    :type buffer: GtkSource.Buffer
+    :param source_style_scheme: The name of the style scheme to apply.
+    :type source_style_scheme: str
     """
     # Handle common Adwaita variations that might not strictly match IDs
     if source_style_scheme not in ["Adwaita", "Adwaita-dark"]:
@@ -228,13 +222,13 @@ def apply_source_style_scheme(
 
 
 def set_widget_visibility(visible: bool, *widgets: Gtk.Widget):
-    """Set the visibility of one or more Gtk.Widgets.
+    """
+    Set the visibility of one or more Gtk.Widgets.
 
-    Args:
-    ----
-        visible: True to make widgets visible, False to hide them.
-        *widgets: The Gtk.Widget(s) to modify. None values are logged and skipped.
-
+    :param visible: True to make widgets visible, False to hide them.
+    :type visible: bool
+    :param widgets: The Gtk.Widget(s) to modify. None values are logged and skipped.
+    :type widgets: Gtk.Widget
     """
     for widget in widgets:
         if widget:
@@ -244,16 +238,13 @@ def set_widget_visibility(visible: bool, *widgets: Gtk.Widget):
 
 
 def create_listbox_row(item_text: str) -> Gtk.ListBoxRow:
-    """Create a simple Gtk.ListBoxRow containing a Gtk.Label.
+    """
+    Create a simple Gtk.ListBoxRow containing a Gtk.Label.
 
-    Args:
-    ----
-        item_text: The text to display in the label of the list box row.
-
-    Returns:
-    -------
-        A Gtk.ListBoxRow with the specified label.
-
+    :param item_text: The text to display in the label of the list box row.
+    :type item_text: str
+    :return: A Gtk.ListBoxRow with the specified label.
+    :rtype: Gtk.ListBoxRow
     """
     label = Gtk.Label(label=item_text)
     row = Gtk.ListBoxRow()
@@ -262,17 +253,14 @@ def create_listbox_row(item_text: str) -> Gtk.ListBoxRow:
 
 
 def init_source_buffer(language: str = "yaml") -> GtkSource.Buffer:
-    """Initialize a GtkSource.Buffer with syntax highlighting for a given language.
+    """
+    Initialize a GtkSource.Buffer with syntax highlighting for a given language.
 
-    Args:
-    ----
-        language: The language ID for syntax highlighting (e.g., "yaml", "python").
-                  Defaults to "yaml".
-
-    Returns:
-    -------
-        A GtkSource.Buffer configured for the specified language.
-
+    :param language: The language ID for syntax highlighting (e.g., "yaml", "python").
+                     Defaults to "yaml".
+    :type language: str
+    :return: A GtkSource.Buffer configured for the specified language.
+    :rtype: GtkSource.Buffer
     """
     source_buffer = GtkSource.Buffer()
     lang_manager = GtkSource.LanguageManager.get_default()
