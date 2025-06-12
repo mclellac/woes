@@ -51,7 +51,11 @@ class WebScanPage(Adw.PreferencesPage):
     auth_bypass_switch = Gtk.Template.Child()
 
     def __init__(self, **kwargs):
-        """Initialize the WebScanPage."""
+        """Initialize the WebScanPage.
+
+        :param kwargs: Keyword arguments passed to the :class:`Adw.PreferencesPage` constructor.
+        :type kwargs: Any
+        """
 
         super().__init__(**kwargs)
         self.source_view = GtkSource.View()
@@ -107,7 +111,13 @@ class WebScanPage(Adw.PreferencesPage):
             self.copy_results_button.connect("clicked", self._on_copy_results_clicked)
 
     def _on_webscan_source_style_settings_changed(self, _manager_or_settings, _param_spec_or_key):
-        """Handle theme or style scheme changes for WebScan's GtkSourceView."""
+        """Handle theme or style scheme changes for WebScan's GtkSourceView.
+
+        :param _manager_or_settings: The Adw.StyleManager or Gio.Settings object that emitted the signal.
+        :type _manager_or_settings: Adw.StyleManager or Gio.Settings
+        :param _param_spec_or_key: The GObject.ParamSpec or GSettings key that changed.
+        :type _param_spec_or_key: GObject.ParamSpec or str
+        """
         logger.info("WebScanPage: Dark theme or source style scheme changed. Applying new style.")
         self._apply_webscan_source_view_style()
 
@@ -159,7 +169,11 @@ class WebScanPage(Adw.PreferencesPage):
             self.current_web_scan_cancellable.cancel()
 
     def _on_cancel_scan_clicked(self, _button: Gtk.Button) -> None:
-        """Handles click on the 'Cancel Scan' button."""
+        """Handles click on the 'Cancel Scan' button.
+
+        :param _button: The Gtk.Button that was clicked (unused).
+        :type _button: Gtk.Button
+        """
         logger.info("Cancel scan button clicked.")
         if self.current_web_scan_cancellable and \
            not self.current_web_scan_cancellable.is_cancelled():
@@ -172,6 +186,11 @@ class WebScanPage(Adw.PreferencesPage):
             logger.warning("No active scan or cancellable to cancel.")
 
     def _on_clear_results_clicked(self, _button: Gtk.Button):
+        """Handle click of the 'Clear Results' button.
+
+        :param _button: The Gtk.Button that was clicked (unused).
+        :type _button: Gtk.Button
+        """
         if not hasattr(self, 'source_view') or not self.source_view:
             # print(f"DEBUG: _on_clear_results_clicked - source_view not found")
             return
@@ -179,13 +198,17 @@ class WebScanPage(Adw.PreferencesPage):
         if not buffer:
             # print(f"DEBUG: _on_clear_results_clicked - buffer not found")
             return
-        """Handle click of the 'Clear Results' button."""
         logger.info("Webscan results cleared by user action.")
         if self.source_view:
             buffer = self.source_view.get_buffer()
             buffer.set_text("")
 
     def _on_copy_results_clicked(self, _button: Gtk.Button):
+        """Handle click of the 'Copy Results' button.
+
+        :param _button: The Gtk.Button that was clicked (unused).
+        :type _button: Gtk.Button
+        """
         if not hasattr(self, 'source_view') or not self.source_view:
             # print(f"DEBUG: _on_copy_results_clicked - source_view not found")
             return
@@ -193,7 +216,6 @@ class WebScanPage(Adw.PreferencesPage):
         if not buffer:
             # print(f"DEBUG: _on_copy_results_clicked - buffer not found")
             return
-        """Handle click of the 'Copy Results' button."""
         logger.info("Copying webscan results to clipboard.")
         if self.source_view:
             buffer = self.source_view.get_buffer()
@@ -215,6 +237,11 @@ class WebScanPage(Adw.PreferencesPage):
                 logger.info("No webscan results to copy.")
 
     def on_scan_button_clicked(self, _widget: Gtk.Button):
+        """Handle the 'Scan' button click event.
+
+        :param _widget: The Gtk.Button that was clicked (unused).
+        :type _widget: Gtk.Button
+        """
         if not hasattr(self, 'source_view') or not self.source_view:
             # print(f"DEBUG: on_scan_button_clicked - source_view not found")
             return
@@ -222,7 +249,6 @@ class WebScanPage(Adw.PreferencesPage):
         if not buffer:
             # print(f"DEBUG: on_scan_button_clicked - buffer not found")
             return
-        """Handle the 'Scan' button click event."""
         logger.debug(f"WebScanPage scan button clicked. URL: '{self.url_entry.get_text()}'")
         target_url = self.url_entry.get_text().strip()
 
@@ -289,7 +315,17 @@ class WebScanPage(Adw.PreferencesPage):
                                    _source_object: GObject.Object,
                                    _task_data_unused: Any, # Parameter from Gio.Task.run_in_thread, not used for params
                                    cancellable: Gio.Cancellable):
-        """Execute the Nikto scan in a separate thread, with cancellation support."""
+        """Execute the Nikto scan in a separate thread, with cancellation support.
+
+        :param task: The Gio.Task associated with this operation.
+        :type task: Gio.Task
+        :param _source_object: The GObject source of the task.
+        :type _source_object: GObject.Object
+        :param _task_data_unused: Additional data passed to the task (unused).
+        :type _task_data_unused: Any
+        :param cancellable: A Gio.Cancellable object to monitor for cancellation.
+        :type cancellable: Gio.Cancellable
+        """
         logger.debug("WebScanPage._run_scan_task_thread_func started")
 
         page_instance: WebScanPage = _source_object # type: ignore
@@ -500,7 +536,15 @@ class WebScanPage(Adw.PreferencesPage):
             self.current_nikto_process = None # Ensure cleared
 
     def _on_scan_task_done(self, _source_object: GObject.Object, result: Gio.AsyncResult, _user_data: object): # type: ignore
-        """Handle completion of the Nikto scan task."""
+        """Handle completion of the Nikto scan task.
+
+        :param _source_object: The GObject source of the task.
+        :type _source_object: GObject.Object
+        :param result: The Gio.AsyncResult from the completed task.
+        :type result: Gio.AsyncResult
+        :param _user_data: User data passed with the callback (unused).
+        :type _user_data: object
+        """
         target_url = "Unknown URL"
         # Retrieve target_url from instance variable
         if self._current_webscan_params:
@@ -626,6 +670,16 @@ class WebScanPage(Adw.PreferencesPage):
             self.current_nikto_process = None # Ensure cleared
 
     def _update_textview(self, stdout_content: Optional[str], stderr_content: Optional[str], is_error_message: bool = False):
+        """Update the results TextView with Nikto's stdout and error messages/stderr.
+
+        :param stdout_content: The standard output content from Nikto.
+        :type stdout_content: Optional[str]
+        :param stderr_content: The standard error content from Nikto or a pre-formatted error message.
+        :type stderr_content: Optional[str]
+        :param is_error_message: If True, stderr_content is treated as a pre-formatted error for display.
+                                 Otherwise, it's treated as raw stderr output from Nikto.
+        :type is_error_message: bool
+        """
         if not hasattr(self, 'source_view') or not self.source_view:
             # print("DEBUG: _update_textview - source_view not found")
             return
@@ -633,7 +687,6 @@ class WebScanPage(Adw.PreferencesPage):
         if not buffer:
             # print("DEBUG: _update_textview - buffer not found")
             return
-        """Update the results TextView with Nikto's stdout and error messages/stderr."""
         buffer = self.source_view.get_buffer()
         if stdout_content:
             buffer.insert(buffer.get_end_iter(), stdout_content)

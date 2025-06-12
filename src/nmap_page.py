@@ -36,7 +36,13 @@ class NmapItem(GObject.Object):
     value = GObject.Property(type=str)
 
     def __init__(self, key: str, value: str):
-        """Initialize an NmapItem."""
+        """Initialize an NmapItem.
+
+        :param key: The key string.
+        :type key: str
+        :param value: The value string.
+        :type value: str
+        """
         super().__init__()
         self.key = key
         self.value = value
@@ -48,7 +54,11 @@ class NmapTargetRow(Gtk.ListBoxRow):
     nmap_item = GObject.Property(type=NmapItem)
 
     def __init__(self, nmap_item: NmapItem, **kwargs):
-        """Initialize an NmapTargetRow."""
+        """Initialize an NmapTargetRow.
+
+        :param nmap_item: The NmapItem to display.
+        :type nmap_item: NmapItem
+        """
         super().__init__(**kwargs)
         self.nmap_item = nmap_item
         label = Gtk.Label(label=nmap_item.key, halign=Gtk.Align.START, margin_start=6, margin_end=6)
@@ -78,7 +88,11 @@ class NmapPage(Adw.Bin):
     nmap_detail_placeholder = Gtk.Template.Child("nmap_detail_placeholder")
 
     def __init__(self, **kwargs):
-        """Initialize the NmapPage."""
+        """Initialize the NmapPage.
+
+        :param kwargs: Keyword arguments passed to the :class:`Adw.Bin` constructor.
+        :type kwargs: Any
+        """
         super().__init__(**kwargs)
         logger.info("Initializing NmapPage...")
         self.results_by_host = {}
@@ -109,8 +123,14 @@ class NmapPage(Adw.Bin):
 
     def _on_nmap_source_style_settings_changed(self, _source: GObject.Object, _pspec: GObject.ParamSpec):
         """Handle theme or style scheme changes for Nmap's GtkSourceView.
+
         Currently, this method primarily logs the change. Style application
         is handled at view creation time in _add_raw_output_expander.
+
+        :param _source: The GObject source of the signal.
+        :type _source: GObject.Object
+        :param _pspec: The GObject.ParamSpec of the property that changed.
+        :type _pspec: GObject.ParamSpec
         """
         logger.info("NmapPage: Dark theme or source style scheme changed. New views will use updated style.")
         # If we were to update existing views, we'd iterate them here and call
@@ -119,6 +139,9 @@ class NmapPage(Adw.Bin):
     def _apply_source_view_style_to_buffer(self, buffer: GtkSource.Buffer):
         """Apply the appropriate GtkSourceView style scheme to a given buffer,
         considering the current theme (dark/light) and user settings.
+
+        :param buffer: The GtkSource.Buffer to apply the style to.
+        :type buffer: GtkSource.Buffer
         """
         is_dark = self.style_manager.get_dark()
         user_scheme_name = self.settings.get_string("source-style-scheme")
@@ -189,7 +212,11 @@ class NmapPage(Adw.Bin):
             self.nmap_cancel_scan_button.connect("clicked", self._on_cancel_scan_clicked)
 
     def _on_cancel_scan_clicked(self, _button: Gtk.Button) -> None:
-        """Handle the 'Cancel Scan' button click."""
+        """Handle the 'Cancel Scan' button click.
+
+        :param _button: The Gtk.Button that was clicked (unused).
+        :type _button: Gtk.Button
+        """
         logger.info("Cancel scan button clicked.")
         if self.current_nmap_cancellable and not self.current_nmap_cancellable.is_cancelled():
             self.current_nmap_cancellable.cancel()
@@ -264,7 +291,17 @@ class NmapPage(Adw.Bin):
         _task_data: Optional[Dict[str, Any]], # pylint: disable=unused-argument # This arg from run_in_thread is not used
         cancellable: Optional[Gio.Cancellable]
     ):
-        """Execute the Nmap scan in a separate thread via NmapScanner, for Gio.Task."""
+        """Execute the Nmap scan in a separate thread via NmapScanner, for Gio.Task.
+
+        :param task: The Gio.Task associated with this operation.
+        :type task: Gio.Task
+        :param _source_object: The GObject source of the task.
+        :type _source_object: GObject.Object
+        :param _task_data: Additional data passed to the task (unused).
+        :type _task_data: Optional[Dict[str, Any]]
+        :param cancellable: A Gio.Cancellable object to monitor for cancellation.
+        :type cancellable: Optional[Gio.Cancellable]
+        """
         page_instance: NmapPage = _source_object # type: ignore
         params = page_instance._current_nmap_scan_params
 
@@ -302,7 +339,15 @@ class NmapPage(Adw.Bin):
             # UI sensitivity updates are handled in _nmap_scan_task_done_cb
 
     def _nmap_scan_task_done_cb(self, _source_object: GObject.Object, result: Gio.AsyncResult, _user_data: Optional[Any]): # type: ignore # pylint: disable=unused-argument
-        """Callback for when the Nmap scan Gio.Task completes."""
+        """Callback for when the Nmap scan Gio.Task completes.
+
+        :param _source_object: The GObject source of the task.
+        :type _source_object: GObject.Object
+        :param result: The Gio.AsyncResult from the completed task.
+        :type result: Gio.AsyncResult
+        :param _user_data: User data passed with the callback (unused).
+        :type _user_data: Optional[Any]
+        """
         original_target = self._current_nmap_scan_params["target"] if self._current_nmap_scan_params else "unknown target"
 
         logger.info(f"Nmap scan task done for {original_target}.")
@@ -353,7 +398,13 @@ class NmapPage(Adw.Bin):
 
 
     def _process_scan_results(self, nm: nmap.PortScanner, original_target: str):
-        """Process the Nmap scan results received from the scanner task."""
+        """Process the Nmap scan results received from the scanner task.
+
+        :param nm: The nmap.PortScanner object containing the scan results.
+        :type nm: nmap.PortScanner
+        :param original_target: The original target string for the scan.
+        :type original_target: str
+        """
         logger.debug("Processing Nmap scan results for target: %s", original_target)
         hosts_found = nm.all_hosts()
         logger.debug("Hosts found by Nmap: %s", hosts_found)
@@ -383,13 +434,25 @@ class NmapPage(Adw.Bin):
         )
 
     def _handle_scan_error(self, target: str, error_message: str):
-        """Handle errors reported from the Nmap scan task."""
+        """Handle errors reported from the Nmap scan task.
+
+        :param target: The target string for which the scan failed.
+        :type target: str
+        :param error_message: The error message to display.
+        :type error_message: str
+        """
         logger.debug("Handling Nmap scan error for target %s: %s", target, error_message)
         show_global_error(self, f"Error scanning {target}: {error_message}")
         self._set_scan_status(ScanStatus.FAILED, f"Scan failed for {target}")
 
     def _on_target_selected(self, _listbox: Gtk.ListBox, row: Optional[Gtk.ListBoxRow]):
-        """Handle selection of a host in the Nmap results ListBox."""
+        """Handle selection of a host in the Nmap results ListBox.
+
+        :param _listbox: The Gtk.ListBox that emitted the signal.
+        :type _listbox: Gtk.ListBox
+        :param row: The selected Gtk.ListBoxRow, or None if deselected.
+        :type row: Optional[Gtk.ListBoxRow]
+        """
         self._clear_dynamic_details()
         if row is None:
             self.nmap_detail_placeholder.set_title("No Host Selected")
@@ -444,7 +507,13 @@ class NmapPage(Adw.Bin):
             self.nmap_detail_placeholder.set_visible(True)
 
     def _add_raw_output_expander(self, host_data_dict: Dict[str, Any], host_key: str):
-        """Add an Adw.ExpanderRow to display the human-readable text summary for a host."""
+        """Add an Adw.ExpanderRow to display the human-readable text summary for a host.
+
+        :param host_data_dict: The dictionary containing data for the host.
+        :type host_data_dict: Dict[str, Any]
+        :param host_key: The identifier for the host (e.g., IP address).
+        :type host_key: str
+        """
         logger.debug("Adding text scan summary expander for %s", host_key)
         expander = Adw.ExpanderRow(title=f"Text Scan Summary - {host_key}")
         expander.set_expanded(False)
@@ -472,7 +541,11 @@ class NmapPage(Adw.Bin):
         self.nmap_detail_box.append(expander)
 
     def _on_copy_host_summary_clicked(self, summary_text: str):
-        """Handles the click of the 'Copy Host Summary' button."""
+        """Handles the click of the 'Copy Host Summary' button.
+
+        :param summary_text: The summary text to copy to the clipboard.
+        :type summary_text: str
+        """
         logger.info("Copying Nmap host summary to clipboard.")
         if not summary_text:
             show_global_toast(self, "No summary text available to copy.") # type: ignore
@@ -493,7 +566,13 @@ class NmapPage(Adw.Bin):
 
 
     def _add_host_details_expander(self, host_data: Dict[str, Any], host_key: str):  # pylint: disable=too-many-locals # UI construction method with many data points
-        """Add an Adw.ExpanderRow to display general host information."""
+        """Add an Adw.ExpanderRow to display general host information.
+
+        :param host_data: The dictionary containing data for the host.
+        :type host_data: Dict[str, Any]
+        :param host_key: The identifier for the host (e.g., IP address).
+        :type host_key: str
+        """
         logger.debug("Adding host details expander for %s", host_key)
         expander = Adw.ExpanderRow(title=f"Host Information - {host_key}")
         expander.set_expanded(True)
@@ -519,7 +598,13 @@ class NmapPage(Adw.Bin):
         self.nmap_detail_box.append(expander)
 
     def _add_ports_expander(self, host_data: Dict[str, Any], host_key: str):  # pylint: disable=too-many-locals # UI construction method with many data points
-        """Add an Adw.ExpanderRow to display detected network ports and their details."""
+        """Add an Adw.ExpanderRow to display detected network ports and their details.
+
+        :param host_data: The dictionary containing data for the host.
+        :type host_data: Dict[str, Any]
+        :param host_key: The identifier for the host (e.g., IP address).
+        :type host_key: str
+        """
         logger.debug("Adding ports expander for %s", host_key)
         expander = Adw.ExpanderRow(title=f"Network Ports - {host_key}")
         expander.set_expanded(True)
@@ -547,7 +632,13 @@ class NmapPage(Adw.Bin):
         self.nmap_detail_box.append(expander)
 
     def _add_os_expander(self, host_data: Dict[str, Any], host_key: str):  # pylint: disable=too-many-locals # UI construction method with many data points
-        """Add an Adw.ExpanderRow to display OS detection results."""
+        """Add an Adw.ExpanderRow to display OS detection results.
+
+        :param host_data: The dictionary containing data for the host.
+        :type host_data: Dict[str, Any]
+        :param host_key: The identifier for the host (e.g., IP address).
+        :type host_key: str
+        """
         osmatch_data = host_data.get("osmatch", [])
         if not osmatch_data:
             logger.debug("No OS data for host %s, skipping OS expander.", host_key)
@@ -586,7 +677,13 @@ class NmapPage(Adw.Bin):
         self.nmap_detail_box.append(expander)
 
     def _update_results_view(self, hosts: List[str], results_map: Dict[str, str]):
-        """Update the host ListBox with new scan results."""
+        """Update the host ListBox with new scan results.
+
+        :param hosts: A list of host identifiers (e.g., IP addresses).
+        :type hosts: List[str]
+        :param results_map: A dictionary mapping host identifiers to their YAML scan data.
+        :type results_map: Dict[str, str]
+        """
         logger.info("Updating Nmap results view for hosts: %s", hosts)
         self.nmap_target_listbox_store.remove_all()
         self.results_by_host.clear()
@@ -614,12 +711,24 @@ class NmapPage(Adw.Bin):
             self.nmap_detail_placeholder.set_visible(True)
 
     def _set_scan_status(self, status_type: ScanStatus, message: str): # type: ignore
-        """Set the scan status and update the UI via GLib.idle_add."""
+        """Set the scan status and update the UI via GLib.idle_add.
+
+        :param status_type: The ScanStatus enum member representing the current status.
+        :type status_type: ScanStatus
+        :param message: The message to display in the status row.
+        :type message: str
+        """
         logger.info("Setting Nmap scan status: %s - %s", status_type.name, message)
         GLib.idle_add(self._update_status_ui, status_type, message)
 
     def _update_status_ui(self, status_type: ScanStatus, message: str):
-        """Update the status row and spinner in the UI."""
+        """Update the status row and spinner in the UI.
+
+        :param status_type: The ScanStatus enum member.
+        :type status_type: ScanStatus
+        :param message: The message to display.
+        :type message: str
+        """
         self.status_row.set_subtitle(message)
         status_css_classes = ["success-color", "warning-color", "error-color", "accent-color"]
         style_context = self.status_row.get_style_context()
@@ -688,11 +797,23 @@ class NmapPage(Adw.Bin):
             logger.warning("Could not find main window or hide_error method to clear error.")
 
     def _create_target_listbox_row(self, item: NmapItem) -> Gtk.ListBoxRow:
-        """Create an NmapTargetRow for the host ListBox."""
+        """Create an NmapTargetRow for the host ListBox.
+
+        :param item: The NmapItem to create a row for.
+        :type item: NmapItem
+        :return: A new NmapTargetRow.
+        :rtype: NmapTargetRow
+        """
         return NmapTargetRow(nmap_item=item)
 
     def _generate_human_readable_host_summary(self, host_data_dict: dict) -> str:
-        """Generate a human-readable summary of host scan data."""
+        """Generate a human-readable summary of host scan data.
+
+        :param host_data_dict: A dictionary containing the scan data for a host.
+        :type host_data_dict: dict
+        :return: A string containing the human-readable summary.
+        :rtype: str
+        """
         summary_lines = []
         status_info = host_data_dict.get("status", {})
         state = status_info.get("state", "N/A")
