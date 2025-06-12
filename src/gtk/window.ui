@@ -162,6 +162,8 @@
                     <property name="icon-name" bind-source="webscan_page" bind-property="icon-name" bind-flags="sync-create">org.gnome.Loupe-symbolic</property>
                     <property name="title" bind-source="webscan_page" bind-property="title" bind-flags="sync-create">Web Scanner</property>
                     <property name="valign">start</property>
+                    <property name="vexpand">true</property>
+                    <property name="vexpand-set">true</property>
                   </object>
                 </property>
                 <property name="icon-name">face-cool</property>
