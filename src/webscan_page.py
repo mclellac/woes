@@ -15,8 +15,9 @@ from enum import Enum
 import gi
 from gi.repository import Gtk, Adw, Gio, GLib, GObject, Gdk, GtkSource
 
-from .constants import RESOURCE_PREFIX
+from .constants import RESOURCE_PREFIX, APP_ID
 from .utils import show_global_error, show_global_toast, is_valid_url
+from .style_utils import apply_source_style_scheme
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
@@ -56,6 +57,8 @@ class WebScanPage(Adw.PreferencesPage):
         self.current_web_scan_cancellable: Optional[Gio.Cancellable] = None
         self.current_nikto_process: Optional[subprocess.Popen] = None
         self._current_webscan_params: Optional[Dict[str, Any]] = None
+        self.settings = Gio.Settings.new(APP_ID)
+        self.style_manager = Adw.StyleManager.get_default()
         logger.debug("WebScanPage initialized")
 
         if self.results_textview:
@@ -68,6 +71,10 @@ class WebScanPage(Adw.PreferencesPage):
                 else:
                     logger.warning("GtkSource language '%s' not found. Syntax highlighting may not apply.", "text")
 
+        self._apply_webscan_source_view_style() # Initial application
+
+        self.style_manager.connect("notify::dark", self._on_webscan_source_style_settings_changed)
+        self.settings.connect("changed::source-style-scheme", self._on_webscan_source_style_settings_changed)
         self.url_entry.connect("entry-activated", self.on_scan_button_clicked)
         # Connect signal for the cancel button now that it's a template child
         if self.webscan_cancel_button:
@@ -76,6 +83,56 @@ class WebScanPage(Adw.PreferencesPage):
             self.clear_results_button.connect("clicked", self._on_clear_results_clicked)
         if self.copy_results_button:
             self.copy_results_button.connect("clicked", self._on_copy_results_clicked)
+
+    def _on_webscan_source_style_settings_changed(self, _manager_or_settings, _param_spec_or_key):
+        """Handle theme or style scheme changes for WebScan's GtkSourceView."""
+        logger.info("WebScanPage: Dark theme or source style scheme changed. Applying new style.")
+        self._apply_webscan_source_view_style()
+
+    def _apply_webscan_source_view_style(self):
+        """Apply the appropriate GtkSourceView style scheme to the results_textview."""
+        if not self.results_textview:
+            return
+        buffer = self.results_textview.get_buffer()
+        if not buffer:
+            return
+
+        is_dark = self.style_manager.get_dark()
+        user_scheme_name = self.settings.get_string("source-style-scheme")
+        scheme_manager = GtkSource.StyleSchemeManager.get_default()
+        final_scheme_name = "Adwaita"  # Default fallback
+
+        if is_dark:
+            if user_scheme_name.lower() in ["adwaita", "default", "classic", "light"]:
+                final_scheme_name = "Adwaita-dark"
+            else:
+                if scheme_manager.get_scheme(user_scheme_name):
+                    final_scheme_name = user_scheme_name
+                else:
+                    logger.warning(
+                        f"WebScanPage: User scheme '{user_scheme_name}' not found for dark theme, falling back to Adwaita-dark."
+                    )
+                    final_scheme_name = "Adwaita-dark"
+        else:  # Light theme
+            if user_scheme_name.lower() in ["adwaita-dark", "dark"]:
+                final_scheme_name = "Adwaita"
+            else:
+                if scheme_manager.get_scheme(user_scheme_name):
+                    final_scheme_name = user_scheme_name
+                else:
+                    logger.warning(
+                        f"WebScanPage: User scheme '{user_scheme_name}' not found for light theme, falling back to Adwaita."
+                    )
+                    final_scheme_name = "Adwaita"
+
+        if not scheme_manager.get_scheme(final_scheme_name):
+            logger.error(
+                f"WebScanPage: Scheme '{final_scheme_name}' could not be loaded. Defaulting to basic Adwaita (light/dark)."
+            )
+            final_scheme_name = "Adwaita-dark" if is_dark else "Adwaita"
+
+        logger.debug(f"WebScanPage: Applying source style scheme: {final_scheme_name} (Dark: {is_dark}, User: {user_scheme_name})")
+        apply_source_style_scheme(scheme_manager, buffer, final_scheme_name)
 
     def __del__(self):
         """Clean up when the WebScanPage is destroyed."""
