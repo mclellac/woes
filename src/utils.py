@@ -1,9 +1,14 @@
-"""General utility functions for the Woes application."""
+"""A collection of general-purpose utility and helper functions for the Woes application.
+
+This module includes functions for tasks such as UI helper functions
+(e.g., creating GtkSource.View, showing global notifications), input validation
+(IPs, domains, URLs), and potentially other application-wide utilities.
+"""
 import logging
 import ipaddress
 import re
 from urllib.parse import urlparse
-from typing import Tuple, List, Optional  # Added Optional
+from typing import Tuple, List, Optional, Any # Removed 'Any' as it was not used
 
 import gi
 from gi.repository import Gtk, GtkSource, Adw
@@ -18,35 +23,32 @@ logger = logging.getLogger(__name__)
 def create_source_view(
         language_name: str = "text"
 ) -> Tuple[GtkSource.View, GtkSource.Buffer]:
-    """Create and configure a GtkSource.View and its GtkSource.Buffer.
+    """Creates and configures a :class:`GtkSource.View` with its buffer.
 
-    Sets up common properties for the source view like line numbers, monospace
-    font, wrap mode, auto-indent, and tab behavior. Configures syntax
-    highlighting for the specified language.
+    Sets up common properties for the source view such as visibility of line
+    numbers, monospace font, word/character wrap mode, automatic indentation,
+    and tab behavior (inserting spaces instead of tabs). It also configures
+    syntax highlighting based on the provided language name.
 
-    Args:
-        language_name (str): The language ID for syntax highlighting
-                             (e.g., "yaml", "python", "text").
-                             Defaults to "text".
+    If the specified language is not found, it logs a warning and falls back
+    to a plain buffer without syntax highlighting.
 
-    Returns:
-        Tuple[GtkSource.View, GtkSource.Buffer]: Configured GtkSource.View and
-                                                 GtkSource.Buffer.
+    :param language_name: The language ID for syntax highlighting
+                          (e.g., "yaml", "python", "text"). Defaults to "text".
+    :type language_name: str
+    :return: A tuple containing the configured :class:`GtkSource.View`
+             and its associated :class:`GtkSource.Buffer`.
+    :rtype: Tuple[GtkSource.View, GtkSource.Buffer]
     """
     language_manager = GtkSource.LanguageManager.get_default()
-    # Ensure fallback even if None is explicitly passed
-    if language_name is None:
-        language_name = "text"
-    language = language_manager.get_language(language_name)
+    # Ensure fallback even if None is explicitly passed or if language_name is empty
+    effective_language_name = language_name if language_name else "text"
+    language = language_manager.get_language(effective_language_name)
 
     if language is None:
-        # Ensure the warning message accurately reflects what was searched for,
-        # esp. if default was overridden. Use "text" if language_name became
-        # None then defaulted
-        searched_lang_id = language_name if language_name else "text"
         logger.warning("GtkSource language '%s' not found. Falling back to a "
-                       "plain buffer.", searched_lang_id)
-        source_buffer = GtkSource.Buffer()
+                       "plain buffer.", effective_language_name)
+        source_buffer = GtkSource.Buffer() # Create a buffer without a language
     else:
         source_buffer = GtkSource.Buffer.new_with_language(language)
         source_buffer.set_highlight_syntax(True)
@@ -61,24 +63,29 @@ def create_source_view(
     source_view.set_tab_width(4)
     source_view.set_insert_spaces_instead_of_tabs(True)
     source_view.set_highlight_current_line(True)
-    source_view.set_vexpand(True)
+    source_view.set_vexpand(True) # Make the view expand vertically
 
     return source_view, source_buffer
 
 
-def show_global_error(widget: Gtk.Widget, message: str):
-    """Display a global error message using the main window's error banner.
+def show_global_error(widget: Gtk.Widget, message: str) -> None:
+    """Displays a global error message using the main window's error banner.
+
+    This function attempts to find the top-level window containing the given
+    widget and calls a `show_error` method on it, if available.
 
     :param widget: A :class:`Gtk.Widget` (typically 'self' from a page object)
-                   to get the native window.
+                   used to get the native (top-level) window.
     :type widget: Gtk.Widget
     :param message: The error message string to display.
     :type message: str
+    :return: None
+    :rtype: None
     """
     try:
-        main_window = widget.get_native()  # type: ignore
+        main_window = widget.get_native()
         if main_window and hasattr(main_window, 'show_error'):
-            main_window.show_error(message)  # type: ignore
+            main_window.show_error(message) # type: ignore
             logger.error("Global error displayed via main window: %s", message)
         else:
             logger.warning("Could not find main window or show_error method "
@@ -93,25 +100,32 @@ def show_global_toast(
     message: str,
     timeout: int = 2,
     priority: Adw.ToastPriority = Adw.ToastPriority.NORMAL
-):
-    """Display a global toast message using the main window's toast overlay.
+) -> None:
+    """Displays a global toast message using the main window's toast overlay.
+
+    Attempts to find the top-level window containing the given widget and
+    calls a `show_toast` method on it, if available.
 
     :param widget: A :class:`Gtk.Widget` (typically 'self' from a page object)
-                   to get the native window.
+                   used to get the native (top-level) window.
     :type widget: Gtk.Widget
     :param message: The toast message string to display.
     :type message: str
     :param timeout: Duration in seconds for the toast to be visible.
                     Defaults to 2.
     :type timeout: int
-    :param priority: The priority of the toast.
+    :param priority: The priority of the toast (e.g.,
+                     :attr:`Adw.ToastPriority.NORMAL`,
+                     :attr:`Adw.ToastPriority.HIGH`).
                      Defaults to :attr:`Adw.ToastPriority.NORMAL`.
     :type priority: Adw.ToastPriority
+    :return: None
+    :rtype: None
     """
     try:
-        main_window = widget.get_native()  # type: ignore
+        main_window = widget.get_native()
         if main_window and hasattr(main_window, 'show_toast'):
-            main_window.show_toast(  # type: ignore
+            main_window.show_toast( # type: ignore
                 message, priority=priority, timeout=timeout)
             logger.info("Global toast shown via main window: %s", message)
         else:
@@ -123,7 +137,7 @@ def show_global_toast(
 
 
 def is_valid_ip(address: str) -> bool:
-    """Check if the given string is a valid IPv4 or IPv6 address.
+    """Checks if the given string is a valid IPv4 or IPv6 address.
 
     :param address: The string to validate.
     :type address: str
@@ -136,15 +150,17 @@ def is_valid_ip(address: str) -> bool:
         ipaddress.ip_address(address)
         return True
     except ValueError:
+        # This exception is raised by ipaddress.ip_address if the address is not valid.
         return False
 
 
 def is_valid_domain(domain: str) -> bool:
-    """Check if the given string is a syntactically valid domain name (ASCII).
+    """Checks if the given string is a syntactically valid domain name (ASCII-based).
 
-    This validation is based on typical ASCII domain name rules (LDH labels).
-    It does not perform DNS resolution or check for IDN (Internationalized
-    Domain Names) specific rules beyond basic structure.
+    This validation is based on typical ASCII domain name rules (LDH labels -
+    letters, digits, hyphen). It does not perform DNS resolution or check for
+    IDN (Internationalized Domain Names) specific rules beyond basic structure.
+    The domain must have at least one dot and a TLD of at least two alphabetic characters.
 
     :param domain: The string to validate.
     :type domain: str
@@ -152,15 +168,15 @@ def is_valid_domain(domain: str) -> bool:
              ``False`` otherwise.
     :rtype: bool
     """
-    if not domain or not isinstance(domain, str):
+    if not domain or not isinstance(domain, str) or len(domain) > 253: # Overall length check
         return False
     # Regex for domain names:
     # - Each label (part between dots) is 1-63 chars.
     # - Labels consist of LDH (letters, digits, hyphen).
     # - Labels do not start or end with a hyphen.
     # - The TLD (last label) must be at least 2 chars and all alphabetic.
-        # This regex is a common one for ASCII domain names. It allows for
-        # subdomains and ensures TLD is alphabetic.
+    # This regex is a common one for ASCII domain names. It allows for
+    # subdomains and ensures TLD is alphabetic.
     domain_regex = re.compile(
         r"^(?:[a-zA-Z0-9]"  # First character of a label
             r"(?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)"  # Subsequent chars + dot
@@ -170,17 +186,19 @@ def is_valid_domain(domain: str) -> bool:
 
 
 def is_valid_url(url: str, schemes: Optional[List[str]] = None) -> bool:
-    """Check if the given string is a syntactically valid URL with specific schemes.
+    """Checks if the given string is a syntactically valid URL and optionally
+    validates its scheme against a provided list.
 
     :param url: The string to validate.
     :type url: str
     :param schemes: A list of allowed schemes (e.g., ``['http', 'https']``).
-                    If ``None``, defaults to ``['http', 'https']``.
-                    If an empty list is provided, any scheme is effectively allowed
-                    as long as one is present in the URL.
+                    If ``None`` (default), allows ``['http', 'https']``.
+                    If an empty list (``[]``) is provided, any scheme is
+                    considered valid as long as one is present in the URL and
+                    it has a network location.
     :type schemes: Optional[List[str]]
-    :return: ``True`` if the string is a valid URL with an allowed scheme
-             (or any scheme if ``schemes`` is empty), ``False`` otherwise.
+    :return: ``True`` if the string is a valid URL adhering to the scheme
+             constraints, ``False`` otherwise.
     :rtype: bool
     """
     if schemes is None:  # Default to http and https if not provided
@@ -196,6 +214,7 @@ def is_valid_url(url: str, schemes: Optional[List[str]] = None) -> bool:
         # If a non-empty list of schemes is provided, the URL's scheme must be in it.
         if schemes and parsed_url.scheme not in schemes:
             return False
+        # If schemes is an empty list, any scheme is allowed, already checked by parsed_url.scheme.
         return True
-    except ValueError:  # urlparse can raise ValueError for some malformed URLs, though it's rare
+    except ValueError:  # urlparse can raise ValueError for some malformed URLs.
         return False
