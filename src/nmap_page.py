@@ -461,15 +461,13 @@ class NmapPage(Adw.Bin):
         expander.add_row(scrolled_window)
 
         # Add Copy button to the expander's header-suffix
-        header_suffix_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         copy_summary_button = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
         copy_summary_button.set_tooltip_text("Copy Host Summary")
         copy_summary_button.get_style_context().add_class("flat")
         # Pass the summary text to the handler.
         # Using a lambda that captures human_readable_summary.
         copy_summary_button.connect("clicked", lambda _btn, text=human_readable_summary: self._on_copy_host_summary_clicked(text))
-        header_suffix_box.append(copy_summary_button)
-        expander.add_suffix(header_suffix_box)
+        expander.add_suffix(copy_summary_button)
 
         self.nmap_detail_box.append(expander)
 

@@ -527,18 +527,15 @@ class DNSPage(Adw.PreferencesPage):
         full_summary_text: str
     ) -> None:
         """Adds a standard suffix box (label, copy value button, copy summary button) to an ActionRow."""
-        suffix_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-
         value_label = Gtk.Label(label=main_value_text, halign=Gtk.Align.START, selectable=True, wrap=True, wrap_mode=Pango.WrapMode.WORD_CHAR)
-        suffix_box.append(value_label)
+        # suffix_box is removed. Widgets will be added directly to the row.
 
         copy_value_button = self._create_copy_button(main_value_text, f"{main_value_tooltip_prefix}: {main_value_text}", row)
-        suffix_box.append(copy_value_button)
-
         copy_full_summary_button = self._create_copy_button(full_summary_text, "Copy Full Record Summary", row)
-        suffix_box.append(copy_full_summary_button)
 
-        row.add_suffix(suffix_box) # type: ignore
+        row.add_suffix(value_label) # type: ignore
+        row.add_suffix(copy_value_button) # type: ignore
+        row.add_suffix(copy_full_summary_button) # type: ignore
 
     def _create_base_expander_row(self, name: str, subtitle_text: str, icon_name: Optional[str], full_summary_text: str) -> Adw.ExpanderRow:
         """Creates a basic Adw.ExpanderRow with title, subtitle, icon, and a full summary copy button."""
@@ -565,14 +562,13 @@ class DNSPage(Adw.PreferencesPage):
         value_label = Gtk.Label(label=value_text, halign=Gtk.Align.START, selectable=True, wrap=True, wrap_mode=Pango.WrapMode.WORD_CHAR)
         copy_button = self._create_copy_button(value_text, f"{copy_tooltip_prefix}: {value_text}", expander_row)
 
-        content_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        content_box.append(value_label)
-        content_box.append(copy_button)
-
+        # content_box is removed. Widgets will be added directly to the detail_row.
         if is_value_primary_content : # For TXT segments where the value is the main content of the row
-            detail_row.add_prefix(content_box) # type: ignore
+            detail_row.add_prefix(value_label) # type: ignore
+            detail_row.add_prefix(copy_button) # type: ignore
         else: # For SOA fields where title is present and value is a suffix
-            detail_row.add_suffix(content_box) # type: ignore
+            detail_row.add_suffix(value_label) # type: ignore
+            detail_row.add_suffix(copy_button) # type: ignore
 
         detail_row.set_selectable(False)
         expander_row.add_row(detail_row) # type: ignore
