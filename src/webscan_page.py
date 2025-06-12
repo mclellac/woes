@@ -49,16 +49,10 @@ class WebScanPage(Adw.PreferencesPage):
     nikto_format_combo_row = Gtk.Template.Child()
     no404_switch = Gtk.Template.Child()
     auth_bypass_switch = Gtk.Template.Child()
-    scan_target_group_widget = Gtk.Template.Child()
-    scan_results_group_widget = Gtk.Template.Child()
 
     def __init__(self, **kwargs):
         """Initialize the WebScanPage."""
         super().__init__(**kwargs)
-        logger.debug(f"WebScanPage diagnostic: self.scan_target_group_widget is {self.scan_target_group_widget}")
-        logger.debug(f"WebScanPage diagnostic: self.url_entry is {self.url_entry}") # url_entry is inside scan_target_group_widget
-        logger.debug(f"WebScanPage diagnostic: self.scan_results_group_widget is {self.scan_results_group_widget}")
-        logger.debug(f"WebScanPage diagnostic: self.results_textview is {self.results_textview}") # results_textview is inside scan_results_group_widget
         self.current_web_scan_task: Optional[Gio.Task] = None
         self.current_web_scan_cancellable: Optional[Gio.Cancellable] = None
         self.current_nikto_process: Optional[subprocess.Popen] = None
