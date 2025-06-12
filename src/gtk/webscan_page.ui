@@ -100,7 +100,6 @@
               <object class="AdwEntryRow" id="maxtime_entry_row">
                 <property name="input-purpose">number</property>
                 <property name="title">Max Scan Time (seconds)</property>
-                <property name="min-width-chars">8</property>
               </object>
             </child>
             <child>
