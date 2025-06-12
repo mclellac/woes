@@ -6,11 +6,8 @@
   <requires lib="gtk" version="4.0"/>
   <requires lib="libadwaita" version="1.0"/>
   <template class="WebScanPage" parent="AdwPreferencesPage">
-    <property name="width_request">800</property>
     <property name="hexpand">True</property>
     <property name="title">Web Scan</property>
-    <!-- Original children commented out for diagnostic purposes -->
-    <!--
     <child>
       <object class="AdwPreferencesGroup">
         <property name="description" translatable="yes">Enter a URL to scan for common web vulnerabilities using Nikto.</property>
@@ -154,7 +151,7 @@
         <child>
           <object class="AdwActionRow" id="webscan_status_action_row">
             <property name="title">Status</property>
-            <property name="subtitle" translatable="yes">Idle</property>
+            <!-- Subtitle will be set from Python code -->
             <child type="suffix">
               <object class="GtkBox">
                 <property name="orientation">horizontal</property>
@@ -184,6 +181,7 @@
         </child>
       </object>
     </child>
+    <!--
     <child>
       <object class="AdwPreferencesGroup">
         <property name="description">Output from the web vulnerability scan will appear here.</property>
@@ -235,17 +233,5 @@
       </object>
     </child>
     -->
-    <child>
-      <object class="GtkLabel">
-        <property name="label" translatable="yes">VISIBLE TEST LABEL FOR WEBSCANPAGE</property>
-        <property name="height_request">100</property>
-        <property name="width_request">300</property> <!-- Also give it some width -->
-        <property name="visible">True</property>
-        <property name="halign">center</property> <!-- Center it for good measure -->
-        <property name="valign">center</property> <!-- Center it for good measure -->
-        <property name="hexpand">True</property> <!-- Allow expansion -->
-        <property name="vexpand">True</property> <!-- Allow expansion -->
-      </object>
-    </child>
   </template>
 </interface>
