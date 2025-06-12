@@ -66,7 +66,7 @@ class NmapTargetRow(Gtk.ListBoxRow):
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/nmap_page.ui")
-class NmapPage(Adw.Bin):
+class NmapPage(Adw.PreferencesPage):
     """Activity page for performing Nmap scans and viewing results."""
 
     __gtype_name__ = "NmapPage"
@@ -90,7 +90,7 @@ class NmapPage(Adw.Bin):
     def __init__(self, **kwargs):
         """Initialize the NmapPage.
 
-        :param kwargs: Keyword arguments passed to the :class:`Adw.Bin` constructor.
+        :param kwargs: Keyword arguments passed to the :class:`Adw.PreferencesPage` constructor.
         :type kwargs: Any
         """
         super().__init__(**kwargs)
