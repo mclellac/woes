@@ -99,7 +99,7 @@ class NmapPage(Adw.Bin):
         self._init_page_ui()
         self._connect_signals()
         logger.info("NmapPage initialized.")
-        logger.debug("NmapPage __init__ completed.")  # F541 fix
+        logger.debug("NmapPage __init__ completed.")
 
     def __del__(self):
         """Clean up resources, specifically the NmapScanner's thread pool and
@@ -771,8 +771,7 @@ class NmapPage(Adw.Bin):
             if hasattr(self, 'nmap_cancel_scan_button') and \
                self.nmap_cancel_scan_button:
                 self.nmap_cancel_scan_button.set_visible(True)  # type: ignore
-                self.nmap_cancel_scan_button.set_sensitive(
-                    True)  # type: ignore
+                self.nmap_cancel_scan_button.set_sensitive(True)  # type: ignore
         else:  # Not IN_PROGRESS (COMPLETE, FAILED, IDLE)
             self.scan_spinner.stop()
             self.scan_spinner.set_visible(False)
@@ -781,8 +780,7 @@ class NmapPage(Adw.Bin):
             if hasattr(self, 'nmap_cancel_scan_button') and \
                self.nmap_cancel_scan_button:
                 self.nmap_cancel_scan_button.set_visible(False)  # type: ignore
-                self.nmap_cancel_scan_button.set_sensitive(
-                    False)  # type: ignore
+                self.nmap_cancel_scan_button.set_sensitive(False)  # type: ignore
 
             if status_type == ScanStatus.COMPLETE:
                 self.status_row.set_title("Scan Complete")  # type: ignore
@@ -977,3 +975,5 @@ class NmapScanErrorType(int, Enum):
     SCAN_FAILED = 0     # Corresponds to nmap.PortScannerError
     UNEXPECTED = 1      # For other unexpected exceptions during scan
     CANCELLED = 2       # If the scan was cancelled
+
+[end of src/nmap_page.py]

@@ -54,7 +54,8 @@ class Helper:
         gesture.connect("pressed", self.on_right_click)
         self.widget.add_controller(gesture)
 
-    def on_right_click(self, gesture: Gtk.GestureClick, n_press: int, x: float, y: float) -> None:
+    def on_right_click(self, gesture: Gtk.GestureClick, n_press: int,
+                       x: float, y: float) -> None:
         """Display the context menu popover at the location of the mouse click.
 
         Called when the right-click gesture is detected on the widget.
@@ -68,7 +69,7 @@ class Helper:
         :param y: The y-coordinate of the mouse click relative to the widget.
         :type y: float
         """
-        _ = gesture # Unused parameter
+        _ = gesture  # Unused parameter
         if n_press == 1:
             rect = Gdk.Rectangle()
             rect.x = int(x)
@@ -77,8 +78,8 @@ class Helper:
             rect.height = 1
             self.popover.set_pointing_to(rect)
             self.popover.set_has_arrow(False)
-            self.popover.set_parent(self.widget) # type: ignore
-            self.popover.popup() # type: ignore
+            self.popover.set_parent(self.widget)  # type: ignore
+            self.popover.popup()  # type: ignore
 
     def on_copy_menu_item_activated(self, button: Gtk.Button) -> None:
         """Handle activation of the 'Copy' menu item.
@@ -88,9 +89,9 @@ class Helper:
         :param button: The :class:`Gtk.Button` that triggered the event.
         :type button: Gtk.Button
         """
-        _ = button # Unused parameter
+        _ = button  # Unused parameter
         self.copy_to_clipboard()
-        self.popover.popdown() # type: ignore
+        self.popover.popdown()  # type: ignore
 
     def on_key_pressed(
         self,
@@ -101,18 +102,18 @@ class Helper:
     ) -> bool:
         """Handle the ``Ctrl+C`` keyboard shortcut to copy selected content.
 
-        :param controller: The key controller that triggered the event.
-        :type controller: Gtk.EventControllerKey
-        :param keyval: The value of the key pressed (e.g., :attr:`Gdk.KEY_c`).
-        :type keyval: int
-        :param keycode: The hardware keycode of the key pressed.
-        :type keycode: int
-        :param state: The state of the modifier keys (e.g., :attr:`Gdk.ModifierType.CONTROL_MASK`).
-        :type state: Gdk.ModifierType
-        :return: ``True`` if the ``Ctrl+C`` event was handled, ``False`` otherwise.
-        :rtype: bool
+        Args:
+            controller (Gtk.EventControllerKey): The key controller that
+                                                 triggered the event.
+            keyval (int): The value of the key pressed (e.g., Gdk.KEY_c).
+            keycode (int): The hardware keycode of the key pressed.
+            state (Gdk.ModifierType): The state of the modifier keys
+                                      (e.g., Gdk.ModifierType.CONTROL_MASK).
+
+        Returns:
+            bool: True if the Ctrl+C event was handled, False otherwise.
         """
-        _ = controller, keycode # Unused parameters
+        _ = controller, keycode  # Unused parameters
         if state & Gdk.ModifierType.CONTROL_MASK and keyval == Gdk.KEY_c:
             self.copy_to_clipboard()
             return True
@@ -121,28 +122,33 @@ class Helper:
     def copy_to_clipboard(self) -> None:
         """Copy selected content from the :class:`Gtk.ColumnView` to the clipboard.
 
-        Assumes the items in the :class:`Gtk.ColumnView` model have 'key' and
+        Assumes the items in the Gtk.ColumnView model have 'key' and
         'value' attributes to construct the string "key: value".
-        Handles both :class:`Gtk.MultiSelection` and :class:`Gtk.SingleSelection` models.
+        Handles both Gtk.MultiSelection and Gtk.SingleSelection models.
         """
         if isinstance(self.widget, Gtk.ColumnView):
             selection_model = self.widget.get_model()
             selected_texts = []
 
             if isinstance(selection_model, Gtk.MultiSelection):
-                for index in range(selection_model.get_n_items()): # type: ignore
-                    if selection_model.is_selected(index): # type: ignore
-                        selected_item = selection_model.get_item(index) # type: ignore
-                        if hasattr(selected_item, 'key') and hasattr(selected_item, 'value'):
-                            selected_texts.append(f"{selected_item.key}: {selected_item.value}")
+                for index in range(selection_model.get_n_items()):
+                    if selection_model.is_selected(index):
+                        selected_item = selection_model.get_item(index)
+                        if hasattr(selected_item, 'key') and \
+                           hasattr(selected_item, 'value'):
+                            selected_texts.append(
+                                f"{selected_item.key}: {selected_item.value}")
             elif isinstance(selection_model, Gtk.SingleSelection):
-                selected_item = selection_model.get_selected_item() # type: ignore
-                if selected_item and hasattr(selected_item, 'key') and hasattr(selected_item, 'value'):
-                    selected_texts.append(f"{selected_item.key}: {selected_item.value}")
+                selected_item = selection_model.get_selected_item()
+                if selected_item and hasattr(selected_item, 'key') and \
+                   hasattr(selected_item, 'value'):
+                    selected_texts.append(
+                        f"{selected_item.key}: {selected_item.value}")
 
             if selected_texts:
                 clipboard_text = "\n".join(selected_texts)
-                clipboard = self.widget.get_clipboard() # type: ignore
+                clipboard = self.widget.get_clipboard()
                 if clipboard:
-                    content_provider = Gdk.ContentProvider.new_for_value(clipboard_text) # type: ignore
+                    content_provider = Gdk.ContentProvider.new_for_value(
+                        clipboard_text)
                     clipboard.set_content(content_provider)

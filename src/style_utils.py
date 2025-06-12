@@ -4,6 +4,7 @@ This module provides functions for applying font preferences, themes,
 and GtkSourceView style schemes. It interacts with GSettings to retrieve
 system and application-specific style configurations.
 """
+from gi.repository import Adw, Gdk, Gio, Gtk, GtkSource, GLib
 import logging
 import re
 import platform
@@ -13,7 +14,6 @@ import gi
 gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
 gi.require_version("GtkSource", "5")
-from gi.repository import Adw, Gdk, Gio, Gtk, GtkSource, GLib
 
 BASE_FONT_SIZE_PT = 12.0
 
@@ -47,7 +47,8 @@ def _get_linux_font_preferences(
     try:
         gnome_settings = Gio.Settings.new(GNOME_INTERFACE_SCHEMA)
         font_name_str = gnome_settings.get_string(FONT_NAME_KEY)
-        text_scaling_factor = gnome_settings.get_double(TEXT_SCALING_FACTOR_KEY)
+        text_scaling_factor = gnome_settings.get_double(
+            TEXT_SCALING_FACTOR_KEY)
 
         match = re.match(r"^(.*)\s+(\d+(\.\d+)?)$", font_name_str)
         if match:
@@ -55,23 +56,20 @@ def _get_linux_font_preferences(
             gnome_base_size_pt = float(match.group(2))
             font_family = gnome_font_family
             font_size_pt = gnome_base_size_pt * text_scaling_factor
-            logging.info(
-                "Applied GNOME font: Family='%s', Base Size (after GNOME scaling)=%.2fpt",
-                font_family,
-                font_size_pt,
-            )
+            logging.info("Applied GNOME font: Family='%s', Base Size "
+                         "(after GNOME scaling)=%.2fpt", font_family,
+                         font_size_pt)
         else:
-            logging.warning(
-                "Could not parse GNOME font-name string: '%s'. Using application base font size %spt.",
-                font_name_str,
-                font_size_pt,
-            )
+            logging.warning("Could not parse GNOME font-name string: '%s'. "
+                            "Using application base font size %spt.",
+                            font_name_str, font_size_pt)
     except GLib.Error:
         pass  # GNOME desktop font settings might not be available
 
     try:
         gnome_a11y_settings = Gio.Settings.new(GNOME_A11Y_SCHEMA)
-        gnome_a11y_settings.get_boolean(HIGH_CONTRAST_KEY)  # Keep call if getter has side-effects
+        # Keep call if getter has side-effects
+        gnome_a11y_settings.get_boolean(HIGH_CONTRAST_KEY)
     except GLib.Error:
         pass  # GNOME accessibility settings might not be available
     return font_family, font_size_pt
@@ -92,22 +90,20 @@ def _get_app_font_scaling(app_settings: Gio.Settings) -> float:
         The font scaling percentage as a float (e.g., 100.0, 120.0).
 
     """
-    font_scale_percentage_str = app_settings.get_string("font-scaling-percentage")
+    font_scale_percentage_str = app_settings.get_string(
+        "font-scaling-percentage")
     parsed_app_percentage = 100.0
     match_app_scale = re.match(r"(\d+)\%?", font_scale_percentage_str)
     if match_app_scale:
         try:
             parsed_app_percentage = float(match_app_scale.group(1))
         except ValueError:
-            logging.warning(
-                "Could not parse app font-scaling-percentage: '%s', defaulting to 100%%.",
-                font_scale_percentage_str,
-            )
+            logging.warning("Could not parse app font-scaling-percentage: "
+                            "'%s', defaulting to 100%%.",
+                            font_scale_percentage_str)
     else:
-        logging.warning(
-            "Could not parse app font-scaling-percentage: '%s', defaulting to 100%%.",
-            font_scale_percentage_str,
-        )
+        logging.warning("Could not parse app font-scaling-percentage: '%s', "
+                        "defaulting to 100%%.", font_scale_percentage_str)
     return parsed_app_percentage
 
 
@@ -132,22 +128,22 @@ def apply_system_font_preferences(app_settings: Gio.Settings):
         )
 
     parsed_app_percentage = _get_app_font_scaling(app_settings)
-    final_font_size_pt = font_size_to_apply_pt * (parsed_app_percentage / 100.0)
+    final_font_size_pt = font_size_to_apply_pt * (parsed_app_percentage /
+                                                  100.0)
 
     if font_family_to_apply:
-        css_font_family = (
-            f"'{font_family_to_apply}'" if " " in font_family_to_apply else font_family_to_apply
-        )
-        css = f"* {{ font-family: {css_font_family}; font-size: {final_font_size_pt:.2f}pt; }}"
+        css_font_family = (f"'{font_family_to_apply}'"
+                           if " " in font_family_to_apply
+                           else font_family_to_apply)
+        css = (f"* {{ font-family: {css_font_family}; "
+               f"font-size: {final_font_size_pt:.2f}pt; }}")
     else:
         css = f"* {{ font-size: {final_font_size_pt:.2f}pt; }}"
 
-    logging.info(
-        "Applying font preferences. Final effective font size: %.2fpt (Base size: %.2fpt, App scale: %s%%)",
-        final_font_size_pt,
-        font_size_to_apply_pt,
-        parsed_app_percentage,
-    )
+    logging.info("Applying font preferences. Final effective font size: "
+                 "%.2fpt (Base size: %.2fpt, App scale: %s%%)",
+                 final_font_size_pt, font_size_to_apply_pt,
+                 parsed_app_percentage)
 
     css_provider = Gtk.CssProvider()
     css_provider.load_from_data(css.encode())
@@ -214,17 +210,17 @@ def apply_source_style_scheme(
         buffer.set_style_scheme(scheme)
         applied_scheme = buffer.get_style_scheme()
         if not applied_scheme:
-            logging.error("apply_source_style_scheme: Failed to apply the style scheme.")
+            logging.error("apply_source_style_scheme: Failed to apply the "
+                          "style scheme.")
     else:
-        logging.error(
-            "apply_source_style_scheme: Style scheme '%s' not found.",
-            source_style_scheme,
-        )
+        logging.error("apply_source_style_scheme: Style scheme '%s' not found.",
+                      source_style_scheme)
         default_scheme = scheme_manager.get_scheme("Adwaita")
         if default_scheme:
             buffer.set_style_scheme(default_scheme)
         else:
-            logging.error("apply_source_style_scheme: Default scheme 'Adwaita' not found.")
+            logging.error("apply_source_style_scheme: Default scheme 'Adwaita' "
+                          "not found.")
 
 
 def set_widget_visibility(visible: bool, *widgets: Gtk.Widget):

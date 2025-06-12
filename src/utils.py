@@ -3,7 +3,7 @@ import logging
 import ipaddress
 import re
 from urllib.parse import urlparse
-from typing import Tuple, List, Optional # Added Optional
+from typing import Tuple, List, Optional  # Added Optional
 
 import gi
 from gi.repository import Gtk, GtkSource, Adw
@@ -15,32 +15,37 @@ gi.require_version("Adw", "1")
 logger = logging.getLogger(__name__)
 
 
-def create_source_view(language_name: str = "text") -> Tuple[GtkSource.View, GtkSource.Buffer]:
-    """Create and configure a GtkSource.View and its associated GtkSource.Buffer.
+def create_source_view(
+        language_name: str = "text"
+) -> Tuple[GtkSource.View, GtkSource.Buffer]:
+    """Create and configure a GtkSource.View and its GtkSource.Buffer.
 
-    Sets up common properties for the source view like line numbers, monospace font,
-    wrap mode, auto-indent, and tab behavior. Configures syntax highlighting
-    for the specified language.
+    Sets up common properties for the source view like line numbers, monospace
+    font, wrap mode, auto-indent, and tab behavior. Configures syntax
+    highlighting for the specified language.
 
-    :param language_name: The language ID for syntax highlighting
-                          (e.g., "yaml", "python", "text"). Defaults to "text".
-    :type language_name: str
-    :return: A tuple containing the configured :class:`GtkSource.View` and
-             :class:`GtkSource.Buffer`.
-    :rtype: Tuple[GtkSource.View, GtkSource.Buffer]
+    Args:
+        language_name (str): The language ID for syntax highlighting
+                             (e.g., "yaml", "python", "text").
+                             Defaults to "text".
+
+    Returns:
+        Tuple[GtkSource.View, GtkSource.Buffer]: Configured GtkSource.View and
+                                                 GtkSource.Buffer.
     """
     language_manager = GtkSource.LanguageManager.get_default()
-    if language_name is None:  # Ensure fallback even if None is explicitly passed
-        language_name = "text" # Changed from "txt"
+    # Ensure fallback even if None is explicitly passed
+    if language_name is None:
+        language_name = "text"
     language = language_manager.get_language(language_name)
 
     if language is None:
-        # Ensure the warning message accurately reflects what was searched for, esp. if default was overridden
-        searched_lang_id = language_name if language_name else "text" # Use "text" if language_name became None then defaulted
-        logger.warning(
-            "GtkSource language '%s' not found. Falling back to a plain buffer.",
-            searched_lang_id, # Use the actual ID that was searched
-        )
+        # Ensure the warning message accurately reflects what was searched for,
+        # esp. if default was overridden. Use "text" if language_name became
+        # None then defaulted
+        searched_lang_id = language_name if language_name else "text"
+        logger.warning("GtkSource language '%s' not found. Falling back to a "
+                       "plain buffer.", searched_lang_id)
         source_buffer = GtkSource.Buffer()
     else:
         source_buffer = GtkSource.Buffer.new_with_language(language)
@@ -71,20 +76,16 @@ def show_global_error(widget: Gtk.Widget, message: str):
     :type message: str
     """
     try:
-        main_window = widget.get_native() # type: ignore
+        main_window = widget.get_native()  # type: ignore
         if main_window and hasattr(main_window, 'show_error'):
-            main_window.show_error(message)
-            logger.error(f"Global error displayed via main window: {message}")
+            main_window.show_error(message)  # type: ignore
+            logger.error("Global error displayed via main window: %s", message)
         else:
-            logger.warning(
-                "Could not find main window or show_error method to display global error: %s",
-                message
-            )
-    except Exception as e: # pylint: disable=broad-except
-        logger.exception(
-            "An unexpected error occurred while trying to show global error '%s': %s",
-            message, e
-        )
+            logger.warning("Could not find main window or show_error method "
+                           "to display global error: %s", message)
+    except Exception as e:  # pylint: disable=broad-except
+        logger.exception("An unexpected error occurred while trying to show "
+                         "global error '%s': %s", message, e)
 
 
 def show_global_toast(
@@ -108,20 +109,17 @@ def show_global_toast(
     :type priority: Adw.ToastPriority
     """
     try:
-        main_window = widget.get_native() # type: ignore
+        main_window = widget.get_native()  # type: ignore
         if main_window and hasattr(main_window, 'show_toast'):
-            main_window.show_toast(message, priority=priority, timeout=timeout)
-            logger.info(f"Global toast shown via main window: {message}")
+            main_window.show_toast(  # type: ignore
+                message, priority=priority, timeout=timeout)
+            logger.info("Global toast shown via main window: %s", message)
         else:
-            logger.warning(
-                "Could not find main window or show_toast method to display global toast: %s",
-                message
-            )
-    except Exception as e: # pylint: disable=broad-except
-        logger.exception(
-            "An unexpected error occurred while trying to show global toast '%s': %s",
-            message, e
-        )
+            logger.warning("Could not find main window or show_toast method "
+                           "to display global toast: %s", message)
+    except Exception as e:  # pylint: disable=broad-except
+        logger.exception("An unexpected error occurred while trying to show "
+                         "global toast '%s': %s", message, e)
 
 
 def is_valid_ip(address: str) -> bool:
@@ -139,6 +137,7 @@ def is_valid_ip(address: str) -> bool:
         return True
     except ValueError:
         return False
+
 
 def is_valid_domain(domain: str) -> bool:
     """Check if the given string is a syntactically valid domain name (ASCII).
@@ -160,13 +159,12 @@ def is_valid_domain(domain: str) -> bool:
     # - Labels consist of LDH (letters, digits, hyphen).
     # - Labels do not start or end with a hyphen.
     # - The TLD (last label) must be at least 2 chars and all alphabetic.
-    # This regex is a common one for ASCII domain names.
-    # It allows for subdomains and ensures TLD is alphabetic.
+        # This regex is a common one for ASCII domain names. It allows for
+        # subdomains and ensures TLD is alphabetic.
     domain_regex = re.compile(
         r"^(?:[a-zA-Z0-9]"  # First character of a label
-        r"(?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)"  # Subsequent characters of a label, then a dot
-        r"+[a-zA-Z]{2,63}$"  # TLD (all letters, 2-63 chars)
-    )
+            r"(?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)"  # Subsequent chars + dot
+            r"+[a-zA-Z]{2,63}$")  # TLD (all letters, 2-63 chars)
     # Using fullmatch to ensure the entire string conforms.
     return bool(domain_regex.fullmatch(domain))
 
@@ -185,7 +183,7 @@ def is_valid_url(url: str, schemes: Optional[List[str]] = None) -> bool:
              (or any scheme if ``schemes`` is empty), ``False`` otherwise.
     :rtype: bool
     """
-    if schemes is None: # Default to http and https if not provided
+    if schemes is None:  # Default to http and https if not provided
         schemes = ['http', 'https']
 
     if not url or not isinstance(url, str):
@@ -199,5 +197,5 @@ def is_valid_url(url: str, schemes: Optional[List[str]] = None) -> bool:
         if schemes and parsed_url.scheme not in schemes:
             return False
         return True
-    except ValueError: # urlparse can raise ValueError for some malformed URLs, though it's rare
+    except ValueError:  # urlparse can raise ValueError for some malformed URLs, though it's rare
         return False
