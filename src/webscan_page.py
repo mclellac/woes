@@ -32,7 +32,7 @@ class WebScanPage(Adw.PreferencesPage):
 
     url_entry = Gtk.Template.Child()
     scan_button = Gtk.Template.Child()
-    results_textview = Gtk.Template.Child()
+    results_scrolled_window = Gtk.Template.Child() # Parent of GtkSourceView
     force_ssl_switch = Gtk.Template.Child()
     cgi_vulns_switch = Gtk.Template.Child()
     interesting_content_switch = Gtk.Template.Child()
@@ -52,7 +52,29 @@ class WebScanPage(Adw.PreferencesPage):
 
     def __init__(self, **kwargs):
         """Initialize the WebScanPage."""
+
         super().__init__(**kwargs)
+        self.source_view = GtkSource.View()
+        # Every GtkSource.View needs a GtkSource.Buffer
+        source_buffer = GtkSource.Buffer()
+        self.source_view.set_buffer(source_buffer)
+
+        self.source_view.set_hexpand(True)
+        self.source_view.set_vexpand(True)
+        self.source_view.set_monospace(True)
+        self.source_view.set_show_line_numbers(True)
+        self.source_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+
+        if self.results_scrolled_window:
+            self.results_scrolled_window.set_child(self.source_view)
+        else:
+            # This case should ideally log an error if logger is available
+            # For subtask, direct print might be visible if it runs in a context that shows stdout.
+            print("ERROR: results_scrolled_window is None in __init__, cannot add GtkSource.View.")
+
+        # The existing call to self._apply_webscan_source_view_style() in __init__ will handle
+        # applying the language and style scheme after this setup.
+
         self.current_web_scan_task: Optional[Gio.Task] = None
         self.current_web_scan_cancellable: Optional[Gio.Cancellable] = None
         self.current_nikto_process: Optional[subprocess.Popen] = None
@@ -61,8 +83,8 @@ class WebScanPage(Adw.PreferencesPage):
         self.style_manager = Adw.StyleManager.get_default()
         logger.debug("WebScanPage initialized")
 
-        if self.results_textview:
-            buffer = self.results_textview.get_buffer()
+        if self.source_view:
+            buffer = self.source_view.get_buffer()
             if buffer:
                 lm = GtkSource.LanguageManager.get_default()
                 language = lm.get_language("text")
@@ -90,17 +112,18 @@ class WebScanPage(Adw.PreferencesPage):
         self._apply_webscan_source_view_style()
 
     def _apply_webscan_source_view_style(self):
-        """Apply the appropriate GtkSourceView style scheme to the results_textview."""
-        if not self.results_textview:
+        if not hasattr(self, 'source_view') or not self.source_view:
+            # print("DEBUG: _apply_webscan_source_view_style: self.source_view not ready")
             return
-        buffer = self.results_textview.get_buffer()
+        buffer = self.source_view.get_buffer()
         if not buffer:
+            # print("DEBUG: _apply_webscan_source_view_style: buffer not ready")
             return
 
         is_dark = self.style_manager.get_dark()
         user_scheme_name = self.settings.get_string("source-style-scheme")
         scheme_manager = GtkSource.StyleSchemeManager.get_default()
-        final_scheme_name = "Adwaita"  # Default fallback
+        final_scheme_name = "Adwaita" # Default fallback
 
         if is_dark:
             if user_scheme_name.lower() in ["adwaita", "default", "classic", "light"]:
@@ -109,29 +132,23 @@ class WebScanPage(Adw.PreferencesPage):
                 if scheme_manager.get_scheme(user_scheme_name):
                     final_scheme_name = user_scheme_name
                 else:
-                    logger.warning(
-                        f"WebScanPage: User scheme '{user_scheme_name}' not found for dark theme, falling back to Adwaita-dark."
-                    )
+                    # print(f"DEBUG: User scheme '{user_scheme_name}' not found for dark theme, falling back to Adwaita-dark.")
                     final_scheme_name = "Adwaita-dark"
-        else:  # Light theme
+        else: # Light theme
             if user_scheme_name.lower() in ["adwaita-dark", "dark"]:
                 final_scheme_name = "Adwaita"
             else:
                 if scheme_manager.get_scheme(user_scheme_name):
                     final_scheme_name = user_scheme_name
                 else:
-                    logger.warning(
-                        f"WebScanPage: User scheme '{user_scheme_name}' not found for light theme, falling back to Adwaita."
-                    )
+                    # print(f"DEBUG: User scheme '{user_scheme_name}' not found for light theme, falling back to Adwaita.")
                     final_scheme_name = "Adwaita"
 
         if not scheme_manager.get_scheme(final_scheme_name):
-            logger.error(
-                f"WebScanPage: Scheme '{final_scheme_name}' could not be loaded. Defaulting to basic Adwaita (light/dark)."
-            )
+            # print(f"DEBUG: Scheme '{final_scheme_name}' could not be loaded. Defaulting to basic Adwaita (light/dark).")
             final_scheme_name = "Adwaita-dark" if is_dark else "Adwaita"
 
-        logger.debug(f"WebScanPage: Applying source style scheme: {final_scheme_name} (Dark: {is_dark}, User: {user_scheme_name})")
+        # print(f"DEBUG: Applying source style scheme: {final_scheme_name} (Dark: {is_dark}, User: {user_scheme_name})")
         apply_source_style_scheme(scheme_manager, buffer, final_scheme_name)
 
     def __del__(self):
@@ -155,17 +172,31 @@ class WebScanPage(Adw.PreferencesPage):
             logger.warning("No active scan or cancellable to cancel.")
 
     def _on_clear_results_clicked(self, _button: Gtk.Button):
+        if not hasattr(self, 'source_view') or not self.source_view:
+            # print(f"DEBUG: _on_clear_results_clicked - source_view not found")
+            return
+        buffer = self.source_view.get_buffer()
+        if not buffer:
+            # print(f"DEBUG: _on_clear_results_clicked - buffer not found")
+            return
         """Handle click of the 'Clear Results' button."""
         logger.info("Webscan results cleared by user action.")
-        if self.results_textview:
-            buffer = self.results_textview.get_buffer()
+        if self.source_view:
+            buffer = self.source_view.get_buffer()
             buffer.set_text("")
 
     def _on_copy_results_clicked(self, _button: Gtk.Button):
+        if not hasattr(self, 'source_view') or not self.source_view:
+            # print(f"DEBUG: _on_copy_results_clicked - source_view not found")
+            return
+        buffer = self.source_view.get_buffer()
+        if not buffer:
+            # print(f"DEBUG: _on_copy_results_clicked - buffer not found")
+            return
         """Handle click of the 'Copy Results' button."""
         logger.info("Copying webscan results to clipboard.")
-        if self.results_textview:
-            buffer = self.results_textview.get_buffer()
+        if self.source_view:
+            buffer = self.source_view.get_buffer()
             start_iter = buffer.get_start_iter()
             end_iter = buffer.get_end_iter()
             text_content = buffer.get_text(start_iter, end_iter, False)
@@ -184,6 +215,13 @@ class WebScanPage(Adw.PreferencesPage):
                 logger.info("No webscan results to copy.")
 
     def on_scan_button_clicked(self, _widget: Gtk.Button):
+        if not hasattr(self, 'source_view') or not self.source_view:
+            # print(f"DEBUG: on_scan_button_clicked - source_view not found")
+            return
+        buffer = self.source_view.get_buffer()
+        if not buffer:
+            # print(f"DEBUG: on_scan_button_clicked - buffer not found")
+            return
         """Handle the 'Scan' button click event."""
         logger.debug(f"WebScanPage scan button clicked. URL: '{self.url_entry.get_text()}'")
         target_url = self.url_entry.get_text().strip()
@@ -204,7 +242,7 @@ class WebScanPage(Adw.PreferencesPage):
                 show_global_error(self, "Invalid URL format. Please enter a valid URL.")
             return
 
-        buffer = self.results_textview.get_buffer()
+        buffer = self.source_view.get_buffer()
         buffer.set_text(f"Scanning {target_url}...\n\n")
 
         self.scan_button.set_sensitive(False) # type: ignore
@@ -549,8 +587,15 @@ class WebScanPage(Adw.PreferencesPage):
             self.current_nikto_process = None # Ensure cleared
 
     def _update_textview(self, stdout_content: Optional[str], stderr_content: Optional[str], is_error_message: bool = False):
+        if not hasattr(self, 'source_view') or not self.source_view:
+            # print("DEBUG: _update_textview - source_view not found")
+            return
+        buffer = self.source_view.get_buffer()
+        if not buffer:
+            # print("DEBUG: _update_textview - buffer not found")
+            return
         """Update the results TextView with Nikto's stdout and error messages/stderr."""
-        buffer = self.results_textview.get_buffer()
+        buffer = self.source_view.get_buffer()
         if stdout_content:
             buffer.insert(buffer.get_end_iter(), stdout_content)
 
@@ -560,7 +605,7 @@ class WebScanPage(Adw.PreferencesPage):
             else: # This is raw stderr from Nikto on a successful run
                 buffer.insert(buffer.get_end_iter(), "\n--- Nikto Standard Error Output ---\n" + stderr_content)
 
-        scroll_adj = self.results_textview.get_parent().get_vadjustment()
+        scroll_adj = self.results_scrolled_window.get_vadjustment() if self.results_scrolled_window else None
         if scroll_adj:
             scroll_adj.set_value(scroll_adj.get_upper() - scroll_adj.get_page_size())
 
