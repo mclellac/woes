@@ -85,6 +85,9 @@ class NmapPage(Adw.Bin):
         self.nmap_target_listbox_store = Gio.ListStore(item_type=NmapItem)
         self.scanner = NmapScanner()
         self.settings = Gio.Settings.new(APP_ID)
+        self.style_manager = Adw.StyleManager.get_default()
+        self.style_manager.connect("notify::dark", self._on_nmap_source_style_settings_changed)
+        self.settings.connect(f"changed::source-style-scheme", self._on_nmap_source_style_settings_changed)
 
         self.current_nmap_task: Optional[Gio.Task] = None
         self.current_nmap_cancellable: Optional[Gio.Cancellable] = None
@@ -104,21 +107,58 @@ class NmapPage(Adw.Bin):
             del self.scanner
         super().__del__() # Important if GObject has its own __del__
 
-    def _on_source_style_scheme_setting_changed(self, _settings: Gio.Settings, key: str):
-        """Handle changes to the 'source-style-scheme' GSettings key."""
-        logger.debug("NmapPage: '%s' setting changed, applying new source view style.", key)
-        # If a specific view needs update, it should be handled directly.
-        # For now, new views created will pick up the new style.
+    def _on_nmap_source_style_settings_changed(self, _source: GObject.Object, _pspec: GObject.ParamSpec):
+        """Handle theme or style scheme changes for Nmap's GtkSourceView.
+        Currently, this method primarily logs the change. Style application
+        is handled at view creation time in _add_raw_output_expander.
+        """
+        logger.info("NmapPage: Dark theme or source style scheme changed. New views will use updated style.")
+        # If we were to update existing views, we'd iterate them here and call
+        # self._apply_source_view_style_to_buffer(buffer)
 
     def _apply_source_view_style_to_buffer(self, buffer: GtkSource.Buffer):
-        """Apply the current GSettings style scheme to a given GtkSource.Buffer."""
-        source_style_scheme = self.settings.get_string("source-style-scheme")
-        logger.debug("Applying style scheme to GtkSource.Buffer: %s", source_style_scheme)
-        apply_source_style_scheme(
-            GtkSource.StyleSchemeManager.get_default(),
-            buffer,
-            source_style_scheme,
-        )
+        """Apply the appropriate GtkSourceView style scheme to a given buffer,
+        considering the current theme (dark/light) and user settings.
+        """
+        is_dark = self.style_manager.get_dark()
+        user_scheme_name = self.settings.get_string("source-style-scheme")
+        scheme_manager = GtkSource.StyleSchemeManager.get_default()
+        final_scheme_name = "Adwaita" # Default fallback
+
+        if is_dark:
+            if user_scheme_name.lower() in ["adwaita", "default", "classic", "light"]: # Common names for light default themes
+                final_scheme_name = "Adwaita-dark"
+            else:
+                # Check if user's preferred scheme exists
+                if scheme_manager.get_scheme(user_scheme_name):
+                    final_scheme_name = user_scheme_name
+                else:
+                    logger.warning(
+                        f"NmapPage: User scheme '{user_scheme_name}' not found for dark theme, falling back to Adwaita-dark."
+                    )
+                    final_scheme_name = "Adwaita-dark" # Fallback for dark
+        else: # Light theme
+            if user_scheme_name.lower() in ["adwaita-dark", "dark"]: # Common names for dark default themes
+                final_scheme_name = "Adwaita"
+            else:
+                # Check if user's preferred scheme exists
+                if scheme_manager.get_scheme(user_scheme_name):
+                    final_scheme_name = user_scheme_name
+                else:
+                    logger.warning(
+                        f"NmapPage: User scheme '{user_scheme_name}' not found for light theme, falling back to Adwaita."
+                    )
+                    final_scheme_name = "Adwaita" # Fallback for light
+
+        # Final check if the determined scheme actually exists, else use a built-in Adwaita
+        if not scheme_manager.get_scheme(final_scheme_name):
+            logger.error(
+                f"NmapPage: Scheme '{final_scheme_name}' could not be loaded. Defaulting to basic Adwaita (light/dark)."
+            )
+            final_scheme_name = "Adwaita-dark" if is_dark else "Adwaita"
+
+        logger.debug(f"NmapPage: Applying source style scheme: {final_scheme_name} (Dark: {is_dark}, User: {user_scheme_name})")
+        apply_source_style_scheme(scheme_manager, buffer, final_scheme_name)
 
     def _init_page_ui(self):
         logger.debug("Initializing NmapPage UI components.")
