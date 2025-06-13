@@ -419,7 +419,7 @@ class NmapScanner:
                     except subprocess.TimeoutExpired:
                         logger.warning("Nmap process did not terminate gracefully, killing.")
                         self.current_process.kill()
-                    self.current_process = None # Clean up
+                    self.current_process = None
                     raise ScanCancelledError(f"Nmap scan for {params['target']} was cancelled.")
                 time.sleep(0.2) # Polling interval
 
@@ -429,7 +429,7 @@ class NmapScanner:
                 stdout_str = stdout_bytes # Already decoded due to text=True
                 stderr_str = stderr_bytes
                 returncode = self.current_process.returncode
-                self.current_process = None # Clean up
+                self.current_process = None
 
             if returncode != 0: # Check return code after process has finished
                 logger.debug("Nmap process stdout (on error code %s): %s", returncode, stdout_str)
@@ -477,7 +477,7 @@ class NmapScanner:
             logger.exception("An unexpected error occurred during the Nmap scan process:")
             raise PortScannerError(f"An unexpected error occurred: {e_unexpected}") from e_unexpected
         finally:
-            self.current_process = None # Ensure cleared on exit
+            self.current_process = None
             self.current_cancellable = None
 
 
@@ -516,7 +516,6 @@ class NmapScanner:
         :return: The data converted to plain Python dicts, lists, and primitive types.
         :rtype: Union[Dict[str, Any], Any]
         """
-        # logger.debug(f"to_plain_dict called with data of type: {type(data)}") # Can be very verbose
         if isinstance(data, nmap.PortScannerHostDict):
             return {k: self.to_plain_dict(v) for k, v in data.items()}
         if isinstance(data, list):

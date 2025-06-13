@@ -6,7 +6,7 @@ window state and theme preferences, and integrates system font settings.
 """
 import logging
 import platform
-from typing import Optional, Any # Added Optional, Any
+from typing import Optional, Any
 import gi
 from gi.repository import Adw, Gdk, Gio, Gtk, GLib, GObject
 
