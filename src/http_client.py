@@ -200,9 +200,10 @@ class HttpFetcher:
             response.raise_for_status()  # Raises HTTPError for 4xx/5xx
             final_data_type = "final"
         except requests.exceptions.HTTPError as http_err:
-            logger.warning("HttpFetcher: HTTPError for '%s': %s", self.url, http_err)
+            error_url = str(http_err.request.url) if http_err.request else self.url
+            logger.warning("HttpFetcher: HTTPError for URL '%s' (final URL: '%s'): %s", self.url, error_url, http_err)
             error_message = self._format_http_error(http_err)
-            raise HttpProcessingError(error_message, status_code=http_err.response.status_code, url=str(http_err.request.url)) from http_err
+            raise HttpProcessingError(error_message, status_code=http_err.response.status_code, url=error_url) from http_err
 
         final_data: Dict[str, Any] = {
             "type": final_data_type,

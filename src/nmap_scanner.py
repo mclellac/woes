@@ -183,11 +183,14 @@ class NmapScanner:
             except subprocess.TimeoutExpired:
                 logger.warning("Nmap process did not terminate gracefully, killing.")
                 self.current_process.kill()
-            except Exception as e:
-                logger.exception(f"Error terminating Nmap process during deletion: {e}")
+            except OSError as e_os: # More specific than Exception
+                logger.exception(f"OS error terminating Nmap process during deletion: {e_os}")
+            except Exception as e: # Catch any other unexpected errors
+                logger.exception(f"Unexpected error terminating Nmap process during deletion: {e}")
             self.current_process = None
 
-        if hasattr(self, 'executor') and self.executor: # Check if executor was initialized
+        # Ensure executor is shutdown only if it was initialized and is not None
+        if hasattr(self, 'executor') and self.executor is not None:
             self.executor.shutdown(wait=True)
         logger.debug("NmapScanner cleanup complete.")
 
@@ -409,7 +412,7 @@ class NmapScanner:
 
             while self.current_process.poll() is None:
                 if self.current_cancellable and self.current_cancellable.is_cancelled():
-                    logger.info("Cancellation requested for Nmap scan of target: %s", target)
+                    logger.info("Cancellation requested for Nmap scan of target: %s", params['target'])
                     self.current_process.terminate()
                     try:
                         self.current_process.wait(timeout=1) # Wait for graceful termination
@@ -417,7 +420,7 @@ class NmapScanner:
                         logger.warning("Nmap process did not terminate gracefully, killing.")
                         self.current_process.kill()
                     self.current_process = None # Clean up
-                    raise ScanCancelledError(f"Nmap scan for {target} was cancelled.")
+                    raise ScanCancelledError(f"Nmap scan for {params['target']} was cancelled.")
                 time.sleep(0.2) # Polling interval
 
             # Process completed (either normally or terminated/killed)
@@ -459,6 +462,17 @@ class NmapScanner:
             raise
         except PortScannerError: # Re-raise other PortScannerErrors
             raise
+        except TypeError as e_type:
+            logger.exception("Type error during Nmap scan setup or execution:")
+            raise PortScannerError(f"Type error encountered: {e_type}") from e_type
+        except ValueError as e_value:
+            logger.exception("Value error during Nmap scan setup or execution (e.g., invalid arguments):")
+            raise PortScannerError(f"Value error encountered: {e_value}") from e_value
+        except OSError as e_os:
+            # FileNotFoundError is a subclass of OSError, but handled separately.
+            # This will catch other OS-related errors.
+            logger.exception("OS error occurred during Nmap scan process (excluding FileNotFoundError):")
+            raise PortScannerError(f"OS error occurred: {e_os}") from e_os
         except Exception as e_unexpected: # General catch-all
             logger.exception("An unexpected error occurred during the Nmap scan process:")
             raise PortScannerError(f"An unexpected error occurred: {e_unexpected}") from e_unexpected

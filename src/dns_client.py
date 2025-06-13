@@ -156,6 +156,10 @@ class DnsResolverClient:
             except dns.exception.SyntaxError as e: # Raised by from_address if not a valid IP string
                  logger.warning("DnsResolverClient: Syntax error converting '%s' for PTR query: %s. Proceeding with original target.", domain_or_ip, e)
                  # Proceed with domain_or_ip as query_target, which might be intentional for non-IP PTRs
+            except TypeError as e_type:
+                 logger.error("DnsResolverClient: Type error during IP to reverse name conversion for PTR query on '%s': %s. Proceeding with original target.", domain_or_ip, e_type)
+            except ValueError as e_value: # e.g. from dns.ipv6.aton for bad scope ID
+                 logger.error("DnsResolverClient: Value error during IP to reverse name conversion for PTR query on '%s': %s. Proceeding with original target.", domain_or_ip, e_value)
             except Exception as e: # Catch any other unexpected error during conversion
                  logger.error("DnsResolverClient: Unexpected error converting '%s' for PTR query: %s. Proceeding with original target.", domain_or_ip, e)
 
