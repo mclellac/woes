@@ -394,89 +394,95 @@ class WebScanPage(Adw.PreferencesPage):
             stdout_str, stderr_str = process.communicate()
             self.current_nikto_process = None # Clear process reference
 
-            actual_nikto_output: Optional[str] = None
-            parsed_output_from_stderr = False
+            # Simplified Nikto Output String Extraction
+            nikto_report_string: Optional[str] = None
+            source_of_report: Optional[str] = None # To track if it came from stdout or stderr
 
-            if stderr_str:
-                cleaned_stderr_str = stderr_str.strip()
-                logger.debug(f"Attempting to parse Nikto output from stderr. Cleaned stderr string (first 500 chars): {cleaned_stderr_str[:500]}")
+            # Prioritize stderr for the tuple-like string, then stdout.
+            # Then check for direct output if no tuple string is found.
 
-                # Regex to find a string like "('nikto output', '')" in stderr.
-                # Note: \x5B is '[', \x27 is ''', \x22 is '"', \x5D is ']'.
-                # These hex escapes were used to resolve a severe parser issue in the environment.
-                regex_part1 = r"^\(\s*(\x5B\x27\x22\x5D)(.*?)"
-                regex_part2 = r"\1\s*,\s*(\x5B\x27\x22\x5D)"
-                regex_part3 = r"\3\s*\)$"
-                regex_pattern_str = regex_part1 + regex_part2 + regex_part3
+            checked_stderr = False
+            if isinstance(stderr_str, str) and stderr_str.strip().startswith("('") and stderr_str.strip().endswith("', '')"):
+                logger.debug("Found tuple-like string in stderr.")
                 try:
-                    pattern = re.compile(regex_pattern_str, re.DOTALL)
-                    match = pattern.search(cleaned_stderr_str)
-                except re.error as e_regex: # Should not happen with this fixed pattern
-                    logger.error(f"Regex compilation failed: {e_regex}")
-                    match = None # Ensure match is defined
+                    # First, try to evaluate the whole string as it might be a proper tuple representation
+                    # e.g. "('output...', '')"
+                    parsed_tuple = ast.literal_eval(stderr_str.strip())
+                    if isinstance(parsed_tuple, tuple) and len(parsed_tuple) > 0 and isinstance(parsed_tuple[0], str):
+                        nikto_report_string = parsed_tuple[0]
+                        logger.info("Successfully extracted Nikto report from stderr tuple (evaluated).")
+                        source_of_report = "stderr_tuple_eval"
+                    else: # Fallback to direct slicing if eval didn't yield expected tuple
+                        logger.debug("Tuple eval on stderr didn't yield expected structure, trying slicing.")
+                        nikto_report_string = stderr_str.strip()[2:-5] # Slice ("'") and ("', '')")
+                        logger.info("Extracted Nikto report from stderr tuple (sliced).")
+                        source_of_report = "stderr_tuple_slice"
+                except Exception as e_slice_stderr: # Catch errors from literal_eval or slicing
+                    logger.warning(f"Could not parse tuple-like string from stderr: {e_slice_stderr}. String (first 200): {stderr_str.strip()[:200]}")
+                    # Fallback to using raw stderr_str if slicing/eval fails but it looked like a tuple
+                    nikto_report_string = stderr_str
+                    source_of_report = "stderr_raw_fallback"
+                checked_stderr = True
 
-                if match:
-                    nikto_output_raw_string = match.group(2)
-                    quote_char_for_literal_eval = match.group(1)
-
-                    logger.info(f"Regex matched tuple-like string in stderr. Raw content (first 200 chars): {nikto_output_raw_string[:200]}")
-                    try:
-                        # Reconstruct a valid Python string literal for ast.literal_eval to unescape.
-                        string_to_evaluate = quote_char_for_literal_eval + nikto_output_raw_string + quote_char_for_literal_eval
-                        actual_nikto_output = ast.literal_eval(string_to_evaluate)
-                        if isinstance(actual_nikto_output, str) and actual_nikto_output.startswith("('") and actual_nikto_output.endswith("', '')"):
-                            try:
-                                temp_parsed_tuple = ast.literal_eval(actual_nikto_output)
-                                if isinstance(temp_parsed_tuple, tuple) and len(temp_parsed_tuple) > 0 and isinstance(temp_parsed_tuple[0], str):
-                                    actual_nikto_output = temp_parsed_tuple[0]
-                                    logger.info("Successfully re-parsed actual_nikto_output from regex path to extract core string.")
-                                else:
-                                    logger.warning("actual_nikto_output (regex path) looked like a tuple string but failed to re-parse as expected.")
-                            except Exception as e_reparse:
-                                logger.warning(f"Error re-parsing actual_nikto_output (regex path): {e_reparse}")
-                        parsed_output_from_stderr = True
-                        logger.info("Successfully parsed Nikto's primary output from stderr using regex and ast.literal_eval.")
-                        if stdout_str:
-                            logger.info(f"Nikto stdout channel contained (will be ignored): '{stdout_str[:200]}...'")
-                    except Exception as e:
-                        logger.warning(f"ast.literal_eval failed for extracted string: {e}. String (first 200 chars): {nikto_output_raw_string[:200]}", exc_info=True)
-                else:
-                    logger.info("Nikto stderr did not match tuple-like string pattern via regex. Trying original startswith/endswith check.")
-                    # Fallback to original logic if regex doesn't match.
-                    if cleaned_stderr_str.startswith("('") and cleaned_stderr_str.endswith("', '')"):
-                        try:
-                            parsed_content_tuple = ast.literal_eval(cleaned_stderr_str)
-                            if isinstance(parsed_content_tuple, tuple) and len(parsed_content_tuple) == 2 and \
-                               isinstance(parsed_content_tuple[0], str) and parsed_content_tuple[1] == '':
-                                actual_nikto_output = parsed_content_tuple[0]
-                                # Check if this actual_nikto_output is also a tuple string
-                                if isinstance(actual_nikto_output, str) and actual_nikto_output.startswith("('") and actual_nikto_output.endswith("', '')"):
-                                    try:
-                                        temp_parsed_tuple_inner = ast.literal_eval(actual_nikto_output)
-                                        if isinstance(temp_parsed_tuple_inner, tuple) and len(temp_parsed_tuple_inner) > 0 and isinstance(temp_parsed_tuple_inner[0], str):
-                                            actual_nikto_output = temp_parsed_tuple_inner[0]
-                                            logger.info("Successfully re-parsed actual_nikto_output from startswith path to extract core string.")
-                                        else:
-                                            logger.warning("actual_nikto_output (startswith path) looked like a tuple string but failed to re-parse as expected.")
-                                    except Exception as e_reparse_inner:
-                                        logger.warning(f"Error re-parsing actual_nikto_output (startswith path): {e_reparse_inner}")
-                                parsed_output_from_stderr = True
-                                logger.info("Successfully parsed Nikto's primary output from stderr using original startswith/endswith method.")
-                                if stdout_str:
-                                    logger.info(f"Nikto stdout channel contained (original method, will be ignored): '{stdout_str[:200]}...'")
-                            else:
-                                logger.warning(f"Original method: Nikto stderr matched start/end but internal structure was not as expected. Data: {cleaned_stderr_str[:200]}...")
-                        except (SyntaxError, ValueError) as e:
-                            logger.warning(f"Original method: ast.literal_eval failed for cleaned_stderr_str: {e}. Data (first 200 chars): {cleaned_stderr_str[:200]}", exc_info=True)
+            if nikto_report_string is None and isinstance(stdout_str, str) and stdout_str.strip().startswith("('") and stdout_str.strip().endswith("', '')"):
+                logger.debug("Found tuple-like string in stdout (stderr did not yield report).")
+                try:
+                    parsed_tuple = ast.literal_eval(stdout_str.strip())
+                    if isinstance(parsed_tuple, tuple) and len(parsed_tuple) > 0 and isinstance(parsed_tuple[0], str):
+                        nikto_report_string = parsed_tuple[0]
+                        logger.info("Successfully extracted Nikto report from stdout tuple (evaluated).")
+                        source_of_report = "stdout_tuple_eval"
                     else:
-                        logger.info("Nikto stderr did not match any known tuple-like string pattern. It will be treated as plain text.")
+                        logger.debug("Tuple eval on stdout didn't yield expected structure, trying slicing.")
+                        nikto_report_string = stdout_str.strip()[2:-5] # Slice ("'") and ("', '')")
+                        logger.info("Extracted Nikto report from stdout tuple (sliced).")
+                        source_of_report = "stdout_tuple_slice"
+                except Exception as e_slice_stdout:
+                    logger.warning(f"Could not parse tuple-like string from stdout: {e_slice_stdout}. String (first 200): {stdout_str.strip()[:200]}")
+                    nikto_report_string = stdout_str # Fallback to raw stdout_str
+                    source_of_report = "stdout_raw_fallback"
 
-                # If parsed_output_from_stderr is True, actual_nikto_output contains the desired string.
-                # If False, the original stdout_str and stderr_str will be used later.
+            if nikto_report_string is None: # No tuple-like string found in stderr or stdout
+                if stdout_str:
+                    logger.info("Using direct stdout as Nikto report (no tuple-like string found).")
+                    nikto_report_string = stdout_str
+                    source_of_report = "stdout_direct"
+                elif stderr_str and not checked_stderr: # Only use stderr if it wasn't already checked and found to be non-tuple
+                    logger.info("Using direct stderr as Nikto report (stdout was empty, no tuple-like string found).")
+                    nikto_report_string = stderr_str
+                    source_of_report = "stderr_direct"
+                else: # Both are empty or stderr was checked and was not the desired tuple
+                    logger.info("No Nikto output found in stdout or stderr.")
+                    nikto_report_string = "" # Default to empty string
+                    source_of_report = "empty"
 
-            if process.returncode not in [0, 1]:
-                error_output_detail = actual_nikto_output if parsed_output_from_stderr else (stderr_str or stdout_str) # Ensure this line is not duplicated if it's outside the 'if stderr_str:' block
-                logger.error(f"Nikto process finished with an unexpected error code {process.returncode}. Output/Stderr: {error_output_detail}")
+            # Apply newline unescaping to the determined report string
+            if isinstance(nikto_report_string, str):
+                nikto_report_string = nikto_report_string.replace('\\n', '\n')
+                logger.debug(f"Applied newline unescaping. Report source: {source_of_report}")
+
+            # Determine final s_out and s_err for task return
+            final_s_out = nikto_report_string if nikto_report_string is not None else ""
+            final_s_err: Optional[str] = None
+
+            if source_of_report == "stderr_tuple_eval" or source_of_report == "stderr_tuple_slice" or source_of_report == "stderr_raw_fallback" or source_of_report == "stderr_direct":
+                # Main report came from stderr. If stdout_str has content, it's auxiliary.
+                if stdout_str and stdout_str.strip():
+                    final_s_err = stdout_str.strip() # Preserve original stdout if it existed
+                    logger.debug("Main report from stderr, auxiliary info from stdout passed as s_err.")
+            elif source_of_report == "stdout_tuple_eval" or source_of_report == "stdout_tuple_slice" or source_of_report == "stdout_raw_fallback" or source_of_report == "stdout_direct":
+                # Main report came from stdout. If stderr_str has content, it's auxiliary.
+                if stderr_str and stderr_str.strip():
+                    final_s_err = stderr_str.strip() # Preserve original stderr if it existed
+                    logger.debug("Main report from stdout, auxiliary info from stderr passed as s_err.")
+            elif source_of_report == "empty" and stderr_str and stderr_str.strip(): # No main report, but stderr had something non-tuple
+                final_s_err = stderr_str.strip()
+                logger.debug("No main report, passing non-tuple stderr as s_err.")
+
+
+            if process.returncode not in [0, 1]: # Nikto exit code 1 can be for "host not found" or other non-fatal issues
+                error_output_detail = final_s_out if final_s_out else (final_s_err or "")
+                logger.error(f"Nikto process finished with an unexpected error code {process.returncode}. Output/Stderr: {error_output_detail[:500]}...")
                 task.return_new_error_literal(
                     GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN),
                     WebScanErrorType.GENERIC.value,
@@ -484,25 +490,7 @@ class WebScanPage(Adw.PreferencesPage):
                 )
                 return
 
-            if parsed_output_from_stderr:
-                task.return_value((actual_nikto_output, None)) # Parsed output in stdout slot, original stderr (now None)
-            else:
-                # Check if stdout_str itself is a tuple-like string
-                if isinstance(stdout_str, str) and stdout_str.startswith("('") and stdout_str.endswith("', '')"):
-                    try:
-                        temp_parsed_tuple = ast.literal_eval(stdout_str)
-                        if isinstance(temp_parsed_tuple, tuple) and len(temp_parsed_tuple) > 0 and isinstance(temp_parsed_tuple[0], str):
-                            stdout_str = temp_parsed_tuple[0] # Modify stdout_str in place
-                            logger.info("Successfully re-parsed stdout_str to extract core string.")
-                            # If stdout_str was the one with tuple, stderr_str might be the empty part or irrelevant.
-                            # Consider setting stderr_str to None.
-                            stderr_str = None
-                        else:
-                            logger.warning("stdout_str looked like a tuple string but failed to re-parse as expected.")
-                    except Exception as e_reparse_stdout:
-                        logger.warning(f"Error re-parsing stdout_str: {e_reparse_stdout}")
-
-                task.return_value((stdout_str, stderr_str)) # Original or modified behavior
+            task.return_value((final_s_out, final_s_err))
         except FileNotFoundError:
             logger.error("Nikto command not found. Ensure it's in PATH.")
             task.return_new_error_literal(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.NIKTO_NOT_FOUND.value, "Nikto command not found. Please ensure it is installed and in your system's PATH.") # type: ignore
@@ -554,22 +542,8 @@ class WebScanPage(Adw.PreferencesPage):
                 self._update_textview(None, "Error: Scan returned unexpected data format.", is_error_message=True)
                 # Fall through to finally block for UI reset, status will be updated there
 
-            # Safety re-parsing for s_out if it's still a tuple string
-            if isinstance(s_out, str) and s_out.startswith("('") and s_out.endswith("', '')"):
-                logger.warning("_on_scan_task_done: s_out still contained tuple string representation. Attempting final parse.")
-                try:
-                    temp_parsed_tuple = ast.literal_eval(s_out)
-                    if isinstance(temp_parsed_tuple, tuple) and len(temp_parsed_tuple) > 0 and isinstance(temp_parsed_tuple[0], str):
-                        s_out = temp_parsed_tuple[0] # Correct s_out to be the actual string
-                        if len(temp_parsed_tuple) > 1:
-                            s_err = str(temp_parsed_tuple[1]) # Ensure s_err is also a string or None
-                        else:
-                            s_err = None # No second part
-                        logger.info("_on_scan_task_done: Successfully re-parsed s_out and updated s_err.")
-                    else:
-                        logger.error("_on_scan_task_done: s_out looked like a tuple string but failed to re-parse as expected.")
-                except Exception as e_final_reparse:
-                    logger.error(f"_on_scan_task_done: Error re-parsing s_out: {e_final_reparse}")
+            # The re-parsing logic for s_out (if it's a tuple string) is removed from here.
+            # It's now expected that _run_scan_task_thread_func provides cleaned s_out.
 
             # Ensure stdout and stderr are strings or None, and apply newline fix
             final_stdout: Optional[str] = None
@@ -580,9 +554,9 @@ class WebScanPage(Adw.PreferencesPage):
                 else:
                     final_stdout = s_out
 
-                if final_stdout: # Check if not None after potential str() conversion
+                if final_stdout: # Check if not None or empty string before replace
                     final_stdout = final_stdout.replace('\\n', '\n')
-                    logger.debug("Applied .replace('\\\\n', '\\n') to final_stdout content.")
+                    logger.debug("Applied .replace('\\\\n', '\\n') to final_stdout content in _on_scan_task_done.")
 
             final_stderr: Optional[str] = None
             if s_err is not None:
@@ -591,10 +565,10 @@ class WebScanPage(Adw.PreferencesPage):
                     final_stderr = str(s_err)
                 else:
                     final_stderr = s_err
-                # If stderr might also contain double-escaped newlines and needs cleaning:
+                # It's generally not expected for s_err (auxiliary/actual error stream) to need \\n replacement,
+                # but if it did, it would be:
                 # if final_stderr:
                 #     final_stderr = final_stderr.replace('\\n', '\n')
-                #     logger.debug("Applied .replace('\\\\n', '\\n') to final_stderr content.")
 
 
             if final_stdout is not None or final_stderr is not None:
@@ -641,20 +615,32 @@ class WebScanPage(Adw.PreferencesPage):
                     # e.message already contains "Nikto execution error..." and the output
                     detailed_output_for_textview = f"Error: {e.message}"
                 else: # Other generic errors not fitting the above patterns
-                    brief_user_message = f"Scan failed: {e.message.splitlines()[0]}"
-                    detailed_output_for_textview = f"Error: {e.message}"
+                    brief_user_message = f"Scan failed: {e.message.splitlines()[0]}" # Show only first line in banner/toast
+                    detailed_output_for_textview = f"Error: {e.message}" # Full message for text view
 
             if self.webscan_status_action_row:
                 self.webscan_status_action_row.set_subtitle(brief_user_message) # type: ignore
             show_global_error(self, brief_user_message) # type: ignore
+
+            # Apply newline fix to detailed_output_for_textview as well
+            if '\\n' in detailed_output_for_textview:
+                detailed_output_for_textview = detailed_output_for_textview.replace('\\n', '\n')
+                logger.debug("Applied .replace('\\\\n', '\\n') to GLib.Error message for textview.")
             self._update_textview(None, detailed_output_for_textview, is_error_message=True)
+
         except Exception: # Catch any other Python exceptions from this callback itself
             logger.exception(f"Unexpected Python error in _on_scan_task_done for {target_url}:")
             user_message = "An unexpected error occurred."
+            # Apply newline fix to user_message for textview
+            detailed_error_msg_for_textview = f"Error: {user_message}"
+            # No \\n expected here, but for consistency if it somehow occurred:
+            # if '\\n' in detailed_error_msg_for_textview:
+            # detailed_error_msg_for_textview = detailed_error_msg_for_textview.replace('\\n', '\n')
+
             if self.webscan_status_action_row:
                 self.webscan_status_action_row.set_subtitle(user_message) # type: ignore
             show_global_error(self, user_message + " Check logs for details.") # type: ignore
-            self._update_textview(None, f"Error: {user_message}", is_error_message=True)
+            self._update_textview(None, detailed_error_msg_for_textview, is_error_message=True)
         finally:
             self.scan_button.set_sensitive(True) # type: ignore
             if self.webscan_cancel_button:
