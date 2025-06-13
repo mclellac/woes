@@ -54,9 +54,7 @@ class WebScanPage(Adw.PreferencesPage):
         """Initialize the WebScanPage.
 
         :param kwargs: Keyword arguments passed to the :class:`Adw.PreferencesPage` constructor.
-        :type kwargs: Any
         """
-
         super().__init__(**kwargs)
         self.source_view = Gtk.TextView()
         source_buffer = Gtk.TextBuffer()
@@ -102,6 +100,16 @@ class WebScanPage(Adw.PreferencesPage):
             self.current_web_scan_cancellable.cancel()
 
     def _on_nikto_format_changed(self, combo_row: Adw.ComboRow, _param_spec: GObject.ParamSpec):
+        """Handle changes in the Nikto output format selection.
+
+        Updates the sensitivity of the output file row based on whether
+        the selected format requires an output file.
+
+        :param combo_row: The Adw.ComboRow for Nikto format selection.
+        :type combo_row: Adw.ComboRow
+        :param _param_spec: The GObject.ParamSpec of the property that changed (unused).
+        :type _param_spec: GObject.ParamSpec
+        """
         selected_item = combo_row.get_selected_item()
         if not selected_item:
             return
@@ -119,6 +127,14 @@ class WebScanPage(Adw.PreferencesPage):
         logger.debug(f"Nikto format changed to: {selected_format}. File required: {is_file_required}")
 
     def _on_nikto_output_file_button_clicked(self, _button: Gtk.Button):
+        """Handle click of the 'Choose Output File' button for Nikto.
+
+        Opens a Gtk.FileChooserNative dialog to allow the user to select
+        a save location and filename for Nikto's output.
+
+        :param _button: The Gtk.Button that was clicked (unused).
+        :type _button: Gtk.Button
+        """
         logger.debug("Nikto output file button clicked.")
         dialog = Gtk.FileChooserNative.new(
             "Save Nikto Output",
@@ -158,7 +174,7 @@ class WebScanPage(Adw.PreferencesPage):
         dialog.show()
 
     def _on_cancel_scan_clicked(self, _button: Gtk.Button) -> None:
-        """Handles click on the 'Cancel Scan' button.
+        """Handle click on the 'Cancel Scan' button.
 
         :param _button: The Gtk.Button that was clicked (unused).
         :type _button: Gtk.Button
@@ -596,6 +612,7 @@ class WebScanPage(Adw.PreferencesPage):
             target_url = self._current_webscan_params.get("target_url", target_url)
 
             # It's good practice to clear the stored params now if they are no longer needed.
+            # TODO: Uncomment the line below if _current_webscan_params is not needed after this point.
             # self._current_webscan_params = None
 
         logger.info(f"Nikto scan task done for {target_url}.")
@@ -763,7 +780,7 @@ class WebScanPage(Adw.PreferencesPage):
             scroll_adj.set_value(scroll_adj.get_upper() - scroll_adj.get_page_size())
 
     def trigger_scan(self):
-        """Programmatically triggers the WebScan 'Scan' action."""
+        """Programmatically trigger the WebScan 'Scan' action."""
         logger.debug("Webscan scan triggered by shortcut.")
         if self.scan_button and self.scan_button.get_sensitive():
             self.scan_button.clicked() # type: ignore

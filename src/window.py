@@ -36,19 +36,15 @@ class WoesWindow(Adw.ApplicationWindow):
     title switcher. It binds window properties (size, state) to :class:`Gio.Settings`
     and handles theme and font preference changes.
 
-    Attributes
-    ----------
-    switcher_title : Adw.ViewSwitcherTitle
-        The title switcher widget in the header bar.
-    stack : Adw.ViewStack
-        The main view stack that holds different pages of the application.
-    main_error_banner : Adw.Banner
-        A banner widget used to display application-wide error messages.
-    toast_overlay : Adw.ToastOverlay
-        An overlay for displaying non-intrusive toast messages.
-
+    :ivar switcher_title: The title switcher widget in the header bar.
+    :vartype switcher_title: Adw.ViewSwitcherTitle
+    :ivar stack: The main view stack that holds different pages of the application.
+    :vartype stack: Adw.ViewStack
+    :ivar main_error_banner: A banner widget used to display application-wide error messages.
+    :vartype main_error_banner: Adw.Banner
+    :ivar toast_overlay: An overlay for displaying non-intrusive toast messages.
+    :vartype toast_overlay: Adw.ToastOverlay
     """
-
     __gtype_name__ = "WoesWindow"
 
     switcher_title = Gtk.Template.Child("switcher_title")
@@ -107,9 +103,9 @@ class WoesWindow(Adw.ApplicationWindow):
         `main_error_banner`.
 
         :param _banner: The banner widget that emitted the signal (unused).
-        :type _banner: Adw.Banner, optional
+        :type _banner: Optional[Adw.Banner]
         :param _data: Additional data passed with the signal (unused).
-        :type _data: Any, optional
+        :type _data: Optional[Any]
         """
         self.hide_error()
 
@@ -131,7 +127,7 @@ class WoesWindow(Adw.ApplicationWindow):
             logging.warning("main_error_banner not available to show message: %s", message)
 
     def hide_error(self):
-        """Hides the main error banner and clears its title.
+        """Hide the main error banner and clear its title.
 
         If the `main_error_banner` widget is available, its 'error' CSS class
         is removed, it's hidden, and its title is cleared.
@@ -225,8 +221,7 @@ class WoesWindow(Adw.ApplicationWindow):
         apply_font_size(self.settings)
 
     def load_css(self):
-        """Load the appropriate CSS file (style.css or style-dark.css)
-        based on the current theme (light or dark).
+        """Load the appropriate CSS file (style.css or style-dark.css) based on the current theme.
 
         The CSS is loaded from GResources and applied to the application.
         """
@@ -304,11 +299,11 @@ class WoesWindow(Adw.ApplicationWindow):
         :type title: str
         :param priority: The priority of the toast (e.g., NORMAL, HIGH).
                          Defaults to :attr:`Adw.ToastPriority.NORMAL`.
-        :type priority: Adw.ToastPriority, optional
+        :type priority: Optional[Adw.ToastPriority]
         :param timeout: The duration in seconds for the toast to be visible.
                         Defaults to 2 seconds. A value of 0 means the toast
                         will remain until dismissed.
-        :type timeout: int, optional
+        :type timeout: Optional[int]
         """
         if not self.toast_overlay:
             logging.warning("ToastOverlay not found, cannot display toast: %s", title)

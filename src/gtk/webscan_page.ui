@@ -17,17 +17,6 @@
         <child>
           <object class="AdwEntryRow" id="url_entry">
             <property name="title">Target URL</property>
-            <child type="suffix">
-              <object class="GtkButton" id="scan_button">
-                <property name="halign">end</property>
-                <property name="label">Start Scan</property>
-                <property name="valign">center</property>
-                <signal name="clicked" handler="on_scan_button_clicked"/>
-                <style>
-                  <class name="suggested-action"/>
-                </style>
-              </object>
-            </child>
           </object>
         </child>
         <child>
@@ -186,6 +175,24 @@
                     <property name="visible">False</property>
                   </object>
                 </child>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="AdwActionRow">
+            <property name="activatable">False</property>
+            <property name="focusable">False</property>
+            <property name="hexpand">True</property>
+            <child>
+              <object class="GtkButton" id="scan_button">
+                <property name="halign">center</property>
+                <property name="label">Start Scan</property>
+                <property name="valign">center</property>
+                <signal name="clicked" handler="on_scan_button_clicked"/>
+                <style>
+                  <class name="suggested-action"/>
+                </style>
               </object>
             </child>
           </object>

@@ -1,5 +1,4 @@
-"""Module for performing DNS lookups.
-"""
+"""Module for performing DNS lookups."""
 import logging
 from typing import Optional, List, Dict, Any
 import ipaddress
@@ -15,33 +14,27 @@ logger = logging.getLogger(__name__)
 # Custom Exceptions
 class DnsClientError(Exception):
     """Base exception for DnsResolverClient errors."""
-
     pass
 
 class DnsResolutionTimeoutError(DnsClientError):
     """Exception for DNS resolution timeouts."""
-
     pass
 
 class DnsNxDomainError(DnsClientError):
     """Exception for NXDOMAIN errors (non-existent domain)."""
-
     pass
 
 class DnsNoAnswerError(DnsClientError):
     """Exception for NoAnswer errors (query name exists, but not for specified type)."""
-
     pass
 
 class DnsGenericError(DnsClientError):
     """Exception for other DNS resolution errors."""
-
     pass
 
 
 class DnsResolverClient:
-    """Encapsulates logic for performing DNS lookups.
-    """
+    """Encapsulates logic for performing DNS lookups."""
 
     def __init__(self, custom_dns_server: Optional[str] = None):
         """Initialize DnsResolverClient.
@@ -58,6 +51,7 @@ class DnsResolverClient:
 
     def _lookup_record_internal(self, query_name_str: str, record_type_str: str) -> List[Dict[str, Any]]:
         """Internal method to look up DNS records and parse them.
+
         Adapted from DNSPage._lookup_record.
 
         :param query_name_str: The domain name or reverse IP to query.

@@ -1,5 +1,4 @@
-"""Module for fetching HTTP headers and processing responses.
-"""
+"""Module for fetching HTTP headers and processing responses."""
 import logging
 from typing import Optional, Tuple, Dict, List, Any
 
@@ -36,41 +35,36 @@ logger = logging.getLogger(__name__)
 # Custom Exceptions
 class HttpClientError(Exception):
     """Base exception for HttpFetcher errors."""
-
     pass
 
 class HttpRequestTimeoutError(HttpClientError):
     """Exception for request timeouts."""
-
     pass
 
 class HttpConnectionError(HttpClientError):
     """Exception for connection errors."""
-
     pass
 
 class HttpProcessingError(HttpClientError):
     """Exception for errors during HTTP response processing (e.g., bad status).
 
     :ivar status_code: The HTTP status code that caused the error, if available.
-    :vartype status_code: int, optional
+    :vartype status_code: Optional[int]
     :ivar url: The URL associated with the error, if available.
-    :vartype url: str, optional
+    :vartype url: Optional[str]
     """
 
-    def __init__(self, message, status_code=None, url=None):
+    def __init__(self, message, status_code: Optional[int] = None, url: Optional[str] = None):
         super().__init__(message)
         self.status_code = status_code
         self.url = url
 
 class HttpGenericRequestError(HttpClientError):
     """Exception for other requests-related errors."""
-
     pass
 
 class HttpFetcher:
-    """Encapsulates logic for making HTTP requests and processing responses.
-    """
+    """Encapsulates logic for making HTTP requests and processing responses."""
 
     def __init__(self,
                  url: str,
@@ -86,13 +80,13 @@ class HttpFetcher:
         :param use_akamai_pragma: Whether to include Akamai Pragma headers.
         :type use_akamai_pragma: bool
         :param host_header: Optional custom Host header.
-        :type host_header: str, optional
+        :type host_header: Optional[str]
         :param user_agent: Optional custom User-Agent string.
-        :type user_agent: str, optional
+        :type user_agent: Optional[str]
         :param custom_dns_server: Optional custom DNS server IP.
-        :type custom_dns_server: str, optional
+        :type custom_dns_server: Optional[str]
         :param cancellable: Optional Gio.Cancellable object for cancellation.
-        :type cancellable: Gio.Cancellable, optional
+        :type cancellable: Optional[Gio.Cancellable]
         """
         self.url = url
         self.use_akamai_pragma = use_akamai_pragma
@@ -104,6 +98,7 @@ class HttpFetcher:
 
     def _prepare_request_headers(self) -> Tuple[Dict[str, str], Dict[str, str]]:
         """Prepare initial request-specific headers and session-wide headers.
+
         Moved from HttpPage.
 
         :return: A tuple containing two dictionaries:
@@ -138,7 +133,8 @@ class HttpFetcher:
         return initial_request_specific_headers, session_headers
 
     def _execute_http_request(self, initial_request_headers: Dict[str, str]) -> requests.Response:
-        """Executes the HTTP GET request using the configured session.
+        """Execute the HTTP GET request using the configured session.
+
         Moved from HttpPage.
 
         :param initial_request_headers: Headers to send with the initial request.
@@ -176,7 +172,8 @@ class HttpFetcher:
 
 
     def _process_http_response(self, response: requests.Response) -> List[Dict[str, Any]]:
-        """Processes the HTTP response, including redirects.
+        """Process the HTTP response, including redirects.
+
         Moved from HttpPage.
 
         :param response: The final :class:`requests.Response` object.
@@ -214,7 +211,7 @@ class HttpFetcher:
         return all_responses_data
 
     def _get_detailed_connection_error_message(self, exc: Exception, url: str) -> Optional[str]:
-        """Attempts to find a 'Connection Refused' error within a chain of exceptions.
+        """Attempt to find a 'Connection Refused' error within a chain of exceptions.
 
         Moved from HttpPage.
 

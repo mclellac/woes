@@ -1,5 +1,4 @@
-"""
-Provides the NmapScanner class and related utilities for performing Nmap scans.
+"""Provides the NmapScanner class and related utilities for performing Nmap scans.
 
 This module includes functionality for building Nmap commands, handling
 privilege escalation, executing scans, and processing results.
@@ -32,9 +31,7 @@ from .utils import is_valid_ip, is_valid_domain
 
 
 class ScanOptions(Enum):
-    """
-    Enumeration of common Nmap command-line option fragments.
-    """
+    """Enumeration of common Nmap command-line option fragments."""
     DEFAULT = "-T4"
     OS_FINGERPRINTING = "-O -A"
     ALL_PORTS = "-p-"
@@ -42,9 +39,7 @@ class ScanOptions(Enum):
 
 
 class ScanStatus(Enum):
-    """
-    Enumeration representing the status of an Nmap scan.
-    """
+    """Enumeration representing the status of an Nmap scan."""
     IN_PROGRESS = (0.0, "Scanning {target}...")
     COMPLETE = (1.0, "Scan complete")
     FAILED = (1.0, "Scan failed unexpectedly")
@@ -52,15 +47,12 @@ class ScanStatus(Enum):
 
 
 class ScanCancelledError(PortScannerError):
-    """
-    Exception raised when an Nmap scan is cancelled.
-    """
+    """Exception raised when an Nmap scan is cancelled."""
     pass
 
 
 class NmapScanParameters(TypedDict, total=False):
-    """
-    TypedDict for Nmap scan parameters.
+    """TypedDict for Nmap scan parameters.
 
     :param target: The target for the Nmap scan.
     :type target: str
@@ -90,8 +82,7 @@ class NmapScanParameters(TypedDict, total=False):
 
 
 def _is_scan_root_required(nmap_args_list: List[str]) -> bool:
-    """
-    Check if the given Nmap arguments require root privileges.
+    """Check if the given Nmap arguments require root privileges.
 
     :param nmap_args_list: A list of Nmap command arguments.
     :type nmap_args_list: List[str]
@@ -107,8 +98,7 @@ def _is_scan_root_required(nmap_args_list: List[str]) -> bool:
 
 
 def get_escalated_command(command_parts: List[str]) -> List[str]:
-    """
-    Construct a command list for privilege escalation based on the OS.
+    """Construct a command list for privilege escalation based on the OS.
 
     :param command_parts: The command parts to escalate.
     :type command_parts: List[str]
@@ -153,8 +143,7 @@ def get_escalated_command(command_parts: List[str]) -> List[str]:
 
 
 class NmapScanner:
-    """
-    A wrapper around the python-nmap library to perform network scans.
+    """A wrapper around the python-nmap library to perform network scans.
 
     This class manages the execution of Nmap scans, including building
     command arguments, handling privilege escalation if needed, running
@@ -171,9 +160,7 @@ class NmapScanner:
 
 
     def __del__(self):
-        """
-        Ensure the ThreadPoolExecutor is shut down and any running Nmap process is terminated.
-        """
+        """Ensure the ThreadPoolExecutor is shut down and any running Nmap process is terminated."""
         logger.debug("NmapScanner.__del__ called.")
         if self.current_process and self.current_process.poll() is None:
             logger.info("Terminating active Nmap process during NmapScanner deletion.")
@@ -196,8 +183,7 @@ class NmapScanner:
 
 
     def validate_target_input(self, target: str) -> bool:
-        """
-        Validate the target string for Nmap scanning.
+        """Validate the target string for Nmap scanning.
 
         The target can be an IP address, a domain name, a CIDR block,
         or 'localhost'. Multiple targets can be specified, separated by
@@ -247,8 +233,7 @@ class NmapScanner:
     def build_nmap_options(
         self, os_fingerprinting: bool, scan_all_ports: bool, selected_script: str
     ) -> str:
-        """
-        Construct Nmap command-line options string based on boolean flags.
+        """Construct Nmap command-line options string based on boolean flags.
 
         :param os_fingerprinting: If True, add OS fingerprinting options.
         :type os_fingerprinting: bool
@@ -270,8 +255,7 @@ class NmapScanner:
         return options
 
     def _build_nmap_arguments(self, params: NmapScanParameters) -> List[str]:
-        """
-        Build the list of arguments for the Nmap command.
+        """Build the list of arguments for the Nmap command.
 
         :param params: A dictionary of Nmap scan parameters.
         :type params: NmapScanParameters
@@ -303,8 +287,7 @@ class NmapScanner:
         return nmap_args_list
 
     def _prepare_final_nmap_command(self, nmap_args_list: List[str], needs_escalation: bool) -> List[str]:
-        """
-        Prepare the final Nmap command list, including path resolution and escalation.
+        """Prepare the final Nmap command list, including path resolution and escalation.
 
         :param nmap_args_list: The base list of Nmap arguments.
         :type nmap_args_list: List[str]
@@ -337,8 +320,7 @@ class NmapScanner:
     def _parse_nmap_error_message(
         self, returncode: int, nmap_xml_output: str, nmap_stderr: str, needs_escalation: bool,
     ) -> str:
-        """
-        Construct a detailed error message from Nmap's output when a scan fails.
+        """Construct a detailed error message from Nmap's output when a scan fails.
 
         :param returncode: The exit code from the Nmap process.
         :type returncode: int
@@ -372,8 +354,7 @@ class NmapScanner:
         self, params: NmapScanParameters,
         cancellable: Optional[Gio.Cancellable] = None,
     ) -> nmap.PortScanner:
-        """
-        Run an Nmap scan with the given parameters and handle cancellation.
+        """Run an Nmap scan with the given parameters and handle cancellation.
 
         This method constructs the Nmap command, executes it as a subprocess,
         monitors for cancellation, and parses the XML output.
@@ -482,8 +463,7 @@ class NmapScanner:
 
 
     def convert_results_to_yaml(self, nm: nmap.PortScanner) -> Dict[str, str]:
-        """
-        Convert Nmap scan results to YAML for each host.
+        """Convert Nmap scan results to YAML for each host.
 
         :param nm: The nmap.PortScanner object containing the scan results.
         :type nm: nmap.PortScanner
@@ -506,8 +486,7 @@ class NmapScanner:
         return all_results
 
     def to_plain_dict(self, data: Any) -> Union[Dict[str, Any], Any]:
-        """
-        Recursively convert Nmap data (potentially custom nmap types) to plain dicts/lists.
+        """Recursively convert Nmap data (potentially custom nmap types) to plain dicts/lists.
 
         This is necessary for proper serialization to formats like YAML or JSON.
 

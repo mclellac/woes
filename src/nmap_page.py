@@ -89,7 +89,6 @@ class NmapPage(Adw.PreferencesPage):
         """Initialize the NmapPage.
 
         :param kwargs: Keyword arguments passed to the :class:`Adw.PreferencesPage` constructor.
-        :type kwargs: Any
         """
         super().__init__(**kwargs)
         logger.info("Initializing NmapPage...")
@@ -117,6 +116,7 @@ class NmapPage(Adw.PreferencesPage):
         super().__del__()
 
     def _init_page_ui(self):
+        """Initialize NmapPage UI components."""
         logger.debug("Initializing NmapPage UI components.")
         self.nmap_host_listbox.bind_model(self.nmap_target_listbox_store, self._create_target_listbox_row)
         child = self.nmap_detail_box.get_first_child()
@@ -127,6 +127,7 @@ class NmapPage(Adw.PreferencesPage):
         logger.debug("NmapPage _init_page_ui completed.")
 
     def _clear_dynamic_details(self):
+        """Clear dynamically added details from the detail box."""
         child = self.nmap_detail_box.get_first_child()
         while child:
             if child == self.nmap_detail_placeholder:
@@ -137,6 +138,7 @@ class NmapPage(Adw.PreferencesPage):
             self.nmap_detail_box.remove(current_child_to_remove)
 
     def _connect_signals(self):
+        """Connect NmapPage signals."""
         logger.debug("Connecting NmapPage signals.")
         self.nmap_target_entryrow.connect("entry-activated", self._on_target_activate)
         self.nmap_apply_button.connect("clicked", self._on_target_activate)
@@ -483,7 +485,7 @@ class NmapPage(Adw.PreferencesPage):
         self.nmap_detail_box.append(expander)
 
     def _on_copy_host_summary_clicked(self, summary_text: str):
-        """Handles the click of the 'Copy Host Summary' button.
+        """Handle the click of the 'Copy Host Summary' button.
 
         :param summary_text: The summary text to copy to the clipboard.
         :type summary_text: str
@@ -652,7 +654,7 @@ class NmapPage(Adw.PreferencesPage):
                 self.nmap_detail_box.append(self.nmap_detail_placeholder)
             self.nmap_detail_placeholder.set_visible(True)
 
-    def _set_scan_status(self, status_type: ScanStatus, message: str): # type: ignore
+    def _set_scan_status(self, status_type: ScanStatus, message: str):
         """Set the scan status and update the UI via GLib.idle_add.
 
         :param status_type: The ScanStatus enum member representing the current status.
@@ -748,11 +750,11 @@ class NmapPage(Adw.PreferencesPage):
         """
         return NmapTargetRow(nmap_item=item)
 
-    def _generate_human_readable_host_summary(self, host_data_dict: dict) -> str:
+    def _generate_human_readable_host_summary(self, host_data_dict: Dict[str, Any]) -> str:
         """Generate a human-readable summary of host scan data.
 
         :param host_data_dict: A dictionary containing the scan data for a host.
-        :type host_data_dict: dict
+        :type host_data_dict: Dict[str, Any]
         :return: A string containing the human-readable summary.
         :rtype: str
         """
@@ -855,7 +857,7 @@ class NmapPage(Adw.PreferencesPage):
         return "\n".join(summary_lines)
 
     def trigger_scan(self):
-        """Programmatically triggers the Nmap 'Scan' action."""
+        """Programmatically trigger the Nmap 'Scan' action."""
         logger.debug("Nmap scan triggered by shortcut.")
         if self.nmap_apply_button and self.nmap_apply_button.get_sensitive():
             self.nmap_apply_button.clicked() # type: ignore

@@ -1,5 +1,4 @@
-"""
-Global constants for the Woes application.
+"""Global constants for the Woes application.
 
 This module defines various global constants used throughout the Woes application,
 including application identifiers, resource paths, theme names, version information,
