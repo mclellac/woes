@@ -54,7 +54,7 @@ class Preferences(Adw.PreferencesWindow):
 
     font_scale_combo_row = Gtk.Template.Child("font_scale_combo_row")
     theme_combo_row = Gtk.Template.Child("theme_combo_row")
-    source_style_scheme_combo_row = Gtk.Template.Child("source_style_scheme_combo_row")
+    # Removed: source_style_scheme_combo_row = Gtk.Template.Child("source_style_scheme_combo_row")
     dns_server_entryrow = Gtk.Template.Child("dns_server_entryrow")
     prefs_dns_apply_button = Gtk.Template.Child("prefs_dns_apply_button")
     preferences_error_banner = Gtk.Template.Child("preferences_error_banner")
@@ -126,9 +126,7 @@ class Preferences(Adw.PreferencesWindow):
         """
         self.font_scale_combo_row.connect("notify::selected", self.on_font_scale_changed)
         self.theme_combo_row.connect("notify::selected", self.on_theme_preference_changed)
-        self.source_style_scheme_combo_row.connect(
-            "notify::selected", self.on_source_style_scheme_changed
-        )
+        # Removed: self.source_style_scheme_combo_row.connect(...)
         self.dns_server_entryrow.connect("entry-activated", self.on_dns_server_changed)
         self.prefs_dns_apply_button.connect("clicked", self.on_dns_server_changed)
 
@@ -287,21 +285,7 @@ class Preferences(Adw.PreferencesWindow):
                 selected_theme_str,
             )
 
-    def on_source_style_scheme_changed(self, combo_row: Adw.ComboRow, _gparam: GObject.ParamSpec):
-        """
-        Handle changes in the source style scheme preference ComboRow.
-
-        Saves the selected style scheme name string to GSettings.
-
-        :param combo_row: The Adw.ComboRow whose selection changed.
-        :type combo_row: Adw.ComboRow
-        :param _gparam: The GLib.ParamSpec of the property that changed (unused).
-        :type _gparam: GObject.ParamSpec
-        """
-        selected_item = combo_row.get_selected_item()
-        if isinstance(selected_item, Gtk.StringObject):
-            source_style_scheme = selected_item.get_string()
-            self.settings.set_string("source-style-scheme", source_style_scheme)
+    # Removed on_source_style_scheme_changed method
 
     @staticmethod
     def _rgba_to_hex(rgba: Gdk.RGBA) -> str:
@@ -526,20 +510,7 @@ class Preferences(Adw.PreferencesWindow):
         if not self._select_combo_row_item(self.theme_combo_row, theme_pref_value):
             self.theme_combo_row.set_selected(0)
 
-        source_style_scheme = self.settings.get_string("source-style-scheme")
-        if not self._select_combo_row_item(
-            self.source_style_scheme_combo_row,
-            source_style_scheme,
-            case_sensitive=False,
-        ):
-            logging.warning(
-                "Style scheme '%s' not found in ComboRow or model is not Gtk.StringList. "
-                "Defaulting might not apply or be index 0.",
-                source_style_scheme,
-            )
-            # Original code didn't set a default for source_style_scheme_combo_row if not found, so we replicate that.
-            # If a default selection (e.g., index 0) is desired, it could be added here:
-            # else: self.source_style_scheme_combo_row.set_selected(0)
+        # Removed loading and setting for source_style_scheme_combo_row
 
         dns_server = self.settings.get_string("custom-dns-server")
         self.dns_server_entryrow.set_text(dns_server)

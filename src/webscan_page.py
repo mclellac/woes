@@ -13,15 +13,15 @@ import time # Added for polling loop
 from enum import Enum
 
 import gi
-from gi.repository import Gtk, Adw, Gio, GLib, GObject, Gdk, GtkSource
+from gi.repository import Gtk, Adw, Gio, GLib, GObject, Gdk # Removed GtkSource
 
 from .constants import RESOURCE_PREFIX, APP_ID
 from .utils import show_global_error, show_global_toast, is_valid_url
-from .style_utils import apply_source_style_scheme
+# Removed: from .style_utils import apply_source_style_scheme
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-gi.require_version("GtkSource", "5")
+# Removed: gi.require_version("GtkSource", "5")
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/webscan_page.ui")
@@ -58,49 +58,40 @@ class WebScanPage(Adw.PreferencesPage):
         """
 
         super().__init__(**kwargs)
-        self.source_view = GtkSource.View()
-        # Every GtkSource.View needs a GtkSource.Buffer
-        source_buffer = GtkSource.Buffer()
+        self.source_view = Gtk.TextView() # Changed from GtkSource.View
+        # Every Gtk.TextView needs a Gtk.TextBuffer
+        source_buffer = Gtk.TextBuffer() # Changed from GtkSource.Buffer
         self.source_view.set_buffer(source_buffer)
 
         self.source_view.set_hexpand(True)
         self.source_view.set_vexpand(True)
         self.source_view.set_monospace(True)
-        self.source_view.set_show_line_numbers(True)
+        # Removed: self.source_view.set_show_line_numbers(True) # GtkSource.View specific
         self.source_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        self.source_view.set_editable(False) # Make text view read-only for results
 
         if self.results_scrolled_window:
             self.results_scrolled_window.set_child(self.source_view)
         else:
             # This case should ideally log an error if logger is available
-            # For subtask, direct print might be visible if it runs in a context that shows stdout.
-            print("ERROR: results_scrolled_window is None in __init__, cannot add GtkSource.View.")
+            print("ERROR: results_scrolled_window is None in __init__, cannot add Gtk.TextView.")
 
-        # The existing call to self._apply_webscan_source_view_style() in __init__ will handle
-        # applying the language and style scheme after this setup.
+        # GtkSource.View specific style and language setup is removed.
 
         self.current_web_scan_task: Optional[Gio.Task] = None
         self.current_web_scan_cancellable: Optional[Gio.Cancellable] = None
         self.current_nikto_process: Optional[subprocess.Popen] = None
         self._current_webscan_params: Optional[Dict[str, Any]] = None
         self.settings = Gio.Settings.new(APP_ID)
-        self.style_manager = Adw.StyleManager.get_default()
+        self.style_manager = Adw.StyleManager.get_default() # Keep for theme checks if needed, or remove if unused
         logger.debug("WebScanPage initialized")
 
-        if self.source_view:
-            buffer = self.source_view.get_buffer()
-            if buffer:
-                lm = GtkSource.LanguageManager.get_default()
-                language = lm.get_language("text")
-                if language:
-                    buffer.set_language(language)
-                else:
-                    logger.warning("GtkSource language '%s' not found. Syntax highlighting may not apply.", "text")
+        # Removed GtkSource.View specific language and style setup
+        # Removed self._apply_webscan_source_view_style() call
 
-        self._apply_webscan_source_view_style() # Initial application
-
-        self.style_manager.connect("notify::dark", self._on_webscan_source_style_settings_changed)
-        self.settings.connect("changed::source-style-scheme", self._on_webscan_source_style_settings_changed)
+        # Removed signal handlers for GtkSourceView style changes
+        # self.style_manager.connect("notify::dark", self._on_webscan_source_style_settings_changed)
+        # self.settings.connect("changed::source-style-scheme", self._on_webscan_source_style_settings_changed)
         self.url_entry.connect("entry-activated", self.on_scan_button_clicked)
         # Connect signal for the cancel button now that it's a template child
         if self.webscan_cancel_button:
@@ -110,56 +101,8 @@ class WebScanPage(Adw.PreferencesPage):
         if self.copy_results_button:
             self.copy_results_button.connect("clicked", self._on_copy_results_clicked)
 
-    def _on_webscan_source_style_settings_changed(self, _manager_or_settings, _param_spec_or_key):
-        """Handle theme or style scheme changes for WebScan's GtkSourceView.
-
-        :param _manager_or_settings: The Adw.StyleManager or Gio.Settings object that emitted the signal.
-        :type _manager_or_settings: Adw.StyleManager or Gio.Settings
-        :param _param_spec_or_key: The GObject.ParamSpec or GSettings key that changed.
-        :type _param_spec_or_key: GObject.ParamSpec or str
-        """
-        logger.info("WebScanPage: Dark theme or source style scheme changed. Applying new style.")
-        self._apply_webscan_source_view_style()
-
-    def _apply_webscan_source_view_style(self):
-        if not hasattr(self, 'source_view') or not self.source_view:
-            # print("DEBUG: _apply_webscan_source_view_style: self.source_view not ready")
-            return
-        buffer = self.source_view.get_buffer()
-        if not buffer:
-            # print("DEBUG: _apply_webscan_source_view_style: buffer not ready")
-            return
-
-        is_dark = self.style_manager.get_dark()
-        user_scheme_name = self.settings.get_string("source-style-scheme")
-        scheme_manager = GtkSource.StyleSchemeManager.get_default()
-        final_scheme_name = "Adwaita" # Default fallback
-
-        if is_dark:
-            if user_scheme_name.lower() in ["adwaita", "default", "classic", "light"]:
-                final_scheme_name = "Adwaita-dark"
-            else:
-                if scheme_manager.get_scheme(user_scheme_name):
-                    final_scheme_name = user_scheme_name
-                else:
-                    # print(f"DEBUG: User scheme '{user_scheme_name}' not found for dark theme, falling back to Adwaita-dark.")
-                    final_scheme_name = "Adwaita-dark"
-        else: # Light theme
-            if user_scheme_name.lower() in ["adwaita-dark", "dark"]:
-                final_scheme_name = "Adwaita"
-            else:
-                if scheme_manager.get_scheme(user_scheme_name):
-                    final_scheme_name = user_scheme_name
-                else:
-                    # print(f"DEBUG: User scheme '{user_scheme_name}' not found for light theme, falling back to Adwaita.")
-                    final_scheme_name = "Adwaita"
-
-        if not scheme_manager.get_scheme(final_scheme_name):
-            # print(f"DEBUG: Scheme '{final_scheme_name}' could not be loaded. Defaulting to basic Adwaita (light/dark).")
-            final_scheme_name = "Adwaita-dark" if is_dark else "Adwaita"
-
-        # print(f"DEBUG: Applying source style scheme: {final_scheme_name} (Dark: {is_dark}, User: {user_scheme_name})")
-        apply_source_style_scheme(scheme_manager, buffer, final_scheme_name)
+    # Removed _on_webscan_source_style_settings_changed method
+    # Removed _apply_webscan_source_view_style method
 
     def __del__(self):
         """Clean up when the WebScanPage is destroyed."""
@@ -584,6 +527,14 @@ class WebScanPage(Adw.PreferencesPage):
                 else:
                     final_stdout = s_out
 
+                # Explicitly unescape literal '\\n' to actual '\n'
+                # This handles cases where ast.literal_eval resulted in a string that still
+                # contains '\\n' (from double-escaped newlines in original source)
+                # or if direct stdout_str contained literal '\\n'.
+                if final_stdout: # Check if not None after potential str() conversion
+                    final_stdout = final_stdout.replace('\\n', '\n')
+                    logger.debug("Applied final .replace('\\\\n', '\\n') to stdout content.")
+
             final_stderr: Optional[str] = None
             if s_err is not None:
                 if not isinstance(s_err, str):
@@ -591,6 +542,9 @@ class WebScanPage(Adw.PreferencesPage):
                     final_stderr = str(s_err)
                 else:
                     final_stderr = s_err
+                # Typically, stderr for Nikto (if not the primary output channel) wouldn't need this,
+                # but if it could also contain such content, apply here too.
+                # For now, focusing on final_stdout as per problem description.
 
             if final_stdout is not None or final_stderr is not None:
                 self._update_textview(final_stdout, final_stderr, is_error_message=False)

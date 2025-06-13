@@ -25,11 +25,6 @@
       <summary>Application theme preference</summary>
       <description>Allows users to choose between System, Light, or Dark themes.</description>
     </key>
-    <key name="source-style-scheme" type="s">
-      <default>'Adwaita'</default>
-      <summary>Syntax Highlighting Colour Scheme</summary>
-      <description>The colour scheme used for syntax highlighting in the GtkSourceView</description>
-    </key>
     <key name="custom-dns-server" type="s">
       <default>''</default>
       <summary>Custom DNS server for lookups</summary>

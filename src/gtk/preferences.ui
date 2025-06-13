@@ -39,32 +39,6 @@
               </object>
             </child>
             <child>
-              <object class="AdwComboRow" id="source_style_scheme_combo_row">
-                <property name="halign">baseline-fill</property>
-                <property name="model">
-                  <object class="GtkStringList" id="color_scheme_list">
-                    <property name="strings">Adwaita</property>
-                    <items>
-                      <item>Adwaita-dark</item>
-                      <item>Classic</item>
-                      <item>Classic-dark</item>
-                      <item>Cobalt-light</item>
-                      <item>Cobalt</item>
-                      <item>Kate</item>
-                      <item>Kate-dark</item>
-                      <item>Oblivion</item>
-                      <item>Tango</item>
-                      <item>Solarized-light</item>
-                      <item>solarized-dark</item>
-                    </items>
-                  </object>
-                </property>
-                <property name="selected">0</property>
-                <property name="subtitle">Choose a color scheme for the SourceView</property>
-                <property name="title">Syntax Highlighting Color Scheme</property>
-              </object>
-            </child>
-            <child>
               <object class="AdwComboRow" id="font_scale_combo_row">
                 <property name="title" translatable="yes">Font Size</property>
                 <property name="subtitle" translatable="yes">Select text scaling percentage</property>

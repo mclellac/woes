@@ -14,19 +14,20 @@ from typing import Optional, List, Dict, Any
 import yaml
 
 import gi
-from gi.repository import Adw, Gio, GLib, GObject, Gtk, GtkSource
+from gi.repository import Adw, Gio, GLib, GObject, Gtk # Removed GtkSource
 
 import nmap
 
 from .constants import APP_ID, RESOURCE_PREFIX
 from .nmap_scanner import NmapScanner, ScanStatus, ScanCancelledError
-from .style_utils import apply_source_style_scheme
-from .utils import create_source_view, show_global_error, show_global_toast
+# Removed: from .style_utils import apply_source_style_scheme
+# Removed: from .utils import create_source_view
+from .utils import show_global_error, show_global_toast # Keep other utils
 
 
 gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
-gi.require_version("GtkSource", "5")
+# Removed: gi.require_version("GtkSource", "5")
 
 
 class NmapItem(GObject.Object):
@@ -99,9 +100,10 @@ class NmapPage(Adw.PreferencesPage):
         self.nmap_target_listbox_store = Gio.ListStore(item_type=NmapItem)
         self.scanner = NmapScanner()
         self.settings = Gio.Settings.new(APP_ID)
-        self.style_manager = Adw.StyleManager.get_default()
-        self.style_manager.connect("notify::dark", self._on_nmap_source_style_settings_changed)
-        self.settings.connect(f"changed::source-style-scheme", self._on_nmap_source_style_settings_changed)
+        # self.style_manager = Adw.StyleManager.get_default() # Removed as it's no longer used
+        # Removed GtkSource specific signal connections
+        # self.style_manager.connect("notify::dark", self._on_nmap_source_style_settings_changed)
+        # self.settings.connect(f"changed::source-style-scheme", self._on_nmap_source_style_settings_changed)
 
         self.current_nmap_task: Optional[Gio.Task] = None
         self.current_nmap_cancellable: Optional[Gio.Cancellable] = None
@@ -121,67 +123,8 @@ class NmapPage(Adw.PreferencesPage):
             del self.scanner
         super().__del__() # Important if GObject has its own __del__
 
-    def _on_nmap_source_style_settings_changed(self, _source: GObject.Object, _pspec: GObject.ParamSpec):
-        """Handle theme or style scheme changes for Nmap's GtkSourceView.
-
-        Currently, this method primarily logs the change. Style application
-        is handled at view creation time in _add_raw_output_expander.
-
-        :param _source: The GObject source of the signal.
-        :type _source: GObject.Object
-        :param _pspec: The GObject.ParamSpec of the property that changed.
-        :type _pspec: GObject.ParamSpec
-        """
-        logger.info("NmapPage: Dark theme or source style scheme changed. New views will use updated style.")
-        # If we were to update existing views, we'd iterate them here and call
-        # self._apply_source_view_style_to_buffer(buffer)
-
-    def _apply_source_view_style_to_buffer(self, buffer: GtkSource.Buffer):
-        """Apply the appropriate GtkSourceView style scheme to a given buffer,
-        considering the current theme (dark/light) and user settings.
-
-        :param buffer: The GtkSource.Buffer to apply the style to.
-        :type buffer: GtkSource.Buffer
-        """
-        is_dark = self.style_manager.get_dark()
-        user_scheme_name = self.settings.get_string("source-style-scheme")
-        scheme_manager = GtkSource.StyleSchemeManager.get_default()
-        final_scheme_name = "Adwaita" # Default fallback
-
-        if is_dark:
-            if user_scheme_name.lower() in ["adwaita", "default", "classic", "light"]: # Common names for light default themes
-                final_scheme_name = "Adwaita-dark"
-            else:
-                # Check if user's preferred scheme exists
-                if scheme_manager.get_scheme(user_scheme_name):
-                    final_scheme_name = user_scheme_name
-                else:
-                    logger.warning(
-                        f"NmapPage: User scheme '{user_scheme_name}' not found for dark theme, falling back to Adwaita-dark."
-                    )
-                    final_scheme_name = "Adwaita-dark" # Fallback for dark
-        else: # Light theme
-            if user_scheme_name.lower() in ["adwaita-dark", "dark"]: # Common names for dark default themes
-                final_scheme_name = "Adwaita"
-            else:
-                # Check if user's preferred scheme exists
-                if scheme_manager.get_scheme(user_scheme_name):
-                    final_scheme_name = user_scheme_name
-                else:
-                    logger.warning(
-                        f"NmapPage: User scheme '{user_scheme_name}' not found for light theme, falling back to Adwaita."
-                    )
-                    final_scheme_name = "Adwaita" # Fallback for light
-
-        # Final check if the determined scheme actually exists, else use a built-in Adwaita
-        if not scheme_manager.get_scheme(final_scheme_name):
-            logger.error(
-                f"NmapPage: Scheme '{final_scheme_name}' could not be loaded. Defaulting to basic Adwaita (light/dark)."
-            )
-            final_scheme_name = "Adwaita-dark" if is_dark else "Adwaita"
-
-        logger.debug(f"NmapPage: Applying source style scheme: {final_scheme_name} (Dark: {is_dark}, User: {user_scheme_name})")
-        apply_source_style_scheme(scheme_manager, buffer, final_scheme_name)
+    # Removed _on_nmap_source_style_settings_changed method
+    # Removed _apply_source_view_style_to_buffer method
 
     def _init_page_ui(self):
         logger.debug("Initializing NmapPage UI components.")
@@ -518,13 +461,25 @@ class NmapPage(Adw.PreferencesPage):
         expander = Adw.ExpanderRow(title=f"Text Scan Summary - {host_key}")
         expander.set_expanded(False)
         human_readable_summary = self._generate_human_readable_host_summary(host_data_dict)
-        source_view, source_buffer = create_source_view(language_name="txt")
-        source_buffer.set_text(human_readable_summary, -1)
-        self._apply_source_view_style_to_buffer(source_buffer)
+
+        # Replace create_source_view with direct Gtk.TextView instantiation
+        source_view = Gtk.TextView()
+        source_buffer = Gtk.TextBuffer()
+        source_view.set_buffer(source_buffer)
+
+        source_view.set_monospace(True)
+        source_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
         source_view.set_editable(False)
+        source_view.set_hexpand(True) # Assuming this is desired for layout
+        source_view.set_vexpand(True) # Assuming this is desired for layout
+
+        source_buffer.set_text(human_readable_summary, -1)
+        # Removed: self._apply_source_view_style_to_buffer(source_buffer)
+        # source_view.set_editable(False) # Already set above
+
         scrolled_window = Gtk.ScrolledWindow()
         scrolled_window.set_child(source_view)
-        scrolled_window.set_min_content_height(200)
+        scrolled_window.set_min_content_height(200) # Keep existing size constraints
         scrolled_window.set_max_content_height(400)
         scrolled_window.set_vexpand(True)
         expander.add_row(scrolled_window)
