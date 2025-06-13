@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Module for fetching HTTP headers and processing responses.
 """
 import logging

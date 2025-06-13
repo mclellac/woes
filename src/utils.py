@@ -3,19 +3,15 @@ import logging
 import ipaddress
 import re
 from urllib.parse import urlparse
-from typing import Tuple, List, Optional # Added Optional
+from typing import Tuple, List, Optional
 
 import gi
-from gi.repository import Gtk, Adw # Removed GtkSource
+from gi.repository import Gtk, Adw
 
 gi.require_version("Gtk", "4.0")
-# Removed: gi.require_version("GtkSource", "5")
 gi.require_version("Adw", "1")
 
 logger = logging.getLogger(__name__)
-
-
-# Removed create_source_view function
 
 
 def show_global_error(widget: Gtk.Widget, message: str):

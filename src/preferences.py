@@ -13,10 +13,10 @@ from typing import Optional
 import gi
 gi.require_version("Adw", "1") # Must be called before importing from gi.repository
 gi.require_version("Gtk", "4.0")
-from gi.repository import Adw, Gio, Gtk, GLib, GObject, Gdk # No longer wrong position
+from gi.repository import Adw, Gio, Gtk, GLib, GObject, Gdk
 
 # Local application imports
-from .constants import APP_ID, RESOURCE_PREFIX # No longer wrong position
+from .constants import APP_ID, RESOURCE_PREFIX
 
 # Conditional import for dnspython
 try:
@@ -54,7 +54,6 @@ class Preferences(Adw.PreferencesWindow):
 
     font_scale_combo_row = Gtk.Template.Child("font_scale_combo_row")
     theme_combo_row = Gtk.Template.Child("theme_combo_row")
-    # Removed: source_style_scheme_combo_row = Gtk.Template.Child("source_style_scheme_combo_row")
     dns_server_entryrow = Gtk.Template.Child("dns_server_entryrow")
     prefs_dns_apply_button = Gtk.Template.Child("prefs_dns_apply_button")
     preferences_error_banner = Gtk.Template.Child("preferences_error_banner")
@@ -126,7 +125,6 @@ class Preferences(Adw.PreferencesWindow):
         """
         self.font_scale_combo_row.connect("notify::selected", self.on_font_scale_changed)
         self.theme_combo_row.connect("notify::selected", self.on_theme_preference_changed)
-        # Removed: self.source_style_scheme_combo_row.connect(...)
         self.dns_server_entryrow.connect("entry-activated", self.on_dns_server_changed)
         self.prefs_dns_apply_button.connect("clicked", self.on_dns_server_changed)
 
@@ -284,8 +282,6 @@ class Preferences(Adw.PreferencesWindow):
                 "Theme preference set to %s. WoesWindow will handle the change.",
                 selected_theme_str,
             )
-
-    # Removed on_source_style_scheme_changed method
 
     @staticmethod
     def _rgba_to_hex(rgba: Gdk.RGBA) -> str:
@@ -509,8 +505,6 @@ class Preferences(Adw.PreferencesWindow):
         theme_pref_value = self.settings.get_string("theme-preference")
         if not self._select_combo_row_item(self.theme_combo_row, theme_pref_value):
             self.theme_combo_row.set_selected(0)
-
-        # Removed loading and setting for source_style_scheme_combo_row
 
         dns_server = self.settings.get_string("custom-dns-server")
         self.dns_server_entryrow.set_text(dns_server)

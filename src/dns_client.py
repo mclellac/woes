@@ -1,9 +1,8 @@
-# -*- coding: utf-8 -*-
 """Module for performing DNS lookups.
 """
 import logging
 from typing import Optional, List, Dict, Any
-import ipaddress # Added: Used in resolve()
+import ipaddress
 
 import dns.resolver
 import dns.reversename
@@ -146,7 +145,7 @@ class DnsResolverClient:
                     ipaddress.ip_address(domain_or_ip) # Use a proper IP validation library
                     is_ip = True
                 except ValueError:
-                    is_ip = False # Not a valid IP format
+                    is_ip = False
 
                 if is_ip:
                     query_target = dns.reversename.from_address(domain_or_ip)
@@ -164,5 +163,3 @@ class DnsResolverClient:
                  logger.error("DnsResolverClient: Unexpected error converting '%s' for PTR query: %s. Proceeding with original target.", domain_or_ip, e)
 
         return self._lookup_record_internal(query_target, record_type.upper())
-
-# Comment about ipaddress import location removed as it's now a module-level import.

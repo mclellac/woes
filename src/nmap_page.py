@@ -14,20 +14,17 @@ from typing import Optional, List, Dict, Any
 import yaml
 
 import gi
-from gi.repository import Adw, Gio, GLib, GObject, Gtk # Removed GtkSource
+from gi.repository import Adw, Gio, GLib, GObject, Gtk
 
 import nmap
 
 from .constants import APP_ID, RESOURCE_PREFIX
 from .nmap_scanner import NmapScanner, ScanStatus, ScanCancelledError
-# Removed: from .style_utils import apply_source_style_scheme
-# Removed: from .utils import create_source_view
-from .utils import show_global_error, show_global_toast # Keep other utils
+from .utils import show_global_error, show_global_toast
 
 
 gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
-# Removed: gi.require_version("GtkSource", "5")
 
 
 class NmapItem(GObject.Object):
@@ -100,10 +97,6 @@ class NmapPage(Adw.PreferencesPage):
         self.nmap_target_listbox_store = Gio.ListStore(item_type=NmapItem)
         self.scanner = NmapScanner()
         self.settings = Gio.Settings.new(APP_ID)
-        # self.style_manager = Adw.StyleManager.get_default() # Removed as it's no longer used
-        # Removed GtkSource specific signal connections
-        # self.style_manager.connect("notify::dark", self._on_nmap_source_style_settings_changed)
-        # self.settings.connect(f"changed::source-style-scheme", self._on_nmap_source_style_settings_changed)
 
         self.current_nmap_task: Optional[Gio.Task] = None
         self.current_nmap_cancellable: Optional[Gio.Cancellable] = None
@@ -121,10 +114,7 @@ class NmapPage(Adw.PreferencesPage):
             logger.info("NmapPage finalized, ongoing scan cancelled.")
         if hasattr(self, "scanner") and self.scanner:
             del self.scanner
-        super().__del__() # Important if GObject has its own __del__
-
-    # Removed _on_nmap_source_style_settings_changed method
-    # Removed _apply_source_view_style_to_buffer method
+        super().__del__()
 
     def _init_page_ui(self):
         logger.debug("Initializing NmapPage UI components.")
@@ -302,7 +292,7 @@ class NmapPage(Adw.PreferencesPage):
             if isinstance(propagated_value, nmap.PortScanner):
                 nm_results_final = propagated_value
             elif hasattr(propagated_value, 'value') and isinstance(getattr(propagated_value, 'value'), nmap.PortScanner):
-                logger.debug(f"NmapPage: Received wrapped object {type(propagated_value)} with .value attribute containing nmap.PortScanner. Unwrapping.") # Changed to debug
+                logger.debug(f"NmapPage: Received wrapped object {type(propagated_value)} with .value attribute containing nmap.PortScanner. Unwrapping.")
                 nm_results_final = getattr(propagated_value, 'value')
             elif hasattr(propagated_value, 'value'):
                 logger.error(f"NmapPage: Received wrapped object {type(propagated_value)} with .value of type {type(getattr(propagated_value, 'value'))}. Expected nmap.PortScanner.")
@@ -462,7 +452,6 @@ class NmapPage(Adw.PreferencesPage):
         expander.set_expanded(False)
         human_readable_summary = self._generate_human_readable_host_summary(host_data_dict)
 
-        # Replace create_source_view with direct Gtk.TextView instantiation
         source_view = Gtk.TextView()
         source_buffer = Gtk.TextBuffer()
         source_view.set_buffer(source_buffer)
@@ -474,8 +463,6 @@ class NmapPage(Adw.PreferencesPage):
         source_view.set_vexpand(True) # Assuming this is desired for layout
 
         source_buffer.set_text(human_readable_summary, -1)
-        # Removed: self._apply_source_view_style_to_buffer(source_buffer)
-        # source_view.set_editable(False) # Already set above
 
         scrolled_window = Gtk.ScrolledWindow()
         scrolled_window.set_child(source_view)
