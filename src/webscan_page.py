@@ -234,12 +234,17 @@ class WebScanPage(Adw.PreferencesPage):
             return
         logger.debug(f"WebScanPage scan button clicked. URL: '{self.url_entry.get_text()}'")
         target_url = self.url_entry.get_text().strip()
+        original_target_url_for_display = target_url # Keep original for display if needed
+        if target_url and not (target_url.startswith("http://") or target_url.startswith("https://") or target_url.startswith("ftp://")):
+            logger.info(f"No scheme found in URL '{target_url}'. Prepending 'https://'.")
+            target_url = "https://" + target_url
 
         if not target_url:
             show_global_toast(self, "Target URL cannot be empty.")
             main_window = self.get_native()
             if not (main_window and hasattr(main_window, 'show_toast')):
                 show_global_error(self, "Target URL cannot be empty.")
+            self.scan_button.set_sensitive(True) # Re-enable button
             return
 
         # The original regex allowed http, https, ftp.
@@ -249,6 +254,7 @@ class WebScanPage(Adw.PreferencesPage):
             main_window = self.get_native()
             if not (main_window and hasattr(main_window, 'show_toast')):
                 show_global_error(self, "Invalid URL format. Please enter a valid URL.")
+            self.scan_button.set_sensitive(True) # Re-enable button
             return
 
         buffer = self.source_view.get_buffer()
@@ -332,21 +338,40 @@ class WebScanPage(Adw.PreferencesPage):
         no404_active = scan_params.get("no404", False)
         auth_bypass_active = scan_params.get("auth_bypass", False)
 
-        # is_valid_url (used in on_scan_button_clicked) ensures target_url has a scheme from
-        # ['http', 'https', 'ftp']. Nikto prepends 'http://' if no scheme is given,
-        # but since our validation requires a scheme, this explicit check and prepend
-        # ensures Nikto gets a URL it can work with, especially if the URL somehow
-        # lost its scheme or if ftp was validated but nikto needs http/s for -h.
-        # For robustness with Nikto, ensure it has an http/https scheme if ftp isn't directly supported by -h.
-        if target_url.startswith("ftp://"):
-            logger.info("FTP URL provided; Nikto might not directly support it. Attempting with http:// for the host part.")
-            # Attempt to convert ftp://host/path to http://host/path for Nikto
-            # This is a simple conversion; complex FTP URLs might not translate well.
-            target_url = target_url.replace("ftp://", "http://", 1)
-        elif not target_url.startswith(("http://", "https://")):
-            logger.info("Prepending http:// to target URL for Nikto as scheme was missing or not http/https.")
-            target_url = "http://" + target_url
+        # target_url from scan_params now usually has https:// if user typed no scheme.
+        # force_ssl is also from scan_params.
 
+        if force_ssl:
+            if target_url.startswith("http://"):
+                target_url = target_url.replace("http://", "https://", 1)
+                logger.info(f"Force SSL is ON. Changed URL to: {target_url}")
+            elif not target_url.startswith("https://"):
+                # This case implies a schemeless URL somehow got here, or ftp, etc.
+                # Or user typed example.com and https was NOT prepended earlier (contrary to plan)
+                # For robustness, ensure it becomes https if force_ssl is on.
+                if "://" in target_url and not target_url.startswith("ftp://"): # e.g. unknownscheme://
+                    target_url = "https://" + target_url.split("://", 1)[-1]
+                elif not "://" in target_url: # schemeless like 'example.com'
+                    target_url = "https://" + target_url
+                logger.info(f"Force SSL is ON and original scheme was not http/https. Ensured URL is: {target_url}")
+
+        # If force_ssl is OFF:
+        # - If user typed 'http://example.com', it remains 'http://'.
+        # - If user typed 'https://example.com', it remains 'https://'.
+        # - If user typed 'example.com', it became 'https://example.com' in on_scan_button_clicked.
+        # So, no specific changes needed here if force_ssl is OFF,
+        # the URL is already in its desired form based on earlier processing.
+
+        # Handle FTP URLs separately, as Nikto doesn't directly scan ftp:// for -h target
+        if target_url.startswith("ftp://"):
+            logger.warning("FTP URL provided for Nikto's -h option. Nikto primarily scans HTTP/S. Attempting to use the host part with http://. This may not yield meaningful web scan results.")
+            target_url = target_url.replace("ftp://", "http://", 1)
+
+        # Final check: if after all this, it's still schemeless (shouldn't happen with prior step), default to http
+        # This is a fallback, the previous step in on_scan_button_clicked should prevent this.
+        if not "://" in target_url:
+            logger.warning(f"URL '{target_url}' still schemeless in scan thread. Defaulting to http://.")
+            target_url = "http://" + target_url
 
         nikto_command = ['nikto', '-h', target_url]
 
