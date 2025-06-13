@@ -563,7 +563,10 @@ class WebScanPage(Adw.PreferencesPage):
                 )
                 return
 
-            task.return_value((main_report_content, aux_output))
+            task.return_value((
+                str(main_report_content) if main_report_content is not None else "",
+                str(aux_output) if aux_output is not None else None
+            ))
         except FileNotFoundError:
             logger.error("Nikto command not found. Ensure it's in PATH.")
             task.return_new_error_literal(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.NIKTO_NOT_FOUND.value, "Nikto command not found. Please ensure it is installed and in your system's PATH.") # type: ignore
