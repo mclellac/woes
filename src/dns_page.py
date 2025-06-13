@@ -482,7 +482,7 @@ class DNSPage(Adw.PreferencesPage):
             self.dns_status_row.set_subtitle(status_subtitle) # type: ignore
 
 
-    def _perform_lookup(self) -> None: # noqa: C901
+    def _perform_lookup(self) -> None:
         """Perform the DNS lookup based on user input and selected record type.
 
         Orchestrates input validation, client interaction, and result/error display.
