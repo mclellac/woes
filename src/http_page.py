@@ -7,7 +7,6 @@ via a :class:`.custom_dns_adapter.CustomDNSAdapter`.
 """
 
 # pylint: disable=too-many-lines
-# ruff: noqa: E501
 import logging
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
