@@ -122,7 +122,6 @@ class WoesApplication(Adw.Application):
         :param version: The application version.
         :type version: str
         :param kwargs: Additional keyword arguments for :class:`Adw.Application`.
-        :type kwargs: Any
         """
         logging.info("WoesApplication.__init__ entered")
         self.version = version
@@ -243,7 +242,7 @@ class WoesApplication(Adw.Application):
         :param _action: The action that triggered this handler.
         :type _action: Gio.SimpleAction
         :param _param: Optional parameter for the action (unused).
-        :type _param: GLib.Variant, optional
+        :type _param: Optional[GLib.Variant]
         """
         self._switch_to_page("http")
 
@@ -253,7 +252,7 @@ class WoesApplication(Adw.Application):
         :param _action: The action that triggered this handler.
         :type _action: Gio.SimpleAction
         :param _param: Optional parameter for the action (unused).
-        :type _param: GLib.Variant, optional
+        :type _param: Optional[GLib.Variant]
         """
         self._switch_to_page("nmap")
 
@@ -263,7 +262,7 @@ class WoesApplication(Adw.Application):
         :param _action: The action that triggered this handler.
         :type _action: Gio.SimpleAction
         :param _param: Optional parameter for the action (unused).
-        :type _param: GLib.Variant, optional
+        :type _param: Optional[GLib.Variant]
         """
         self._switch_to_page("dns")
 
@@ -273,7 +272,7 @@ class WoesApplication(Adw.Application):
         :param _action: The action that triggered this handler.
         :type _action: Gio.SimpleAction
         :param _param: Optional parameter for the action (unused).
-        :type _param: GLib.Variant, optional
+        :type _param: Optional[GLib.Variant]
         """
         self._switch_to_page("webscan")
 
@@ -311,7 +310,7 @@ class WoesApplication(Adw.Application):
         :param _action: The action that triggered this handler.
         :type _action: Gio.SimpleAction
         :param _param: Optional parameter for the action (unused).
-        :type _param: GLib.Variant, optional
+        :type _param: Optional[GLib.Variant]
         """
         self._trigger_page_action("http", "trigger_fetch", "HTTP fetch")
 
@@ -323,7 +322,7 @@ class WoesApplication(Adw.Application):
         :param _action: The action that triggered this handler.
         :type _action: Gio.SimpleAction
         :param _param: Optional parameter for the action (unused).
-        :type _param: GLib.Variant, optional
+        :type _param: Optional[GLib.Variant]
         """
         self._trigger_page_action("nmap", "trigger_scan", "Nmap scan")
 
@@ -335,7 +334,7 @@ class WoesApplication(Adw.Application):
         :param _action: The action that triggered this handler.
         :type _action: Gio.SimpleAction
         :param _param: Optional parameter for the action (unused).
-        :type _param: GLib.Variant, optional
+        :type _param: Optional[GLib.Variant]
         """
         self._trigger_page_action("dns", "trigger_lookup", "DNS lookup")
 
@@ -347,7 +346,7 @@ class WoesApplication(Adw.Application):
         :param _action: The action that triggered this handler.
         :type _action: Gio.SimpleAction
         :param _param: Optional parameter for the action (unused).
-        :type _param: GLib.Variant, optional
+        :type _param: Optional[GLib.Variant]
         """
         self._trigger_page_action("webscan", "trigger_scan", "Webscan scan")
 
@@ -359,7 +358,7 @@ class WoesApplication(Adw.Application):
         :param _widget: The :class:`Gio.SimpleAction` that was activated.
         :type _widget: Gio.SimpleAction
         :param _param: Optional :class:`GLib.Variant` parameter (unused).
-        :type _param: GLib.Variant, optional
+        :type _param: Optional[GLib.Variant]
         """
         about = self._create_about_window()
         # Ensure there's an active window before making it transient for
@@ -370,7 +369,7 @@ class WoesApplication(Adw.Application):
             about.set_transient_for(self.props.active_window)
         about.present()
 
-    def _create_about_window(self) -> "Adw.AboutWindow":
+    def _create_about_window(self) -> Adw.AboutWindow:
         """Create and configure the :class:`Adw.AboutWindow`.
 
         :return: The configured About Window.
@@ -400,7 +399,7 @@ class WoesApplication(Adw.Application):
         :param _widget: The :class:`Gio.SimpleAction` that was activated.
         :type _widget: Gio.SimpleAction
         :param _param: Optional :class:`GLib.Variant` parameter (unused).
-        :type _param: GLib.Variant, optional
+        :type _param: Optional[GLib.Variant]
         """
         if not self.win:
             logging.error("Main window not available for preferences.")
@@ -414,10 +413,10 @@ class WoesApplication(Adw.Application):
         :param name: The name of the action (e.g., "quit", "about").
         :type name: str
         :param callback: The function to call when the action is activated.
-        :type callback: callable
+        :type callback: Callable
         :param shortcuts: An optional list of keyboard shortcuts for the action
                           (e.g., ``["<primary>q"]``).
-        :type shortcuts: list[str], optional
+        :type shortcuts: Optional[List[str]]
         """
         action = Gio.SimpleAction.new(name, None)
         action.connect("activate", callback)

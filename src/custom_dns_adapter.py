@@ -1,5 +1,4 @@
-"""
-Custom HTTPAdapter for 'requests' with custom DNS resolution and SNI handling.
+"""Custom HTTPAdapter for 'requests' with custom DNS resolution and SNI handling.
 
 This module provides a custom HTTPAdapter that allows for specifying a DNS server
 for hostname resolution and handles Server Name Indication (SNI) for HTTPS connections.
@@ -8,7 +7,7 @@ for hostname resolution and handles Server Name Indication (SNI) for HTTPS conne
 import logging
 import socket
 import ssl
-from typing import Optional, Tuple, List, Dict # Added Tuple, List, Dict, Any
+from typing import Optional, Tuple, List, Dict
 
 import requests
 import requests.utils # For urlparse, urlunparse
@@ -25,8 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 class CustomDNSAdapter(HTTPAdapter):
-    """
-    A custom HTTPAdapter for `requests` that enables custom DNS resolution and SNI handling.
+    """A custom HTTPAdapter for `requests` that enables custom DNS resolution and SNI handling.
 
     This adapter intercepts requests to:
     1. Resolve the hostname using a specified custom DNS server if `dnspython` is available.
@@ -43,8 +41,7 @@ class CustomDNSAdapter(HTTPAdapter):
     """
 
     def __init__(self, *args, custom_dns_server: Optional[str] = None, default_sni: Optional[str] = None, **kwargs):
-        """
-        Initialize the CustomDNSAdapter.
+        """Initialize the CustomDNSAdapter.
 
         :param args: Positional arguments to pass to the parent HTTPAdapter.
         :param custom_dns_server: IP address of the custom DNS server. If None, or if `dns` (dnspython)
@@ -63,8 +60,7 @@ class CustomDNSAdapter(HTTPAdapter):
         super().__init__(*args, **kwargs)
 
     def _resolve_hostname_to_ip(self, hostname: str) -> Optional[str]:
-        """
-        Resolve a hostname using the custom DNS server.
+        """Resolve a hostname using the custom DNS server.
 
         Attempts to resolve AAAA records first, then A records.
 
@@ -110,8 +106,7 @@ class CustomDNSAdapter(HTTPAdapter):
         return None
 
     def send(self, request: requests.models.PreparedRequest, stream: bool = False, timeout: Optional[float] = None, verify: bool = True, cert: Optional[Tuple[str, str] | str] = None, proxies=None):
-        """
-        Send a prepared request.
+        """Send a prepared request.
 
         This method handles the sending of a request, potentially using a custom DNS resolver
         to modify the destination IP address and configuring SNI. It overrides the base
@@ -165,8 +160,7 @@ class CustomDNSAdapter(HTTPAdapter):
         return super().send(request, stream, timeout, verify, cert, proxies)
 
     def get_connection(self, url: str, proxies=None):
-        """
-        Override HTTPAdapter.get_connection for custom IP resolution.
+        """Override HTTPAdapter.get_connection for custom IP resolution.
 
         :param url: The URL to connect to.
         :type url: str
@@ -205,8 +199,7 @@ class CustomDNSAdapter(HTTPAdapter):
             return super().get_connection(url, proxies=proxies)
 
     def init_poolmanager(self, connections: int, maxsize: int, block: bool = False, **pool_kwargs):
-        """
-        Initialize the `urllib3.PoolManager` with SNI and certificate validation settings.
+        """Initialize the `urllib3.PoolManager` with SNI and certificate validation settings.
 
         :param connections: The number of `urllib3` connection pools to cache.
         :type connections: int

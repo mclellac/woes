@@ -19,16 +19,6 @@
             <property name="focusable">True</property>
             <property name="input-purpose">url</property>
             <property name="title" translatable="yes">Domain or URL to get the HTTP headers from</property>
-            <child type="suffix">
-              <object class="GtkButton" id="http_apply_button">
-                <property name="label" translatable="yes">_Fetch</property>
-                <property name="use_underline">True</property>
-                <property name="valign">center</property>
-                <style>
-                  <class name="suggested-action"/>
-                </style>
-              </object>
-            </child>
           </object>
         </child>
         <child>
@@ -56,6 +46,24 @@
                 <property name="spinning">False</property>
                 <property name="valign">center</property>
                 <property name="visible">False</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="AdwActionRow">
+            <property name="activatable">False</property>
+            <property name="focusable">False</property>
+            <property name="hexpand">True</property>
+            <child>
+              <object class="GtkButton" id="http_apply_button">
+                <property name="label" translatable="yes">_Fetch</property>
+                <property name="use_underline">True</property>
+                <property name="halign">center</property>
+                <property name="valign">center</property>
+                <style>
+                  <class name="suggested-action"/>
+                </style>
               </object>
             </child>
           </object>

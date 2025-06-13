@@ -176,7 +176,7 @@ class HttpPage(Adw.PreferencesPage):
         :param combo_row: The :class:`Adw.ComboRow` for User-Agent selection.
         :type combo_row: Adw.ComboRow
         :param _gparam: The :class:`GObject.ParamSpec` of the property that changed (unused).
-        :type _gparam: GObject.ParamSpec, optional
+        :type _gparam: Optional[GObject.ParamSpec]
         """
         if not combo_row:
             return
@@ -294,9 +294,9 @@ class HttpPage(Adw.PreferencesPage):
         :param _source_object: The source object that initiated the task (unused).
         :type _source_object: GObject.Object
         :param _task_data_arg: Additional data passed to the task (unused).
-        :type _task_data_arg: dict
+        :type _task_data_arg: Dict[str, Any]
         :param cancellable: A :class:`Gio.Cancellable` object to monitor for cancellation.
-        :type cancellable: Gio.Cancellable, optional
+        :type cancellable: Optional[Gio.Cancellable]
         """
         current_task_data = self._http_task_data_for_thread
         url_to_fetch: str = current_task_data["url"]
@@ -521,7 +521,7 @@ class HttpPage(Adw.PreferencesPage):
                     self._set_loading_state(False, "Idle - operation ended.")
 
     def _set_loading_state(self, active: bool, message: str = "Idle") -> None:
-        """Sets the UI loading state (spinner, status message, sensitivity of input fields).
+        """Set the UI loading state (spinner, status message, sensitivity of input fields).
 
         :param active: True to set loading state, False to unset.
         :type active: bool
@@ -590,7 +590,7 @@ class HttpPage(Adw.PreferencesPage):
 
         :param header_items: A list of :class:`HeaderItem` objects to display,
                              or ``None`` to clear the view.
-        :type header_items: Optional[List[:class:`HeaderItem`]]
+        :type header_items: Optional[List[HeaderItem]]
         """
         self.header_list_store.remove_all()
         if header_items:
@@ -743,7 +743,7 @@ class HttpPage(Adw.PreferencesPage):
         :type attr_name: str
         :param wrap_text: Whether the text in the label should wrap.
                           Defaults to False.
-        :type wrap_text: bool, optional
+        :type wrap_text: bool
         :return: A configured :class:`Gtk.SignalListItemFactory`.
         :rtype: Gtk.SignalListItemFactory
         """
@@ -787,7 +787,7 @@ class HttpPage(Adw.PreferencesPage):
         return factory
 
     def trigger_fetch(self) -> None:
-        """Programmatically triggers the 'Fetch' action.
+        """Programmatically trigger the 'Fetch' action.
 
         This method is typically called in response to a keyboard shortcut
         or an external event. It simulates a click on the 'Fetch' button

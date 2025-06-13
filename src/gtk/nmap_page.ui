@@ -33,16 +33,6 @@
                 <property name="hexpand-set">true</property>
                 <property name="input-purpose">url</property>
                 <property name="title" translatable="yes">Target (IP/CIDR/Hostname)</property>
-                <child type="suffix">
-                  <object class="GtkButton" id="nmap_apply_button">
-                    <property name="label" translatable="yes">_Scan</property>
-                    <property name="use_underline">True</property>
-                    <property name="valign">center</property>
-                    <style>
-                      <class name="suggested-action"/>
-                    </style>
-                  </object>
-                </child>
               </object>
             </child>
             <child>
@@ -145,6 +135,24 @@
                     <property name="visible">False</property>
                     <style>
                       <class name="destructive-action"/>
+                    </style>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="AdwActionRow">
+                <property name="activatable">False</property>
+                <property name="focusable">False</property>
+                <property name="hexpand">True</property>
+                <child>
+                  <object class="GtkButton" id="nmap_apply_button">
+                    <property name="label" translatable="yes">_Scan</property>
+                    <property name="use_underline">True</property>
+                    <property name="halign">center</property>
+                    <property name="valign">center</property>
+                    <style>
+                      <class name="suggested-action"/>
                     </style>
                   </object>
                 </child>
