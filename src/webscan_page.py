@@ -424,6 +424,16 @@ class WebScanPage(Adw.PreferencesPage):
                         # Reconstruct a valid Python string literal for ast.literal_eval to unescape.
                         string_to_evaluate = quote_char_for_literal_eval + nikto_output_raw_string + quote_char_for_literal_eval
                         actual_nikto_output = ast.literal_eval(string_to_evaluate)
+                        if isinstance(actual_nikto_output, str) and actual_nikto_output.startswith("('") and actual_nikto_output.endswith("', '')"):
+                            try:
+                                temp_parsed_tuple = ast.literal_eval(actual_nikto_output)
+                                if isinstance(temp_parsed_tuple, tuple) and len(temp_parsed_tuple) > 0 and isinstance(temp_parsed_tuple[0], str):
+                                    actual_nikto_output = temp_parsed_tuple[0]
+                                    logger.info("Successfully re-parsed actual_nikto_output from regex path to extract core string.")
+                                else:
+                                    logger.warning("actual_nikto_output (regex path) looked like a tuple string but failed to re-parse as expected.")
+                            except Exception as e_reparse:
+                                logger.warning(f"Error re-parsing actual_nikto_output (regex path): {e_reparse}")
                         parsed_output_from_stderr = True
                         logger.info("Successfully parsed Nikto's primary output from stderr using regex and ast.literal_eval.")
                         if stdout_str:
@@ -439,6 +449,17 @@ class WebScanPage(Adw.PreferencesPage):
                             if isinstance(parsed_content_tuple, tuple) and len(parsed_content_tuple) == 2 and \
                                isinstance(parsed_content_tuple[0], str) and parsed_content_tuple[1] == '':
                                 actual_nikto_output = parsed_content_tuple[0]
+                                # Check if this actual_nikto_output is also a tuple string
+                                if isinstance(actual_nikto_output, str) and actual_nikto_output.startswith("('") and actual_nikto_output.endswith("', '')"):
+                                    try:
+                                        temp_parsed_tuple_inner = ast.literal_eval(actual_nikto_output)
+                                        if isinstance(temp_parsed_tuple_inner, tuple) and len(temp_parsed_tuple_inner) > 0 and isinstance(temp_parsed_tuple_inner[0], str):
+                                            actual_nikto_output = temp_parsed_tuple_inner[0]
+                                            logger.info("Successfully re-parsed actual_nikto_output from startswith path to extract core string.")
+                                        else:
+                                            logger.warning("actual_nikto_output (startswith path) looked like a tuple string but failed to re-parse as expected.")
+                                    except Exception as e_reparse_inner:
+                                        logger.warning(f"Error re-parsing actual_nikto_output (startswith path): {e_reparse_inner}")
                                 parsed_output_from_stderr = True
                                 logger.info("Successfully parsed Nikto's primary output from stderr using original startswith/endswith method.")
                                 if stdout_str:
@@ -466,7 +487,22 @@ class WebScanPage(Adw.PreferencesPage):
             if parsed_output_from_stderr:
                 task.return_value((actual_nikto_output, None)) # Parsed output in stdout slot, original stderr (now None)
             else:
-                task.return_value((stdout_str, stderr_str)) # Original behavior
+                # Check if stdout_str itself is a tuple-like string
+                if isinstance(stdout_str, str) and stdout_str.startswith("('") and stdout_str.endswith("', '')"):
+                    try:
+                        temp_parsed_tuple = ast.literal_eval(stdout_str)
+                        if isinstance(temp_parsed_tuple, tuple) and len(temp_parsed_tuple) > 0 and isinstance(temp_parsed_tuple[0], str):
+                            stdout_str = temp_parsed_tuple[0] # Modify stdout_str in place
+                            logger.info("Successfully re-parsed stdout_str to extract core string.")
+                            # If stdout_str was the one with tuple, stderr_str might be the empty part or irrelevant.
+                            # Consider setting stderr_str to None.
+                            stderr_str = None
+                        else:
+                            logger.warning("stdout_str looked like a tuple string but failed to re-parse as expected.")
+                    except Exception as e_reparse_stdout:
+                        logger.warning(f"Error re-parsing stdout_str: {e_reparse_stdout}")
+
+                task.return_value((stdout_str, stderr_str)) # Original or modified behavior
         except FileNotFoundError:
             logger.error("Nikto command not found. Ensure it's in PATH.")
             task.return_new_error_literal(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.NIKTO_NOT_FOUND.value, "Nikto command not found. Please ensure it is installed and in your system's PATH.") # type: ignore
@@ -518,33 +554,48 @@ class WebScanPage(Adw.PreferencesPage):
                 self._update_textview(None, "Error: Scan returned unexpected data format.", is_error_message=True)
                 # Fall through to finally block for UI reset, status will be updated there
 
-            # Ensure stdout and stderr are strings or None
+            # Safety re-parsing for s_out if it's still a tuple string
+            if isinstance(s_out, str) and s_out.startswith("('") and s_out.endswith("', '')"):
+                logger.warning("_on_scan_task_done: s_out still contained tuple string representation. Attempting final parse.")
+                try:
+                    temp_parsed_tuple = ast.literal_eval(s_out)
+                    if isinstance(temp_parsed_tuple, tuple) and len(temp_parsed_tuple) > 0 and isinstance(temp_parsed_tuple[0], str):
+                        s_out = temp_parsed_tuple[0] # Correct s_out to be the actual string
+                        if len(temp_parsed_tuple) > 1:
+                            s_err = str(temp_parsed_tuple[1]) # Ensure s_err is also a string or None
+                        else:
+                            s_err = None # No second part
+                        logger.info("_on_scan_task_done: Successfully re-parsed s_out and updated s_err.")
+                    else:
+                        logger.error("_on_scan_task_done: s_out looked like a tuple string but failed to re-parse as expected.")
+                except Exception as e_final_reparse:
+                    logger.error(f"_on_scan_task_done: Error re-parsing s_out: {e_final_reparse}")
+
+            # Ensure stdout and stderr are strings or None, and apply newline fix
             final_stdout: Optional[str] = None
             if s_out is not None:
                 if not isinstance(s_out, str):
-                    logger.warning(f"Nikto stdout was type {type(s_out)}, expected str. Converting. Value: {s_out}")
+                    logger.warning(f"Nikto stdout (s_out) was type {type(s_out)}, expected str. Converting. Value (first 100 chars): {str(s_out)[:100]}")
                     final_stdout = str(s_out)
                 else:
                     final_stdout = s_out
 
-                # Explicitly unescape literal '\\n' to actual '\n'
-                # This handles cases where ast.literal_eval resulted in a string that still
-                # contains '\\n' (from double-escaped newlines in original source)
-                # or if direct stdout_str contained literal '\\n'.
                 if final_stdout: # Check if not None after potential str() conversion
                     final_stdout = final_stdout.replace('\\n', '\n')
-                    logger.debug("Applied final .replace('\\\\n', '\\n') to stdout content.")
+                    logger.debug("Applied .replace('\\\\n', '\\n') to final_stdout content.")
 
             final_stderr: Optional[str] = None
             if s_err is not None:
                 if not isinstance(s_err, str):
-                    logger.warning(f"Nikto stderr was type {type(s_err)}, expected str. Converting. Value: {s_err}")
+                    logger.warning(f"Nikto stderr (s_err) was type {type(s_err)}, expected str. Converting. Value (first 100 chars): {str(s_err)[:100]}")
                     final_stderr = str(s_err)
                 else:
                     final_stderr = s_err
-                # Typically, stderr for Nikto (if not the primary output channel) wouldn't need this,
-                # but if it could also contain such content, apply here too.
-                # For now, focusing on final_stdout as per problem description.
+                # If stderr might also contain double-escaped newlines and needs cleaning:
+                # if final_stderr:
+                #     final_stderr = final_stderr.replace('\\n', '\n')
+                #     logger.debug("Applied .replace('\\\\n', '\\n') to final_stderr content.")
+
 
             if final_stdout is not None or final_stderr is not None:
                 self._update_textview(final_stdout, final_stderr, is_error_message=False)
