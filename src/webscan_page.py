@@ -563,6 +563,8 @@ class WebScanPage(Adw.PreferencesPage):
                 )
                 return
 
+            logger.debug(f"PRE-RETURN: main_report_content TYPE: {type(main_report_content)}, VALUE: {str(main_report_content)[:200]}")
+            logger.debug(f"PRE-RETURN: aux_output TYPE: {type(aux_output)}, VALUE: {str(aux_output)[:200]}")
             task.return_value((
                 str(main_report_content) if main_report_content is not None else "",
                 str(aux_output) if aux_output is not None else None
