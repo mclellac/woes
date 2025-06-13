@@ -45,6 +45,8 @@ class WebScanPage(Adw.PreferencesPage):
 
     # New UI elements for Nikto options
     nikto_format_combo_row = Gtk.Template.Child()
+    nikto_output_file_row = Gtk.Template.Child()
+    nikto_output_file_button = Gtk.Template.Child()
     no404_switch = Gtk.Template.Child()
     auth_bypass_switch = Gtk.Template.Child()
 
@@ -87,12 +89,73 @@ class WebScanPage(Adw.PreferencesPage):
         if self.copy_results_button:
             self.copy_results_button.connect("clicked", self._on_copy_results_clicked)
 
+        if self.nikto_format_combo_row:
+            self.nikto_format_combo_row.connect("notify::selected-item", self._on_nikto_format_changed)
+        if self.nikto_output_file_button:
+            self.nikto_output_file_button.connect("clicked", self._on_nikto_output_file_button_clicked)
+
     def __del__(self):
         """Clean up when the WebScanPage is destroyed."""
         if self.current_web_scan_cancellable and \
            not self.current_web_scan_cancellable.is_cancelled():
             logger.info("WebScanPage being destroyed, cancelling ongoing Nikto scan.")
             self.current_web_scan_cancellable.cancel()
+
+    def _on_nikto_format_changed(self, combo_row: Adw.ComboRow, _param_spec: GObject.ParamSpec):
+        selected_item = combo_row.get_selected_item()
+        if not selected_item:
+            return
+
+        selected_format = selected_item.get_string()
+        # These formats require an output file (display strings from combo box)
+        formats_requiring_file = ["csv", "xml", "html"]
+
+        is_file_required = selected_format in formats_requiring_file
+
+        if self.nikto_output_file_row:
+            self.nikto_output_file_row.set_sensitive(is_file_required)
+            if not is_file_required:
+                self.nikto_output_file_row.set_text("")
+        logger.debug(f"Nikto format changed to: {selected_format}. File required: {is_file_required}")
+
+    def _on_nikto_output_file_button_clicked(self, _button: Gtk.Button):
+        logger.debug("Nikto output file button clicked.")
+        dialog = Gtk.FileChooserNative.new(
+            "Save Nikto Output",
+            self.get_native(), # Parent window
+            Gtk.FileChooserAction.SAVE,
+            "_Save",
+            "_Cancel"
+        )
+        dialog.set_modal(True)
+
+        # Suggest a filename based on format
+        selected_format_item = self.nikto_format_combo_row.get_selected_item()
+        if selected_format_item:
+            selected_format = selected_format_item.get_string()
+            extension = selected_format
+            if selected_format == "html": # Nikto uses .htm for HTML
+                extension = "htm"
+            elif selected_format in ["default (text)", "txt (text)"]:
+                extension = "txt"
+
+            if extension not in ["csv", "xml", "htm", "txt"]: # Default to .txt if unknown
+                extension = "txt"
+
+            dialog.set_current_name(f"nikto_report.{extension}")
+
+        def on_dialog_response(_source_object, response_id, _user_data):
+            if response_id == Gtk.ResponseType.ACCEPT:
+                file_path = dialog.get_file().get_path() # type: ignore
+                if self.nikto_output_file_row:
+                    self.nikto_output_file_row.set_text(file_path if file_path else "")
+                    logger.info(f"Nikto output file set to: {file_path}")
+            elif response_id == Gtk.ResponseType.CANCEL:
+                logger.info("Nikto output file selection cancelled.")
+            dialog.destroy()
+
+        dialog.connect("response", on_dialog_response, None)
+        dialog.show()
 
     def _on_cancel_scan_clicked(self, _button: Gtk.Button) -> None:
         """Handles click on the 'Cancel Scan' button.
@@ -227,6 +290,7 @@ class WebScanPage(Adw.PreferencesPage):
             "no404": self.no404_switch.get_active(), # type: ignore
             "auth_bypass": self.auth_bypass_switch.get_active() # type: ignore
         }
+        task_data_for_thread["nikto_output_filename"] = self.nikto_output_file_row.get_text().strip() if self.nikto_output_file_row else ""
         self._current_webscan_params = task_data_for_thread
         task.run_in_thread(self._run_scan_task_thread_func) # type: ignore
 
@@ -285,6 +349,25 @@ class WebScanPage(Adw.PreferencesPage):
 
 
         nikto_command = ['nikto', '-h', target_url]
+
+        output_filename = scan_params.get("nikto_output_filename", "").strip()
+        # nikto_format_str is already retrieved a few lines above this snippet in the original code
+        # It's one of "default (text)", "txt (text)", "csv", "xml", "html"
+
+        # These formats require an output file (display strings from combo box)
+        formats_requiring_file = ["csv", "xml", "html"]
+        is_file_required = nikto_format_str in formats_requiring_file
+
+        if is_file_required:
+            if not output_filename:
+                logger.error("A Nikto output format requiring a filename was selected, but no filename was provided.")
+                task.return_new_error_literal(
+                    GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN),
+                    WebScanErrorType.GENERIC.value, # Or a more specific error type like FILENAME_REQUIRED
+                    "Output format requires a filename, but none was provided."
+                )
+                return
+            nikto_command.extend(['-o', output_filename])
 
         if force_ssl:
             nikto_command.append('-ssl')
