@@ -121,6 +121,19 @@
               </object>
             </child>
             <child>
+              <object class="AdwEntryRow" id="nikto_output_file_row">
+                <property name="title" translatable="yes">Output Filename</property>
+                <property name="sensitive">false</property> <!-- Initially insensitive -->
+                <child type="suffix">
+                  <object class="GtkButton" id="nikto_output_file_button">
+                    <property name="icon-name">document-open-symbolic</property>
+                    <property name="tooltip-text" translatable="yes">Choose Output File</property>
+                    <property name="valign">center</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
               <object class="AdwActionRow" id="no404_row">
                 <property name="title">Disable 404 Checking</property>
                 <property name="subtitle">Pass -no404 to Nikto</property>
