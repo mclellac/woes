@@ -9,7 +9,7 @@ import logging
 import platform
 from typing import Optional, Any
 import gi
-from gi.repository import Adw, Gdk, Gio, Gtk, GLib, GObject
+from gi.repository import Adw, Gdk, Gio, Gtk, GLib, GObject, Pango
 
 from .constants import (
     APP_ID,
@@ -66,6 +66,22 @@ class WoesWindow(Adw.ApplicationWindow):
         super().__init__(**kwargs)
         self.settings = Gio.Settings(schema_id=APP_ID)
 
+        # CSS Provider for dynamic TextView font styling
+        self._output_font_gsettings_key = "output-font"
+        self.textview_font_css_provider = Gtk.CssProvider()
+        Gtk.StyleContext.add_provider_for_display(
+            Gdk.Display.get_default(),
+            self.textview_font_css_provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
+        initial_font_str = self.settings.get_string(self._output_font_gsettings_key)
+        self.update_textview_font_style(initial_font_str if initial_font_str else "Sans 10")
+
+        self.settings.connect(
+            f"changed::{self._output_font_gsettings_key}",
+            self._on_global_output_font_setting_changed_for_css
+        )
+
         # Bind window state properties to GSettings keys
         # This allows GTK/Adwaita to automatically manage saving and restoring window state
         self.settings.bind("window-width", self, "default-width", Gio.SettingsBindFlags.DEFAULT)
@@ -99,6 +115,50 @@ class WoesWindow(Adw.ApplicationWindow):
         if self.main_error_banner:
             self.main_error_banner.connect("button-clicked", self._on_main_error_banner_dismissed)
             self.hide_error()
+
+    def _on_global_output_font_setting_changed_for_css(self, settings: Gio.Settings, key: str):
+        if key == self._output_font_gsettings_key:
+            new_font_str = settings.get_string(key)
+            self.update_textview_font_style(new_font_str if new_font_str else "Sans 10")
+
+    def update_textview_font_style(self, font_desc_str: str):
+        logger = logging.getLogger(__name__) # Ensure logger is accessible
+        font_desc = Pango.FontDescription.from_string(font_desc_str)
+
+        if not font_desc_str or not font_desc.get_family():
+            logger.warning(f"Invalid or empty font string '{font_desc_str}' received. Using default 'Sans 10'.")
+            font_desc = Pango.FontDescription.from_string("Sans 10")
+
+        family = font_desc.get_family()
+        safe_family = family.replace("'", "\\'") if family else "Sans" # Escape single quotes for CSS
+
+        size_pt = font_desc.get_size() / Pango.SCALE
+        weight = font_desc.get_weight().value
+        style_enum_val = font_desc.get_style().value
+
+        css_style_map = {
+            Pango.Style.NORMAL.value: "normal",
+            Pango.Style.OBLIQUE.value: "oblique",
+            Pango.Style.ITALIC.value: "italic",
+        }
+
+        # Construct CSS string using f-string (which is fine inside Python code)
+        css_string = (
+            f"#nmap-raw-output-textview text, #webscan-output-textview text {{"
+            f"font-family: '{safe_family}'; "
+            f"font-size: {size_pt}pt; "
+            f"font-weight: {weight}; "
+            f"font-style: {css_style_map.get(style_enum_val, 'normal')};"
+            f"}}"
+        )
+
+        try:
+            self.textview_font_css_provider.load_from_data(css_string.encode('UTF-8'))
+            logger.info(f"Applied CSS for TextViews with font: {font_desc_str}")
+        except GLib.Error as e:
+            logger.error(f"Error loading CSS string for TextViews: {e}. CSS was: {css_string}")
+        except Exception as e_generic:
+            logger.error(f"Unexpected error loading CSS string: {e_generic}. CSS was: {css_string}")
 
     def _on_main_error_banner_dismissed(self, _banner: Optional[Adw.Banner] = None, _data: Optional[Any] = None):
         """

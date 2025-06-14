@@ -59,6 +59,7 @@ class WebScanPage(Adw.PreferencesPage):
         """
         super().__init__(**kwargs)
         self.source_view = Gtk.TextView()
+        self.source_view.set_name("webscan-output-textview")
         source_buffer = Gtk.TextBuffer()
         self.source_view.set_buffer(source_buffer)
 
