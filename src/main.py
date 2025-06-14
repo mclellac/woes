@@ -303,16 +303,39 @@ class WoesApplication(Adw.Application):
             logging.warning(f"{action_description} action: Window or stack not available.")
             return
 
-        page_name = self.win.stack.get_visible_child_name()
-        page_object = self.win.stack.get_visible_child()
+        current_page_name = self.win.stack.get_visible_child_name()
+        visible_stack_page = self.win.stack.get_visible_child() # This is AdwViewStackPage
 
-        if page_name == expected_page_name and page_object:
-            if hasattr(page_object, action_method_name):
-                getattr(page_object, action_method_name)()
+        if current_page_name == expected_page_name and visible_stack_page:
+            # Navigate down the hierarchy:
+            # AdwViewStackPage -> AdwStatusPage -> AdwClampScrollable -> GtkBox -> Actual Page Object
+            status_page = visible_stack_page.get_child()
+            if not status_page:
+                logging.warning(f"{action_description} action: StatusPage not found for {current_page_name}.")
+                return
+
+            clamp_scrollable = status_page.get_child()
+            if not clamp_scrollable:
+                logging.warning(f"{action_description} action: ClampScrollable not found for {current_page_name}.")
+                return
+
+            page_box = clamp_scrollable.get_child()
+            if not page_box:
+                logging.warning(f"{action_description} action: PageBox (GtkBox) not found for {current_page_name}.")
+                return
+
+            actual_page_object = page_box.get_first_child() # Assuming the page instance is the first child of the GtkBox
+
+            if actual_page_object:
+                if hasattr(actual_page_object, action_method_name):
+                    logging.debug(f"Attempting to call {action_method_name} on {type(actual_page_object)} for page {current_page_name}")
+                    getattr(actual_page_object, action_method_name)()
+                else:
+                    logging.warning(f"Actual page object for {current_page_name} (type: {type(actual_page_object)}) does not have method '{action_method_name}'.")
             else:
-                logging.warning(f"{expected_page_name.capitalize()} page object does not have a '{action_method_name}' method.")
-        elif page_name == expected_page_name: # page_object is None
-            logging.warning(f"{expected_page_name.capitalize()} page object is None, cannot trigger {action_method_name}.")
+                logging.warning(f"Could not retrieve actual page object for {current_page_name}.")
+        elif current_page_name == expected_page_name: # visible_stack_page is None
+            logging.warning(f"{action_description} action: AdwViewStackPage for {current_page_name} is None.")
         # No warning if it's not the expected_page_name page, as the action is specific to that page.
 
     def on_page_action_http_fetch(self, _action: Gio.SimpleAction, _param: Optional[GLib.Variant]):
