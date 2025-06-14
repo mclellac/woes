@@ -79,4 +79,4 @@ gnome.post_install(
 )
 
 # Pass the modulesdir to the post-install script
-meson.add_install_script('meson-postinstall.py', modulesdir)
+# meson.add_install_script('meson-postinstall.py', modulesdir) # This line is removed
