@@ -633,6 +633,29 @@ class WebScanPage(Adw.PreferencesPage):
 
             logger.debug(f"PRE-RETURN: main_report_content TYPE: {type(main_report_content)}, VALUE: {str(main_report_content)[:200]}")
             logger.debug(f"PRE-RETURN: aux_output TYPE: {type(aux_output)}, VALUE: {str(aux_output)[:200]}")
+
+            rfi_warning_signature = "- ***** RFIURL is not defined in nikto.conf--no RFI tests will run *****"
+            rfi_info_message = ("\n\n[INFO] Nikto's Remote File Inclusion (RFI) tests did not run because 'RFIURL' "
+                                "is not defined in your nikto.conf file. To enable these specific tests, "
+                                "you may need to configure RFIURL in your Nikto installation's "
+                                "configuration file (usually nikto.conf).\n")
+            processed_rfi_warning = False
+
+            if isinstance(main_report_content, str) and rfi_warning_signature in main_report_content:
+                main_report_content = main_report_content.replace(rfi_warning_signature, "")
+                main_report_content = main_report_content.strip() + rfi_info_message
+                processed_rfi_warning = True
+                logger.info("Processed RFIURL warning in main_report_content and added info message.")
+
+            if not processed_rfi_warning and isinstance(aux_output, str) and rfi_warning_signature in aux_output:
+                aux_output = aux_output.replace(rfi_warning_signature, "")
+                if not aux_output.strip():
+                    aux_output = rfi_info_message.strip()
+                else:
+                    aux_output = aux_output.strip() + rfi_info_message
+                # processed_rfi_warning = True # Not strictly needed to set again here, but good for clarity
+                logger.info("Processed RFIURL warning in aux_output and added info message.")
+
             task.return_value((
                 str(main_report_content) if main_report_content is not None else "",
                 str(aux_output) if aux_output is not None else None
