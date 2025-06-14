@@ -120,17 +120,15 @@ class HttpPage(Adw.PreferencesPage):
         self._header_value_color = self.settings.get_string("http-output-header-value-color")
         self._special_row_color = self.settings.get_string("http-output-special-row-color")
 
-        # Font settings
-        self._header_font_family_setting = "http-output-font-family"
-        self._header_font_size_setting = "http-output-font-size"
-        self._header_font_family = self.settings.get_string(self._header_font_family_setting)
-        self._header_font_size = self.settings.get_int(self._header_font_size_setting)
+        # Global Font setting
+        self._output_font_gsettings_key = "output-font"
+        output_font_str = self.settings.get_string(self._output_font_gsettings_key)
+        self._output_font_desc = Pango.FontDescription.from_string(output_font_str if output_font_str else "Sans 10")
 
         self.settings.connect("changed::http-output-header-key-color", self._on_color_setting_changed)
         self.settings.connect("changed::http-output-header-value-color", self._on_color_setting_changed)
         self.settings.connect("changed::http-output-special-row-color", self._on_color_setting_changed)
-        self.settings.connect(f"changed::{self._header_font_family_setting}", self._on_font_setting_changed)
-        self.settings.connect(f"changed::{self._header_font_size_setting}", self._on_font_setting_changed)
+        self.settings.connect(f"changed::{self._output_font_gsettings_key}", self._on_global_output_font_changed)
 
         self.header_list_store = Gio.ListStore.new(HeaderItem)
         selection_model = Gtk.MultiSelection.new(self.header_list_store)
@@ -697,27 +695,14 @@ class HttpPage(Adw.PreferencesPage):
             logger.debug("Re-populating ColumnView to apply new color changes.")
             self._update_column_view_model(self._current_header_items)
 
-    def _on_font_setting_changed(self, settings: Gio.Settings, key: str) -> None:
-        """
-        Handle changes to font-related GSettings.
-
-        Updates the internal font attributes and re-populates the column view
-        to apply the new font if results are currently displayed.
-
-        :param settings: The :class:`Gio.Settings` object that changed.
-        :type settings: Gio.Settings
-        :param key: The GSettings key that changed.
-        :type key: str
-        """
-        logger.debug("Font setting changed for GSettings key: %s", key)
-        if key == self._header_font_family_setting:
-            self._header_font_family = settings.get_string(key)
-        elif key == self._header_font_size_setting:
-            self._header_font_size = settings.get_int(key)
-
-        if self._current_header_items:  # Re-populate to apply new font
-            logger.debug("Re-populating ColumnView to apply new font changes.")
-            self._update_column_view_model(self._current_header_items)
+    def _on_global_output_font_changed(self, settings: Gio.Settings, key: str) -> None:
+        logger.debug("HttpPage: Global output font setting changed for key: %s", key)
+        if key == self._output_font_gsettings_key:
+            output_font_str = settings.get_string(key)
+            self._output_font_desc = Pango.FontDescription.from_string(output_font_str if output_font_str else "Sans 10")
+            if self._current_header_items:
+                logger.debug("HttpPage: Re-populating ColumnView to apply new global font.")
+                self._update_column_view_model(self._current_header_items)
 
     def _update_user_agent_model(self) -> None:
         """
@@ -834,16 +819,26 @@ class HttpPage(Adw.PreferencesPage):
                     full_text = key_text
                     if value_text.strip() and value_text != "N/A":
                         full_text += f" {value_text}"
+
+                    family = self._output_font_desc.get_family()
+                    size_in_pango_units = self._output_font_desc.get_size()
+                    current_family = family if family else "Sans"
+
                     label.set_markup(
-                        f"<b><span font_family='{self._header_font_family}' font_size='{self._header_font_size * Pango.SCALE}' foreground='{self._special_row_color}'>{full_text}</span></b>"
+                        f"<b><span font_family='{GLib.markup_escape_text(current_family)}' size='{size_in_pango_units}' foreground='{self._special_row_color}'>{full_text}</span></b>"
                     )
                 else:  # 'value' column for special rows is typically empty
-                    label.set_markup("") # No text, so no font needed. Or apply font if there could be text.
+                    label.set_markup("")
             else:  # Standard header rows
                 color_to_use = self._header_key_color if attr_name == "key" else self._header_value_color
                 escaped_text = GLib.markup_escape_text(str(text_to_display))
+
+                family = self._output_font_desc.get_family()
+                size_in_pango_units = self._output_font_desc.get_size()
+                current_family = family if family else "Sans"
+
                 label.set_markup(
-                    f"<span font_family='{self._header_font_family}' font_size='{self._header_font_size * Pango.SCALE}' foreground='{color_to_use}'>{escaped_text}</span>"
+                    f"<span font_family='{GLib.markup_escape_text(current_family)}' size='{size_in_pango_units}' foreground='{color_to_use}'>{escaped_text}</span>"
                 ) # type: ignore
 
         factory.connect("setup", setup_func)

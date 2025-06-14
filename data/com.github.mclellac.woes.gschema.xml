@@ -66,55 +66,10 @@
       <summary>A list of custom User-Agent string pairs (title, value).</summary>
       <description>Users can add their own User-Agent strings to this list. Each entry consists of a display title and the full User-Agent value.</description>
     </key>
-    <key name="http-output-font-family" type="s">
-      <default>'Sans'</default>
-      <summary>Font family for HTTP output</summary>
-      <description>Defines the font family used for displaying HTTP headers and content.</description>
-    </key>
-    <key name="http-output-font-size" type="i">
-      <default>10</default>
-      <summary>Font size for HTTP output</summary>
-      <description>Defines the font size (in points) used for displaying HTTP headers and content.</description>
-    </key>
-    <key name="webscan-output-font-family" type="s">
-      <default>'Monospace'</default>
-      <summary>Font family for Web Scanner output</summary>
-      <description>Defines the font family used for displaying Web Scanner results.</description>
-    </key>
-    <key name="webscan-output-font-size" type="i">
-      <default>10</default>
-      <summary>Font size for Web Scanner output</summary>
-      <description>Defines the font size (in points) used for displaying Web Scanner results.</description>
-    </key>
-    <key name="dns-output-font-family" type="s">
-      <default>'Sans'</default>
-      <summary>Font family for DNS lookup output</summary>
-      <description>Defines the font family used for displaying DNS lookup results.</description>
-    </key>
-    <key name="dns-output-font-size" type="i">
-      <default>10</default>
-      <summary>Font size for DNS lookup output</summary>
-      <description>Defines the font size (in points) used for displaying DNS lookup results.</description>
-    </key>
-    <key name="nmap-output-font-family" type="s">
-      <default>'Sans'</default>
-      <summary>Font family for Nmap parsed output</summary>
-      <description>Defines the font family used for displaying Nmap parsed scan results.</description>
-    </key>
-    <key name="nmap-output-font-size" type="i">
-      <default>10</default>
-      <summary>Font size for Nmap parsed output</summary>
-      <description>Defines the font size (in points) used for displaying Nmap parsed scan results.</description>
-    </key>
-    <key name="nmap-raw-output-font-family" type="s">
-      <default>'Monospace'</default>
-      <summary>Font family for Nmap raw output</summary>
-      <description>Defines the font family used for displaying Nmap raw scan results.</description>
-    </key>
-    <key name="nmap-raw-output-font-size" type="i">
-      <default>10</default>
-      <summary>Font size for Nmap raw output</summary>
-      <description>Defines the font size (in points) used for displaying Nmap raw scan results.</description>
+    <key name="output-font" type="s">
+      <default>'Sans 10'</default>
+      <summary>Font for tool output areas</summary>
+      <description>Sets the font family and size for text in HTTP, DNS, Nmap, and WebScan result views. Format is "FamilyName [Style] Size", e.g., "Ubuntu Mono 11".</description>
     </key>
   </schema>
 </schemalist>

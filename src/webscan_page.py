@@ -80,11 +80,11 @@ class WebScanPage(Adw.PreferencesPage):
         self.settings = Gio.Settings.new(APP_ID)
         self.style_manager = Adw.StyleManager.get_default()
 
-        # Font settings
-        self._webscan_font_family_setting = "webscan-output-font-family"
-        self._webscan_font_size_setting = "webscan-output-font-size"
-        self._webscan_font_family = self.settings.get_string(self._webscan_font_family_setting)
-        self._webscan_font_size = self.settings.get_int(self._webscan_font_size_setting)
+        # Global Font setting
+        self._output_font_gsettings_key = "output-font"
+        output_font_str = self.settings.get_string(self._output_font_gsettings_key)
+        # Defaulting to Monospace 10 for this view as it's typical for raw output
+        self._output_font_desc = Pango.FontDescription.from_string(output_font_str if output_font_str else "Monospace 10")
 
         # Ensure correct style classes are applied
         if self.scan_button:
@@ -125,26 +125,19 @@ class WebScanPage(Adw.PreferencesPage):
         if self.nikto_output_file_button:
             self.nikto_output_file_button.connect("clicked", self._on_nikto_output_file_button_clicked)
 
-        # Connect GSettings changes for font
-        self.settings.connect(f"changed::{self._webscan_font_family_setting}", self._on_font_setting_changed)
-        self.settings.connect(f"changed::{self._webscan_font_size_setting}", self._on_font_setting_changed)
+        # Connect GSettings change for global font
+        self.settings.connect(f"changed::{self._output_font_gsettings_key}", self._on_global_output_font_changed)
 
         self._apply_font_to_textview() # Apply initial font
         self._update_results_actions_sensitivity()
 
-
-    def _on_font_setting_changed(self, settings: Gio.Settings, key: str) -> None:
-        """
-        Handle changes to font-related GSettings for WebScan output.
-        Updates internal font attributes and applies them to the TextView.
-        """
-        logger.debug("WebScanPage: Font setting changed for GSettings key: %s", key)
-        if key == self._webscan_font_family_setting:
-            self._webscan_font_family = settings.get_string(key)
-        elif key == self._webscan_font_size_setting:
-            self._webscan_font_size = settings.get_int(key)
-
-        self._apply_font_to_textview()
+    def _on_global_output_font_changed(self, settings: Gio.Settings, key: str) -> None:
+        logger.debug("WebScanPage: Global output font setting changed for key: %s", key)
+        if key == self._output_font_gsettings_key:
+            output_font_str = settings.get_string(key)
+            # Default to Monospace 10 if global is not set or invalid for this view's typical content
+            self._output_font_desc = Pango.FontDescription.from_string(output_font_str if output_font_str else "Monospace 10")
+            self._apply_font_to_textview() # Call existing method to apply
 
     def _apply_font_to_textview(self) -> None:
         """Apply the current font family and size to the source_view."""
@@ -152,16 +145,12 @@ class WebScanPage(Adw.PreferencesPage):
             logger.warning("WebScanPage: _apply_font_to_textview called but source_view does not exist.")
             return
 
-        if self._webscan_font_family and self._webscan_font_size > 0:
-            font_desc_str = f"{self._webscan_font_family} {self._webscan_font_size}"
-            font_desc = Pango.FontDescription.from_string(font_desc_str)
-            self.source_view.override_font(font_desc)
-            logger.debug(f"WebScanPage: Applied font '{font_desc_str}' to source_view.")
-        else:
-            # Reset to default theme font
+        if self._output_font_desc: # Check if it's a valid FontDescription object
+            self.source_view.override_font(self._output_font_desc)
+            logger.debug(f"WebScanPage: Applied font '{self._output_font_desc.to_string()}' to source_view.")
+        else: # Should not happen if __init__ and handler set a default
             self.source_view.override_font(Pango.FontDescription()) # Clears any override
-            logger.debug("WebScanPage: Cleared font override on source_view, using theme default.")
-
+            logger.debug("WebScanPage: Cleared font override on source_view (invalid/no font_desc).")
 
     def __del__(self):
         """Clean up when the WebScanPage is destroyed."""
