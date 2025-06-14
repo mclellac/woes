@@ -101,11 +101,6 @@ class NmapPage(Adw.PreferencesPage):
         self.scanner = NmapScanner()
         self.settings = Gio.Settings.new(APP_ID)
 
-        # Global Font setting
-        self._output_font_gsettings_key = "output-font"
-        output_font_str = self.settings.get_string(self._output_font_gsettings_key)
-        self._output_font_desc = Pango.FontDescription.from_string(output_font_str if output_font_str else "Sans 10")
-
         self._current_selected_host_key: Optional[str] = None
         self._current_selected_host_data_dict: Optional[Dict[str, Any]] = None
 
@@ -163,23 +158,6 @@ class NmapPage(Adw.PreferencesPage):
         self.nmap_host_listbox.connect("row-selected", self._on_target_selected)
         if self.nmap_cancel_scan_button:
             self.nmap_cancel_scan_button.connect("clicked", self._on_cancel_scan_clicked)
-
-        # Connect GSettings change for global font
-        self.settings.connect(f"changed::{self._output_font_gsettings_key}", self._on_global_output_font_changed)
-
-    def _on_global_output_font_changed(self, settings: Gio.Settings, key: str) -> None:
-        logger.debug("NmapPage: Global output font setting changed for key: %s", key)
-        if key == self._output_font_gsettings_key:
-            output_font_str = settings.get_string(key)
-            self._output_font_desc = Pango.FontDescription.from_string(output_font_str if output_font_str else "Sans 10") # Default for safety
-            if self._current_selected_host_key and self._current_selected_host_data_dict:
-                logger.info("NmapPage: Re-rendering host details due to global font change.")
-                self._clear_dynamic_details()
-                # Re-add details. _add_raw_output_expander will pick up the new self._output_font_desc.
-                self._add_host_details_expander(self._current_selected_host_data_dict, self._current_selected_host_key)
-                self._add_ports_expander(self._current_selected_host_data_dict, self._current_selected_host_key)
-                self._add_os_expander(self._current_selected_host_data_dict, self._current_selected_host_key)
-                self._add_raw_output_expander(self._current_selected_host_data_dict, self._current_selected_host_key)
 
     def _on_cancel_scan_clicked(self, _button: Gtk.Button) -> None:
         """
@@ -509,6 +487,7 @@ class NmapPage(Adw.PreferencesPage):
         human_readable_summary = self._generate_human_readable_host_summary(host_data_dict)
 
         source_view = Gtk.TextView()
+        source_view.set_name("nmap-raw-output-textview")
         source_buffer = Gtk.TextBuffer()
         source_view.set_buffer(source_buffer)
 
@@ -516,11 +495,7 @@ class NmapPage(Adw.PreferencesPage):
         source_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
         source_view.set_editable(False)
 
-        if self._output_font_desc and self._output_font_desc.get_size() > 0:
-            source_view.override_font(self._output_font_desc)
-        else:
-            # Fallback to theme default if the description is somehow invalid or empty
-            source_view.override_font(Pango.FontDescription())
+        # Font is now handled by global CSS in WoesWindow
 
         source_view.set_hexpand(True) # Assuming this is desired for layout
         source_view.set_vexpand(True) # Assuming this is desired for layout
