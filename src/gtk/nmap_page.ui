@@ -2,11 +2,11 @@
 <!-- Created with Cambalache 0.96.1 -->
 <interface>
   <!-- interface-name nmap_page.ui -->
-  <requires lib="gtk" version="4.10"/>
-  <requires lib="libadwaita" version="1.4"/>
+  <requires lib="gtk" version="4.18"/>
+  <requires lib="libadwaita" version="1.7"/>
   <template class="NmapPage" parent="AdwPreferencesPage">
+    <property name="height-request">600</property>
     <property name="width-request">700</property>
-    <property name="height_request">600</property>
     <child>
       <object class="GtkBox" id="page_vbox">
         <property name="hexpand">true</property>
@@ -25,6 +25,8 @@
         <child>
           <object class="AdwPreferencesGroup" id="nmap_scan_parameters_group">
             <property name="hexpand">True</property>
+            <property name="margin-end">50</property>
+            <property name="margin-start">50</property>
             <property name="title" translatable="yes">Scan Parameters</property>
             <child>
               <object class="AdwEntryRow" id="nmap_target_entryrow">
@@ -36,7 +38,7 @@
                 <child type="suffix">
                   <object class="GtkButton" id="nmap_apply_button">
                     <property name="label" translatable="yes">_Scan</property>
-                    <property name="use_underline">True</property>
+                    <property name="use-underline">True</property>
                     <property name="valign">center</property>
                     <style>
                       <class name="suggested-action"/>
@@ -140,8 +142,8 @@
                 </child>
                 <child type="suffix">
                   <object class="GtkButton" id="nmap_cancel_scan_button">
-                    <property name="label" translatable="yes">Cancel</property>
                     <property name="icon-name">process-stop-symbolic</property>
+                    <property name="label" translatable="yes">Cancel</property>
                     <property name="visible">False</property>
                     <style>
                       <class name="destructive-action"/>
@@ -155,6 +157,10 @@
         <child>
           <object class="GtkPaned" id="main_paned_view">
             <property name="hexpand">true</property>
+            <property name="margin-bottom">30</property>
+            <property name="margin-end">50</property>
+            <property name="margin-start">50</property>
+            <property name="margin-top">30</property>
             <property name="orientation">horizontal</property>
             <property name="vexpand">true</property>
             <property name="wide-handle">true</property>
@@ -163,10 +169,6 @@
                 <property name="halign">baseline-fill</property>
                 <property name="hexpand">true</property>
                 <property name="hscrollbar-policy">never</property>
-                <property name="margin-bottom">40</property>
-                <property name="margin-end">40</property>
-                <property name="margin-start">40</property>
-                <property name="margin-top">40</property>
                 <property name="min-content-width">300</property>
                 <property name="vexpand">True</property>
                 <property name="width-request">600</property>
@@ -174,6 +176,8 @@
                   <object class="GtkListBox" id="nmap_host_listbox">
                     <property name="hexpand">true</property>
                     <property name="hexpand-set">true</property>
+                    <property name="margin-end">10</property>
+                    <property name="margin-start">10</property>
                     <property name="selection-mode">single</property>
                     <property name="vexpand">true</property>
                   </object>
