@@ -469,7 +469,7 @@ class NmapPage(Adw.PreferencesPage):
         """
         logger.debug("Adding text scan summary expander for %s", host_key)
         expander = Adw.ExpanderRow(title=f"Text Scan Summary - {host_key}")
-        expander.set_expanded(False)
+        expander.set_expanded(True)
         human_readable_summary = self._generate_human_readable_host_summary(host_data_dict)
 
         source_view = Gtk.TextView()
@@ -486,8 +486,8 @@ class NmapPage(Adw.PreferencesPage):
 
         scrolled_window = Gtk.ScrolledWindow()
         scrolled_window.set_child(source_view)
-        scrolled_window.set_min_content_height(200) # Keep existing size constraints
-        scrolled_window.set_max_content_height(400)
+        scrolled_window.set_min_content_height(300) # Keep existing size constraints
+        scrolled_window.set_max_content_height(600)
         scrolled_window.set_vexpand(True)
         expander.add_row(scrolled_window)
 
