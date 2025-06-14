@@ -60,6 +60,177 @@
           </object>
         </child>
         <child>
+          <object class="AdwPreferencesGroup" id="output_font_settings_group">
+            <property name="title" translatable="yes">Output Font Settings</property>
+            <property name="description" translatable="yes">Configure font family and size for various tool outputs.</property>
+            <!-- HTTP Output Font Settings -->
+            <child>
+              <object class="AdwPreferencesGroup" id="http_output_font_group">
+                <property name="title" translatable="yes">HTTP Output</property>
+                <child>
+                  <object class="AdwActionRow" id="http_output_font_family_row">
+                    <property name="title" translatable="yes">Font Family</property>
+                    <child type="suffix">
+                      <object class="GtkFontButton" id="http_output_font_button">
+                        <property name="valign">center</property>
+                        <property name="use-font">true</property>
+                        <property name="use-size">false</property> <!-- We use a separate spin button for size -->
+                        <property name="font">Sans 10</property> <!-- Default, will be overridden by GSettings -->
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child>
+                  <object class="AdwSpinRow" id="http_output_font_size_spinrow">
+                    <property name="title" translatable="yes">Font Size (pt)</property>
+                    <property name="adjustment">
+                      <object class="GtkAdjustment">
+                        <property name="lower">6</property>
+                        <property name="upper">24</property>
+                        <property name="step-increment">1</property>
+                        <property name="page-increment">5</property>
+                        <property name="value">10</property>
+                      </object>
+                    </property>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <!-- DNS Output Font Settings -->
+            <child>
+              <object class="AdwPreferencesGroup" id="dns_output_font_group">
+                <property name="title" translatable="yes">DNS Output</property>
+                <child>
+                  <object class="AdwActionRow" id="dns_output_font_family_row">
+                    <property name="title" translatable="yes">Font Family</property>
+                    <child type="suffix">
+                      <object class="GtkFontButton" id="dns_output_font_button">
+                        <property name="valign">center</property>
+                        <property name="use-font">true</property>
+                        <property name="use-size">false</property>
+                        <property name="font">Sans 10</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child>
+                  <object class="AdwSpinRow" id="dns_output_font_size_spinrow">
+                    <property name="title" translatable="yes">Font Size (pt)</property>
+                    <property name="adjustment">
+                      <object class="GtkAdjustment">
+                        <property name="lower">6</property>
+                        <property name="upper">24</property>
+                        <property name="step-increment">1</property>
+                        <property name="page-increment">5</property>
+                        <property name="value">10</property>
+                      </object>
+                    </property>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <!-- Nmap Structured Output Font Settings -->
+            <child>
+              <object class="AdwPreferencesGroup" id="nmap_output_font_group">
+                <property name="title" translatable="yes">Nmap Structured Output</property>
+                <child>
+                  <object class="AdwActionRow" id="nmap_output_font_family_row">
+                    <property name="title" translatable="yes">Font Family</property>
+                    <child type="suffix">
+                      <object class="GtkFontButton" id="nmap_output_font_button">
+                        <property name="valign">center</property>
+                        <property name="use-font">true</property>
+                        <property name="use-size">false</property>
+                        <property name="font">Sans 10</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child>
+                  <object class="AdwSpinRow" id="nmap_output_font_size_spinrow">
+                    <property name="title" translatable="yes">Font Size (pt)</property>
+                    <property name="adjustment">
+                      <object class="GtkAdjustment">
+                        <property name="lower">6</property>
+                        <property name="upper">24</property>
+                        <property name="step-increment">1</property>
+                        <property name="page-increment">5</property>
+                        <property name="value">10</property>
+                      </object>
+                    </property>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <!-- Nmap Raw Text Output Font Settings -->
+            <child>
+              <object class="AdwPreferencesGroup" id="nmap_raw_output_font_group">
+                <property name="title" translatable="yes">Nmap Raw Text Output</property>
+                <child>
+                  <object class="AdwActionRow" id="nmap_raw_output_font_family_row">
+                    <property name="title" translatable="yes">Font Family</property>
+                    <child type="suffix">
+                      <object class="GtkFontButton" id="nmap_raw_output_font_button">
+                        <property name="valign">center</property>
+                        <property name="use-font">true</property>
+                        <property name="use-size">false</property>
+                        <property name="font">Monospace 10</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child>
+                  <object class="AdwSpinRow" id="nmap_raw_output_font_size_spinrow">
+                    <property name="title" translatable="yes">Font Size (pt)</property>
+                    <property name="adjustment">
+                      <object class="GtkAdjustment">
+                        <property name="lower">6</property>
+                        <property name="upper">24</property>
+                        <property name="step-increment">1</property>
+                        <property name="page-increment">5</property>
+                        <property name="value">10</property>
+                      </object>
+                    </property>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <!-- WebScan Output Font Settings -->
+            <child>
+              <object class="AdwPreferencesGroup" id="webscan_output_font_group">
+                <property name="title" translatable="yes">Web Scanner Output</property>
+                <child>
+                  <object class="AdwActionRow" id="webscan_output_font_family_row">
+                    <property name="title" translatable="yes">Font Family</property>
+                    <child type="suffix">
+                      <object class="GtkFontButton" id="webscan_output_font_button">
+                        <property name="valign">center</property>
+                        <property name="use-font">true</property>
+                        <property name="use-size">false</property>
+                        <property name="font">Monospace 10</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child>
+                  <object class="AdwSpinRow" id="webscan_output_font_size_spinrow">
+                    <property name="title" translatable="yes">Font Size (pt)</property>
+                    <property name="adjustment">
+                      <object class="GtkAdjustment">
+                        <property name="lower">6</property>
+                        <property name="upper">24</property>
+                        <property name="step-increment">1</property>
+                        <property name="page-increment">5</property>
+                        <property name="value">10</property>
+                      </object>
+                    </property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
           <object class="AdwPreferencesGroup" id="advanced_group">
             <property name="title">Tool settings</property>
             <child>

@@ -62,8 +62,22 @@ class DNSPage(Adw.PreferencesPage):
         """
         super().__init__(**kwargs)
         logger.debug("DNSPage initialized.")
-        self._connect_signals()
         self.settings = Gio.Settings.new(APP_ID)
+
+        # Font settings
+        self._dns_font_family_setting = "dns-output-font-family"
+        self._dns_font_size_setting = "dns-output-font-size"
+        self._dns_font_family = self.settings.get_string(self._dns_font_family_setting)
+        self._dns_font_size = self.settings.get_int(self._dns_font_size_setting)
+
+        # Stored results for refresh
+        self._current_result_records: Optional[List[Dict[str, Any]]] = None
+        self._current_user_input: Optional[str] = None
+        self._current_requested_record_type: Optional[str] = None
+        self._current_dns_servers: Optional[Sequence[Any]] = None
+
+        self._connect_signals()
+
 
         # Initialize new status row and spinner
         # Initially disable clear/copy buttons as there are no results
@@ -77,6 +91,34 @@ class DNSPage(Adw.PreferencesPage):
             self.dns_clear_results_button.connect("clicked", self._on_clear_results_clicked)
         if self.dns_copy_all_results_button:
             self.dns_copy_all_results_button.connect("clicked", self._on_copy_all_results_clicked)
+
+        # Connect GSettings changes for font
+        self.settings.connect(f"changed::{self._dns_font_family_setting}", self._on_font_setting_changed)
+        self.settings.connect(f"changed::{self._dns_font_size_setting}", self._on_font_setting_changed)
+
+
+    def _on_font_setting_changed(self, settings: Gio.Settings, key: str) -> None:
+        """
+        Handle changes to font-related GSettings for DNS output.
+        Updates the internal font attributes and re-renders the results if displayed.
+        """
+        logger.debug("DNSPage: Font setting changed for GSettings key: %s", key)
+        if key == self._dns_font_family_setting:
+            self._dns_font_family = settings.get_string(key)
+        elif key == self._dns_font_size_setting:
+            self._dns_font_size = settings.get_int(key)
+
+        if self._current_result_records is not None and \
+           self._current_user_input is not None and \
+           self._current_requested_record_type is not None and \
+           self._current_dns_servers is not None:
+            logger.debug("DNSPage: Re-displaying results due to font change.")
+            self._display_result(
+                self._current_result_records,
+                self._current_user_input,
+                self._current_requested_record_type,
+                self._current_dns_servers
+            )
 
     def _on_clear_results_clicked(self, _button: Gtk.Button) -> None:
         """
@@ -93,6 +135,13 @@ class DNSPage(Adw.PreferencesPage):
             self.dns_clear_results_button.set_sensitive(False)
         if self.dns_copy_all_results_button:
             self.dns_copy_all_results_button.set_sensitive(False)
+
+        # Clear stored results
+        self._current_result_records = None
+        self._current_user_input = None
+        self._current_requested_record_type = None
+        self._current_dns_servers = None
+
 
     def _on_copy_all_results_clicked(self, _button: Gtk.Button) -> None:
         """
@@ -269,6 +318,9 @@ class DNSPage(Adw.PreferencesPage):
         :type full_summary_text: str
         """
         value_label = Gtk.Label(label=main_value_text, halign=Gtk.Align.FILL, hexpand=True, selectable=True, wrap=False, lines=1, ellipsize=Pango.EllipsizeMode.END)
+        if self._dns_font_family and self._dns_font_size > 0:
+            font_desc = Pango.FontDescription(f"{self._dns_font_family} {self._dns_font_size}")
+            value_label.override_font(font_desc)
         # suffix_box removed
         row.add_suffix(value_label) # type: ignore
         row.add_suffix(self._create_copy_button(main_value_text, f"{main_value_tooltip_prefix}: {main_value_text}", row)) # type: ignore
@@ -323,6 +375,9 @@ class DNSPage(Adw.PreferencesPage):
         detail_row = Adw.ActionRow(title=title if title else None) # type: ignore
 
         value_label = Gtk.Label(label=value_text, halign=Gtk.Align.FILL, hexpand=True, selectable=True, wrap=False, lines=1, ellipsize=Pango.EllipsizeMode.END)
+        if self._dns_font_family and self._dns_font_size > 0:
+            font_desc = Pango.FontDescription(f"{self._dns_font_family} {self._dns_font_size}")
+            value_label.override_font(font_desc)
         copy_button = self._create_copy_button(value_text, f"{copy_tooltip_prefix}: {value_text}", expander_row)
 
         # content_box removed
@@ -446,6 +501,13 @@ class DNSPage(Adw.PreferencesPage):
             actual_record_type_displayed = self._update_ptr_dropdown(user_input, requested_record_type)
 
         nameservers_used = dns_client.resolver.nameservers
+
+        # Store results for potential refresh
+        self._current_result_records = result_data
+        self._current_user_input = user_input
+        self._current_requested_record_type = actual_record_type_displayed
+        self._current_dns_servers = nameservers_used
+
         self._display_result(result_data, user_input, actual_record_type_displayed, nameservers_used)
 
         status_message = f"{len(result_data)} {actual_record_type_displayed} record(s) found." if result_data else f"No {actual_record_type_displayed} records found for {user_input}."
@@ -479,15 +541,22 @@ class DNSPage(Adw.PreferencesPage):
         if isinstance(error, DnsNxDomainError):
             show_global_error(self, error_message) # type: ignore
             status_subtitle = f"NXDOMAIN: Domain '{user_input}' not found."
+            self._current_result_records = None # No valid results to refresh
         elif isinstance(error, DnsNoAnswerError):
             logger.info("DNSPage: %s", error_message)
             nameservers_used = dns_client.resolver.nameservers
+            # Store parameters for refresh, as _display_result will show "No records"
+            self._current_result_records = []
+            self._current_user_input = user_input
+            self._current_requested_record_type = requested_record_type
+            self._current_dns_servers = nameservers_used
             self._display_result([], user_input, requested_record_type, nameservers_used) # Shows "No records found" in results area
             # Override the "No records found" status from _display_result with the actual error for clarity in status row
             status_subtitle = f"No {requested_record_type} records found for {user_input} (No Answer)."
         elif isinstance(error, DnsResolutionTimeoutError):
             show_global_error(self, error_message) # type: ignore
             status_subtitle = f"Timeout: Could not resolve {user_input}."
+            self._current_result_records = None # No valid results to refresh
         elif isinstance(error, DnsGenericError):
             logger.exception("DNSPage: DNS lookup failed for %s, type %s (DnsGenericError):", user_input, requested_record_type)
             show_global_error(self, error_message) # type: ignore
@@ -496,11 +565,13 @@ class DNSPage(Adw.PreferencesPage):
             logger.exception("DNSPage: Unexpected DnsClientError for %s, type %s:", user_input, requested_record_type)
             show_global_error(self, f"DNS Client Error: {error_message}") # type: ignore
             status_subtitle = f"Client Error: {error_message.splitlines()[0]}"
+            self._current_result_records = None
         else: # Generic Exception
             logger.exception("DNSPage: Unexpected error during DNS lookup for %s, type %s:", user_input, requested_record_type)
             error_message_short = f"An unexpected error occurred: {error_message.splitlines()[0]}"
             show_global_error(self, error_message_short) # type: ignore
             status_subtitle = error_message_short
+            self._current_result_records = None
 
         if self.dns_status_row:
             self.dns_status_row.set_subtitle(status_subtitle) # type: ignore
