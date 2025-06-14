@@ -2,12 +2,12 @@
 <!-- Created with Cambalache 0.96.1 -->
 <interface>
   <!-- interface-name dns_page.ui -->
-  <requires lib="gtk" version="4.10"/>
-  <requires lib="libadwaita" version="1.4"/>
+  <requires lib="gtk" version="4.18"/>
+  <requires lib="libadwaita" version="1.7"/>
   <template class="DNSPage" parent="AdwPreferencesPage">
-    <property name="width_request">1000</property>
     <property name="icon-name">org.gnome.Epiphany-symbolic</property>
     <property name="title" translatable="yes">DNS Lookup</property>
+    <property name="width-request">1000</property>
     <child>
       <object class="AdwPreferencesGroup">
         <property name="title" translatable="yes">Lookup Parameters</property>
@@ -24,8 +24,8 @@
             </child>
             <child type="suffix">
               <object class="GtkButton" id="dns_apply_button">
-                <property name="label" translatable="yes">_Lookup</property>
-                <property name="use_underline">True</property>
+                <property name="label" translatable="yes">_Lookup Record</property>
+                <property name="use-underline">True</property>
                 <property name="valign">center</property>
                 <style>
                   <class name="suggested-action"/>
@@ -57,8 +57,8 @@
         </child>
         <child>
           <object class="AdwActionRow" id="dns_status_row">
-            <property name="title" translatable="yes">Status</property>
             <property name="subtitle" translatable="yes">Idle</property>
+            <property name="title" translatable="yes">Status</property>
             <child type="suffix">
               <object class="GtkSpinner" id="dns_status_spinner">
                 <property name="spinning">False</property>

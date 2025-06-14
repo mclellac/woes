@@ -37,7 +37,7 @@
                 <property name="title" translatable="yes">Target (IP/CIDR/Hostname)</property>
                 <child type="suffix">
                   <object class="GtkButton" id="nmap_apply_button">
-                    <property name="label" translatable="yes">_Scan</property>
+                    <property name="label" translatable="yes">_Scan Host</property>
                     <property name="use-underline">True</property>
                     <property name="valign">center</property>
                     <style>
@@ -51,7 +51,7 @@
               <object class="AdwExpanderRow" id="nmap_advanced_options_expander">
                 <property name="hexpand">true</property>
                 <property name="hexpand-set">true</property>
-                <property name="title" translatable="yes">Advanced Scan Options</property>
+                <property name="title" translatable="yes">Nmap Scan Options</property>
                 <child>
                   <object class="AdwSwitchRow" id="nmap_fingerprint_switchrow">
                     <property name="subtitle" translatable="yes">Enable this to attempt OS detection (often requires root/administrator privileges)</property>
@@ -186,12 +186,9 @@
             </child>
             <child>
               <object class="GtkScrolledWindow" id="nmap_detail_scrolled_window">
+                <property name="halign">baseline-fill</property>
                 <property name="hexpand">true</property>
                 <property name="hexpand-set">true</property>
-                <property name="margin-bottom">40</property>
-                <property name="margin-end">40</property>
-                <property name="margin-start">40</property>
-                <property name="margin-top">40</property>
                 <property name="min-content-width">300</property>
                 <property name="vexpand">true</property>
                 <child>
@@ -203,10 +200,11 @@
                     <child>
                       <object class="AdwStatusPage" id="nmap_detail_placeholder">
                         <property name="description" translatable="yes">Select a host from the list on the left to view details.</property>
-                        <property name="halign">baseline-fill</property>
                         <property name="hexpand">true</property>
                         <property name="hexpand-set">true</property>
                         <property name="icon-name">network-workgroup-symbolic</property>
+                        <property name="margin-end">10</property>
+                        <property name="margin-start">10</property>
                         <property name="title" translatable="yes">No Host Selected</property>
                         <property name="valign">start</property>
                         <property name="vexpand">true</property>

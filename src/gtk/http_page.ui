@@ -5,9 +5,9 @@
   <requires lib="gtk" version="4.18"/>
   <requires lib="libadwaita" version="1.7"/>
   <template class="HttpPage" parent="AdwPreferencesPage">
-    <property name="width_request">800</property>
     <property name="icon-name">network-transmit-receive-symbolic</property>
     <property name="title" translatable="yes">HTTP Headers</property>
+    <property name="width-request">800</property>
     <child>
       <object class="AdwPreferencesGroup" id="http_request_group">
         <property name="title" translatable="yes">HTTP Request</property>
@@ -21,8 +21,8 @@
             <property name="title" translatable="yes">Domain or URL to get the HTTP headers from</property>
             <child type="suffix">
               <object class="GtkButton" id="http_apply_button">
-                <property name="label" translatable="yes">_Fetch</property>
-                <property name="use_underline">True</property>
+                <property name="label" translatable="yes">_Fetch Headers</property>
+                <property name="use-underline">True</property>
                 <property name="valign">center</property>
                 <style>
                   <class name="suggested-action"/>
@@ -49,8 +49,8 @@
         </child>
         <child>
           <object class="AdwActionRow" id="http_status_row">
-            <property name="title" translatable="yes">Status</property>
             <property name="subtitle" translatable="yes">Idle</property>
+            <property name="title" translatable="yes">Status</property>
             <child type="suffix">
               <object class="GtkSpinner" id="http_status_spinner">
                 <property name="spinning">False</property>

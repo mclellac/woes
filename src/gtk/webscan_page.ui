@@ -20,7 +20,8 @@
             <child type="suffix">
               <object class="GtkButton" id="scan_button">
                 <property name="halign">end</property>
-                <property name="label">Start Scan</property>
+                <property name="label">_Website Scan</property>
+                <property name="use-underline">True</property>
                 <property name="valign">center</property>
                 <signal name="clicked" handler="on_scan_button_clicked"/>
                 <style>
@@ -32,8 +33,8 @@
         </child>
         <child>
           <object class="AdwExpanderRow" id="nikto_options_expander">
-            <property name="title">Nikto Scan Options</property>
             <property name="expanded">false</property>
+            <property name="title">Nikto Scan Options</property>
             <child>
               <object class="AdwActionRow">
                 <property name="activatable-widget">force_ssl_switch</property>
@@ -104,8 +105,6 @@
             </child>
             <child>
               <object class="AdwComboRow" id="nikto_format_combo_row">
-                <property name="title">Output Format</property>
-                <property name="subtitle">Select Nikto's output format</property>
                 <property name="model">
                   <object class="GtkStringList">
                     <items>
@@ -118,12 +117,14 @@
                   </object>
                 </property>
                 <property name="selected">0</property>
+                <property name="subtitle">Select Nikto's output format</property>
+                <property name="title">Output Format</property>
               </object>
             </child>
             <child>
               <object class="AdwEntryRow" id="nikto_output_file_row">
+                <property name="sensitive">false</property>
                 <property name="title" translatable="yes">Output Filename</property>
-                <property name="sensitive">false</property> <!-- Initially insensitive -->
                 <child type="suffix">
                   <object class="GtkButton" id="nikto_output_file_button">
                     <property name="icon-name">document-open-symbolic</property>
@@ -135,9 +136,9 @@
             </child>
             <child>
               <object class="AdwActionRow" id="no404_row">
-                <property name="title">Disable 404 Checking</property>
-                <property name="subtitle">Pass -no404 to Nikto</property>
                 <property name="activatable-widget">no404_switch</property>
+                <property name="subtitle">Pass -no404 to Nikto</property>
+                <property name="title">Disable 404 Checking</property>
                 <child>
                   <object class="GtkSwitch" id="no404_switch">
                     <property name="valign">center</property>
@@ -147,9 +148,9 @@
             </child>
             <child>
               <object class="AdwActionRow" id="auth_bypass_row">
-                <property name="title">Authentication Bypass</property>
-                <property name="subtitle">Nikto Tuning Option: 9 (Authentication Bypass)</property>
                 <property name="activatable-widget">auth_bypass_switch</property>
+                <property name="subtitle">Nikto Tuning Option: 9 (Authentication Bypass)</property>
+                <property name="title">Authentication Bypass</property>
                 <child>
                   <object class="GtkSwitch" id="auth_bypass_switch">
                     <property name="valign">center</property>
@@ -162,7 +163,6 @@
         <child>
           <object class="AdwActionRow" id="webscan_status_action_row">
             <property name="title">Status</property>
-            <!-- Subtitle will be set from Python code -->
             <child type="suffix">
               <object class="GtkBox">
                 <property name="orientation">horizontal</property>
@@ -229,9 +229,6 @@
             <property name="min-content-height">200</property>
             <property name="vexpand">True</property>
             <property name="width-request">800</property>
-            <child>
-
-            </child>
           </object>
         </child>
       </object>
