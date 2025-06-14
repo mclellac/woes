@@ -222,13 +222,11 @@
           </object>
         </property>
         <property name="title">Scan Results</property>
-        <property name="width-request">800</property>
         <child>
           <object class="GtkScrolledWindow" id="results_scrolled_window">
             <property name="hexpand">True</property>
             <property name="min-content-height">200</property>
             <property name="vexpand">True</property>
-            <property name="width-request">800</property>
           </object>
         </child>
       </object>
