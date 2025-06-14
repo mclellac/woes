@@ -516,7 +516,11 @@ class NmapPage(Adw.PreferencesPage):
         source_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
         source_view.set_editable(False)
 
-        source_view.override_font(self._output_font_desc) # Apply global font
+        if self._output_font_desc and self._output_font_desc.get_size() > 0:
+            source_view.override_font(self._output_font_desc)
+        else:
+            # Fallback to theme default if the description is somehow invalid or empty
+            source_view.override_font(Pango.FontDescription())
 
         source_view.set_hexpand(True) # Assuming this is desired for layout
         source_view.set_vexpand(True) # Assuming this is desired for layout
