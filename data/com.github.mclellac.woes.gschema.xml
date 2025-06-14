@@ -62,7 +62,7 @@
       <description>Defines the color used for special informational rows in the HTTP output, like URL or Status lines.</description>
     </key>
     <key name="custom-user-agents" type="a(ss)">
-      <default>[]</default>
+      <default>[('Firefox (Latest) on Linux', 'Mozilla/5.0 (X11; Linux x86_64; rv:125.0) Gecko/20100101 Firefox/125.0'), ('Firefox ESR on Linux', 'Mozilla/5.0 (X11; Linux x86_64; rv:115.0) Gecko/20100101 Firefox/115.0'), ('Chrome (Latest) on Linux', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36')]</default>
       <summary>A list of custom User-Agent string pairs (title, value).</summary>
       <description>Users can add their own User-Agent strings to this list. Each entry consists of a display title and the full User-Agent value.</description>
     </key>
