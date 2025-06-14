@@ -133,13 +133,13 @@ class WoesWindow(Adw.ApplicationWindow):
         safe_family = family.replace("'", "\\'") if family else "Sans" # Escape single quotes for CSS
 
         size_pt = font_desc.get_size() / Pango.SCALE
-        weight = font_desc.get_weight().value
-        style_enum_val = font_desc.get_style().value
+        weight = font_desc.get_weight() # Corrected: Direct value
+        style_enum_val = font_desc.get_style() # Corrected: Direct enum member
 
         css_style_map = {
-            Pango.Style.NORMAL.value: "normal",
-            Pango.Style.OBLIQUE.value: "oblique",
-            Pango.Style.ITALIC.value: "italic",
+            Pango.Style.NORMAL: "normal", # Corrected: Use enum member as key
+            Pango.Style.OBLIQUE: "oblique",
+            Pango.Style.ITALIC: "italic",
         }
 
         # Construct CSS string using f-string (which is fine inside Python code)
