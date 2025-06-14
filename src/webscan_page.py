@@ -92,6 +92,11 @@ class WebScanPage(Adw.PreferencesPage):
         if self.nikto_output_file_button: # Assuming flat is appropriate for this icon button
             self.nikto_output_file_button.get_style_context().add_class("flat")
 
+        if self.clear_results_button:
+            self.clear_results_button.set_sensitive(False)
+        if self.copy_results_button:
+            self.copy_results_button.set_sensitive(False)
+
         logger.debug("WebScanPage initialized")
 
         self.url_entry.connect("entry-activated", self.on_scan_button_clicked)
@@ -106,6 +111,8 @@ class WebScanPage(Adw.PreferencesPage):
             self.nikto_format_combo_row.connect("notify::selected-item", self._on_nikto_format_changed)
         if self.nikto_output_file_button:
             self.nikto_output_file_button.connect("clicked", self._on_nikto_output_file_button_clicked)
+
+        self._update_results_actions_sensitivity()
 
     def __del__(self):
         """Clean up when the WebScanPage is destroyed."""
@@ -221,10 +228,10 @@ class WebScanPage(Adw.PreferencesPage):
         buffer = self.source_view.get_buffer()
         if not buffer:
             return
+
+        buffer.set_text("")
         logger.info("Webscan results cleared by user action.")
-        if self.source_view:
-            buffer = self.source_view.get_buffer()
-            buffer.set_text("")
+        self._update_results_actions_sensitivity()
 
     def _on_copy_results_clicked(self, _button: Gtk.Button):
         """
@@ -296,6 +303,7 @@ class WebScanPage(Adw.PreferencesPage):
 
         buffer = self.source_view.get_buffer()
         buffer.set_text(f"Scanning {target_url}...\n\n")
+        self._update_results_actions_sensitivity() # Call here
 
         self.scan_button.set_sensitive(False) # type: ignore
 
@@ -771,6 +779,7 @@ class WebScanPage(Adw.PreferencesPage):
             self.current_web_scan_task = None
             self.current_web_scan_cancellable = None
             self.current_nikto_process = None # Ensure cleared
+            self._update_results_actions_sensitivity()
 
     def _update_textview(self, stdout_content: Optional[str], stderr_content: Optional[str], is_error_message: bool = False):
         """
@@ -802,6 +811,28 @@ class WebScanPage(Adw.PreferencesPage):
         scroll_adj = self.results_scrolled_window.get_vadjustment() if self.results_scrolled_window else None
         if scroll_adj:
             scroll_adj.set_value(scroll_adj.get_upper() - scroll_adj.get_page_size())
+
+    def _update_results_actions_sensitivity(self):
+        if not hasattr(self, 'source_view') or not self.source_view:
+            if self.clear_results_button:
+                self.clear_results_button.set_sensitive(False)
+            if self.copy_results_button:
+                self.copy_results_button.set_sensitive(False)
+            return
+
+        buffer = self.source_view.get_buffer()
+        if not buffer:
+            if self.clear_results_button:
+                self.clear_results_button.set_sensitive(False)
+            if self.copy_results_button:
+                self.copy_results_button.set_sensitive(False)
+            return
+
+        has_content = buffer.get_char_count() > 0
+        if self.clear_results_button:
+            self.clear_results_button.set_sensitive(has_content)
+        if self.copy_results_button:
+            self.copy_results_button.set_sensitive(has_content)
 
     def trigger_scan(self):
         """Programmatically trigger the WebScan 'Scan' action."""
