@@ -20,8 +20,6 @@ APP_DESCRIPTION = "A simple toolkit for web, nmap, and DNS scans."
 APP_ISSUES_URL = "https://github.com/mclellac/woes/issues"
 
 # PKGDATADIR would typically be set by the build system (e.g., Meson, Autotools)
-# This should match where Meson installs woes.gresource, which is typically
-# {prefix}/share/{project_name}
 _default_pkgdatadir = "/usr/local/share/woes"
 PKGDATADIR = os.environ.get("WOES_PKGDATADIR", _default_pkgdatadir)
 # This allows overriding with an environment variable for testing or different installations.

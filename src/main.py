@@ -34,13 +34,8 @@ def _load_gresources_early():
     either a development path or an installed path. Exits the application
     if the GResource file cannot be found or loaded.
     """
-    # Path for installed version
     installed_resource_path = os.path.join(PKGDATADIR, "woes.gresource")
-
-    # Path for running from source tree (e.g., relative to src/main.py)
-    # Assumes main.py is in src/ and resources are in ../build/src/ relative to main.py's directory.
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    # Example: resolves to /app/build/src/woes.gresource if script_dir is /app/src
     dev_resource_path = os.path.normpath(os.path.join(script_dir, "..", "build", "src", "woes.gresource"))
 
     resource_file_path = None
@@ -124,15 +119,12 @@ class WoesApplication(Adw.Application):
         Initialize the WoesApplication.
 
         :param version: The application version.
-        :type version: str
         :param kwargs: Additional keyword arguments for :class:`Adw.Application`.
         """
-        logging.info("WoesApplication.__init__ entered")
         self.version = version
         self.debug_enabled = False
         self.win = None
 
-        # Configure basic logging. If --debug is passed, it will be reconfigured.
         logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
 
         super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.DEFAULT_FLAGS, **kwargs)
@@ -167,14 +159,11 @@ class WoesApplication(Adw.Application):
         Currently supports a ``--debug`` option to enable debug logging.
 
         :param options: A :class:`GLib.VariantDict` containing the command-line options.
-        :type options: GLib.VariantDict
         :return: -1 to indicate that command line processing is not finished,
                  allowing further processing (like ``do_command_line``) to occur.
-        :rtype: int
         """
         if options.contains("debug"):
             self.debug_enabled = True
-            # Reconfigure logging for DEBUG level if --debug is present
             logging.basicConfig(
                 level=logging.DEBUG,
                 format="%(levelname)s:%(name)s:%(message)s",
@@ -191,12 +180,10 @@ class WoesApplication(Adw.Application):
         activates the application.
 
         :param command_line: The :class:`Gio.ApplicationCommandLine` object.
-        :type command_line: Gio.ApplicationCommandLine
         :return: The exit status of the command line processing. 0 for success.
-        :rtype: int
         """
         options = command_line.get_options_dict()
-        if self.handle_local_options(options): # do_handle_local_options is called by this
+        if self.handle_local_options(options):
             logging.debug("Local options handled.")
 
         self.activate()
@@ -210,10 +197,8 @@ class WoesApplication(Adw.Application):
         It ensures the main window (:class:`.window.WoesWindow`) is created and shown.
         If the window cannot be created or presented, the application may exit.
         """
-        logging.info("WoesApplication.do_activate entered")
         win = self.props.active_window
         if not win:
-            logging.info("WoesApplication.do_activate: Creating WoesWindow...")
             try:
                 win = WoesWindow(application=self)
             except Exception:  # pylint: disable=broad-except
@@ -221,12 +206,11 @@ class WoesApplication(Adw.Application):
                 sys.exit(1)
 
         if win:
-            logging.info("WoesApplication.do_activate: Presenting window...")
             try:
                 win.present()
             except Exception:  # pylint: disable=broad-except
                 logging.exception("WoesApplication.do_activate: Error during win.present()")
-            self.win = win  # Keep a reference to the window
+            self.win = win
         else:
             logging.error(
                 "WoesApplication.do_activate: Window object is None after creation attempt, cannot proceed."
@@ -237,7 +221,6 @@ class WoesApplication(Adw.Application):
         Switch the main window's view to the specified page.
 
         :param page_name: The name of the page to switch to (e.g., "http", "nmap").
-        :type page_name: str
         """
         if self.win and hasattr(self.win, "stack"):
             self.win.stack.set_visible_child_name(page_name)
@@ -249,9 +232,7 @@ class WoesApplication(Adw.Application):
         Switch the main window's view to the HTTP page.
 
         :param _action: The action that triggered this handler.
-        :type _action: Gio.SimpleAction
         :param _param: Optional parameter for the action (unused).
-        :type _param: Optional[GLib.Variant]
         """
         self._switch_to_page("http")
 
@@ -260,9 +241,7 @@ class WoesApplication(Adw.Application):
         Switch the main window's view to the Nmap page.
 
         :param _action: The action that triggered this handler.
-        :type _action: Gio.SimpleAction
         :param _param: Optional parameter for the action (unused).
-        :type _param: Optional[GLib.Variant]
         """
         self._switch_to_page("nmap")
 
@@ -271,9 +250,7 @@ class WoesApplication(Adw.Application):
         Switch the main window's view to the DNS page.
 
         :param _action: The action that triggered this handler.
-        :type _action: Gio.SimpleAction
         :param _param: Optional parameter for the action (unused).
-        :type _param: Optional[GLib.Variant]
         """
         self._switch_to_page("dns")
 
@@ -282,9 +259,7 @@ class WoesApplication(Adw.Application):
         Switch the main window's view to the WebScan page.
 
         :param _action: The action that triggered this handler.
-        :type _action: Gio.SimpleAction
         :param _param: Optional parameter for the action (unused).
-        :type _param: Optional[GLib.Variant]
         """
         self._switch_to_page("webscan")
 
@@ -293,11 +268,8 @@ class WoesApplication(Adw.Application):
         Trigger an action on the currently visible page if it matches the expected page.
 
         :param expected_page_name: The name of the page on which the action is expected to occur.
-        :type expected_page_name: str
         :param action_method_name: The name of the method to call on the page object.
-        :type action_method_name: str
         :param action_description: A human-readable description of the action for logging.
-        :type action_description: str
         """
         if not self.win or not hasattr(self.win, "stack"):
             logging.warning(f"{action_description} action: Window or stack not available.")
@@ -380,9 +352,7 @@ class WoesApplication(Adw.Application):
         This action triggers the fetch operation on the currently visible HTTP page.
 
         :param _action: The action that triggered this handler.
-        :type _action: Gio.SimpleAction
         :param _param: Optional parameter for the action (unused).
-        :type _param: Optional[GLib.Variant]
         """
         self._trigger_page_action("http", "trigger_fetch", "HTTP fetch")
 
@@ -393,9 +363,7 @@ class WoesApplication(Adw.Application):
         This action triggers the scan operation on the currently visible Nmap page.
 
         :param _action: The action that triggered this handler.
-        :type _action: Gio.SimpleAction
         :param _param: Optional parameter for the action (unused).
-        :type _param: Optional[GLib.Variant]
         """
         self._trigger_page_action("nmap", "trigger_scan", "Nmap scan")
 
@@ -406,9 +374,7 @@ class WoesApplication(Adw.Application):
         This action triggers the lookup operation on the currently visible DNS page.
 
         :param _action: The action that triggered this handler.
-        :type _action: Gio.SimpleAction
         :param _param: Optional parameter for the action (unused).
-        :type _param: Optional[GLib.Variant]
         """
         self._trigger_page_action("dns", "trigger_lookup", "DNS lookup")
 
@@ -419,9 +385,7 @@ class WoesApplication(Adw.Application):
         This action triggers the scan operation on the currently visible WebScan page.
 
         :param _action: The action that triggered this handler.
-        :type _action: Gio.SimpleAction
         :param _param: Optional parameter for the action (unused).
-        :type _param: Optional[GLib.Variant]
         """
         self._trigger_page_action("webscan", "trigger_scan", "Webscan scan")
 
@@ -432,15 +396,9 @@ class WoesApplication(Adw.Application):
         Displays the application's About dialog.
 
         :param _widget: The :class:`Gio.SimpleAction` that was activated.
-        :type _widget: Gio.SimpleAction
         :param _param: Optional :class:`GLib.Variant` parameter (unused).
-        :type _param: Optional[GLib.Variant]
         """
         about = self._create_about_window()
-        # Ensure there's an active window before making it transient for
-        # In a typical application flow, active_window would be the main WoesWindow.
-        # For testing, it might be None if do_activate wasn't fully run,
-        # or if a dummy window needs to be set on the application.
         if self.props.active_window:
             about.set_transient_for(self.props.active_window)
         about.present()
@@ -450,12 +408,8 @@ class WoesApplication(Adw.Application):
         Create and configure the :class:`Adw.AboutWindow`.
 
         :return: The configured About Window.
-        :rtype: Adw.AboutWindow
         """
-        # Note: 'transient_for' is typically set by the caller (on_about_action)
-        # if an active window exists. If direct testing _create_about_window,
-        # transient_for might be None unless a window is explicitly managed for the test.
-        return Adw.AboutWindow( # type: ignore
+        return Adw.AboutWindow(
             application_name="woes",
             application_icon=APP_ID,
             developer_name="Carey McLelland",
@@ -475,9 +429,7 @@ class WoesApplication(Adw.Application):
         Displays the application's Preferences dialog.
 
         :param _widget: The :class:`Gio.SimpleAction` that was activated.
-        :type _widget: Gio.SimpleAction
         :param _param: Optional :class:`GLib.Variant` parameter (unused).
-        :type _param: Optional[GLib.Variant]
         """
         if not self.win:
             logging.error("Main window not available for preferences.")
@@ -490,12 +442,9 @@ class WoesApplication(Adw.Application):
         Create and add a Gio.SimpleAction to the application.
 
         :param name: The name of the action (e.g., "quit", "about").
-        :type name: str
         :param callback: The function to call when the action is activated.
-        :type callback: Callable
         :param shortcuts: An optional list of keyboard shortcuts for the action
                           (e.g., ``["<primary>q"]``).
-        :type shortcuts: Optional[List[str]]
         """
         action = Gio.SimpleAction.new(name, None)
         action.connect("activate", callback)
@@ -512,20 +461,12 @@ def main(version: str = VERSION) -> int:
     logging, creates the :class:`WoesApplication` instance, and runs it.
 
     :param version: The version string of the application.
-    :type version: str
     :return: The exit status of the application.
-    :rtype: int
     """
-    # Basic configuration, will be overridden if --debug is passed.
     logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
-    logging.info("Application main() function entered.")
-
     app = WoesApplication(version=version)
-    logging.info("WoesApplication instance created.")
-
-    logging.info("Calling app.run().")
     exit_status = app.run(sys.argv)
-    logging.info("app.run() finished with status %s.", exit_status)
+    logging.info("Application exited with status %s.", exit_status)
     return exit_status
 
 
