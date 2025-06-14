@@ -14,7 +14,7 @@ import time
 from enum import Enum
 
 import gi
-from gi.repository import Gtk, Adw, Gio, GLib, GObject, Gdk
+from gi.repository import Gtk, Adw, Gio, GLib, GObject, Gdk, Pango
 
 from .constants import RESOURCE_PREFIX, APP_ID
 from .utils import show_global_error, show_global_toast, is_valid_url
@@ -80,6 +80,12 @@ class WebScanPage(Adw.PreferencesPage):
         self.settings = Gio.Settings.new(APP_ID)
         self.style_manager = Adw.StyleManager.get_default()
 
+        # Font settings
+        self._webscan_font_family_setting = "webscan-output-font-family"
+        self._webscan_font_size_setting = "webscan-output-font-size"
+        self._webscan_font_family = self.settings.get_string(self._webscan_font_family_setting)
+        self._webscan_font_size = self.settings.get_int(self._webscan_font_size_setting)
+
         # Ensure correct style classes are applied
         if self.scan_button:
             self.scan_button.get_style_context().add_class("suggested-action")
@@ -119,7 +125,43 @@ class WebScanPage(Adw.PreferencesPage):
         if self.nikto_output_file_button:
             self.nikto_output_file_button.connect("clicked", self._on_nikto_output_file_button_clicked)
 
+        # Connect GSettings changes for font
+        self.settings.connect(f"changed::{self._webscan_font_family_setting}", self._on_font_setting_changed)
+        self.settings.connect(f"changed::{self._webscan_font_size_setting}", self._on_font_setting_changed)
+
+        self._apply_font_to_textview() # Apply initial font
         self._update_results_actions_sensitivity()
+
+
+    def _on_font_setting_changed(self, settings: Gio.Settings, key: str) -> None:
+        """
+        Handle changes to font-related GSettings for WebScan output.
+        Updates internal font attributes and applies them to the TextView.
+        """
+        logger.debug("WebScanPage: Font setting changed for GSettings key: %s", key)
+        if key == self._webscan_font_family_setting:
+            self._webscan_font_family = settings.get_string(key)
+        elif key == self._webscan_font_size_setting:
+            self._webscan_font_size = settings.get_int(key)
+
+        self._apply_font_to_textview()
+
+    def _apply_font_to_textview(self) -> None:
+        """Apply the current font family and size to the source_view."""
+        if not hasattr(self, 'source_view') or not self.source_view:
+            logger.warning("WebScanPage: _apply_font_to_textview called but source_view does not exist.")
+            return
+
+        if self._webscan_font_family and self._webscan_font_size > 0:
+            font_desc_str = f"{self._webscan_font_family} {self._webscan_font_size}"
+            font_desc = Pango.FontDescription.from_string(font_desc_str)
+            self.source_view.override_font(font_desc)
+            logger.debug(f"WebScanPage: Applied font '{font_desc_str}' to source_view.")
+        else:
+            # Reset to default theme font
+            self.source_view.override_font(Pango.FontDescription()) # Clears any override
+            logger.debug("WebScanPage: Cleared font override on source_view, using theme default.")
+
 
     def __del__(self):
         """Clean up when the WebScanPage is destroyed."""

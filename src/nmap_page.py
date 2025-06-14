@@ -15,7 +15,7 @@ from typing import Optional, List, Dict, Any
 import yaml
 
 import gi
-from gi.repository import Adw, Gio, GLib, GObject, Gtk
+from gi.repository import Adw, Gio, GLib, GObject, Gtk, Pango
 
 import nmap
 
@@ -101,6 +101,20 @@ class NmapPage(Adw.PreferencesPage):
         self.scanner = NmapScanner()
         self.settings = Gio.Settings.new(APP_ID)
 
+        # Font settings
+        self._nmap_font_family_setting = "nmap-output-font-family"
+        self._nmap_font_size_setting = "nmap-output-font-size"
+        self._nmap_raw_font_family_setting = "nmap-raw-output-font-family"
+        self._nmap_raw_font_size_setting = "nmap-raw-output-font-size"
+
+        self._nmap_font_family = self.settings.get_string(self._nmap_font_family_setting)
+        self._nmap_font_size = self.settings.get_int(self._nmap_font_size_setting)
+        self._nmap_raw_font_family = self.settings.get_string(self._nmap_raw_font_family_setting)
+        self._nmap_raw_font_size = self.settings.get_int(self._nmap_raw_font_size_setting)
+
+        self._current_selected_host_key: Optional[str] = None
+        self._current_selected_host_data_dict: Optional[Dict[str, Any]] = None
+
         # Ensure correct style classes are applied
         if self.nmap_apply_button:
             self.nmap_apply_button.get_style_context().add_class("suggested-action")
@@ -155,6 +169,43 @@ class NmapPage(Adw.PreferencesPage):
         self.nmap_host_listbox.connect("row-selected", self._on_target_selected)
         if self.nmap_cancel_scan_button:
             self.nmap_cancel_scan_button.connect("clicked", self._on_cancel_scan_clicked)
+
+        # Connect GSettings changes for font
+        self.settings.connect(f"changed::{self._nmap_font_family_setting}", self._on_font_setting_changed)
+        self.settings.connect(f"changed::{self._nmap_font_size_setting}", self._on_font_setting_changed)
+        self.settings.connect(f"changed::{self._nmap_raw_font_family_setting}", self._on_font_setting_changed)
+        self.settings.connect(f"changed::{self._nmap_raw_font_size_setting}", self._on_font_setting_changed)
+
+
+    def _on_font_setting_changed(self, settings: Gio.Settings, key: str) -> None:
+        """
+        Handle changes to font-related GSettings for Nmap output.
+        Updates internal font attributes and re-renders selected host details if displayed.
+        """
+        logger.debug("NmapPage: Font setting changed for GSettings key: %s", key)
+        refresh_needed = False
+        if key == self._nmap_font_family_setting:
+            self._nmap_font_family = settings.get_string(key)
+            refresh_needed = True # Structured view might change
+        elif key == self._nmap_font_size_setting:
+            self._nmap_font_size = settings.get_int(key)
+            refresh_needed = True # Structured view might change
+        elif key == self._nmap_raw_font_family_setting:
+            self._nmap_raw_font_family = settings.get_string(key)
+            refresh_needed = True # Raw view will change
+        elif key == self._nmap_raw_font_size_setting:
+            self._nmap_raw_font_size = settings.get_int(key)
+            refresh_needed = True # Raw view will change
+
+        if refresh_needed and self._current_selected_host_key and self._current_selected_host_data_dict:
+            logger.info("NmapPage: Re-rendering host details due to font change.")
+            self._clear_dynamic_details()
+            # Re-add details. These functions will now use the updated font attributes.
+            self._add_host_details_expander(self._current_selected_host_data_dict, self._current_selected_host_key)
+            self._add_ports_expander(self._current_selected_host_data_dict, self._current_selected_host_key)
+            self._add_os_expander(self._current_selected_host_data_dict, self._current_selected_host_key)
+            self._add_raw_output_expander(self._current_selected_host_data_dict, self._current_selected_host_key)
+
 
     def _on_cancel_scan_clicked(self, _button: Gtk.Button) -> None:
         """
@@ -406,6 +457,9 @@ class NmapPage(Adw.PreferencesPage):
         :type row: Optional[Gtk.ListBoxRow]
         """
         self._clear_dynamic_details()
+        self._current_selected_host_key = None # Reset stored selection
+        self._current_selected_host_data_dict = None
+
         if row is None:
             self.nmap_detail_placeholder.set_title("No Host Selected")
             self.nmap_detail_placeholder.set_description("Select a host from the list to view details.")
@@ -426,7 +480,12 @@ class NmapPage(Adw.PreferencesPage):
                         selected_target_key,
                         item_obj.value[:100],
                     )
-                    host_data_dict = {}
+                    host_data_dict = {} # Ensure it's a dict for subsequent processing
+
+                # Store current selection for potential refresh
+                self._current_selected_host_key = selected_target_key
+                self._current_selected_host_data_dict = host_data_dict
+
                 logger.debug(
                     "Successfully parsed YAML for %s. Data keys: %s",
                     selected_target_key,
@@ -438,7 +497,10 @@ class NmapPage(Adw.PreferencesPage):
                 error_label.set_wrap(True)
                 error_label.set_halign(Gtk.Align.START)
                 self.nmap_detail_box.append(error_label)
+                self._current_selected_host_key = None # Clear on error
+                self._current_selected_host_data_dict = None
                 return
+
             self._add_host_details_expander(host_data_dict, selected_target_key)
             self._add_ports_expander(host_data_dict, selected_target_key)
             self._add_os_expander(host_data_dict, selected_target_key)
@@ -476,9 +538,15 @@ class NmapPage(Adw.PreferencesPage):
         source_buffer = Gtk.TextBuffer()
         source_view.set_buffer(source_buffer)
 
-        source_view.set_monospace(True)
+        source_view.set_monospace(True) # Good default, but font override will take precedence
         source_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
         source_view.set_editable(False)
+
+        if self._nmap_raw_font_family and self._nmap_raw_font_size > 0:
+            font_desc = Pango.FontDescription(f"{self._nmap_raw_font_family} {self._nmap_raw_font_size}")
+            source_view.override_font(font_desc)
+        else: # Fallback or clear if settings are invalid/default
+            source_view.override_font(Pango.FontDescription()) # Clears override, uses theme default
         source_view.set_hexpand(True) # Assuming this is desired for layout
         source_view.set_vexpand(True) # Assuming this is desired for layout
 
