@@ -307,33 +307,68 @@ class WoesApplication(Adw.Application):
         visible_stack_page = self.win.stack.get_visible_child() # This is AdwViewStackPage
 
         if current_page_name == expected_page_name and visible_stack_page:
-            # Navigate down the hierarchy:
-            # AdwViewStackPage -> AdwStatusPage -> AdwClampScrollable -> GtkBox -> Actual Page Object
-            status_page = visible_stack_page.get_child()
+            status_page = visible_stack_page.get_child() # This is AdwStatusPage
             if not status_page:
                 logging.warning(f"{action_description} action: StatusPage not found for {current_page_name}.")
                 return
 
-            clamp_scrollable = status_page.get_child()
-            if not clamp_scrollable:
-                logging.warning(f"{action_description} action: ClampScrollable not found for {current_page_name}.")
+            # Child of AdwStatusPage. Based on the previous error, this is likely the GtkBox
+            # (e.g., the one with id="HttpPage" in the UI file) that directly contains
+            # the actual page class instance (e.g., an instance of your HttpPage class).
+            page_container_widget = status_page.get_child()
+            if not page_container_widget:
+                logging.warning(f"{action_description} action: Page container widget (child of StatusPage) not found for {current_page_name}.")
                 return
 
-            page_box = clamp_scrollable.get_child()
-            if not page_box:
-                logging.warning(f"{action_description} action: PageBox (GtkBox) not found for {current_page_name}.")
-                return
+            actual_page_object = None
+            # Scenario 1: The page_container_widget is the GtkBox, and its first child is the page instance.
+            if hasattr(page_container_widget, "get_first_child") and callable(getattr(page_container_widget, "get_first_child")):
+                # This assumes the GtkBox (like <object class="GtkBox" id="HttpPage">) is page_container_widget
+                # and its child (<object class="HttpPage">) is the actual page.
+                candidate = page_container_widget.get_first_child()
+                if hasattr(candidate, action_method_name): # Check if this candidate has the method
+                    actual_page_object = candidate
+                elif hasattr(page_container_widget, action_method_name): # Check if page_container_widget itself has the method
+                    # This could happen if AdwClampScrollable was the child of AdwStatusPage,
+                    # and page_container_widget is that AdwClampScrollable, and *its* child is the actual page object.
+                    # However, AdwClampScrollable itself does not have get_first_child.
+                    # This path is less likely given the error, but as a fallback.
+                    # More likely, if the first child didn't have the method, the structure is different or the page isn't the first child.
+                    # A more robust check here would be to verify type, e.g. isinstance(page_container_widget, Gtk.Box)
+                    # For now, we trust get_first_child if available on page_container_widget.
+                    # If that first child isn't our page, then we might be wrong about the structure.
+                    # Let's refine: if page_container_widget.get_first_child() exists and has the method, use it.
+                    # Else, check if page_container_widget itself has the method (e.g. if it IS the actual page object)
+                    actual_page_object = candidate # Keep candidate from above for now.
+                    if not actual_page_object or not hasattr(actual_page_object, action_method_name):
+                         # If the first child doesn't have the method, check if page_container_widget itself is the page
+                        if hasattr(page_container_widget, action_method_name):
+                            actual_page_object = page_container_widget
+                            logging.debug(f"Child of StatusPage (type: {type(page_container_widget)}) appears to be the actual page object itself.")
+                        else:
+                             logging.warning(f"Neither page_container_widget (type: {type(page_container_widget)}) nor its first_child has method '{action_method_name}'.")
+                             return
 
-            actual_page_object = page_box.get_first_child() # Assuming the page instance is the first child of the GtkBox
+
+            # Scenario 2: The page_container_widget IS the actual page instance.
+            # This could happen if AdwStatusPage's child is set directly to the HttpPage/NmapPage instance.
+            elif hasattr(page_container_widget, action_method_name):
+                actual_page_object = page_container_widget
+                logging.debug(f"Child of StatusPage (type: {type(page_container_widget)}) appears to be the actual page object itself (no get_first_child).")
+            else:
+                logging.warning(f"Page container (type: {type(page_container_widget)}) does not have get_first_child and is not the page object. Structure: AdwViewStackPage -> AdwStatusPage -> ?")
+                return
 
             if actual_page_object:
                 if hasattr(actual_page_object, action_method_name):
                     logging.debug(f"Attempting to call {action_method_name} on {type(actual_page_object)} for page {current_page_name}")
                     getattr(actual_page_object, action_method_name)()
                 else:
-                    logging.warning(f"Actual page object for {current_page_name} (type: {type(actual_page_object)}) does not have method '{action_method_name}'.")
+                    # This should ideally not be reached if the above logic is correct
+                    logging.warning(f"Retrieved actual page object for {current_page_name} (type: {type(actual_page_object)}), but it does not have method '{action_method_name}'. This indicates an issue in widget retrieval or page class structure.")
             else:
-                logging.warning(f"Could not retrieve actual page object for {current_page_name}.")
+                logging.warning(f"Could not retrieve actual page object for {current_page_name} after checks.")
+
         elif current_page_name == expected_page_name: # visible_stack_page is None
             logging.warning(f"{action_description} action: AdwViewStackPage for {current_page_name} is None.")
         # No warning if it's not the expected_page_name page, as the action is specific to that page.
