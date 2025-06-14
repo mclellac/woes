@@ -444,8 +444,14 @@ class WebScanPage(Adw.PreferencesPage):
             nikto_command.append('-ssl')
         if evasion_active:
             nikto_command.extend(['-evasion', '1'])
+
+        # Add the new -Plugin option if mutate_switch was active:
         if mutate_active:
-            nikto_command.extend(['-mutate', '1'])
+            # Plugin argument based on the deprecation message in user feedback
+            plugin_argument = "@@DEFAULT;tests(,all)"
+            nikto_command.extend(['-Plugin', plugin_argument]) # Using singular -Plugin as per error message
+            logger.info(f"Using -Plugin {plugin_argument} instead of deprecated -mutate.")
+
         if maxtime_str:
             try:
                 maxtime_val = int(maxtime_str)
@@ -588,6 +594,14 @@ class WebScanPage(Adw.PreferencesPage):
             main_report_content = main_report_content.replace('\\n', '\n')
             logger.debug("Applied newline unescaping to main_report_content.")
 
+            rfi_warning = '- ***** RFIURL is not defined in nikto.conf--no RFI tests will run *****'
+            if main_report_content and rfi_warning in main_report_content:
+                main_report_content = main_report_content.replace(rfi_warning, '').strip()
+                # If removing the warning makes the content empty, set to None or empty string based on preference
+                if not main_report_content.strip():
+                    main_report_content = "" # Or None, depending on how empty strings are handled later
+                logger.info("Filtered RFIURL warning from Nikto's main_report_content.")
+
             if aux_output is not None:
                 if not isinstance(aux_output, str):
                     logger.warning(f"aux_output was type {type(aux_output)}, converting to string. Value (first 100 chars): {str(aux_output)[:100]}")
@@ -599,6 +613,12 @@ class WebScanPage(Adw.PreferencesPage):
                 elif aux_output:
                      aux_output = aux_output.replace('\\n', '\n')
                      logger.debug("Applied newline unescaping to aux_output.")
+
+            if aux_output and rfi_warning in aux_output:
+                aux_output = aux_output.replace(rfi_warning, '').strip()
+                if not aux_output.strip():
+                    aux_output = None # aux_output is often None if empty
+                logger.info("Filtered RFIURL warning from Nikto's aux_output.")
 
 
             if process.returncode not in [0, 1]:
