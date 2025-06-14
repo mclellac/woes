@@ -14,7 +14,7 @@ import time
 from enum import Enum
 
 import gi
-from gi.repository import Gtk, Adw, Gio, GLib, GObject, Gdk, Pango
+from gi.repository import Gtk, Adw, Gio, GLib, GObject, Gdk
 
 from .constants import RESOURCE_PREFIX, APP_ID
 from .utils import show_global_error, show_global_toast, is_valid_url
@@ -72,7 +72,7 @@ class WebScanPage(Adw.PreferencesPage):
         if self.results_scrolled_window:
             self.results_scrolled_window.set_child(self.source_view)
         else:
-            print("ERROR: results_scrolled_window is None in __init__, cannot add Gtk.TextView.")
+            logger.error("results_scrolled_window is None in __init__, cannot add Gtk.TextView.")
 
         self.current_web_scan_task: Optional[Gio.Task] = None
         self.current_web_scan_cancellable: Optional[Gio.Cancellable] = None
@@ -81,16 +81,15 @@ class WebScanPage(Adw.PreferencesPage):
         self.settings = Gio.Settings.new(APP_ID)
         self.style_manager = Adw.StyleManager.get_default()
 
-        # Ensure correct style classes are applied
         if self.scan_button:
             self.scan_button.get_style_context().add_class("suggested-action")
-        if self.webscan_cancel_button: # This button's visibility is toggled; ensure class is present from init
+        if self.webscan_cancel_button:
             self.webscan_cancel_button.get_style_context().add_class("destructive-action")
         if self.clear_results_button:
             self.clear_results_button.get_style_context().add_class("destructive-action")
         if self.copy_results_button:
             self.copy_results_button.get_style_context().add_class("flat")
-        if self.nikto_output_file_button: # Assuming flat is appropriate for this icon button
+        if self.nikto_output_file_button:
             self.nikto_output_file_button.get_style_context().add_class("flat")
 
         if self.clear_results_button:
@@ -98,13 +97,10 @@ class WebScanPage(Adw.PreferencesPage):
         if self.copy_results_button:
             self.copy_results_button.set_sensitive(False)
 
-        logger.debug("WebScanPage initialized")
-
         self.url_entry.connect("entry-activated", self.on_scan_button_clicked)
 
         if self.scan_button:
             self.scan_button.connect("clicked", self.on_scan_button_clicked)
-            logger.debug("Explicitly connected scan_button clicked to on_scan_button_clicked")
         else:
             logger.error("scan_button is None in __init__, cannot connect its clicked signal.")
 
@@ -137,9 +133,7 @@ class WebScanPage(Adw.PreferencesPage):
         the selected format requires an output file.
 
         :param combo_row: The Adw.ComboRow for Nikto format selection.
-        :type combo_row: Adw.ComboRow
         :param _param_spec: The GObject.ParamSpec of the property that changed (unused).
-        :type _param_spec: GObject.ParamSpec
         """
         selected_item = combo_row.get_selected_item()
         if not selected_item:
@@ -165,29 +159,26 @@ class WebScanPage(Adw.PreferencesPage):
         a save location and filename for Nikto's output.
 
         :param _button: The Gtk.Button that was clicked (unused).
-        :type _button: Gtk.Button
         """
-        logger.debug("Nikto output file button clicked.")
         dialog = Gtk.FileChooserNative.new(
             "Save Nikto Output",
-            self.get_native(), # Parent window
+            self.get_native(),
             Gtk.FileChooserAction.SAVE,
             "_Save",
             "_Cancel"
         )
         dialog.set_modal(True)
 
-        # Suggest a filename based on format
         selected_format_item = self.nikto_format_combo_row.get_selected_item()
         if selected_format_item:
             selected_format = selected_format_item.get_string()
             extension = selected_format
-            if selected_format == "html": # Nikto uses .htm for HTML
+            if selected_format == "html":
                 extension = "htm"
             elif selected_format in ["default (text)", "txt (text)"]:
                 extension = "txt"
 
-            if extension not in ["csv", "xml", "htm", "txt"]: # Default to .txt if unknown
+            if extension not in ["csv", "xml", "htm", "txt"]:
                 extension = "txt"
 
             dialog.set_current_name(f"nikto_report.{extension}")
@@ -210,15 +201,12 @@ class WebScanPage(Adw.PreferencesPage):
         Handle click on the 'Cancel Scan' button.
 
         :param _button: The Gtk.Button that was clicked (unused).
-        :type _button: Gtk.Button
         """
         logger.info("Cancel scan button clicked.")
         if self.current_web_scan_cancellable and \
            not self.current_web_scan_cancellable.is_cancelled():
             self.current_web_scan_cancellable.cancel()
             logger.info("Nikto scan cancellation requested via button.")
-            # UI updates (disabling cancel, enabling scan) will happen in _on_scan_task_done
-            # Or potentially set a flag here and update UI immediately if preferred.
             if hasattr(self, 'webscan_cancel_button'):
                 self.webscan_cancel_button.set_sensitive(False)
         else:
@@ -229,7 +217,6 @@ class WebScanPage(Adw.PreferencesPage):
         Handle click of the 'Clear Results' button.
 
         :param _button: The Gtk.Button that was clicked (unused).
-        :type _button: Gtk.Button
         """
         if not hasattr(self, 'source_view') or not self.source_view:
             return
@@ -246,7 +233,6 @@ class WebScanPage(Adw.PreferencesPage):
         Handle click of the 'Copy Results' button.
 
         :param _button: The Gtk.Button that was clicked (unused).
-        :type _button: Gtk.Button
         """
         if not hasattr(self, 'source_view') or not self.source_view:
             return
@@ -278,14 +264,12 @@ class WebScanPage(Adw.PreferencesPage):
         Handle the 'Scan' button click event.
 
         :param _widget: The Gtk.Button that was clicked (unused).
-        :type _widget: Gtk.Button
         """
         if not hasattr(self, 'source_view') or not self.source_view:
             return
         buffer = self.source_view.get_buffer()
         if not buffer:
             return
-        logger.debug(f"WebScanPage scan button clicked. URL: '{self.url_entry.get_text()}'")
         target_url = self.url_entry.get_text().strip()
         if target_url and not (target_url.startswith("http://") or target_url.startswith("https://") or target_url.startswith("ftp://")):
             logger.info(f"No scheme found in URL '{target_url}'. Prepending 'https://'.")
@@ -296,62 +280,57 @@ class WebScanPage(Adw.PreferencesPage):
             main_window = self.get_native()
             if not (main_window and hasattr(main_window, 'show_toast')):
                 show_global_error(self, "Target URL cannot be empty.")
-            self.scan_button.set_sensitive(True) # Re-enable button
+            self.scan_button.set_sensitive(True)
             return
 
-        # The original regex allowed http, https, ftp.
-        # utils.is_valid_url defaults to ['http', 'https'], so we provide the schemes.
         if not is_valid_url(target_url, schemes=['http', 'https', 'ftp']):
             show_global_toast(self, "Invalid URL format. Please enter a valid URL.")
             main_window = self.get_native()
             if not (main_window and hasattr(main_window, 'show_toast')):
                 show_global_error(self, "Invalid URL format. Please enter a valid URL.")
-            self.scan_button.set_sensitive(True) # Re-enable button
+            self.scan_button.set_sensitive(True)
             return
 
         buffer = self.source_view.get_buffer()
         buffer.set_text(f"Scanning {target_url}...\n\n")
-        self._update_results_actions_sensitivity() # Call here
+        self._update_results_actions_sensitivity()
 
-        self.scan_button.set_sensitive(False) # type: ignore
+        self.scan_button.set_sensitive(False)
 
         if self.webscan_status_action_row:
-            self.webscan_status_action_row.set_subtitle("Scanning...") # type: ignore
+            self.webscan_status_action_row.set_subtitle("Scanning...")
         if self.webscan_status_spinner:
-            self.webscan_status_spinner.set_visible(True) # type: ignore
-            self.webscan_status_spinner.start() # type: ignore
+            self.webscan_status_spinner.set_visible(True)
+            self.webscan_status_spinner.start()
         if self.webscan_cancel_button:
-            self.webscan_cancel_button.set_visible(True) # type: ignore
-            self.webscan_cancel_button.set_sensitive(True) # type: ignore
+            self.webscan_cancel_button.set_visible(True)
+            self.webscan_cancel_button.set_sensitive(True)
 
 
         if self.current_web_scan_task and not self.current_web_scan_task.is_done():
             if self.current_web_scan_cancellable and not self.current_web_scan_cancellable.is_cancelled():
                 logger.info("Cancelling previous web scan task before starting new one.")
                 self.current_web_scan_cancellable.cancel()
-                # The old task will clean itself up in its _on_scan_task_done.
-                # We proceed to create and run a new task.
 
         self.current_web_scan_cancellable = Gio.Cancellable()
-        task = Gio.Task.new(self, self.current_web_scan_cancellable, self._on_scan_task_done, None) # type: ignore
+        task = Gio.Task.new(self, self.current_web_scan_cancellable, self._on_scan_task_done, None)
         self.current_web_scan_task = task
 
         task_data_for_thread: Dict[str, Any] = {
             "target_url": target_url,
-            "force_ssl": self.force_ssl_switch.get_active(), # type: ignore
-            "cgi_vulns": self.cgi_vulns_switch.get_active(), # type: ignore
-            "interesting_content": self.interesting_content_switch.get_active(), # type: ignore
-            "evasion": self.evasion_switch.get_active(), # type: ignore
-            "mutate": self.mutate_switch.get_active(), # type: ignore
-            "maxtime": self.maxtime_entry_row.get_text().strip(), # type: ignore
-            # New options for task_data_for_thread
-            "nikto_format": self.nikto_format_combo_row.get_selected_item().get_string() if self.nikto_format_combo_row.get_selected_item() else "default (text)", # type: ignore
-            "no404": self.no404_switch.get_active(), # type: ignore
-            "auth_bypass": self.auth_bypass_switch.get_active() # type: ignore
+            "force_ssl": self.force_ssl_switch.get_active(),
+            "cgi_vulns": self.cgi_vulns_switch.get_active(),
+            "interesting_content": self.interesting_content_switch.get_active(),
+            "evasion": self.evasion_switch.get_active(),
+            "mutate": self.mutate_switch.get_active(),
+            "maxtime": self.maxtime_entry_row.get_text().strip(),
+            "nikto_format": self.nikto_format_combo_row.get_selected_item().get_string() if self.nikto_format_combo_row.get_selected_item() else "default (text)",
+            "no404": self.no404_switch.get_active(),
+            "auth_bypass": self.auth_bypass_switch.get_active()
         }
         task_data_for_thread["nikto_output_filename"] = self.nikto_output_file_row.get_text().strip() if self.nikto_output_file_row else ""
         self._current_webscan_params = task_data_for_thread
-        task.run_in_thread(self._run_scan_task_thread_func) # type: ignore
+        task.run_in_thread(self._run_scan_task_thread_func)
 
     def _run_scan_task_thread_func(self,
                                    task: Gio.Task,
@@ -362,22 +341,16 @@ class WebScanPage(Adw.PreferencesPage):
         Execute the Nikto scan in a separate thread, with cancellation support.
 
         :param task: The Gio.Task associated with this operation.
-        :type task: Gio.Task
         :param _source_object: The GObject source of the task.
-        :type _source_object: GObject.Object
         :param _task_data_unused: Additional data passed to the task (unused).
-        :type _task_data_unused: Any
         :param cancellable: A Gio.Cancellable object to monitor for cancellation.
-        :type cancellable: Gio.Cancellable
         """
-        logger.debug("WebScanPage._run_scan_task_thread_func started")
-
         page_instance: WebScanPage = _source_object # type: ignore
         scan_params = page_instance._current_webscan_params
 
         if not scan_params:
             logger.error("WebScanPage: _run_scan_task_thread_func: _current_webscan_params is None.")
-            task.return_new_error_literal(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.GENERIC.value, "Missing scan parameters in thread.") # type: ignore
+            task.return_new_error_literal(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.GENERIC.value, "Missing scan parameters in thread.")
             return
 
         target_url = scan_params["target_url"]
@@ -387,42 +360,25 @@ class WebScanPage(Adw.PreferencesPage):
         evasion_active = scan_params.get("evasion", False)
         mutate_active = scan_params.get("mutate", False)
         maxtime_str = scan_params.get("maxtime", "")
-        # New params from scan_params
         nikto_format_str = scan_params.get("nikto_format", "default (text)")
         no404_active = scan_params.get("no404", False)
         auth_bypass_active = scan_params.get("auth_bypass", False)
-
-        # target_url from scan_params now usually has https:// if user typed no scheme.
-        # force_ssl is also from scan_params.
 
         if force_ssl:
             if target_url.startswith("http://"):
                 target_url = target_url.replace("http://", "https://", 1)
                 logger.info(f"Force SSL is ON. Changed URL to: {target_url}")
             elif not target_url.startswith("https://"):
-                # This case implies a schemeless URL somehow got here, or ftp, etc.
-                # Or user typed example.com and https was NOT prepended earlier (contrary to plan)
-                # For robustness, ensure it becomes https if force_ssl is on.
-                if "://" in target_url and not target_url.startswith("ftp://"): # e.g. unknownscheme://
+                if "://" in target_url and not target_url.startswith("ftp://"):
                     target_url = "https://" + target_url.split("://", 1)[-1]
-                elif "://" not in target_url: # schemeless like 'example.com'
+                elif "://" not in target_url:
                     target_url = "https://" + target_url
                 logger.info(f"Force SSL is ON and original scheme was not http/https. Ensured URL is: {target_url}")
 
-        # If force_ssl is OFF:
-        # - If user typed 'http://example.com', it remains 'http://'.
-        # - If user typed 'https://example.com', it remains 'https://'.
-        # - If user typed 'example.com', it became 'https://example.com' in on_scan_button_clicked.
-        # So, no specific changes needed here if force_ssl is OFF,
-        # the URL is already in its desired form based on earlier processing.
-
-        # Handle FTP URLs separately, as Nikto doesn't directly scan ftp:// for -h target
         if target_url.startswith("ftp://"):
             logger.warning("FTP URL provided for Nikto's -h option. Nikto primarily scans HTTP/S. Attempting to use the host part with http://. This may not yield meaningful web scan results.")
             target_url = target_url.replace("ftp://", "http://", 1)
 
-        # Final check: if after all this, it's still schemeless (shouldn't happen with prior step), default to http
-        # This is a fallback, the previous step in on_scan_button_clicked should prevent this.
         if "://" not in target_url:
             logger.warning(f"URL '{target_url}' still schemeless in scan thread. Defaulting to http://.")
             target_url = "http://" + target_url
@@ -430,10 +386,6 @@ class WebScanPage(Adw.PreferencesPage):
         nikto_command = ['nikto', '-h', target_url]
 
         output_filename = scan_params.get("nikto_output_filename", "").strip()
-        # nikto_format_str is already retrieved a few lines above this snippet in the original code
-        # It's one of "default (text)", "txt (text)", "csv", "xml", "html"
-
-        # These formats require an output file (display strings from combo box)
         formats_requiring_file = ["csv", "xml", "html"]
         is_file_required = nikto_format_str in formats_requiring_file
 
@@ -442,7 +394,7 @@ class WebScanPage(Adw.PreferencesPage):
                 logger.error("A Nikto output format requiring a filename was selected, but no filename was provided.")
                 task.return_new_error_literal(
                     GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN),
-                    WebScanErrorType.GENERIC.value, # Or a more specific error type like FILENAME_REQUIRED
+                    WebScanErrorType.GENERIC.value,
                     "Output format requires a filename, but none was provided."
                 )
                 return
@@ -453,11 +405,9 @@ class WebScanPage(Adw.PreferencesPage):
         if evasion_active:
             nikto_command.extend(['-evasion', '1'])
 
-        # Add the new -Plugin option if mutate_switch was active:
         if mutate_active:
-            # Plugin argument based on the deprecation message in user feedback
             plugin_argument = "@@DEFAULT;tests(,all)"
-            nikto_command.extend(['-Plugin', plugin_argument]) # Using singular -Plugin as per error message
+            nikto_command.extend(['-Plugin', plugin_argument])
             logger.info(f"Using -Plugin {plugin_argument} instead of deprecated -mutate.")
 
         if maxtime_str:
@@ -472,32 +422,24 @@ class WebScanPage(Adw.PreferencesPage):
 
         tuning_options = []
         if cgi_vulns:
-            tuning_options.append('2') # Corresponds to Nikto's "Misconfiguration / Default File"
+            tuning_options.append('2')
         if interesting_content:
-            tuning_options.append('1') # Corresponds to Nikto's "Interesting File / Seen in logs"
-        # Add new tuning options
+            tuning_options.append('1')
         if auth_bypass_active:
-            tuning_options.append('9') # '9' for Authentication Bypass
+            tuning_options.append('9')
 
-        # Nikto's -Tuning option takes a string of numbers (e.g., "12") to specify checks.
-        # If no tuning switches are active, the -Tuning option is omitted.
         if tuning_options:
-            # Using set avoids duplicates and sorted() ensures a consistent order.
             tuning_string = "".join(sorted(list(set(tuning_options))))
             if tuning_string:
                 nikto_command.extend(['-Tuning', tuning_string])
 
-        # Add format option
         if nikto_format_str and nikto_format_str not in ["default (text)", "txt (text)"]:
             format_cli_value = nikto_format_str
             if nikto_format_str == "html":
-                format_cli_value = "htm" # Nikto uses 'htm' for HTML
-            # 'csv', 'xml' are fine as is. 'txt' is default, so no need to add.
-            # Other formats like 'nbe' could be added here if UI supports them.
-            if format_cli_value not in ["txt"]: # Nikto's default is text, -Format txt is redundant
+                format_cli_value = "htm"
+            if format_cli_value not in ["txt"]:
                  nikto_command.extend(['-Format', format_cli_value])
 
-        # Add no404 option
         if no404_active:
             nikto_command.append('-no404')
 
@@ -505,40 +447,38 @@ class WebScanPage(Adw.PreferencesPage):
 
         try:
             if cancellable.is_cancelled():
-                task.return_new_error_literal(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.CANCELLED.value, "Scan cancelled before Nikto process start.") # type: ignore
+                task.return_new_error_literal(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.CANCELLED.value, "Scan cancelled before Nikto process start.")
                 return
 
             process = subprocess.Popen(nikto_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8")
-            self.current_nikto_process = process # Store for potential external cancellation (e.g. __del__) - though __del__ might not run in main thread
+            self.current_nikto_process = process
 
             stdout_str, stderr_str = "", ""
-            # Polling loop for cancellation
             while True:
                 if cancellable.is_cancelled():
                     logger.info("Nikto scan cancellation polling: Scan cancelled.")
-                    if process.poll() is None: # Check if process is still running
+                    if process.poll() is None:
                         try:
                             logger.info("Terminating Nikto process.")
                             process.terminate()
-                            process.wait(timeout=2) # Short wait for graceful termination
+                            process.wait(timeout=2)
                         except subprocess.TimeoutExpired:
                             logger.warning("Nikto process did not terminate gracefully, killing.")
                             process.kill()
-                        except Exception as e_term: # pylint: disable=broad-except # Process termination can have diverse errors
+                        except Exception as e_term:
                             logger.error(f"Error terminating Nikto process: {e_term}")
-                    task.return_new_error_literal(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.CANCELLED.value, "Scan cancelled by user.") # type: ignore
+                    task.return_new_error_literal(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.CANCELLED.value, "Scan cancelled by user.")
                     self.current_nikto_process = None
                     return
 
                 if process.poll() is not None:
                     break
 
-                time.sleep(0.2) # Polling interval
+                time.sleep(0.2)
 
             stdout_str, stderr_str = process.communicate()
-            self.current_nikto_process = None # Clear process reference
+            self.current_nikto_process = None
 
-            # Store raw output to check for RFI warning BEFORE other processing
             raw_original_stderr = stderr_str if isinstance(stderr_str, str) else ""
             raw_original_stdout = stdout_str if isinstance(stdout_str, str) else ""
             rfi_warning_detected_in_raw = False
@@ -552,8 +492,6 @@ class WebScanPage(Adw.PreferencesPage):
             aux_output: Optional[str] = None
             report_extracted_from_tuple = False
 
-            # 1. Process stderr_str First for Tuple
-            # Using "None))" as per prompt, adjust if ",'')"" is more accurate from logs
             tuple_end_marker = "', None))"
             tuple_end_marker_alt = "', '')"
 
@@ -612,8 +550,6 @@ class WebScanPage(Adw.PreferencesPage):
             main_report_content = main_report_content.replace('\\n', '\n')
             logger.debug("Applied newline unescaping to main_report_content.")
 
-            # Previous RFIURL filtering/replacement logic is now removed.
-            # The new logic handles it before this point by returning early if the signature is found.
 
             if aux_output is not None:
                 if not isinstance(aux_output, str):
@@ -627,10 +563,10 @@ class WebScanPage(Adw.PreferencesPage):
                      aux_output = aux_output.replace('\\n', '\n')
                      logger.debug("Applied newline unescaping to aux_output.")
 
-            if aux_output and rfi_warning in aux_output:
-                aux_output = aux_output.replace(rfi_warning, '').strip()
+            if aux_output and rfi_warning_signature in aux_output:
+                aux_output = aux_output.replace(rfi_warning_signature, '').strip()
                 if not aux_output.strip():
-                    aux_output = None # aux_output is often None if empty
+                    aux_output = None
                 logger.info("Filtered RFIURL warning from Nikto's aux_output.")
 
 
@@ -647,8 +583,6 @@ class WebScanPage(Adw.PreferencesPage):
             logger.debug(f"PRE-RETURN: main_report_content TYPE: {type(main_report_content)}, VALUE: {str(main_report_content)[:200]}")
             logger.debug(f"PRE-RETURN: aux_output TYPE: {type(aux_output)}, VALUE: {str(aux_output)[:200]}")
 
-            # RFIURL warning is handled earlier by returning ("RFI_CONFIG_ERROR", message)
-            # So, no need for specific RFI filtering/replacement here anymore.
 
             if rfi_warning_detected_in_raw:
                 instructional_message = (
@@ -666,16 +600,15 @@ class WebScanPage(Adw.PreferencesPage):
                     "4. Save nikto.conf and rerun the scan if RFI tests are desired."
                 )
 
-                # Ensure original raw warning is not duplicated if it was part of the main content already
                 if isinstance(main_report_content, str):
                     main_report_content = main_report_content.replace(rfi_warning_signature, "")
                 if isinstance(aux_output, str):
                     aux_output = aux_output.replace(rfi_warning_signature, "")
 
-                if aux_output and aux_output.strip(): # If aux_output has existing content
+                if aux_output and aux_output.strip():
                     aux_output = aux_output.strip() + instructional_message
-                else: # If aux_output is None, empty, or whitespace only
-                    aux_output = instructional_message.strip() # Make the message the aux_output
+                else:
+                    aux_output = instructional_message.strip()
                 logger.info("Appended RFIURL instructional message to aux_output.")
 
             task.return_value((
@@ -684,55 +617,42 @@ class WebScanPage(Adw.PreferencesPage):
             ))
         except FileNotFoundError:
             logger.error("Nikto command not found. Ensure it's in PATH.")
-            task.return_new_error_literal(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.NIKTO_NOT_FOUND.value, "Nikto command not found. Please ensure it is installed and in your system's PATH.") # type: ignore
-        # TimeoutExpired for process.communicate() is removed as we poll.
-        # A global timeout for the entire scan could be implemented by checking time in the polling loop.
-        except Exception as e: # pylint: disable=broad-except # Catch all for thread to report error via Gio.Task
+            task.return_new_error_literal(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.NIKTO_NOT_FOUND.value, "Nikto command not found. Please ensure it is installed and in your system's PATH.")
+        except Exception as e:
             logger.exception(f"An unexpected error occurred during Nikto scan task: {e}")
-            task.return_new_error_literal(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.GENERIC.value, str(e)) # type: ignore
+            task.return_new_error_literal(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.GENERIC.value, str(e))
         finally:
-            self.current_nikto_process = None # Ensure cleared
+            self.current_nikto_process = None
 
-    def _on_scan_task_done(self, _source_object: GObject.Object, result: Gio.AsyncResult, _user_data: object): # type: ignore
+    def _on_scan_task_done(self, _source_object: GObject.Object, result: Gio.AsyncResult, _user_data: object):
         """
         Handle completion of the Nikto scan task.
 
         :param _source_object: The GObject source of the task.
-        :type _source_object: GObject.Object
         :param result: The Gio.AsyncResult from the completed task.
-        :type result: Gio.AsyncResult
         :param _user_data: User data passed with the callback (unused).
-        :type _user_data: object
         """
         target_url = "Unknown URL"
-        # Retrieve target_url from instance variable
         if self._current_webscan_params:
             target_url = self._current_webscan_params.get("target_url", target_url)
 
-            # It's good practice to clear the stored params now if they are no longer needed.
-            # TODO: Uncomment the line below if _current_webscan_params is not needed after this point.
             # self._current_webscan_params = None
 
         logger.info(f"Nikto scan task done for {target_url}.")
 
         try:
-            # propagate_value() will return the (stdout, stderr) tuple on success
-            # or raise GLib.Error if task.return_new_error_literal was called.
-            # The 'result' parameter itself is the Gio.Task object here.
-            returned_data = result.propagate_value() # type: ignore
+            returned_data = result.propagate_value()
 
-            # Removed RFI_CONFIG_ERROR handling block as it's no longer a special return case.
 
             if isinstance(returned_data, tuple) and len(returned_data) == 2:
                 s_out, s_err = returned_data
-            elif hasattr(returned_data, 'value') and isinstance(returned_data.value, tuple) and len(returned_data.value) == 2: # Handle potential Gio.DBusCallFlags like wrapper
+            elif hasattr(returned_data, 'value') and isinstance(returned_data.value, tuple) and len(returned_data.value) == 2:
                 s_out, s_err = returned_data.value
             else:
-                s_out, s_err = None, None # Ensure they are defined for the error case below
+                s_out, s_err = None, None
                 logger.error(f"Nikto scan for {target_url} returned unexpected result format: {type(returned_data)}")
-                show_global_error(self, "Scan returned unexpected data format.") # type: ignore
+                show_global_error(self, "Scan returned unexpected data format.")
                 self._update_textview(None, "Error: Scan returned unexpected data format.", is_error_message=True)
-                # Fall through to finally block for UI reset, status will be updated there
 
             final_stdout: Optional[str]
             if s_out is None:
@@ -763,37 +683,33 @@ class WebScanPage(Adw.PreferencesPage):
             self._update_textview(final_stdout, final_stderr, is_error_message=False)
 
             if self.webscan_status_action_row:
-                    if final_stdout or final_stderr: # Check if there's actual content
-                        self.webscan_status_action_row.set_subtitle("Scan complete. See results below.") # type: ignore
-                    else: # Both are None or empty strings
-                        self.webscan_status_action_row.set_subtitle("Scan complete. No output received.") # type: ignore
+                    if final_stdout or final_stderr:
+                        self.webscan_status_action_row.set_subtitle("Scan complete. See results below.")
+                    else:
+                        self.webscan_status_action_row.set_subtitle("Scan complete. No output received.")
             elif s_out is None and s_err is None and not (isinstance(returned_data, tuple) and len(returned_data) == 2):
-                # This case handles if returned_data was not the expected tuple, leading to s_out/s_err being None.
-                # The error about "Scan returned unexpected data format" would have already been shown.
-                # Here, we just ensure the status row reflects an issue if it's still "Scanning...".
-                # The more specific error for textview is already handled by the logger.error and show_global_error above.
-                if self.webscan_status_action_row and self.webscan_status_action_row.get_subtitle() == "Scanning...": # type: ignore
-                     self.webscan_status_action_row.set_subtitle("Error: Unexpected scan result format.") # type: ignore
-            else: # s_out and s_err were None from the start, and it was a valid tuple return
+                if self.webscan_status_action_row and self.webscan_status_action_row.get_subtitle() == "Scanning...":
+                     self.webscan_status_action_row.set_subtitle("Error: Unexpected scan result format.")
+            else:
                 if self.webscan_status_action_row:
-                    self.webscan_status_action_row.set_subtitle("Scan complete. No output received.") # type: ignore
+                    self.webscan_status_action_row.set_subtitle("Scan complete. No output received.")
 
         except GLib.Error as e:
             logger.warning(f"Nikto scan task for {target_url} failed or was cancelled: {e.message} (Domain: {e.domain}, Code: {e.code})")
 
-            brief_user_message = e.message # Default for status row and banner
-            detailed_output_for_textview = f"Error: {e.message}" # Default for text view
+            brief_user_message = e.message
+            detailed_output_for_textview = f"Error: {e.message}"
 
-            if e.matches(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.NIKTO_NOT_FOUND.value): # type: ignore
+            if e.matches(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.NIKTO_NOT_FOUND.value):
                 brief_user_message = "Nikto command not found. Ensure Nikto is installed and in PATH."
                 detailed_output_for_textview = f"Error: {brief_user_message}"
-            elif e.matches(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.TIMEOUT.value): # type: ignore
+            elif e.matches(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.TIMEOUT.value):
                 brief_user_message = f"Scan for {target_url} timed out."
                 detailed_output_for_textview = f"Error: {brief_user_message}"
-            elif e.matches(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.CANCELLED.value): # type: ignore
+            elif e.matches(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.CANCELLED.value):
                 brief_user_message = f"Scan for {target_url} was cancelled."
                 detailed_output_for_textview = f"Error: {brief_user_message}"
-            elif e.matches(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.GENERIC.value): # type: ignore
+            elif e.matches(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.GENERIC.value):
                 if "Missing scan parameters" in e.message:
                     brief_user_message = "Internal error: Missing scan parameters."
                     detailed_output_for_textview = f"Error: {brief_user_message}"
@@ -801,17 +717,15 @@ class WebScanPage(Adw.PreferencesPage):
                     match = re.search(r"\(code (\d+)\)", e.message)
                     code_str = f" (code {match.group(1)})" if match else ""
                     brief_user_message = f"Nikto execution error{code_str}. See results for details."
-                    # e.message already contains "Nikto execution error..." and the output
                     detailed_output_for_textview = f"Error: {e.message}"
-                else: # Other generic errors not fitting the above patterns
-                    brief_user_message = f"Scan failed: {e.message.splitlines()[0]}" # Show only first line in banner/toast
-                    detailed_output_for_textview = f"Error: {e.message}" # Full message for text view
+                else:
+                    brief_user_message = f"Scan failed: {e.message.splitlines()[0]}"
+                    detailed_output_for_textview = f"Error: {e.message}"
 
             if self.webscan_status_action_row:
-                self.webscan_status_action_row.set_subtitle(brief_user_message) # type: ignore
-            show_global_error(self, brief_user_message) # type: ignore
+                self.webscan_status_action_row.set_subtitle(brief_user_message)
+            show_global_error(self, brief_user_message)
 
-            # Apply newline fix to detailed_output_for_textview as well
             if detailed_output_for_textview and isinstance(detailed_output_for_textview, str) and '\\n' in detailed_output_for_textview:
                 detailed_output_for_textview = detailed_output_for_textview.replace('\\n', '\n')
                 logger.debug("Applied .replace('\\\\n', '\\n') to GLib.Error message for textview.")
@@ -826,27 +740,26 @@ class WebScanPage(Adw.PreferencesPage):
                  logger.debug("Applied .replace('\\\\n', '\\n') to generic Exception message for textview.")
 
             if self.webscan_status_action_row:
-                self.webscan_status_action_row.set_subtitle(user_message) # type: ignore
-            show_global_error(self, user_message + " Check logs for details.") # type: ignore
+                self.webscan_status_action_row.set_subtitle(user_message)
+            show_global_error(self, user_message + " Check logs for details.")
             self._update_textview(None, detailed_error_msg_for_textview, is_error_message=True)
         finally:
-            self.scan_button.set_sensitive(True) # type: ignore
+            self.scan_button.set_sensitive(True)
             if self.webscan_cancel_button:
-                self.webscan_cancel_button.set_sensitive(False) # type: ignore
-                self.webscan_cancel_button.set_visible(False) # type: ignore
+                self.webscan_cancel_button.set_sensitive(False)
+                self.webscan_cancel_button.set_visible(False)
             if self.webscan_status_spinner:
-                self.webscan_status_spinner.stop() # type: ignore
-                self.webscan_status_spinner.set_visible(False) # type: ignore
+                self.webscan_status_spinner.stop()
+                self.webscan_status_spinner.set_visible(False)
 
-            # Set status to Idle or Finished if it was still "Scanning..."
             if self.webscan_status_action_row :
-                current_subtitle = self.webscan_status_action_row.get_subtitle() # type: ignore
+                current_subtitle = self.webscan_status_action_row.get_subtitle()
                 if current_subtitle == "Scanning...":
-                     self.webscan_status_action_row.set_subtitle("Scan finished.") # type: ignore
+                     self.webscan_status_action_row.set_subtitle("Scan finished.")
 
             self.current_web_scan_task = None
             self.current_web_scan_cancellable = None
-            self.current_nikto_process = None # Ensure cleared
+            self.current_nikto_process = None
             self._update_results_actions_sensitivity()
 
     def _update_textview(self, stdout_content: Optional[str], stderr_content: Optional[str], is_error_message: bool = False):
@@ -854,12 +767,9 @@ class WebScanPage(Adw.PreferencesPage):
         Update the results TextView with Nikto's stdout and error messages/stderr.
 
         :param stdout_content: The standard output content from Nikto.
-        :type stdout_content: Optional[str]
         :param stderr_content: The standard error content from Nikto or a pre-formatted error message.
-        :type stderr_content: Optional[str]
         :param is_error_message: If True, stderr_content is treated as a pre-formatted error for display.
                                  Otherwise, it's treated as raw stderr output from Nikto.
-        :type is_error_message: bool
         """
         if not hasattr(self, 'source_view') or not self.source_view:
             return
@@ -906,19 +816,13 @@ class WebScanPage(Adw.PreferencesPage):
         """Programmatically trigger the WebScan 'Scan' action."""
         logger.debug("Webscan scan triggered by shortcut.")
         if self.scan_button and self.scan_button.get_sensitive():
-            self.scan_button.clicked() # type: ignore
+            self.scan_button.clicked()
         elif self.current_web_scan_task and not self.current_web_scan_task.is_done():
-            show_global_toast(self, "A scan is already in progress. Cancel it or wait.") # type: ignore
+            show_global_toast(self, "A scan is already in progress. Cancel it or wait.")
         else:
             logger.warning("Webscan scan button not available or not sensitive, cannot trigger scan.")
 
-# --- Gio.Task Error Handling ---
 WEB_SCAN_ERROR_DOMAIN = "web-scan-error-domain"
 
 class WebScanErrorType(int, Enum):
     """Enumeration of Web Scan error types for Gio.Task error reporting."""
-
-    NIKTO_NOT_FOUND = 0
-    TIMEOUT = 1
-    CANCELLED = 2
-    GENERIC = 3
