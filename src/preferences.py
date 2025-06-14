@@ -69,17 +69,8 @@ class Preferences(Adw.PreferencesWindow):
     add_custom_ua_button = Gtk.Template.Child("add_custom_ua_button")
     custom_ua_list_container = Gtk.Template.Child("custom_ua_list_container")
 
-    # Font Preference UI Elements
-    http_output_font_button = Gtk.Template.Child("http_output_font_button")
-    http_output_font_size_spinrow = Gtk.Template.Child("http_output_font_size_spinrow")
-    dns_output_font_button = Gtk.Template.Child("dns_output_font_button")
-    dns_output_font_size_spinrow = Gtk.Template.Child("dns_output_font_size_spinrow")
-    nmap_output_font_button = Gtk.Template.Child("nmap_output_font_button")
-    nmap_output_font_size_spinrow = Gtk.Template.Child("nmap_output_font_size_spinrow")
-    nmap_raw_output_font_button = Gtk.Template.Child("nmap_raw_output_font_button")
-    nmap_raw_output_font_size_spinrow = Gtk.Template.Child("nmap_raw_output_font_size_spinrow")
-    webscan_output_font_button = Gtk.Template.Child("webscan_output_font_button")
-    webscan_output_font_size_spinrow = Gtk.Template.Child("webscan_output_font_size_spinrow")
+    # Global Font Preference UI Element
+    global_output_font_button = Gtk.Template.Child("global_output_font_button")
 
 
     def __init__(self, main_window: Optional[Gtk.Window] = None):
@@ -164,32 +155,23 @@ class Preferences(Adw.PreferencesWindow):
 
         self.settings.connect("changed::custom-user-agents", lambda _s, _k: self._render_custom_ua_list())
 
-        # Font Preference Signals
-        if self.http_output_font_button:
-            self.http_output_font_button.connect("font-set", self.on_font_setting_changed, "http-output-font-family")
-        if self.http_output_font_size_spinrow:
-            self.http_output_font_size_spinrow.connect("notify::value", self.on_font_size_setting_changed, "http-output-font-size")
+        # Global Font Preference Signal
+        if self.global_output_font_button:
+            self.global_output_font_button.connect("font-set", self.on_global_font_setting_changed)
 
-        if self.dns_output_font_button:
-            self.dns_output_font_button.connect("font-set", self.on_font_setting_changed, "dns-output-font-family")
-        if self.dns_output_font_size_spinrow:
-            self.dns_output_font_size_spinrow.connect("notify::value", self.on_font_size_setting_changed, "dns-output-font-size")
 
-        if self.nmap_output_font_button:
-            self.nmap_output_font_button.connect("font-set", self.on_font_setting_changed, "nmap-output-font-family")
-        if self.nmap_output_font_size_spinrow:
-            self.nmap_output_font_size_spinrow.connect("notify::value", self.on_font_size_setting_changed, "nmap-output-font-size")
-
-        if self.nmap_raw_output_font_button:
-            self.nmap_raw_output_font_button.connect("font-set", self.on_font_setting_changed, "nmap-raw-output-font-family")
-        if self.nmap_raw_output_font_size_spinrow:
-            self.nmap_raw_output_font_size_spinrow.connect("notify::value", self.on_font_size_setting_changed, "nmap-raw-output-font-size")
-
-        if self.webscan_output_font_button:
-            self.webscan_output_font_button.connect("font-set", self.on_font_setting_changed, "webscan-output-font-family")
-        if self.webscan_output_font_size_spinrow:
-            self.webscan_output_font_size_spinrow.connect("notify::value", self.on_font_size_setting_changed, "webscan-output-font-size")
-
+    def on_global_font_setting_changed(self, font_button: Gtk.FontButton):
+        font_desc_str = font_button.get_font() # Gets "Family [Style] Size"
+        if font_desc_str:
+            self.settings.set_string("output-font", font_desc_str)
+            logging.debug(f"Global output font set to: {font_desc_str}")
+        else:
+            # This case should ideally not happen if a font is always selected.
+            # Fallback to a default if it does, or log an error.
+            default_font = "Sans 10"
+            self.settings.set_string("output-font", default_font)
+            font_button.set_font(default_font)
+            logging.warning("No font description from FontButton, reset to default.")
 
     def on_error_banner_dismiss_clicked(self, _banner: Adw.Banner, *_args):
         """
@@ -379,133 +361,6 @@ class Preferences(Adw.PreferencesWindow):
             except GLib.Error as e:
                 logging.warning(f"Failed to parse color string '{color_string}' for GSettings key '{gsettings_key}': {e}.")
 
-    def on_font_setting_changed(self, font_button: Gtk.FontButton, gsettings_key_family: str):
-        """
-        Handle changes in a Gtk.FontButton selection.
-
-        Parses the font family name from the selected font string (e.g., "Sans 12")
-        and saves it to the specified GSettings key.
-
-        :param font_button: The Gtk.FontButton whose selection changed.
-        :type font_button: Gtk.FontButton
-        :param gsettings_key_family: The GSettings key for the font family.
-        :type gsettings_key_family: str
-        """
-        font_desc_str = font_button.get_font() # Gets "Family List Style Options Size"
-        if not font_desc_str:
-            logging.warning(f"No font description string obtained from {font_button} for {gsettings_key_family}.")
-            return
-
-        # Attempt to parse the family name.
-        # Pango font description: "Family [Style Options] Size"
-        # The family is everything before the last space-separated number (size).
-        # If only family is present (e.g. "Sans"), it's used as is.
-        parts = font_desc_str.split(' ')
-        font_family_name = font_desc_str # Default to full string if parsing fails
-
-        if len(parts) > 1:
-            # Check if the last part is a number (size)
-            if parts[-1].isdigit():
-                font_family_name = ' '.join(parts[:-1])
-            else:
-                # If last part is not a number, it's part of the family name (e.g., "DejaVu Sans Mono")
-                font_family_name = ' '.join(parts)
-        elif len(parts) == 1: # Only family name, no size (e.g. "Monospace")
-             font_family_name = parts[0]
-
-
-        self.settings.set_string(gsettings_key_family, font_family_name)
-        logging.debug(f"Font family for {gsettings_key_family} set to '{font_family_name}'.")
-        # Update the other widget (size spinrow) to reflect the new font family's default size,
-        # or better, reload the combined font string for the button.
-        self._load_font_preference(font_button, gsettings_key_family, self._get_size_spinrow_for_font_button(font_button))
-
-
-    def on_font_size_setting_changed(self, spin_row: Adw.SpinRow, _gparam: GObject.ParamSpec, gsettings_key_size: str):
-        """
-        Handle changes in an Adw.SpinRow for font size.
-
-        Saves the selected font size to the specified GSettings key.
-
-        :param spin_row: The Adw.SpinRow whose value changed.
-        :type spin_row: Adw.SpinRow
-        :param _gparam: The GLib.ParamSpec of the property that changed (unused).
-        :type _gparam: GObject.ParamSpec
-        :param gsettings_key_size: The GSettings key for the font size.
-        :type gsettings_key_size: str
-        """
-        font_size = int(spin_row.get_value())
-        self.settings.set_int(gsettings_key_size, font_size)
-        logging.debug(f"Font size for {gsettings_key_size} set to {font_size}pt.")
-        # Update the corresponding font button to reflect the new size
-        self._load_font_preference(self._get_font_button_for_size_spinrow(spin_row), self._get_family_key_for_size_spinrow(spin_row), spin_row)
-
-
-    def _get_size_spinrow_for_font_button(self, font_button: Gtk.FontButton) -> Optional[Adw.SpinRow]:
-        """Helper to find the corresponding size spinrow for a given font button."""
-        if font_button == self.http_output_font_button: return self.http_output_font_size_spinrow
-        if font_button == self.dns_output_font_button: return self.dns_output_font_size_spinrow
-        if font_button == self.nmap_output_font_button: return self.nmap_output_font_size_spinrow
-        if font_button == self.nmap_raw_output_font_button: return self.nmap_raw_output_font_size_spinrow
-        if font_button == self.webscan_output_font_button: return self.webscan_output_font_size_spinrow
-        return None
-
-    def _get_font_button_for_size_spinrow(self, spin_row: Adw.SpinRow) -> Optional[Gtk.FontButton]:
-        """Helper to find the corresponding font button for a given size spinrow."""
-        if spin_row == self.http_output_font_size_spinrow: return self.http_output_font_button
-        if spin_row == self.dns_output_font_size_spinrow: return self.dns_output_font_button
-        if spin_row == self.nmap_output_font_size_spinrow: return self.nmap_output_font_button
-        if spin_row == self.nmap_raw_output_font_size_spinrow: return self.nmap_raw_output_font_button
-        if spin_row == self.webscan_output_font_size_spinrow: return self.webscan_output_font_button
-        return None
-
-    def _get_family_key_for_size_spinrow(self, spin_row: Adw.SpinRow) -> Optional[str]:
-        """Helper to get the font family GSettings key associated with a size spinrow."""
-        if spin_row == self.http_output_font_size_spinrow: return "http-output-font-family"
-        if spin_row == self.dns_output_font_size_spinrow: return "dns-output-font-family"
-        if spin_row == self.nmap_output_font_size_spinrow: return "nmap-output-font-family"
-        if spin_row == self.nmap_raw_output_font_size_spinrow: return "nmap-raw-output-font-family"
-        if spin_row == self.webscan_output_font_size_spinrow: return "webscan-output-font-family"
-        return None
-
-
-    def _load_font_preference(self, font_button: Optional[Gtk.FontButton], gsettings_key_family: str, size_spin_row: Optional[Adw.SpinRow]):
-        """
-        Load font family and size from GSettings and update the UI elements.
-
-        :param font_button: The Gtk.FontButton to update.
-        :type font_button: Gtk.FontButton
-        :param gsettings_key_family: The GSettings key for the font family.
-        :type gsettings_key_family: str
-        :param size_spin_row: The Adw.SpinRow for font size to update.
-        :type size_spin_row: Adw.SpinRow
-        """
-        if not font_button or not size_spin_row:
-            logging.warning(f"Missing font_button or size_spin_row for GSettings key: {gsettings_key_family}")
-            return
-
-        gsettings_key_size = gsettings_key_family.replace("-family", "-size") # Derive size key
-
-        font_family = self.settings.get_string(gsettings_key_family)
-        font_size = self.settings.get_int(gsettings_key_size)
-
-        # Ensure defaults if keys are somehow missing (should not happen if schema is correct)
-        if not font_family:
-            font_family = "Sans" # A sensible default
-            logging.warning(f"Missing GSettings value for {gsettings_key_family}, using default '{font_family}'.")
-        if font_size == 0: # GSettings default for int if not set might be 0
-            font_size = 10 # A sensible default
-            logging.warning(f"Missing GSettings value for {gsettings_key_size}, using default {font_size}pt.")
-
-
-        font_description = f"{font_family} {font_size}"
-        font_button.set_font(font_description)
-        # font_button.set_preview_text(f"{font_family} {font_size}pt") # Optional: Set preview text
-
-        size_spin_row.set_value(font_size)
-        logging.debug(f"Loaded font for {gsettings_key_family}: '{font_description}' ({font_size}pt).")
-
-
     def _render_custom_ua_list(self):
         """
         Clear and repopulate the list of custom User-Agents in the UI.
@@ -685,14 +540,14 @@ class Preferences(Adw.PreferencesWindow):
 
         self._render_custom_ua_list()
 
-        # Load Font Preferences
-        if self.http_output_font_button and self.http_output_font_size_spinrow:
-            self._load_font_preference(self.http_output_font_button, "http-output-font-family", self.http_output_font_size_spinrow)
-        if self.dns_output_font_button and self.dns_output_font_size_spinrow:
-            self._load_font_preference(self.dns_output_font_button, "dns-output-font-family", self.dns_output_font_size_spinrow)
-        if self.nmap_output_font_button and self.nmap_output_font_size_spinrow:
-            self._load_font_preference(self.nmap_output_font_button, "nmap-output-font-family", self.nmap_output_font_size_spinrow)
-        if self.nmap_raw_output_font_button and self.nmap_raw_output_font_size_spinrow:
-            self._load_font_preference(self.nmap_raw_output_font_button, "nmap-raw-output-font-family", self.nmap_raw_output_font_size_spinrow)
-        if self.webscan_output_font_button and self.webscan_output_font_size_spinrow:
-            self._load_font_preference(self.webscan_output_font_button, "webscan-output-font-family", self.webscan_output_font_size_spinrow)
+        # Load Global Output Font Preference
+        output_font_str = self.settings.get_string("output-font")
+        if self.global_output_font_button:
+            if output_font_str:
+                self.global_output_font_button.set_font(output_font_str)
+            else:
+                # If GSetting is somehow empty, set a default on the button and GSetting
+                default_font = "Sans 10"
+                self.global_output_font_button.set_font(default_font)
+                self.settings.set_string("output-font", default_font)
+                logging.warning(f"GSettings 'output-font' was empty, set to default: {default_font}")

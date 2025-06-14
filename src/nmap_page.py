@@ -101,16 +101,10 @@ class NmapPage(Adw.PreferencesPage):
         self.scanner = NmapScanner()
         self.settings = Gio.Settings.new(APP_ID)
 
-        # Font settings
-        self._nmap_font_family_setting = "nmap-output-font-family"
-        self._nmap_font_size_setting = "nmap-output-font-size"
-        self._nmap_raw_font_family_setting = "nmap-raw-output-font-family"
-        self._nmap_raw_font_size_setting = "nmap-raw-output-font-size"
-
-        self._nmap_font_family = self.settings.get_string(self._nmap_font_family_setting)
-        self._nmap_font_size = self.settings.get_int(self._nmap_font_size_setting)
-        self._nmap_raw_font_family = self.settings.get_string(self._nmap_raw_font_family_setting)
-        self._nmap_raw_font_size = self.settings.get_int(self._nmap_raw_font_size_setting)
+        # Global Font setting
+        self._output_font_gsettings_key = "output-font"
+        output_font_str = self.settings.get_string(self._output_font_gsettings_key)
+        self._output_font_desc = Pango.FontDescription.from_string(output_font_str if output_font_str else "Sans 10")
 
         self._current_selected_host_key: Optional[str] = None
         self._current_selected_host_data_dict: Optional[Dict[str, Any]] = None
@@ -170,42 +164,22 @@ class NmapPage(Adw.PreferencesPage):
         if self.nmap_cancel_scan_button:
             self.nmap_cancel_scan_button.connect("clicked", self._on_cancel_scan_clicked)
 
-        # Connect GSettings changes for font
-        self.settings.connect(f"changed::{self._nmap_font_family_setting}", self._on_font_setting_changed)
-        self.settings.connect(f"changed::{self._nmap_font_size_setting}", self._on_font_setting_changed)
-        self.settings.connect(f"changed::{self._nmap_raw_font_family_setting}", self._on_font_setting_changed)
-        self.settings.connect(f"changed::{self._nmap_raw_font_size_setting}", self._on_font_setting_changed)
+        # Connect GSettings change for global font
+        self.settings.connect(f"changed::{self._output_font_gsettings_key}", self._on_global_output_font_changed)
 
-
-    def _on_font_setting_changed(self, settings: Gio.Settings, key: str) -> None:
-        """
-        Handle changes to font-related GSettings for Nmap output.
-        Updates internal font attributes and re-renders selected host details if displayed.
-        """
-        logger.debug("NmapPage: Font setting changed for GSettings key: %s", key)
-        refresh_needed = False
-        if key == self._nmap_font_family_setting:
-            self._nmap_font_family = settings.get_string(key)
-            refresh_needed = True # Structured view might change
-        elif key == self._nmap_font_size_setting:
-            self._nmap_font_size = settings.get_int(key)
-            refresh_needed = True # Structured view might change
-        elif key == self._nmap_raw_font_family_setting:
-            self._nmap_raw_font_family = settings.get_string(key)
-            refresh_needed = True # Raw view will change
-        elif key == self._nmap_raw_font_size_setting:
-            self._nmap_raw_font_size = settings.get_int(key)
-            refresh_needed = True # Raw view will change
-
-        if refresh_needed and self._current_selected_host_key and self._current_selected_host_data_dict:
-            logger.info("NmapPage: Re-rendering host details due to font change.")
-            self._clear_dynamic_details()
-            # Re-add details. These functions will now use the updated font attributes.
-            self._add_host_details_expander(self._current_selected_host_data_dict, self._current_selected_host_key)
-            self._add_ports_expander(self._current_selected_host_data_dict, self._current_selected_host_key)
-            self._add_os_expander(self._current_selected_host_data_dict, self._current_selected_host_key)
-            self._add_raw_output_expander(self._current_selected_host_data_dict, self._current_selected_host_key)
-
+    def _on_global_output_font_changed(self, settings: Gio.Settings, key: str) -> None:
+        logger.debug("NmapPage: Global output font setting changed for key: %s", key)
+        if key == self._output_font_gsettings_key:
+            output_font_str = settings.get_string(key)
+            self._output_font_desc = Pango.FontDescription.from_string(output_font_str if output_font_str else "Sans 10") # Default for safety
+            if self._current_selected_host_key and self._current_selected_host_data_dict:
+                logger.info("NmapPage: Re-rendering host details due to global font change.")
+                self._clear_dynamic_details()
+                # Re-add details. _add_raw_output_expander will pick up the new self._output_font_desc.
+                self._add_host_details_expander(self._current_selected_host_data_dict, self._current_selected_host_key)
+                self._add_ports_expander(self._current_selected_host_data_dict, self._current_selected_host_key)
+                self._add_os_expander(self._current_selected_host_data_dict, self._current_selected_host_key)
+                self._add_raw_output_expander(self._current_selected_host_data_dict, self._current_selected_host_key)
 
     def _on_cancel_scan_clicked(self, _button: Gtk.Button) -> None:
         """
@@ -542,11 +516,8 @@ class NmapPage(Adw.PreferencesPage):
         source_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
         source_view.set_editable(False)
 
-        if self._nmap_raw_font_family and self._nmap_raw_font_size > 0:
-            font_desc = Pango.FontDescription(f"{self._nmap_raw_font_family} {self._nmap_raw_font_size}")
-            source_view.override_font(font_desc)
-        else: # Fallback or clear if settings are invalid/default
-            source_view.override_font(Pango.FontDescription()) # Clears override, uses theme default
+        source_view.override_font(self._output_font_desc) # Apply global font
+
         source_view.set_hexpand(True) # Assuming this is desired for layout
         source_view.set_vexpand(True) # Assuming this is desired for layout
 
