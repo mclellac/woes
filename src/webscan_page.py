@@ -100,6 +100,13 @@ class WebScanPage(Adw.PreferencesPage):
         logger.debug("WebScanPage initialized")
 
         self.url_entry.connect("entry-activated", self.on_scan_button_clicked)
+
+        if self.scan_button:
+            self.scan_button.connect("clicked", self.on_scan_button_clicked)
+            logger.debug("Explicitly connected scan_button clicked to on_scan_button_clicked")
+        else:
+            logger.error("scan_button is None in __init__, cannot connect its clicked signal.")
+
         if self.webscan_cancel_button:
             self.webscan_cancel_button.connect("clicked", self._on_cancel_scan_clicked)
         if self.clear_results_button:
@@ -530,6 +537,37 @@ class WebScanPage(Adw.PreferencesPage):
             stdout_str, stderr_str = process.communicate()
             self.current_nikto_process = None # Clear process reference
 
+            rfi_warning_signature = "- ***** RFIURL is not defined in nikto.conf--no RFI tests will run *****"
+            raw_stderr_for_check = stderr_str if isinstance(stderr_str, str) else ""
+            raw_stdout_for_check = stdout_str if isinstance(stdout_str, str) else ""
+
+            if rfi_warning_signature in raw_stderr_for_check or rfi_warning_signature in raw_stdout_for_check:
+                logger.info("RFIURL not configured warning detected in Nikto output.")
+                instructional_message = (
+                    "IMPORTANT: Nikto Scan Aborted (RFIURL Not Configured)\n\n"
+                    "The web scan was not completed because Nikto's Remote File Inclusion (RFI) "
+                    "tests cannot run. This is because the 'RFIURL' setting is not defined in your "
+                    "Nikto configuration file (nikto.conf).\n\n"
+                    "What is RFIURL?\n"
+                    "RFIURL is a setting in nikto.conf that specifies a URL Nikto can use to test for "
+                    "Remote File Inclusion vulnerabilities. Without it, Nikto skips these tests.\n\n"
+                    "How to configure RFIURL in nikto.conf:\n"
+                    "1. Locate your nikto.conf file. Common locations are /etc/nikto.conf, "
+                    "or within the Nikto installation directory (e.g., /opt/nikto/nikto.conf, "
+                    "~/.nikto/nikto.conf). Check Nikto's documentation if you can't find it.\n"
+                    "2. Open nikto.conf in a text editor.\n"
+                    "3. Find the line starting with '#RFIURL=' (it might be commented out).\n"
+                    "4. Uncomment it (remove the '#') and set it to a URL on a server you control, "
+                    "which hosts a simple, harmless text file. For example:\n"
+                    "   RFIURL=http://my.test.server.com/rfi_probe.txt\n"
+                    "   (Ensure 'rfi_probe.txt' exists at that URL and returns a simple known text).\n"
+                    "5. Save the nikto.conf file.\n\n"
+                    "After configuring RFIURL, you can try running the WebScan again."
+                )
+                # Return a special marker and the message
+                task.return_value(("RFI_CONFIG_ERROR", instructional_message))
+                return # Stop further processing in this thread function
+
             main_report_content: Optional[str] = None
             aux_output: Optional[str] = None
             report_extracted_from_tuple = False
@@ -594,13 +632,8 @@ class WebScanPage(Adw.PreferencesPage):
             main_report_content = main_report_content.replace('\\n', '\n')
             logger.debug("Applied newline unescaping to main_report_content.")
 
-            rfi_warning = '- ***** RFIURL is not defined in nikto.conf--no RFI tests will run *****'
-            if main_report_content and rfi_warning in main_report_content:
-                main_report_content = main_report_content.replace(rfi_warning, '').strip()
-                # If removing the warning makes the content empty, set to None or empty string based on preference
-                if not main_report_content.strip():
-                    main_report_content = "" # Or None, depending on how empty strings are handled later
-                logger.info("Filtered RFIURL warning from Nikto's main_report_content.")
+            # Previous RFIURL filtering/replacement logic is now removed.
+            # The new logic handles it before this point by returning early if the signature is found.
 
             if aux_output is not None:
                 if not isinstance(aux_output, str):
@@ -634,27 +667,8 @@ class WebScanPage(Adw.PreferencesPage):
             logger.debug(f"PRE-RETURN: main_report_content TYPE: {type(main_report_content)}, VALUE: {str(main_report_content)[:200]}")
             logger.debug(f"PRE-RETURN: aux_output TYPE: {type(aux_output)}, VALUE: {str(aux_output)[:200]}")
 
-            rfi_warning_signature = "- ***** RFIURL is not defined in nikto.conf--no RFI tests will run *****"
-            rfi_info_message = ("\n\n[INFO] Nikto's Remote File Inclusion (RFI) tests did not run because 'RFIURL' "
-                                "is not defined in your nikto.conf file. To enable these specific tests, "
-                                "you may need to configure RFIURL in your Nikto installation's "
-                                "configuration file (usually nikto.conf).\n")
-            processed_rfi_warning = False
-
-            if isinstance(main_report_content, str) and rfi_warning_signature in main_report_content:
-                main_report_content = main_report_content.replace(rfi_warning_signature, "")
-                main_report_content = main_report_content.strip() + rfi_info_message
-                processed_rfi_warning = True
-                logger.info("Processed RFIURL warning in main_report_content and added info message.")
-
-            if not processed_rfi_warning and isinstance(aux_output, str) and rfi_warning_signature in aux_output:
-                aux_output = aux_output.replace(rfi_warning_signature, "")
-                if not aux_output.strip():
-                    aux_output = rfi_info_message.strip()
-                else:
-                    aux_output = aux_output.strip() + rfi_info_message
-                # processed_rfi_warning = True # Not strictly needed to set again here, but good for clarity
-                logger.info("Processed RFIURL warning in aux_output and added info message.")
+            # RFIURL warning is handled earlier by returning ("RFI_CONFIG_ERROR", message)
+            # So, no need for specific RFI filtering/replacement here anymore.
 
             task.return_value((
                 str(main_report_content) if main_report_content is not None else "",
@@ -698,6 +712,24 @@ class WebScanPage(Adw.PreferencesPage):
             # or raise GLib.Error if task.return_new_error_literal was called.
             # The 'result' parameter itself is the Gio.Task object here.
             returned_data = result.propagate_value() # type: ignore
+
+            if isinstance(returned_data, tuple) and len(returned_data) == 2 and returned_data[0] == "RFI_CONFIG_ERROR":
+                instructional_message = returned_data[1]
+                logger.info("Handling RFI_CONFIG_ERROR: Displaying instructional message.")
+                # Clear any "Scanning..." message from the text view buffer first
+                if hasattr(self, 'source_view') and self.source_view:
+                    buffer = self.source_view.get_buffer()
+                    if buffer:
+                        buffer.set_text("") # Clear previous content
+                self._update_textview(None, instructional_message, is_error_message=True) # Use is_error_message to make it stand out or handle formatting
+
+                if self.webscan_status_action_row:
+                    self.webscan_status_action_row.set_subtitle("Scan Not Performed: Nikto RFIURL not configured.")
+
+                # Ensure scan button is re-enabled, spinner stopped etc.
+                # This will be handled by the `finally` block of _on_scan_task_done.
+                return # Skip normal processing
+
             if isinstance(returned_data, tuple) and len(returned_data) == 2:
                 s_out, s_err = returned_data
             elif hasattr(returned_data, 'value') and isinstance(returned_data.value, tuple) and len(returned_data.value) == 2: # Handle potential Gio.DBusCallFlags like wrapper
