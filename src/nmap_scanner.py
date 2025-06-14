@@ -276,12 +276,16 @@ class NmapScanner:
         """
         nmap_args_list = ["nmap", "-sS"] # -sS (TCP SYN scan) requires root.
 
-        if params.get("os_fingerprinting"): nmap_args_list.append("-O")
-        if params.get("service_version"): nmap_args_list.append("-sV")
-        if params.get("scan_all_ports"): nmap_args_list.append("-p-")
+        if params.get("os_fingerprinting"):
+            nmap_args_list.append("-O")
+        if params.get("service_version"):
+            nmap_args_list.append("-sV")
+        if params.get("scan_all_ports"):
+            nmap_args_list.append("-p-")
         if params.get("selected_script") and params["selected_script"] != "None":
             nmap_args_list.append(f"--script={params['selected_script']}")
-        if params.get("no_ping"): nmap_args_list.append("-Pn")
+        if params.get("no_ping"):
+            nmap_args_list.append("-Pn")
 
         timing_template = params.get("timing_template", "T3")
         if timing_template and re.match(r"^T[0-5]$", timing_template):

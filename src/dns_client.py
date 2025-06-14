@@ -57,7 +57,7 @@ class DnsResolverClient:
 
     def _lookup_record_internal(self, query_name_str: str, record_type_str: str) -> List[Dict[str, Any]]:
         """
-        Internal method to look up DNS records and parse them.
+        Look up DNS records and parse them internally.
 
         Adapted from DNSPage._lookup_record.
 
@@ -83,15 +83,21 @@ class DnsResolverClient:
                     'type': dns.rdatatype.to_text(rdata.rdtype)
                 }
                 # Populate record-specific fields
-                if rdata.rdtype == dns.rdatatype.A: record['address'] = rdata.address
-                elif rdata.rdtype == dns.rdatatype.AAAA: record['address'] = rdata.address
-                elif rdata.rdtype == dns.rdatatype.CNAME: record['target'] = rdata.target.to_text()
+                if rdata.rdtype == dns.rdatatype.A:
+                    record['address'] = rdata.address
+                elif rdata.rdtype == dns.rdatatype.AAAA:
+                    record['address'] = rdata.address
+                elif rdata.rdtype == dns.rdatatype.CNAME:
+                    record['target'] = rdata.target.to_text()
                 elif rdata.rdtype == dns.rdatatype.MX:
                     record['preference'] = rdata.preference
                     record['exchange'] = rdata.exchange.to_text()
-                elif rdata.rdtype == dns.rdatatype.TXT: record['texts'] = [s.decode('utf-8', 'replace') for s in rdata.strings]
-                elif rdata.rdtype == dns.rdatatype.NS: record['target'] = rdata.target.to_text()
-                elif rdata.rdtype == dns.rdatatype.PTR: record['target'] = rdata.target.to_text()
+                elif rdata.rdtype == dns.rdatatype.TXT:
+                    record['texts'] = [s.decode('utf-8', 'replace') for s in rdata.strings]
+                elif rdata.rdtype == dns.rdatatype.NS:
+                    record['target'] = rdata.target.to_text()
+                elif rdata.rdtype == dns.rdatatype.PTR:
+                    record['target'] = rdata.target.to_text()
                 elif rdata.rdtype == dns.rdatatype.SOA:
                     record['mname'] = rdata.mname.to_text()
                     record['rname'] = rdata.rname.to_text()
@@ -100,7 +106,8 @@ class DnsResolverClient:
                     record['retry'] = rdata.retry
                     record['expire'] = rdata.expire
                     record['minimum'] = rdata.minimum
-                else: record['data'] = rdata.to_text()
+                else:
+                    record['data'] = rdata.to_text()
                 parsed_records.append(record)
             return parsed_records
         except dns.resolver.NXDOMAIN as e:

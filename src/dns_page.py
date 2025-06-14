@@ -111,8 +111,10 @@ class DNSPage(Adw.PreferencesPage):
             if isinstance(child, Adw.ActionRow):
                 title = child.get_title()
                 subtitle = child.get_subtitle()
-                if title: text_parts_for_child.append(title)
-                if subtitle: text_parts_for_child.append(subtitle)
+                if title:
+                    text_parts_for_child.append(title)
+                if subtitle:
+                    text_parts_for_child.append(subtitle)
 
                 # Attempt to get text from suffixes if they are labels
                 # This is a simplified approach; real implementation might need to traverse deeper
@@ -124,8 +126,10 @@ class DNSPage(Adw.PreferencesPage):
             elif isinstance(child, Adw.ExpanderRow):
                 title = child.get_title()
                 subtitle = child.get_subtitle()
-                if title: text_parts_for_child.append(title)
-                if subtitle: text_parts_for_child.append(subtitle)
+                if title:
+                    text_parts_for_child.append(title)
+                if subtitle:
+                    text_parts_for_child.append(subtitle)
                 # Could iterate expander's rows too, but keeping it simple for now.
                 # A more robust way would be to have the data that generated these rows
                 # stored in an instance variable and iterate that.
@@ -800,8 +804,10 @@ class DNSPage(Adw.PreferencesPage):
         :rtype: Adw.ActionRow
         """
         icon_name = "emblem-shared-symbolic" # Default for CNAME
-        if record_type == "NS": icon_name = "network-server-symbolic"
-        elif record_type == "PTR": icon_name = "system-search-symbolic"
+        if record_type == "NS":
+            icon_name = "network-server-symbolic"
+        elif record_type == "PTR":
+            icon_name = "system-search-symbolic"
 
         row = self._create_base_action_row(name, record_type, base_subtitle, icon_name)
         target_value = str(record_data.get('target', 'N/A'))
@@ -948,12 +954,18 @@ class DNSPage(Adw.PreferencesPage):
         ttl = record_data.get('ttl', '')
         rd_class_str = record_data.get('class', '')
         base_subtitle = f"Class: {rd_class_str}, TTL: {ttl}"
-        if record_type in ("A", "AAAA"): return self._build_address_record_row(record_data, name, base_subtitle, record_type)
-        elif record_type in ("CNAME", "NS", "PTR"): return self._build_cname_ns_ptr_record_row(record_data, name, base_subtitle, record_type)
-        elif record_type == "MX": return self._build_mx_record_row(record_data, name, base_subtitle, record_type)
-        elif record_type == "TXT": return self._build_txt_record_row(record_data, name, base_subtitle, record_type)
-        elif record_type == "SOA": return self._build_soa_record_row(record_data, name, base_subtitle, record_type)
-        elif record_data.get('data'): return self._build_generic_data_record_row(record_data, name, base_subtitle, record_type) # Renamed
+        if record_type in ("A", "AAAA"):
+            return self._build_address_record_row(record_data, name, base_subtitle, record_type)
+        elif record_type in ("CNAME", "NS", "PTR"):
+            return self._build_cname_ns_ptr_record_row(record_data, name, base_subtitle, record_type)
+        elif record_type == "MX":
+            return self._build_mx_record_row(record_data, name, base_subtitle, record_type)
+        elif record_type == "TXT":
+            return self._build_txt_record_row(record_data, name, base_subtitle, record_type)
+        elif record_type == "SOA":
+            return self._build_soa_record_row(record_data, name, base_subtitle, record_type)
+        elif record_data.get('data'):
+            return self._build_generic_data_record_row(record_data, name, base_subtitle, record_type) # Renamed
         else:
             logger.warning("Could not create row for unknown record_data type or missing data field: %s (Type: %s)", record_data, record_type)
             return None

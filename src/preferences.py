@@ -20,7 +20,7 @@ from .constants import APP_ID, RESOURCE_PREFIX
 
 # Conditional import for dnspython
 try:
-    import dns.resolver
+    # import dns.resolver # Commented out as it's unused
     dnspython_available = True
 except ImportError:
     dnspython_available = False

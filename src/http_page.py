@@ -377,7 +377,7 @@ class HttpPage(Adw.PreferencesPage):
         self, _source_object: GObject.Object, result: Gio.AsyncResult, _user_data: object # type: ignore
     ) -> None:
         """
-        Callback for when the :meth:`_fetch_headers_task_thread_func` completes.
+        Handle completion of the _fetch_headers_task_thread_func.
 
         Processes the result (header data or an exception reported by `HttpFetcher`
         via `Gio.Task`) and updates the UI. Re-enables UI elements.
@@ -747,7 +747,7 @@ class HttpPage(Adw.PreferencesPage):
 
     def _create_factory(self, attr_name: str, wrap_text: bool = False) -> Gtk.SignalListItemFactory:
         """
-        Creates a :class:`Gtk.SignalListItemFactory` for :class:`Gtk.ColumnView` columns.
+        Create a Gtk.SignalListItemFactory for Gtk.ColumnView columns.
 
         This factory is responsible for setting up and binding :class:`Gtk.Label`
         widgets within the column view cells to display :class:`HeaderItem` data.
