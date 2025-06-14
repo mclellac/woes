@@ -145,12 +145,13 @@ class WebScanPage(Adw.PreferencesPage):
             logger.warning("WebScanPage: _apply_font_to_textview called but source_view does not exist.")
             return
 
-        if self._output_font_desc: # Check if it's a valid FontDescription object
+        if self._output_font_desc and self._output_font_desc.get_size() > 0:
             self.source_view.override_font(self._output_font_desc)
             logger.debug(f"WebScanPage: Applied font '{self._output_font_desc.to_string()}' to source_view.")
-        else: # Should not happen if __init__ and handler set a default
-            self.source_view.override_font(Pango.FontDescription()) # Clears any override
-            logger.debug("WebScanPage: Cleared font override on source_view (invalid/no font_desc).")
+        else:
+            # Fallback to theme default if the description is somehow invalid or empty
+            self.source_view.override_font(Pango.FontDescription())
+            logger.debug("WebScanPage: Cleared font override on source_view (invalid/default font_desc).")
 
     def __del__(self):
         """Clean up when the WebScanPage is destroyed."""
