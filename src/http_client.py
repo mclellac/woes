@@ -59,6 +59,15 @@ class HttpProcessingError(HttpClientError):
     """
 
     def __init__(self, message, status_code: Optional[int] = None, url: Optional[str] = None):
+        """
+        Initialize the HTTP client error.
+
+        Args:
+            message: The error message.
+            status_code: The HTTP status code, if applicable.
+            url: The URL associated with the error, if applicable.
+
+        """
         super().__init__(message)
         self.status_code = status_code
         self.url = url
@@ -237,41 +246,58 @@ class HttpFetcher:
         found_connection_refused = False
         max_depth = 5
         for _depth in range(max_depth):
-            if current_exc is None: break
+            if current_exc is None:
+                break
             exc_str = str(current_exc).lower()
-            if isinstance(current_exc, ConnectionRefusedError): found_connection_refused = True; break
+            if isinstance(current_exc, ConnectionRefusedError):
+                found_connection_refused = True
+                break
             if isinstance(current_exc, urllib3_exceptions.NewConnectionError):
-                if "connection refused" in exc_str or "errno 111" in exc_str: found_connection_refused = True; break
+                if "connection refused" in exc_str or "errno 111" in exc_str:
+                    found_connection_refused = True
+                    break
                 if hasattr(current_exc, "original_error"):
                     original_error = getattr(current_exc, "original_error")
                     if isinstance(original_error, ConnectionRefusedError) or \
                        (hasattr(original_error, "errno") and getattr(original_error, "errno") == 111):
-                        found_connection_refused = True; break
+                        found_connection_refused = True
+                        break
             if isinstance(current_exc, urllib3_exceptions.MaxRetryError):
                 if hasattr(current_exc, "reason") and isinstance(current_exc.reason, urllib3_exceptions.NewConnectionError):
                     reason_exc_str = str(current_exc.reason).lower()
-                    if "connection refused" in reason_exc_str or "errno 111" in reason_exc_str: found_connection_refused = True; break
+                    if "connection refused" in reason_exc_str or "errno 111" in reason_exc_str:
+                        found_connection_refused = True
+                        break
                     if hasattr(current_exc.reason, "original_error"):
                         original_error = getattr(current_exc.reason, "original_error")
                         if isinstance(original_error, ConnectionRefusedError) or \
                            (hasattr(original_error, "errno") and getattr(original_error, "errno") == 111):
-                            found_connection_refused = True; break
+                            found_connection_refused = True
+                            break
             if any("connection refused" in str(arg).lower() for arg in current_exc.args if isinstance(arg, str)) or \
-               "connection refused" in exc_str: found_connection_refused = True
+               "connection refused" in exc_str:
+                found_connection_refused = True
             if any("errno 111" in str(arg).lower() for arg in current_exc.args if isinstance(arg, str)) or \
-               "errno 111" in exc_str: found_connection_refused = True
-            if found_connection_refused: break
+               "errno 111" in exc_str:
+                found_connection_refused = True
+            if found_connection_refused:
+                break
             next_exc: Optional[BaseException] = None
-            if hasattr(current_exc, "__cause__") and current_exc.__cause__ is not None: next_exc = current_exc.__cause__
+            if hasattr(current_exc, "__cause__") and current_exc.__cause__ is not None:
+                next_exc = current_exc.__cause__
             elif hasattr(current_exc, "__context__") and current_exc.__context__ is not None and \
-                 not getattr(current_exc, "__suppress_context__", False): next_exc = current_exc.__context__
-            if current_exc is next_exc: break
+                 not getattr(current_exc, "__suppress_context__", False):
+                next_exc = current_exc.__context__
+            if current_exc is next_exc:
+                break
             current_exc = next_exc
         if found_connection_refused:
             logger.info("HttpFetcher: Connection refused condition identified for URL: %s", url)
             parsed_url_scheme = requests.utils.urlparse(url).scheme
-            if parsed_url_scheme == "https": return "Connection Refused: Server at HTTPS URL actively refused. Try 'http://'?"
-            if parsed_url_scheme == "http": return "Connection Refused: Server at HTTP URL actively refused. Try 'https://' or check if server is down."
+            if parsed_url_scheme == "https":
+                return "Connection Refused: Server at HTTPS URL actively refused. Try 'http://'?"
+            if parsed_url_scheme == "http":
+                return "Connection Refused: Server at HTTP URL actively refused. Try 'https://' or check if server is down."
             return "Connection Refused: The server at the specified URL actively refused the connection."
         return None
 
@@ -289,14 +315,17 @@ class HttpFetcher:
         status_code = e.response.status_code
         reason = e.response.reason if e.response.reason else "Unknown Error"
         url = e.request.url if e.request else "N/A"
-        if status_code == 403: return f"403 Forbidden: Access to {url} denied."
-        if status_code == 404: return f"404 Not Found: Resource at {url} not found."
-        if status_code == 500: return f"500 Internal Server Error for {url}."
+        if status_code == 403:
+            return f"403 Forbidden: Access to {url} denied."
+        if status_code == 404:
+            return f"404 Not Found: Resource at {url} not found."
+        if status_code == 500:
+            return f"500 Internal Server Error for {url}."
         return f"HTTP Error {status_code} ({reason}) for URL: {url}."
 
     def fetch_headers(self) -> List[Dict[str, Any]]:
         """
-        Main method to fetch and process HTTP headers.
+        Fetch and process HTTP headers.
 
         :raises HttpRequestTimeoutError: If the request times out.
         :raises HttpConnectionError: If a connection error occurs.
@@ -311,7 +340,7 @@ class HttpFetcher:
 
         adapter_sni_hint: Optional[str] = None
         if self.host_header: # If a host header is provided, it might be for an IP-based URL
-            parsed_url = requests.utils.urlparse(self.url)
+            requests.utils.urlparse(self.url)
             # The try...except block for IP address check and setting adapter_sni_hint has been removed.
             # adapter_sni_hint will retain its initial None value if self.host_header is set,
             # or remain None if self.host_header was not set.

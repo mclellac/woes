@@ -1,3 +1,4 @@
+"""Tests for the http_page module."""
 # GI imports are now managed within setUpModule and tearDownModule
 import unittest
 from unittest.mock import patch, MagicMock, call
@@ -7,10 +8,10 @@ import importlib
 import inspect
 import time
 import logging
-from typing import Optional, List, Any
-import re
 import enum  # Required for FallbackHttpErrorType
-import socket  # For AF_INET, AF_INET6 constants if needed in test mocks
+from requests.adapters import HTTPAdapter
+import ssl
+
 
 # Store original sys.modules entries for gi
 _original_gi_modules = {}
@@ -129,8 +130,12 @@ def setUpModule():
                 HttpErrorType = http_page_module.HttpErrorType
             else: # Fallback Enum
                 class FallbackHttpErrorTypeLocal(enum.Enum):
-                    TIMEOUT = 0; HTTP_ERROR = 1; CONNECTION_ERROR = 2
-                    REQUEST_EXCEPTION = 3; GENERIC_UNEXPECTED = 4; CANCELLED = 5
+                    TIMEOUT = 0
+                    HTTP_ERROR = 1
+                    CONNECTION_ERROR = 2
+                    REQUEST_EXCEPTION = 3
+                    GENERIC_UNEXPECTED = 4
+                    CANCELLED = 5
                 HttpErrorType = FallbackHttpErrorTypeLocal
             if hasattr(http_page_module, "HeaderItem") and inspect.isclass(http_page_module.HeaderItem):
                  HeaderItem_class_for_test = http_page_module.HeaderItem # For isinstance checks
@@ -439,6 +444,7 @@ class TestCustomDNSAdapter(unittest.TestCase):
     """Tests for the CustomDNSAdapter class in http_page.py."""
 
     def setUp(self):
+        """Set up test fixtures for CustomDNSAdapter tests."""
         if not http_page_module:
             self.skipTest("http_page module could not be loaded.")
 
@@ -460,6 +466,7 @@ class TestCustomDNSAdapter(unittest.TestCase):
 
 
     def tearDown(self):
+        """Tear down test fixtures after CustomDNSAdapter tests."""
         self.resolver_patcher.stop()
 
     def test_resolve_hostname_to_ip_success_ipv4(self):
@@ -613,8 +620,11 @@ class TestCustomDNSAdapter(unittest.TestCase):
 
 
 class TestHttpPage(unittest.TestCase):
+    """Test cases for the HttpPage class."""
+
     @classmethod
     def setUpClass(cls):
+        """Set up resources before all tests in this class."""
         # HttpPage_class is now set in setUpModule
         cls.HttpPage_class_to_test = HttpPage_class
         if cls.HttpPage_class_to_test:
@@ -622,6 +632,7 @@ class TestHttpPage(unittest.TestCase):
             cls.app = MockAdw.Application(application_id="test.woes.http.page")
 
     def setUp(self):  # noqa: C901
+        """Set up test fixtures before each test method."""
         if not self.HttpPage_class_to_test:
             self.skipTest("HttpPage class could not be loaded at module level.")
 
@@ -692,36 +703,7 @@ class TestHttpPage(unittest.TestCase):
             MockGio.ListStore.new = MagicMock(return_value=list_store_mock)
             MockGtk.StringList.new = MagicMock(return_value=MagicMock(spec=MockGtk.StringList))
             MockGtk.MultiSelection.new = MagicMock(return_value=MagicMock(spec=MockGtk.MultiSelection))
-            MockGtk.ColumnViewColumn.new = MagicMocERROR:root:Failed to load HttpPage or its components in setUpModule for test_http_page: compile() arg 1 must be a string, bytes or AST object
-Traceback (most recent call last):
-  File "/app/src/tests/test_http_page.py", line 123, in setUpModule
-    http_page_module = importlib.import_module("src.http_page")
-  File "/usr/lib/python3.10/importlib/__init__.py", line 126, in import_module
-    return _bootstrap._gcd_import(name[level:], package, level)
-  File "<frozen importlib._bootstrap>", line 1050, in _gcd_import
-  File "<frozen importlib._bootstrap>", line 1027, in _find_and_load
-  File "<frozen importlib._bootstrap>", line 1006, in _find_and_load_unlocked
-  File "<frozen importlib._bootstrap>", line 688, in _load_unlocked
-  File "<frozen importlib._bootstrap_external>", line 883, in exec_module
-  File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
-  File "/app/src/http_page.py", line 157, in <module>
-    class HttpPage(Adw.PreferencesPage):
-  File "/app/src/http_page.py", line 1018, in HttpPage
-    def _update_column_view_model(self, header_items: Optional[Any]) -> None: # Temporarily simplified to Optional[Any]
-  File "/usr/lib/python3.10/typing.py", line 312, in inner
-    return func(*args, **kwds)
-  File "/usr/lib/python3.10/typing.py", line 1143, in __getitem__
-    params = tuple(_type_check(p, msg) for p in params)
-  File "/usr/lib/python3.10/typing.py", line 1143, in <genexpr>
-    params = tuple(_type_check(p, msg) for p in params)
-  File "/usr/lib/python3.10/typing.py", line 164, in _type_check
-    arg = _type_convert(arg, module=module, allow_special_forms=allow_special_forms)
-  File "/usr/lib/python3.10/typing.py", line 142, in _type_convert
-    return ForwardRef(arg, module=module, is_class=allow_special_forms)
-  File "/usr/lib/python3.10/typing.py", line 668, in __init__
-    code = compile(arg, '<string>', 'eval')
-TypeError: compile() arg 1 must be a string, bytes or AST object
-k(return_value=MagicMock(spec=MockGtk.ColumnViewColumn))
+            MockGtk.ColumnViewColumn.new = MagicMock(return_value=MagicMock(spec=MockGtk.ColumnViewColumn))
             MockGtk.SignalListItemFactory.new = MagicMock(return_value=MagicMock(spec=MockGtk.SignalListItemFactory))
 
             self.page = self.HttpPage_class_to_test()
@@ -730,6 +712,7 @@ k(return_value=MagicMock(spec=MockGtk.ColumnViewColumn))
 
     @patch("src.http_page.requests.get")
     def test_timeout_error_handling(self, mock_requests_get):
+        """Test timeout error handling in the HTTP page."""
         mock_requests_get.side_effect = requests.exceptions.Timeout("Test timeout")
         page = self.page
         page.http_entry_row = MagicMock(spec=MockAdw.EntryRow)
@@ -762,6 +745,7 @@ k(return_value=MagicMock(spec=MockGtk.ColumnViewColumn))
 
     @patch("src.http_page.requests.get")
     def test_timeout_error_post_fix_verification(self, mock_requests_get):
+        """Test timeout error post-fix verification."""
         mock_requests_get.side_effect = requests.exceptions.Timeout("Test timeout for post-fix")
         page = self.page
         page.http_entry_row = MagicMock(spec=MockAdw.EntryRow)
@@ -799,6 +783,7 @@ k(return_value=MagicMock(spec=MockGtk.ColumnViewColumn))
 
     @patch("src.http_page.requests.get")
     def test_https_connection_refused_error_handling(self, mock_requests_get):
+        """Test HTTPS connection refused error handling."""
         from urllib3.exceptions import MaxRetryError, NewConnectionError # Changed import
         mock_url_host = "example.com"
         mock_url_path = "/some/path/for/test"
@@ -845,6 +830,7 @@ k(return_value=MagicMock(spec=MockGtk.ColumnViewColumn))
 
     @patch("src.http_page.requests.get")
     def test_http_request_to_https_only_service(self, mock_requests_get):
+        """Test HTTP request to HTTPS-only service."""
         from urllib3.exceptions import MaxRetryError, NewConnectionError # Changed import
         connection_refused_msg = "Failed to establish a new connection: [Errno 111] Connection refused"
         new_conn_error = NewConnectionError(None, reason=connection_refused_msg)
@@ -886,6 +872,7 @@ k(return_value=MagicMock(spec=MockGtk.ColumnViewColumn))
         self.assertEqual(args_call.get("message"), expected_message)
 
     def test_clear_results_button_functionality(self):
+        """Test functionality of the clear results button."""
         page = self.page
         page.header_list_store.append = MagicMock()
         if not hasattr(page.header_list_store, "remove_all"):
@@ -912,6 +899,7 @@ k(return_value=MagicMock(spec=MockGtk.ColumnViewColumn))
 
     @patch("src.http_page.requests.get")
     def test_fetch_headers_no_redirects(self, mock_requests_get):
+        """Test fetching headers with no redirects."""
         page = self.page
         final_url = "http://final.com"
         final_headers = {"Content-Type": "text/html", "X-Final-Header": "FinalValue"}
@@ -950,6 +938,7 @@ k(return_value=MagicMock(spec=MockGtk.ColumnViewColumn))
 
     @patch("src.http_page.requests.get")
     def test_fetch_headers_single_redirect(self, mock_requests_get):
+        """Test fetching headers with a single redirect."""
         page = self.page
         r1_url, r1_hdrs, r1_s = "http://initial.com", {"L1": "V1"}, 301
         final_url, final_hdrs, final_stat = "http://final.com", {"L_Final": "V_Final"}, 200
@@ -982,16 +971,27 @@ k(return_value=MagicMock(spec=MockGtk.ColumnViewColumn))
         self.assertEqual(processed_items[0].key, f"URL: {r1_url}")
         self.assertEqual(processed_items[0].value, f"Status: {r1_s} (Redirect)")
         idx = 1
-        for k, v in r1_hdrs.items(): self.assertFalse(processed_items[idx].is_special_row); self.assertEqual(processed_items[idx].key, k); self.assertEqual(processed_items[idx].value, v); idx += 1
-        self.assertTrue(processed_items[idx].is_special_row); self.assertEqual(processed_items[idx].key, "---"); idx += 1 # Changed "" to "---"
+        for k, v in r1_hdrs.items():
+            self.assertFalse(processed_items[idx].is_special_row)
+            self.assertEqual(processed_items[idx].key, k)
+            self.assertEqual(processed_items[idx].value, v)
+            idx += 1
+        self.assertTrue(processed_items[idx].is_special_row)
+        self.assertEqual(processed_items[idx].key, "---") # Changed "" to "---"
+        idx += 1
         self.assertTrue(processed_items[idx].is_special_row)
         self.assertEqual(processed_items[idx].key, f"URL: {final_url}")
         self.assertEqual(processed_items[idx].value, f"Status: {final_stat} (Final)")
         idx += 1
-        for k, v in final_hdrs.items(): self.assertFalse(processed_items[idx].is_special_row); self.assertEqual(processed_items[idx].key, k); self.assertEqual(processed_items[idx].value, v); idx += 1
+        for k, v in final_hdrs.items():
+            self.assertFalse(processed_items[idx].is_special_row)
+            self.assertEqual(processed_items[idx].key, k)
+            self.assertEqual(processed_items[idx].value, v)
+            idx += 1
 
     @patch("src.http_page.requests.get")
     def test_fetch_headers_multiple_redirects(self, mock_requests_get):
+        """Test fetching headers with multiple redirects."""
         page = self.page
         r1_url, r1_h, r1_s = "http://r1.com", {"R1H": "1"}, 301
         r2_url, r2_h, r2_s = "http://r2.com", {"R2H": "2"}, 302
@@ -1024,15 +1024,27 @@ k(return_value=MagicMock(spec=MockGtk.ColumnViewColumn))
         expected_len = (1 + len(r1_h) + 1) + (1 + len(r2_h) + 1) + (1 + len(f_h))
         self.assertEqual(len(processed_items), expected_len)
         idx = 0
-        self.assertTrue(processed_items[idx].is_special_row); self.assertIn(r1_url, processed_items[idx].key); idx += 1
-        for _ in r1_h: idx += 1
-        self.assertTrue(processed_items[idx].is_special_row); self.assertEqual(processed_items[idx].key, "---"); idx += 1
-        self.assertTrue(processed_items[idx].is_special_row); self.assertIn(r2_url, processed_items[idx].key); idx += 1
-        for _ in r2_h: idx += 1
-        self.assertTrue(processed_items[idx].is_special_row); self.assertEqual(processed_items[idx].key, "---"); idx += 1
-        self.assertTrue(processed_items[idx].is_special_.row); self.assertIn(f_url, processed_items[idx].key)
+        self.assertTrue(processed_items[idx].is_special_row)
+        self.assertIn(r1_url, processed_items[idx].key)
+        idx += 1
+        for _ in r1_h:
+            idx += 1
+        self.assertTrue(processed_items[idx].is_special_row)
+        self.assertEqual(processed_items[idx].key, "---")
+        idx += 1
+        self.assertTrue(processed_items[idx].is_special_row)
+        self.assertIn(r2_url, processed_items[idx].key)
+        idx += 1
+        for _ in r2_h:
+            idx += 1
+        self.assertTrue(processed_items[idx].is_special_row)
+        self.assertEqual(processed_items[idx].key, "---")
+        idx += 1
+        self.assertTrue(processed_items[idx].is_special_row)
+        self.assertIn(f_url, processed_items[idx].key)
 
     def test_styling_of_special_rows(self):
+        """Test styling of special rows in the header display."""
         page = self.page
         self.assertIsNotNone(HeaderItem_class_for_test, "HeaderItem_class_for_test not loaded")
         mock_list_item = MagicMock(spec=MockGtk.ListItem)
@@ -1045,7 +1057,8 @@ k(return_value=MagicMock(spec=MockGtk.ColumnViewColumn))
         original_factory_new = MockGtk.SignalListItemFactory.new
         MockGtk.SignalListItemFactory.new = MagicMock(return_value=factory_capturer)
         page._create_factory(attr_name="key") # Test for "key" attribute
-        self.assertIn("setup", captured_callbacks); self.assertIn("bind", captured_callbacks)
+        self.assertIn("setup", captured_callbacks)
+        self.assertIn("bind", captured_callbacks)
         setup_func, bind_func = captured_callbacks["setup"], captured_callbacks["bind"]
         MockGtk.SignalListItemFactory.new = original_factory_new # Restore
         setup_func(factory_capturer, mock_list_item)
@@ -1090,6 +1103,7 @@ k(return_value=MagicMock(spec=MockGtk.ColumnViewColumn))
 
 
     def test_callback_handles_gerror_from_propagate_value(self):
+        """Test callback handling of GError from propagate_value."""
         page = self.page
         page.http_entry_row = MagicMock(spec=MockAdw.EntryRow)
         page.http_entry_row.get_text.return_value = "http://example-for-gerror.com"
@@ -1123,6 +1137,7 @@ k(return_value=MagicMock(spec=MockGtk.ColumnViewColumn))
 
     @patch("src.http_page.requests.get")
     def test_actual_timeout_error_flow(self, mock_requests_get):
+        """Test the actual timeout error flow."""
         self.assertIsNotNone(HttpErrorType, "HttpErrorType not loaded for test")
         self.assertIsNotNone(WOES_HTTP_ERROR_DOMAIN, "WOES_HTTP_ERROR_DOMAIN not loaded for test")
         mock_requests_get.side_effect = requests.exceptions.Timeout("Simulated timeout")

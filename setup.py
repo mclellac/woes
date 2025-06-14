@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""Installs dependencies and builds the Woes application."""
 
 import argparse
 import subprocess
@@ -109,6 +110,7 @@ def run_command(cmd):
 
 
 def detect_os_and_distro():
+    """Detect the operating system and distribution."""
     os_type = platform.system()
     if os_type == "Linux":
         try:
@@ -130,6 +132,7 @@ def detect_os_and_distro():
 
 
 def install_packages():
+    """Install necessary system packages based on the detected OS and distribution."""
     os_type, distro = detect_os_and_distro()
     distro_key = distros.get(distro, None)  # Map distro to its config key
 
@@ -207,6 +210,7 @@ def check_homebrew():
 
 
 def main():
+    """Parse command-line arguments and run the setup process."""
     parser = argparse.ArgumentParser(description="Dependency installer and application builder")
     parser.add_argument("-i", "--install-deps", action="store_true", help="Install dependencies")
     parser.add_argument(

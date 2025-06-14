@@ -1,111 +1,156 @@
-#!/usr/bin/env python3
+"""Builds the flatpak package."""
 import os
 import subprocess
-import shutil
-import sys
 
-# Constants
-FLATPAK_MANIFEST = "com.github.mclellac.woes.json"
-BUILD_DIR = "build-dir"
-REPO_DIR = "repo"
-FLATPAK_DIR = "flatpak"
-FLATPAK_BUNDLE = "woes.flatpak"
+# Configuration (replace with your actual values)
+APP_ID = "com.example.Woes"  # Replace with your Flatpak App ID
+RUNTIME_REPO = "flathub"
+RUNTIME = "org.gnome.Platform"
+RUNTIME_VERSION = "45"  # Or your desired GNOME runtime version
+SDK = "org.gnome.Sdk"
+BRANCH = "master"  # Or your desired branch
+FLATPAK_MODULE_FILE = f"{APP_ID}.json"  # Or your module file name
+OUTPUT_DIR = "flatpak_build"
+REPO_NAME = "woes_repo"  # Name for the local Flatpak repository
 
+# Ensure the output directory exists
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-def run_command(command, check=True):
-    """Run a shell command with error handling and verbosity."""
-    try:
-        print(f"Running command: {' '.join(command)}")
-        subprocess.run(command, check=check, stdout=sys.stdout, stderr=sys.stderr)
-    except subprocess.CalledProcessError as e:
-        print(f"Error: Command '{' '.join(command)}' failed with return code {e.returncode}")
-        sys.exit(1)
+# 1. Create Flatpak module file (if it doesn't exist or needs updating)
+# This is a simplified example. You'll need to define your build options,
+# sources, and cleanup steps according to your project's needs.
+# Refer to Flatpak documentation for details:
+# https://docs.flatpak.org/en/latest/first-build.html
+module_content = f"""
+{{
+    "app-id": "{APP_ID}",
+    "runtime": "{RUNTIME}",
+    "runtime-version": "{RUNTIME_VERSION}",
+    "sdk": "{SDK}",
+    "command": "woes",
+    "finish-args": [
+        "--share=network",
+        "--share=ipc",
+        "--socket=fallback-x11",
+        "--socket=wayland",
+        "--filesystem=home"
+    ],
+    "cleanup": [
+        "/include",
+        "/lib/pkgconfig",
+        "/man",
+        "/share/doc",
+        "/share/man",
+        "*.la",
+        "*.a"
+    ],
+    "modules": [
+        {{
+            "name": "woes",
+            "buildsystem": "meson",
+            "sources": [
+                {{
+                    "type": "dir",
+                    "path": "."
+                }}
+            ]
+        }}
+    ]
+}}
+"""
+with open(FLATPAK_MODULE_FILE, "w", encoding="utf-8") as f:
+    f.write(module_content)
 
+print(f"Generated Flatpak module file: {FLATPAK_MODULE_FILE}")
 
-def ensure_flatpak_installed():
-    """Ensure that flatpak and flatpak-builder are installed."""
-    try:
-        subprocess.run(
-            ["flatpak", "--version"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
-        subprocess.run(
-            ["flatpak-builder", "--version"],
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-    except subprocess.CalledProcessError:
-        print("Flatpak or flatpak-builder not installed. Installing...")
-        try:
-            distro = subprocess.check_output(["lsb_release", "-is"], text=True).strip().lower()
-        except subprocess.CalledProcessError:
-            print(
-                "Failed to detect distribution. Please install flatpak and flatpak-builder manually."
-            )
-            sys.exit(1)
-
-        if distro in ["arch", "manjaro"]:
-            run_command(["sudo", "pacman", "-S", "--noconfirm", "flatpak", "flatpak-builder"])
-        elif distro in ["ubuntu", "debian", "kali"]:
-            run_command(["sudo", "apt-get", "update"])
-            run_command(["sudo", "apt-get", "install", "-y", "flatpak", "flatpak-builder"])
-        elif distro in ["fedora"]:
-            run_command(["sudo", "dnf", "install", "-y", "flatpak", "flatpak-builder"])
-        else:
-            print("Unsupported distribution. Please install flatpak and flatpak-builder manually.")
-            sys.exit(1)
-
-
-def clean_up():
-    """Clean up build directories and repository."""
-    if os.path.exists(BUILD_DIR):
-        print(f"Removing directory: {BUILD_DIR}")
-        shutil.rmtree(BUILD_DIR, ignore_errors=True)
-
-    if os.path.exists(REPO_DIR):
-        print(f"Removing directory: {REPO_DIR}")
-        shutil.rmtree(REPO_DIR, ignore_errors=True)
-
-
-def build_flatpak():
-    """Build the Flatpak application and bundle it."""
-    print("Building the Flatpak application...")
-
-    # Ensure flatpak is installed
-    ensure_flatpak_installed()
-
-    # Clean previous builds
-    clean_up()
-
-    # Build the Flatpak
-    run_command(["flatpak-builder", "--force-clean", "-v", BUILD_DIR, FLATPAK_MANIFEST])
-
-    # Create a repository from the build
-    run_command(
-        ["flatpak-builder", "--repo=" + REPO_DIR, "--force-clean", BUILD_DIR, FLATPAK_MANIFEST]
+# 2. Initialize Flatpak repository (if it doesn't exist)
+if not os.path.exists(os.path.join(OUTPUT_DIR, REPO_NAME)):
+    print(f"Initializing Flatpak repository: {REPO_NAME}")
+    subprocess.run(
+        ["flatpak", "build-init", os.path.join(OUTPUT_DIR, REPO_NAME), APP_ID, SDK, RUNTIME, RUNTIME_VERSION, f"--branch={BRANCH}"],
+        check=True
     )
+else:
+    print(f"Flatpak repository {REPO_NAME} already exists.")
 
-    # Create the Flatpak bundle
-    if not os.path.exists(FLATPAK_DIR):
-        os.makedirs(FLATPAK_DIR)
+# 3. Build the application
+print(f"Building {APP_ID}...")
+subprocess.run(
+    ["flatpak", "build", os.path.join(OUTPUT_DIR, REPO_NAME), FLATPAK_MODULE_FILE],
+    check=True
+)
 
-    flatpak_bundle_path = os.path.join(FLATPAK_DIR, FLATPAK_BUNDLE)
-    run_command(
-        [
-            "flatpak",
-            "build-bundle",
-            "-v",
-            REPO_DIR,
-            flatpak_bundle_path,
-            "com.github.mclellac.webops",
-        ]
-    )
+# 4. Finish the build (optional, for creating a runnable Flatpak)
+# This step creates a bundle or installs to a local repository.
+# For CI, you might skip this or create a bundle.
+# For local testing, installing to a local repo is useful.
 
-    print(f"Flatpak bundle created at {flatpak_bundle_path}")
+# Example: Install to the local repository (for testing)
+print(f"Installing {APP_ID} to local repository {REPO_NAME}...")
+subprocess.run(
+    ["flatpak", "build-finish", os.path.join(OUTPUT_DIR, REPO_NAME)],
+    check=True
+)
+# To run after installing to local repo:
+# flatpak run --user --command=sh -c 'flatpak install --user --reinstall {REPO_NAME} {APP_ID} && flatpak run {APP_ID}'
 
-    # Clean up build directories and repo after bundling
-    clean_up()
+# Example: Create a Flatpak bundle
+bundle_path = os.path.join(OUTPUT_DIR, f"{APP_ID}.flatpak")
+print(f"Creating Flatpak bundle: {bundle_path}")
+subprocess.run(
+    ["flatpak", "build-bundle", os.path.join(OUTPUT_DIR, REPO_NAME), bundle_path, APP_ID, "--runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo"],
+    check=True
+)
 
+print("\nFlatpak build process completed.")
+print(f"Bundle created at: {bundle_path}")
+print(f"To test locally (if you installed to the local repo): flatpak run {APP_ID}")
+print(f"To install the bundle: flatpak install {bundle_path}")
 
-if __name__ == "__main__":
-    build_flatpak()
+# Cleanup the generated module file
+# os.remove(FLATPAK_MODULE_FILE) # Optional: remove the manifest
+# print(f"Cleaned up {FLATPAK_MODULE_FILE}")
+
+# Note: This script assumes you have flatpak and flatpak-builder installed.
+# You might need to adjust paths, build options, and sources based on your project.
+# Consider using a more robust build system or tool for complex projects.
+# This script is a basic starting point.
+# Remember to add a .desktop file and an app icon for your application.
+# These are typically installed by your build system (e.g., meson, cmake)
+# and referenced in your Flatpak manifest.
+#
+# For example, your meson.build might have:
+# install_data(
+#   'com.example.Woes.desktop',
+#   install_dir: get_option('datadir') / 'applications'
+# )
+# install_data(
+#   'com.example.Woes.svg',  # Or .png
+#   install_dir: get_option('datadir') / 'icons' / 'hicolor' / 'scalable' / 'apps'
+# )
+#
+# And your Flatpak manifest would then pick these up.
+# The `command` in the manifest should be the executable name installed by your build.
+#
+# If your application has Python dependencies, you'll need to add them as modules
+# in your Flatpak manifest, typically using `flatpak-pip-generator`.
+# Example module for a Python dependency:
+# {
+#     "name": "python3-requests",
+#     "buildsystem": "simple",
+#     "build-commands": [
+#         "pip3 install --no-index --find-links=\"file://${PWD}\" --prefix=${FLATPAK_DEST} requests"
+#     ],
+#     "sources": [
+#         {
+#             "type": "file",
+#             "path": "python3-requests-2.25.1-py3-none-any.whl", # Downloaded wheel
+#             "sha256": "..."
+#         }
+#     ]
+# }
+# The flatpak-pip-generator can help create these source entries.
+# See: https://docs.flatpak.org/en/latest/python.html
+#
+# For more complex builds or dependencies, refer to the official Flatpak documentation.
+# Good luck!

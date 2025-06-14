@@ -281,7 +281,7 @@ class NmapPage(Adw.PreferencesPage):
 
     def _nmap_scan_task_done_cb(self, _source_object: GObject.Object, result: Gio.AsyncResult, _user_data: Optional[Any]): # type: ignore # pylint: disable=unused-argument
         """
-        Callback for when the Nmap scan Gio.Task completes.
+        Handle completion of the Nmap scan Gio.Task.
 
         :param _source_object: The GObject source of the task.
         :type _source_object: GObject.Object
@@ -333,7 +333,8 @@ class NmapPage(Adw.PreferencesPage):
             self.current_nmap_cancellable = None
             self._set_scan_status(ScanStatus.IDLE, "Idle") # Reset to idle, or specific status based on outcome
             self.nmap_target_entryrow.set_sensitive(True) # type: ignore
-            if self.nmap_apply_button: self.nmap_apply_button.set_sensitive(True) # type: ignore
+            if self.nmap_apply_button:
+                self.nmap_apply_button.set_sensitive(True) # type: ignore
             if hasattr(self, 'nmap_cancel_scan_button') and self.nmap_cancel_scan_button:
                  self.nmap_cancel_scan_button.set_sensitive(False)
                  self.nmap_cancel_scan_button.set_visible(False)
@@ -701,14 +702,16 @@ class NmapPage(Adw.PreferencesPage):
             self.scan_spinner.start() # type: ignore
             self.status_row.set_title("Scanning...") # type: ignore
             style_context.add_class("accent-color") # Using accent for "in progress"
-            if self.nmap_apply_button: self.nmap_apply_button.set_sensitive(False) # type: ignore
+            if self.nmap_apply_button:
+                self.nmap_apply_button.set_sensitive(False) # type: ignore
             if hasattr(self, 'nmap_cancel_scan_button') and self.nmap_cancel_scan_button:
                 self.nmap_cancel_scan_button.set_visible(True)
                 self.nmap_cancel_scan_button.set_sensitive(True)
         else: # Not IN_PROGRESS (COMPLETE, FAILED, IDLE)
             self.scan_spinner.stop() # type: ignore
             self.scan_spinner.set_visible(False) # type: ignore
-            if self.nmap_apply_button: self.nmap_apply_button.set_sensitive(True) # type: ignore
+            if self.nmap_apply_button:
+                self.nmap_apply_button.set_sensitive(True) # type: ignore
             if hasattr(self, 'nmap_cancel_scan_button') and self.nmap_cancel_scan_button:
                 self.nmap_cancel_scan_button.set_visible(False)
                 self.nmap_cancel_scan_button.set_sensitive(False)
@@ -739,7 +742,8 @@ class NmapPage(Adw.PreferencesPage):
         self.nmap_detail_placeholder.set_visible(True)
         self.nmap_target_entryrow.remove_css_class("error") # type: ignore
         self.nmap_target_entryrow.set_sensitive(True) # type: ignore
-        if self.nmap_apply_button: self.nmap_apply_button.set_sensitive(True) # type: ignore
+        if self.nmap_apply_button:
+            self.nmap_apply_button.set_sensitive(True) # type: ignore
         if hasattr(self, 'nmap_cancel_scan_button') and self.nmap_cancel_scan_button:
             self.nmap_cancel_scan_button.set_sensitive(False)
             self.nmap_cancel_scan_button.set_visible(False)

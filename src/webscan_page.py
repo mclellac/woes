@@ -191,7 +191,8 @@ class WebScanPage(Adw.PreferencesPage):
             logger.info("Nikto scan cancellation requested via button.")
             # UI updates (disabling cancel, enabling scan) will happen in _on_scan_task_done
             # Or potentially set a flag here and update UI immediately if preferred.
-            if hasattr(self, 'webscan_cancel_button'): self.webscan_cancel_button.set_sensitive(False)
+            if hasattr(self, 'webscan_cancel_button'):
+                self.webscan_cancel_button.set_sensitive(False)
         else:
             logger.warning("No active scan or cancellable to cancel.")
 
@@ -258,7 +259,6 @@ class WebScanPage(Adw.PreferencesPage):
             return
         logger.debug(f"WebScanPage scan button clicked. URL: '{self.url_entry.get_text()}'")
         target_url = self.url_entry.get_text().strip()
-        original_target_url_for_display = target_url # Keep original for display if needed
         if target_url and not (target_url.startswith("http://") or target_url.startswith("https://") or target_url.startswith("ftp://")):
             logger.info(f"No scheme found in URL '{target_url}'. Prepending 'https://'.")
             target_url = "https://" + target_url
@@ -436,8 +436,10 @@ class WebScanPage(Adw.PreferencesPage):
                 logger.warning(f"Invalid maxtime value '{maxtime_str}', not an integer. Ignoring.")
 
         tuning_options = []
-        if cgi_vulns: tuning_options.append('2') # Corresponds to Nikto's "Misconfiguration / Default File"
-        if interesting_content: tuning_options.append('1') # Corresponds to Nikto's "Interesting File / Seen in logs"
+        if cgi_vulns:
+            tuning_options.append('2') # Corresponds to Nikto's "Misconfiguration / Default File"
+        if interesting_content:
+            tuning_options.append('1') # Corresponds to Nikto's "Interesting File / Seen in logs"
         # Add new tuning options
         if auth_bypass_active:
             tuning_options.append('9') # '9' for Authentication Bypass
@@ -626,8 +628,6 @@ class WebScanPage(Adw.PreferencesPage):
             # self._current_webscan_params = None
 
         logger.info(f"Nikto scan task done for {target_url}.")
-        stdout: Optional[str] = None
-        stderr: Optional[str] = None
 
         try:
             # propagate_value() will return the (stdout, stderr) tuple on success
