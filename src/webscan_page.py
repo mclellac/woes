@@ -537,36 +537,15 @@ class WebScanPage(Adw.PreferencesPage):
             stdout_str, stderr_str = process.communicate()
             self.current_nikto_process = None # Clear process reference
 
+            # Store raw output to check for RFI warning BEFORE other processing
+            raw_original_stderr = stderr_str if isinstance(stderr_str, str) else ""
+            raw_original_stdout = stdout_str if isinstance(stdout_str, str) else ""
+            rfi_warning_detected_in_raw = False
             rfi_warning_signature = "- ***** RFIURL is not defined in nikto.conf--no RFI tests will run *****"
-            raw_stderr_for_check = stderr_str if isinstance(stderr_str, str) else ""
-            raw_stdout_for_check = stdout_str if isinstance(stdout_str, str) else ""
 
-            if rfi_warning_signature in raw_stderr_for_check or rfi_warning_signature in raw_stdout_for_check:
-                logger.info("RFIURL not configured warning detected in Nikto output.")
-                instructional_message = (
-                    "IMPORTANT: Nikto Scan Aborted (RFIURL Not Configured)\n\n"
-                    "The web scan was not completed because Nikto's Remote File Inclusion (RFI) "
-                    "tests cannot run. This is because the 'RFIURL' setting is not defined in your "
-                    "Nikto configuration file (nikto.conf).\n\n"
-                    "What is RFIURL?\n"
-                    "RFIURL is a setting in nikto.conf that specifies a URL Nikto can use to test for "
-                    "Remote File Inclusion vulnerabilities. Without it, Nikto skips these tests.\n\n"
-                    "How to configure RFIURL in nikto.conf:\n"
-                    "1. Locate your nikto.conf file. Common locations are /etc/nikto.conf, "
-                    "or within the Nikto installation directory (e.g., /opt/nikto/nikto.conf, "
-                    "~/.nikto/nikto.conf). Check Nikto's documentation if you can't find it.\n"
-                    "2. Open nikto.conf in a text editor.\n"
-                    "3. Find the line starting with '#RFIURL=' (it might be commented out).\n"
-                    "4. Uncomment it (remove the '#') and set it to a URL on a server you control, "
-                    "which hosts a simple, harmless text file. For example:\n"
-                    "   RFIURL=http://my.test.server.com/rfi_probe.txt\n"
-                    "   (Ensure 'rfi_probe.txt' exists at that URL and returns a simple known text).\n"
-                    "5. Save the nikto.conf file.\n\n"
-                    "After configuring RFIURL, you can try running the WebScan again."
-                )
-                # Return a special marker and the message
-                task.return_value(("RFI_CONFIG_ERROR", instructional_message))
-                return # Stop further processing in this thread function
+            if rfi_warning_signature in raw_original_stderr or rfi_warning_signature in raw_original_stdout:
+                rfi_warning_detected_in_raw = True
+                logger.info("RFIURL warning detected in original Nikto output.")
 
             main_report_content: Optional[str] = None
             aux_output: Optional[str] = None
@@ -670,6 +649,34 @@ class WebScanPage(Adw.PreferencesPage):
             # RFIURL warning is handled earlier by returning ("RFI_CONFIG_ERROR", message)
             # So, no need for specific RFI filtering/replacement here anymore.
 
+            if rfi_warning_detected_in_raw:
+                instructional_message = (
+                    "\n\n[FYI on Nikto RFIURL Configuration]\n"
+                    "Nikto's Remote File Inclusion (RFI) tests did not run because 'RFIURL' "
+                    "is not defined in your nikto.conf file. Nikto reported: "
+                    f"\n'{rfi_warning_signature}'\n"
+                    "To enable these specific tests, you may need to configure RFIURL in your Nikto "
+                    "installation's configuration file (usually nikto.conf).\n\n"
+                    "How to configure RFIURL in nikto.conf:\n"
+                    "1. Locate nikto.conf (e.g., /etc/nikto.conf, or in Nikto's installation directory).\n"
+                    "2. Open it and find the '#RFIURL=' line.\n"
+                    "3. Uncomment and set it, e.g., RFIURL=http://your.accessible.server/rfi_probe.txt\n"
+                    "   (The URL should point to a harmless file you control for testing.)\n"
+                    "4. Save nikto.conf and rerun the scan if RFI tests are desired."
+                )
+
+                # Ensure original raw warning is not duplicated if it was part of the main content already
+                if isinstance(main_report_content, str):
+                    main_report_content = main_report_content.replace(rfi_warning_signature, "")
+                if isinstance(aux_output, str):
+                    aux_output = aux_output.replace(rfi_warning_signature, "")
+
+                if aux_output and aux_output.strip(): # If aux_output has existing content
+                    aux_output = aux_output.strip() + instructional_message
+                else: # If aux_output is None, empty, or whitespace only
+                    aux_output = instructional_message.strip() # Make the message the aux_output
+                logger.info("Appended RFIURL instructional message to aux_output.")
+
             task.return_value((
                 str(main_report_content) if main_report_content is not None else "",
                 str(aux_output) if aux_output is not None else None
@@ -713,22 +720,7 @@ class WebScanPage(Adw.PreferencesPage):
             # The 'result' parameter itself is the Gio.Task object here.
             returned_data = result.propagate_value() # type: ignore
 
-            if isinstance(returned_data, tuple) and len(returned_data) == 2 and returned_data[0] == "RFI_CONFIG_ERROR":
-                instructional_message = returned_data[1]
-                logger.info("Handling RFI_CONFIG_ERROR: Displaying instructional message.")
-                # Clear any "Scanning..." message from the text view buffer first
-                if hasattr(self, 'source_view') and self.source_view:
-                    buffer = self.source_view.get_buffer()
-                    if buffer:
-                        buffer.set_text("") # Clear previous content
-                self._update_textview(None, instructional_message, is_error_message=True) # Use is_error_message to make it stand out or handle formatting
-
-                if self.webscan_status_action_row:
-                    self.webscan_status_action_row.set_subtitle("Scan Not Performed: Nikto RFIURL not configured.")
-
-                # Ensure scan button is re-enabled, spinner stopped etc.
-                # This will be handled by the `finally` block of _on_scan_task_done.
-                return # Skip normal processing
+            # Removed RFI_CONFIG_ERROR handling block as it's no longer a special return case.
 
             if isinstance(returned_data, tuple) and len(returned_data) == 2:
                 s_out, s_err = returned_data
