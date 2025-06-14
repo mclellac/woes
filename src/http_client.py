@@ -63,6 +63,7 @@ class HttpProcessingError(HttpClientError):
         Initialize the HTTP client error.
 
         Args:
+        ----
             message: The error message.
             status_code: The HTTP status code, if applicable.
             url: The URL associated with the error, if applicable.
