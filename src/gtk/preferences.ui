@@ -73,7 +73,7 @@
                     <property name="tooltip-text" translatable="yes">Apply</property>
                     <property name="valign">center</property>
                     <style>
-                      <class name="flat"/>
+                      <class name="suggested-action"/>
                     </style>
                   </object>
                 </child>
@@ -145,7 +145,9 @@
                     <property name="label" translatable="yes">Add User Agent</property>
                     <property name="icon-name">list-add-symbolic</property>
                     <property name="tooltip-text" translatable="yes">Add the new User-Agent (Title and String) to the list</property>
-                    <style><class name="pill"/></style>
+                    <style>
+                      <class name="suggested-action"/>
+                    </style>
                   </object>
                 </child>
               </object>
