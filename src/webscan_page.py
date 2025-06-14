@@ -79,6 +79,19 @@ class WebScanPage(Adw.PreferencesPage):
         self._current_webscan_params: Optional[Dict[str, Any]] = None
         self.settings = Gio.Settings.new(APP_ID)
         self.style_manager = Adw.StyleManager.get_default()
+
+        # Ensure correct style classes are applied
+        if self.scan_button:
+            self.scan_button.get_style_context().add_class("suggested-action")
+        if self.webscan_cancel_button: # This button's visibility is toggled; ensure class is present from init
+            self.webscan_cancel_button.get_style_context().add_class("destructive-action")
+        if self.clear_results_button:
+            self.clear_results_button.get_style_context().add_class("destructive-action")
+        if self.copy_results_button:
+            self.copy_results_button.get_style_context().add_class("flat")
+        if self.nikto_output_file_button: # Assuming flat is appropriate for this icon button
+            self.nikto_output_file_button.get_style_context().add_class("flat")
+
         logger.debug("WebScanPage initialized")
 
         self.url_entry.connect("entry-activated", self.on_scan_button_clicked)

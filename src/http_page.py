@@ -136,6 +136,15 @@ class HttpPage(Adw.PreferencesPage):
         self._connect_signals()
         self._update_user_agent_model()
         self.settings.connect("changed::custom-user-agents", lambda _s, _k: self._update_user_agent_model())
+
+        # Ensure correct style classes are applied
+        if self.http_apply_button:
+            self.http_apply_button.get_style_context().add_class("suggested-action")
+        if self.clear_results_button:
+            self.clear_results_button.get_style_context().add_class("destructive-action")
+        if self.copy_results_button:
+            self.copy_results_button.get_style_context().add_class("flat")
+
         if self.http_host_header_row:
             self._on_host_header_changed(self.http_host_header_row)
         if self.http_user_agent_row:

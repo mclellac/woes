@@ -101,6 +101,12 @@ class NmapPage(Adw.PreferencesPage):
         self.scanner = NmapScanner()
         self.settings = Gio.Settings.new(APP_ID)
 
+        # Ensure correct style classes are applied
+        if self.nmap_apply_button:
+            self.nmap_apply_button.get_style_context().add_class("suggested-action")
+        if self.nmap_cancel_scan_button: # This button's visibility is toggled
+            self.nmap_cancel_scan_button.get_style_context().add_class("destructive-action")
+
         self.current_nmap_task: Optional[Gio.Task] = None
         self.current_nmap_cancellable: Optional[Gio.Cancellable] = None
         self._current_nmap_scan_params: Optional[Dict[str, Any]] = None
