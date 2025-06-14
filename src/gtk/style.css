@@ -20,3 +20,20 @@
     background-color: rgba(0, 120, 212, 0.08); /* Light blueish background */
     border-left: 3px solid rgba(0, 120, 212, 0.7); /* Blueish border */
 }
+
+/* Ensure accent colors on buttons are not overridden by text-button styling */
+button.suggested-action,
+button.suggested-action.text-button {
+    background-image: none;
+    background-color: var(--accent-bg-color);
+    color: var(--accent-fg-color);
+    border-color: var(--accent-bg-color); /* Or var(--accent-color) for more contrast */
+}
+
+button.destructive-action,
+button.destructive-action.text-button {
+    background-image: none;
+    background-color: var(--destructive-bg-color);
+    color: var(--destructive-fg-color);
+    border-color: var(--destructive-bg-color); /* Or var(--destructive-color) for more contrast */
+}
