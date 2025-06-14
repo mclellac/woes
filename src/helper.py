@@ -6,7 +6,8 @@ gi.require_version("Gtk", "4.0")
 
 
 class Helper:
-    """Provides keyboard shortcuts and context menu for Gtk.ColumnView.
+    """
+    Provides keyboard shortcuts and context menu for Gtk.ColumnView.
 
     This helper class adds common functionalities like ``Ctrl+C`` for copying
     and a right-click context menu with a 'Copy' option to a
@@ -14,7 +15,8 @@ class Helper:
     """
 
     def __init__(self, widget: Gtk.Widget, parent_window: Gtk.Window):
-        """Initialize the Helper class.
+        """
+        Initialize the Helper class.
 
         :param widget: The widget to which the helper is attached. This is
                        expected to be a :class:`Gtk.ColumnView` for full
@@ -31,7 +33,8 @@ class Helper:
             self.setup_context_menu()
 
     def setup_keyboard_shortcut(self):
-        """Set up a keyboard shortcut (``Ctrl+C``) for copying.
+        """
+        Set up a keyboard shortcut (``Ctrl+C``) for copying.
 
         This allows copying selected content from the :class:`Gtk.ColumnView`
         to the clipboard using the ``Ctrl+C`` combination.
@@ -55,7 +58,8 @@ class Helper:
         self.widget.add_controller(gesture)
 
     def on_right_click(self, gesture: Gtk.GestureClick, n_press: int, x: float, y: float) -> None:
-        """Display the context menu popover at the location of the mouse click.
+        """
+        Display the context menu popover at the location of the mouse click.
 
         Called when the right-click gesture is detected on the widget.
 
@@ -81,7 +85,8 @@ class Helper:
             self.popover.popup() # type: ignore
 
     def on_copy_menu_item_activated(self, button: Gtk.Button) -> None:
-        """Handle activation of the 'Copy' menu item.
+        """
+        Handle activation of the 'Copy' menu item.
 
         Copies selected content to the clipboard and hides the popover.
 
@@ -99,7 +104,8 @@ class Helper:
         keycode: int,
         state: Gdk.ModifierType
     ) -> bool:
-        """Handle the ``Ctrl+C`` keyboard shortcut to copy selected content.
+        """
+        Handle the ``Ctrl+C`` keyboard shortcut to copy selected content.
 
         :param controller: The key controller that triggered the event.
         :type controller: Gtk.EventControllerKey
@@ -119,7 +125,8 @@ class Helper:
         return False
 
     def copy_to_clipboard(self) -> None:
-        """Copy selected content from the :class:`Gtk.ColumnView` to the clipboard.
+        """
+        Copy selected content from the :class:`Gtk.ColumnView` to the clipboard.
 
         Assumes the items in the :class:`Gtk.ColumnView` model have 'key' and
         'value' attributes to construct the string "key: value".

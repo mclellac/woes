@@ -1,4 +1,5 @@
-"""Defines the DNS lookup page for the Woes application.
+"""
+Defines the DNS lookup page for the Woes application.
 
 This module contains the :class:`DNSPage` class, which provides UI and
 functionality for performing DNS lookups.
@@ -29,7 +30,8 @@ gi.require_version("Gtk", "4.0")
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/dns_page.ui")
 class DNSPage(Adw.PreferencesPage):
-    """Activity page for performing DNS lookups and displaying results.
+    """
+    Activity page for performing DNS lookups and displaying results.
 
     This page allows users to enter a domain name or IP address, select a DNS
     record type, and view the lookup results. It uses the `dnspython` library
@@ -49,7 +51,8 @@ class DNSPage(Adw.PreferencesPage):
     dns_status_spinner = Gtk.Template.Child()
 
     def __init__(self, **kwargs: GObject.GObject):
-        """Initialize the DNSPage.
+        """
+        Initialize the DNSPage.
 
         Sets up UI elements, connects signals, and initializes GSettings.
 
@@ -76,7 +79,8 @@ class DNSPage(Adw.PreferencesPage):
             self.dns_copy_all_results_button.connect("clicked", self._on_copy_all_results_clicked)
 
     def _on_clear_results_clicked(self, _button: Gtk.Button) -> None:
-        """Clear all DNS lookup results from the UI.
+        """
+        Clear all DNS lookup results from the UI.
 
         :param _button: The Gtk.Button that was clicked (unused).
         :type _button: Gtk.Button
@@ -91,7 +95,8 @@ class DNSPage(Adw.PreferencesPage):
             self.dns_copy_all_results_button.set_sensitive(False)
 
     def _on_copy_all_results_clicked(self, _button: Gtk.Button) -> None:
-        """Copy all displayed DNS results to the clipboard.
+        """
+        Copy all displayed DNS results to the clipboard.
 
         :param _button: The Gtk.Button that was clicked (unused).
         :type _button: Gtk.Button
@@ -141,7 +146,8 @@ class DNSPage(Adw.PreferencesPage):
 
     @staticmethod
     def _copy_to_clipboard(text: str, widget: Gtk.Widget) -> None:
-        """Copy the given text to the clipboard.
+        """
+        Copy the given text to the clipboard.
 
         :param text: The text to copy.
         :type text: str
@@ -159,7 +165,8 @@ class DNSPage(Adw.PreferencesPage):
             logger.exception("Error copying to clipboard:")
 
     def _is_valid_ip_or_domain(self, input_str: str) -> bool:
-        """Validate if the input is a syntactically valid IP or domain.
+        """
+        Validate if the input is a syntactically valid IP or domain.
 
         :param input_str: The string to validate.
         :type input_str: str
@@ -172,7 +179,8 @@ class DNSPage(Adw.PreferencesPage):
         return is_valid_ip(input_str) or is_valid_domain(input_str)
 
     def _on_entry_activated(self, _widget: Gtk.Widget) -> None:
-        """Handle activation of the domain entry or click of the 'Lookup' button.
+        """
+        Handle activation of the domain entry or click of the 'Lookup' button.
 
         Triggers the DNS lookup process.
 
@@ -183,7 +191,8 @@ class DNSPage(Adw.PreferencesPage):
         self._perform_lookup()
 
     def _on_record_type_changed(self, _dropdown: Gtk.DropDown, _param_spec: GObject.ParamSpec) -> None:
-        """Handle changes in the selected DNS record type.
+        """
+        Handle changes in the selected DNS record type.
 
         Triggers a new DNS lookup with the new record type.
 
@@ -197,7 +206,8 @@ class DNSPage(Adw.PreferencesPage):
     # --- Helper methods for building record rows ---
 
     def _create_copy_button(self, text_to_copy: str, tooltip_text: str, widget_for_clipboard: Gtk.Widget) -> Gtk.Button:
-        """Create a Gtk.Button for copying text.
+        """
+        Create a Gtk.Button for copying text.
 
         :param text_to_copy: The text to be copied when the button is clicked.
         :type text_to_copy: str
@@ -215,7 +225,8 @@ class DNSPage(Adw.PreferencesPage):
         return button
 
     def _create_base_action_row(self, name: str, record_type_label: str, base_subtitle_text: str, icon_name: Optional[str]) -> Adw.ActionRow:
-        """Create a basic Adw.ActionRow with title, subtitle, and optional icon.
+        """
+        Create a basic Adw.ActionRow with title, subtitle, and optional icon.
 
         :param name: The title for the ActionRow, typically the record name.
         :type name: str
@@ -241,7 +252,8 @@ class DNSPage(Adw.PreferencesPage):
         main_value_tooltip_prefix: str,
         full_summary_text: str
     ) -> None:
-        """Add a standard suffix box (label, copy value button, copy summary button) to an ActionRow.
+        """
+        Add a standard suffix box (label, copy value button, copy summary button) to an ActionRow.
 
         :param row: The Adw.ActionRow to add suffixes to.
         :type row: Adw.ActionRow
@@ -259,7 +271,8 @@ class DNSPage(Adw.PreferencesPage):
         row.add_suffix(self._create_copy_button(full_summary_text, "Copy Full Record Summary", row)) # type: ignore
 
     def _create_base_expander_row(self, name: str, subtitle_text: str, icon_name: Optional[str], full_summary_text: str) -> Adw.ExpanderRow:
-        """Create a basic Adw.ExpanderRow with title, subtitle, icon, and a full summary copy button.
+        """
+        Create a basic Adw.ExpanderRow with title, subtitle, icon, and a full summary copy button.
 
         :param name: The title for the ExpanderRow.
         :type name: str
@@ -288,7 +301,8 @@ class DNSPage(Adw.PreferencesPage):
             copy_tooltip_prefix: str,
             is_value_primary_content: bool = False
         ):
-        """Add a detail row (Adw.ActionRow) to an Adw.ExpanderRow.
+        """
+        Add a detail row (Adw.ActionRow) to an Adw.ExpanderRow.
 
         :param expander_row: The Adw.ExpanderRow to add the detail row to.
         :type expander_row: Adw.ExpanderRow
@@ -319,7 +333,8 @@ class DNSPage(Adw.PreferencesPage):
         expander_row.add_row(detail_row) # type: ignore
 
     def _set_loading_state(self, active: bool, message: Optional[str] = None) -> None:
-        """Set the UI loading state (spinner, status message, sensitivity).
+        """
+        Set the UI loading state (spinner, status message, sensitivity).
 
         :param active: True to set loading state, False to unset.
         :type active: bool
@@ -351,7 +366,8 @@ class DNSPage(Adw.PreferencesPage):
             self.dns_record_type_dropdown.set_sensitive(not active) # type: ignore
 
     def _validate_dns_input(self, user_input: str) -> bool:
-        """Validate the DNS user input. Shows global error/toast if invalid.
+        """
+        Validate the DNS user input. Shows global error/toast if invalid.
 
         :param user_input: The user input string to validate.
         :type user_input: str
@@ -374,7 +390,8 @@ class DNSPage(Adw.PreferencesPage):
         return True
 
     def _update_ptr_dropdown(self, user_input: str, requested_record_type: str) -> str:
-        """Update the record type dropdown to PTR if an IP was entered and PTR was requested.
+        """
+        Update the record type dropdown to PTR if an IP was entered and PTR was requested.
 
         Returns the record type that was effectively used or set.
 
@@ -403,7 +420,8 @@ class DNSPage(Adw.PreferencesPage):
         requested_record_type: str, # The type initially selected by user
         dns_client: DnsResolverClient
     ) -> None:
-        """Handle successful DNS lookup results.
+        """
+        Handle successful DNS lookup results.
 
         :param result_data: The list of DNS records obtained from the lookup.
         :type result_data: List[Dict[str, Any]]
@@ -439,7 +457,8 @@ class DNSPage(Adw.PreferencesPage):
         requested_record_type: str,
         dns_client: DnsResolverClient # Pass client to get nameservers for NoAnswer
     ) -> None:
-        """Handle exceptions from DnsResolverClient.
+        """
+        Handle exceptions from DnsResolverClient.
 
         :param error: The exception object that was raised.
         :type error: Exception
@@ -484,7 +503,8 @@ class DNSPage(Adw.PreferencesPage):
 
 
     def _perform_lookup(self) -> None:
-        """Perform the DNS lookup based on user input and selected record type.
+        """
+        Perform the DNS lookup based on user input and selected record type.
 
         Orchestrates input validation, client interaction, and result/error display.
         """
@@ -517,7 +537,8 @@ class DNSPage(Adw.PreferencesPage):
 
 
     def _get_selected_record_type(self) -> str:
-        """Get the currently selected DNS record type from the dropdown.
+        """
+        Get the currently selected DNS record type from the dropdown.
 
         :return: The selected record type as a string (e.g., "A", "MX").
         :rtype: str
@@ -527,7 +548,8 @@ class DNSPage(Adw.PreferencesPage):
         return model.get_string(selected_index) # type: ignore
 
     def _clear_error(self) -> None:
-        """Clear any existing error messages from the UI.
+        """
+        Clear any existing error messages from the UI.
 
         This includes hiding the main window's error banner and removing
         the 'error' CSS class from the domain entry row.
@@ -546,7 +568,8 @@ class DNSPage(Adw.PreferencesPage):
         record_type: str,
         dns_servers: Sequence[Any],
     ) -> None:
-        """Display the DNS lookup results in the UI.
+        """
+        Display the DNS lookup results in the UI.
 
         Clears previous results and populates the results container with new
         rows based on the lookup outcome.
@@ -607,7 +630,8 @@ class DNSPage(Adw.PreferencesPage):
     # --- Helper methods for building record rows ---
 
     def _create_copy_button(self, text_to_copy: str, tooltip_text: str, widget_for_clipboard: Gtk.Widget) -> Gtk.Button:
-        """Create a Gtk.Button for copying text.
+        """
+        Create a Gtk.Button for copying text.
 
         :param text_to_copy: The text to be copied when the button is clicked.
         :type text_to_copy: str
@@ -625,7 +649,8 @@ class DNSPage(Adw.PreferencesPage):
         return button
 
     def _create_base_action_row(self, name: str, record_type_label: str, base_subtitle_text: str, icon_name: Optional[str]) -> Adw.ActionRow:
-        """Create a basic Adw.ActionRow with title, subtitle, and optional icon.
+        """
+        Create a basic Adw.ActionRow with title, subtitle, and optional icon.
 
         :param name: The title for the ActionRow, typically the record name.
         :type name: str
@@ -651,7 +676,8 @@ class DNSPage(Adw.PreferencesPage):
         main_value_tooltip_prefix: str,
         full_summary_text: str
     ) -> None:
-        """Add a standard suffix box (label, copy value button, copy summary button) to an ActionRow.
+        """
+        Add a standard suffix box (label, copy value button, copy summary button) to an ActionRow.
 
         :param row: The Adw.ActionRow to add suffixes to.
         :type row: Adw.ActionRow
@@ -673,7 +699,8 @@ class DNSPage(Adw.PreferencesPage):
         row.add_suffix(copy_full_summary_button) # type: ignore
 
     def _create_base_expander_row(self, name: str, subtitle_text: str, icon_name: Optional[str], full_summary_text: str) -> Adw.ExpanderRow:
-        """Create a basic Adw.ExpanderRow with title, subtitle, icon, and a full summary copy button.
+        """
+        Create a basic Adw.ExpanderRow with title, subtitle, icon, and a full summary copy button.
 
         :param name: The title for the ExpanderRow.
         :type name: str
@@ -703,7 +730,8 @@ class DNSPage(Adw.PreferencesPage):
             copy_tooltip_prefix: str,
             is_value_primary_content: bool = False
         ):
-        """Add a detail row (Adw.ActionRow) to an Adw.ExpanderRow.
+        """
+        Add a detail row (Adw.ActionRow) to an Adw.ExpanderRow.
 
         :param expander_row: The Adw.ExpanderRow to add the detail row to.
         :type expander_row: Adw.ExpanderRow
@@ -736,7 +764,8 @@ class DNSPage(Adw.PreferencesPage):
     # --- Modified _build_*_record_row methods ---
 
     def _build_address_record_row(self, record_data: Dict[str, Any], name: str, base_subtitle: str, record_type: str) -> Adw.ActionRow:
-        """Build a UI row for an A or AAAA DNS record.
+        """
+        Build a UI row for an A or AAAA DNS record.
 
         :param record_data: Parsed record data.
         :type record_data: Dict[str, Any]
@@ -756,7 +785,8 @@ class DNSPage(Adw.PreferencesPage):
         return row
 
     def _build_cname_ns_ptr_record_row(self, record_data: Dict[str, Any], name: str, base_subtitle: str, record_type: str) -> Adw.ActionRow:
-        """Build a UI row for CNAME, NS, or PTR DNS records.
+        """
+        Build a UI row for CNAME, NS, or PTR DNS records.
 
         :param record_data: Parsed record data.
         :type record_data: Dict[str, Any]
@@ -780,7 +810,8 @@ class DNSPage(Adw.PreferencesPage):
         return row
 
     def _build_generic_data_record_row(self, record_data: Dict[str, Any], name: str, base_subtitle: str, record_type: str) -> Adw.ActionRow:
-        """Build a UI row for generic DNS records that have a 'data' field.
+        """
+        Build a UI row for generic DNS records that have a 'data' field.
 
         :param record_data: Parsed record data.
         :type record_data: Dict[str, Any]
@@ -800,7 +831,8 @@ class DNSPage(Adw.PreferencesPage):
         return row
 
     def _build_mx_record_row(self, record_data: Dict[str, Any], name: str, base_subtitle: str, record_type: str) -> Adw.ExpanderRow: # record_type is "MX"
-        """Build a UI row for an MX DNS record.
+        """
+        Build a UI row for an MX DNS record.
 
         :param record_data: Parsed record data.
         :type record_data: Dict[str, Any]
@@ -833,7 +865,8 @@ class DNSPage(Adw.PreferencesPage):
         return row
 
     def _build_txt_record_row(self, record_data: Dict[str, Any], name: str, base_subtitle: str, record_type: str) -> Adw.ExpanderRow: # record_type is "TXT"
-        """Build a UI row for a TXT DNS record.
+        """
+        Build a UI row for a TXT DNS record.
 
         :param record_data: Parsed record data.
         :type record_data: Dict[str, Any]
@@ -862,7 +895,8 @@ class DNSPage(Adw.PreferencesPage):
         return row
 
     def _build_soa_record_row(self, record_data: Dict[str, Any], name: str, base_subtitle: str, record_type: str) -> Adw.ExpanderRow: # record_type is "SOA"
-        """Build a UI row for an SOA DNS record.
+        """
+        Build a UI row for an SOA DNS record.
 
         :param record_data: Parsed record data.
         :type record_data: Dict[str, Any]
@@ -897,7 +931,8 @@ class DNSPage(Adw.PreferencesPage):
         return row
 
     def _create_record_row(self, record_data: Dict[str, Any]) -> Optional[Gtk.Widget]:
-        """Create a UI row for a single DNS record dictionary.
+        """
+        Create a UI row for a single DNS record dictionary.
 
         Delegates to specific `_build_*_record_row` methods based on record type.
 
@@ -924,7 +959,8 @@ class DNSPage(Adw.PreferencesPage):
             return None
 
     def trigger_lookup(self) -> None:
-        """Programmatically trigger the DNS 'Lookup' action.
+        """
+        Programmatically trigger the DNS 'Lookup' action.
 
         This is typically called via a keyboard shortcut. It simulates a click
         on the 'Lookup' button if it's available and sensitive.

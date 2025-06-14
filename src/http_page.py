@@ -1,4 +1,5 @@
-"""Defines the HTTP Headers page for the Woes application.
+"""
+Defines the HTTP Headers page for the Woes application.
 
 This page allows users to fetch and inspect HTTP headers for a given URL,
 with options for custom Host headers, User-Agent strings, and Akamai Pragma
@@ -9,7 +10,7 @@ via a :class:`.custom_dns_adapter.CustomDNSAdapter`.
 # pylint: disable=too-many-lines
 import logging
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 # Note: Most HTTP client logic, including requests and dnspython, is now in http_client.py
 
 import gi
@@ -56,7 +57,8 @@ class HeaderItem(GObject.Object):
     is_special_row: bool
 
     def __init__(self, key: str, value: str, is_special_row: bool = False):
-        """Initialize a HeaderItem.
+        """
+        Initialize a HeaderItem.
 
         :param key: The header key or special row title.
         :type key: str
@@ -75,7 +77,8 @@ class HeaderItem(GObject.Object):
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/http_page.ui")
 class HttpPage(Adw.PreferencesPage):
-    """Activity page for fetching and inspecting HTTP headers.
+    """
+    Activity page for fetching and inspecting HTTP headers.
 
     This class manages the UI and logic for the HTTP Headers inspection tool,
     including handling user input, performing HTTP requests in a background
@@ -96,7 +99,8 @@ class HttpPage(Adw.PreferencesPage):
     http_status_spinner = Gtk.Template.Child()
 
     def __init__(self, **kwargs: GObject.GObject):
-        """Initialize the HttpPage.
+        """
+        Initialize the HttpPage.
 
         Initializes UI elements, GSettings, the header list store for the
         column view, and connects signals.
@@ -153,7 +157,8 @@ class HttpPage(Adw.PreferencesPage):
             self.http_user_agent_row.connect("notify::selected-item", self._on_user_agent_changed)
 
     def _on_host_header_changed(self, entry_row: Adw.EntryRow) -> None:
-        """Handle changes in the Host header entry row.
+        """
+        Handle changes in the Host header entry row.
 
         Adds or removes a CSS class to indicate if an override is active.
 
@@ -169,7 +174,8 @@ class HttpPage(Adw.PreferencesPage):
             entry_row.remove_css_class("active-override")
 
     def _on_user_agent_changed(self, combo_row: Adw.ComboRow, _gparam: Optional[GObject.ParamSpec]) -> None:
-        """Handle changes in the User-Agent combo row selection.
+        """
+        Handle changes in the User-Agent combo row selection.
 
         Adds or removes a CSS class to indicate if a non-default User-Agent is active.
 
@@ -192,7 +198,8 @@ class HttpPage(Adw.PreferencesPage):
             combo_row.remove_css_class("active-override")
 
     def _on_copy_results_clicked(self, _button: Gtk.Button) -> None:
-        """Handle the click event for the 'Copy Results' button.
+        """
+        Handle the click event for the 'Copy Results' button.
 
         Constructs a string representation of the displayed headers and copies
         it to the clipboard.
@@ -228,7 +235,8 @@ class HttpPage(Adw.PreferencesPage):
             logger.info("No headers to copy from the results view.")
 
     def _on_entry_row_activated(self, _widget: Gtk.Widget) -> None:
-        """Handle activation of the URL entry row or click of the 'Fetch' button.
+        """
+        Handle activation of the URL entry row or click of the 'Fetch' button.
 
         Validates the URL, gathers request parameters, and starts the
         background task to fetch HTTP headers.
@@ -282,7 +290,8 @@ class HttpPage(Adw.PreferencesPage):
         _task_data_arg: Dict[str, Any], # type: ignore # Unused (params retrieved from self._http_task_data_for_thread)
         cancellable: Optional[Gio.Cancellable],
     ) -> None:
-        """Background thread function for fetching HTTP headers.
+        """
+        Background thread function for fetching HTTP headers.
 
         This function is executed by :meth:`Gio.Task.run_in_thread`.
         It instantiates :class:`.http_client.HttpFetcher` and calls its
@@ -367,7 +376,8 @@ class HttpPage(Adw.PreferencesPage):
     def _fetch_headers_task_done_cb(
         self, _source_object: GObject.Object, result: Gio.AsyncResult, _user_data: object # type: ignore
     ) -> None:
-        """Callback for when the :meth:`_fetch_headers_task_thread_func` completes.
+        """
+        Callback for when the :meth:`_fetch_headers_task_thread_func` completes.
 
         Processes the result (header data or an exception reported by `HttpFetcher`
         via `Gio.Task`) and updates the UI. Re-enables UI elements.
@@ -521,7 +531,8 @@ class HttpPage(Adw.PreferencesPage):
                     self._set_loading_state(False, "Idle - operation ended.")
 
     def _set_loading_state(self, active: bool, message: str = "Idle") -> None:
-        """Set the UI loading state (spinner, status message, sensitivity of input fields).
+        """
+        Set the UI loading state (spinner, status message, sensitivity of input fields).
 
         :param active: True to set loading state, False to unset.
         :type active: bool
@@ -553,7 +564,8 @@ class HttpPage(Adw.PreferencesPage):
 
     @staticmethod
     def _ensure_scheme(url: str) -> str:
-        """Ensure the URL has a scheme, defaulting to 'https://'.
+        """
+        Ensure the URL has a scheme, defaulting to 'https://'.
 
         This provides a basic check before passing to `HttpFetcher`, which
         will perform more robust URL parsing.
@@ -569,7 +581,8 @@ class HttpPage(Adw.PreferencesPage):
         return url
 
     def _on_pragma_toggled(self, _widget: Gtk.Switch, _gparam: GObject.ParamSpec) -> None:
-        """Handle toggling of the Akamai Pragma switch.
+        """
+        Handle toggling of the Akamai Pragma switch.
 
         If a URL is present in the entry row, it re-triggers the fetch.
 
@@ -583,7 +596,8 @@ class HttpPage(Adw.PreferencesPage):
             self._on_entry_row_activated(self.http_entry_row) # type: ignore
 
     def _update_column_view_model(self, header_items: Optional[List["HeaderItem"]]) -> None:
-        """Update the :class:`Gio.ListStore` for the header :class:`Gtk.ColumnView`.
+        """
+        Update the :class:`Gio.ListStore` for the header :class:`Gtk.ColumnView`.
 
         Clears the existing items and appends new ones if provided.
         Shows or hides the results group accordingly.
@@ -611,7 +625,8 @@ class HttpPage(Adw.PreferencesPage):
             self.http_results_group.set_visible(False)
 
     def _clear_error(self) -> None:
-        """Clear any error state in the UI.
+        """
+        Clear any error state in the UI.
 
         Hides the main window's error banner and removes the 'error' CSS class
         from the URL entry row.
@@ -625,7 +640,8 @@ class HttpPage(Adw.PreferencesPage):
             self.http_entry_row.remove_css_class("error") # type: ignore
 
     def _on_clear_results_clicked(self, _button: Gtk.Button) -> None:
-        """Handle the click event for the 'Clear Results' button.
+        """
+        Handle the click event for the 'Clear Results' button.
 
         Clears the displayed headers, error state, and the URL entry.
 
@@ -640,7 +656,8 @@ class HttpPage(Adw.PreferencesPage):
             self.http_entry_row.set_text("") # type: ignore
 
     def _on_color_setting_changed(self, settings: Gio.Settings, key: str) -> None:
-        """Handle changes to color-related GSettings.
+        """
+        Handle changes to color-related GSettings.
 
         Updates the internal color attributes and re-populates the column view
         to apply the new colors if results are currently displayed.
@@ -662,7 +679,8 @@ class HttpPage(Adw.PreferencesPage):
             self._update_column_view_model(self._current_header_items)
 
     def _update_user_agent_model(self) -> None:
-        """Update the model for the User-Agent :class:`Adw.ComboRow`.
+        """
+        Update the model for the User-Agent :class:`Adw.ComboRow`.
 
         Populates the dropdown with custom User-Agents from GSettings,
         a "None" option, and default User-Agents from constants.
@@ -728,7 +746,8 @@ class HttpPage(Adw.PreferencesPage):
         logging.info("User-Agent dropdown model updated with %d titles.", len(display_titles))
 
     def _create_factory(self, attr_name: str, wrap_text: bool = False) -> Gtk.SignalListItemFactory:
-        """Creates a :class:`Gtk.SignalListItemFactory` for :class:`Gtk.ColumnView` columns.
+        """
+        Creates a :class:`Gtk.SignalListItemFactory` for :class:`Gtk.ColumnView` columns.
 
         This factory is responsible for setting up and binding :class:`Gtk.Label`
         widgets within the column view cells to display :class:`HeaderItem` data.
@@ -787,7 +806,8 @@ class HttpPage(Adw.PreferencesPage):
         return factory
 
     def trigger_fetch(self) -> None:
-        """Programmatically trigger the 'Fetch' action.
+        """
+        Programmatically trigger the 'Fetch' action.
 
         This method is typically called in response to a keyboard shortcut
         or an external event. It simulates a click on the 'Fetch' button

@@ -3,7 +3,7 @@ import logging
 import ipaddress
 import re
 from urllib.parse import urlparse
-from typing import Tuple, List, Optional
+from typing import List, Optional
 
 import gi
 from gi.repository import Gtk, Adw
@@ -15,7 +15,8 @@ logger = logging.getLogger(__name__)
 
 
 def show_global_error(widget: Gtk.Widget, message: str):
-    """Display a global error message using the main window's error banner.
+    """
+    Display a global error message using the main window's error banner.
 
     :param widget: A :class:`Gtk.Widget` (typically 'self' from a page object)
                    to get the native window.
@@ -46,7 +47,8 @@ def show_global_toast(
     timeout: int = 2,
     priority: Adw.ToastPriority = Adw.ToastPriority.NORMAL
 ):
-    """Display a global toast message using the main window's toast overlay.
+    """
+    Display a global toast message using the main window's toast overlay.
 
     :param widget: A :class:`Gtk.Widget` (typically 'self' from a page object)
                    to get the native window.
@@ -78,7 +80,8 @@ def show_global_toast(
 
 
 def is_valid_ip(address: str) -> bool:
-    """Check if the given string is a valid IPv4 or IPv6 address.
+    """
+    Check if the given string is a valid IPv4 or IPv6 address.
 
     :param address: The string to validate.
     :type address: str
@@ -94,7 +97,8 @@ def is_valid_ip(address: str) -> bool:
         return False
 
 def is_valid_domain(domain: str) -> bool:
-    """Check if the given string is a syntactically valid domain name (ASCII).
+    """
+    Check if the given string is a syntactically valid domain name (ASCII).
 
     This validation is based on typical ASCII domain name rules (LDH labels).
     It does not perform DNS resolution or check for IDN (Internationalized
@@ -125,7 +129,8 @@ def is_valid_domain(domain: str) -> bool:
 
 
 def is_valid_url(url: str, schemes: Optional[List[str]] = None) -> bool:
-    """Check if the given string is a syntactically valid URL with specific schemes.
+    """
+    Check if the given string is a syntactically valid URL with specific schemes.
 
     :param url: The string to validate.
     :type url: str

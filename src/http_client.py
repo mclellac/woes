@@ -35,18 +35,22 @@ logger = logging.getLogger(__name__)
 # Custom Exceptions
 class HttpClientError(Exception):
     """Base exception for HttpFetcher errors."""
+
     pass
 
 class HttpRequestTimeoutError(HttpClientError):
     """Exception for request timeouts."""
+
     pass
 
 class HttpConnectionError(HttpClientError):
     """Exception for connection errors."""
+
     pass
 
 class HttpProcessingError(HttpClientError):
-    """Exception for errors during HTTP response processing (e.g., bad status).
+    """
+    Exception for errors during HTTP response processing (e.g., bad status).
 
     :ivar status_code: The HTTP status code that caused the error, if available.
     :vartype status_code: Optional[int]
@@ -61,6 +65,7 @@ class HttpProcessingError(HttpClientError):
 
 class HttpGenericRequestError(HttpClientError):
     """Exception for other requests-related errors."""
+
     pass
 
 class HttpFetcher:
@@ -73,7 +78,8 @@ class HttpFetcher:
                  user_agent: Optional[str] = None,
                  custom_dns_server: Optional[str] = None,
                  cancellable: Optional[Gio.Cancellable] = None):
-        """Initialize HttpFetcher.
+        """
+        Initialize HttpFetcher.
 
         :param url: The URL to fetch.
         :type url: str
@@ -97,7 +103,8 @@ class HttpFetcher:
         self.session = requests.Session()
 
     def _prepare_request_headers(self) -> Tuple[Dict[str, str], Dict[str, str]]:
-        """Prepare initial request-specific headers and session-wide headers.
+        """
+        Prepare initial request-specific headers and session-wide headers.
 
         Moved from HttpPage.
 
@@ -133,7 +140,8 @@ class HttpFetcher:
         return initial_request_specific_headers, session_headers
 
     def _execute_http_request(self, initial_request_headers: Dict[str, str]) -> requests.Response:
-        """Execute the HTTP GET request using the configured session.
+        """
+        Execute the HTTP GET request using the configured session.
 
         Moved from HttpPage.
 
@@ -172,7 +180,8 @@ class HttpFetcher:
 
 
     def _process_http_response(self, response: requests.Response) -> List[Dict[str, Any]]:
-        """Process the HTTP response, including redirects.
+        """
+        Process the HTTP response, including redirects.
 
         Moved from HttpPage.
 
@@ -211,7 +220,8 @@ class HttpFetcher:
         return all_responses_data
 
     def _get_detailed_connection_error_message(self, exc: Exception, url: str) -> Optional[str]:
-        """Attempt to find a 'Connection Refused' error within a chain of exceptions.
+        """
+        Attempt to find a 'Connection Refused' error within a chain of exceptions.
 
         Moved from HttpPage.
 
@@ -266,7 +276,8 @@ class HttpFetcher:
         return None
 
     def _format_http_error(self, e: requests.exceptions.HTTPError) -> str:
-        """Format an HTTPError into a user-friendly string.
+        """
+        Format an HTTPError into a user-friendly string.
 
         Moved from HttpPage.
 
@@ -284,7 +295,8 @@ class HttpFetcher:
         return f"HTTP Error {status_code} ({reason}) for URL: {url}."
 
     def fetch_headers(self) -> List[Dict[str, Any]]:
-        """Main method to fetch and process HTTP headers.
+        """
+        Main method to fetch and process HTTP headers.
 
         :raises HttpRequestTimeoutError: If the request times out.
         :raises HttpConnectionError: If a connection error occurs.
