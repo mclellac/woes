@@ -487,9 +487,22 @@ class HttpPage(Adw.PreferencesPage):
                         headers_for_this_response = response_data_dict.get("headers", {})
                         if isinstance(headers_for_this_response, dict):
                             for key, value in headers_for_this_response.items():
-                                processed_headers_for_store.append(
-                                    HeaderItem(key=str(key), value=str(value), is_special_row=False)
-                                )
+                                original_value_str = str(value)
+                                parts = original_value_str.split(';')
+
+                                first_part = True
+                                for i, part_content in enumerate(parts):
+                                    trimmed_part = part_content.strip()
+                                    if first_part:
+                                        processed_headers_for_store.append(
+                                            HeaderItem(key=str(key), value=trimmed_part, is_special_row=False)
+                                        )
+                                        first_part = False
+                                    else:
+                                        # For subsequent parts, the key is empty, value is the part.
+                                        processed_headers_for_store.append(
+                                            HeaderItem(key="", value=trimmed_part, is_special_row=False)
+                                        )
                         else:
                             logger.warning(
                                 "HttpPage: Headers data for response stage %d is not a dict: %s", i, headers_for_this_response
