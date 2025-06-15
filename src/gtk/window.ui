@@ -13,7 +13,7 @@
             <child>
               <object class="AdwHeaderBar" id="header_bar">
             <property name="title-widget">
-              <object class="AdwViewSwitcher" id="switcher_title">
+              <object class="AdwViewSwitcherTitle" id="switcher_title">
                 <property name="halign">baseline-fill</property>
                 <property name="policy">wide</property>
                 <property name="stack">stack</property>
