@@ -49,24 +49,24 @@ class NmapItem(GObject.Object):
         self.value = value
 
 
-class NmapTargetRow(Gtk.ListBoxRow):
-    """A :class:`Gtk.ListBoxRow` customized to display an NmapItem's key."""
-
-    nmap_item = GObject.Property(type=NmapItem)
-
-    def __init__(self, nmap_item: NmapItem, **kwargs: Any):
-        """
-        Initialize an NmapTargetRow.
-
-        :param nmap_item: The :class:`.NmapItem` to display.
-        :type nmap_item: NmapItem
-        :param kwargs: Additional keyword arguments for :class:`Gtk.ListBoxRow`.
-        :type kwargs: Any
-        """
-        super().__init__(**kwargs)
-        self.nmap_item = nmap_item
-        label = Gtk.Label(label=nmap_item.key, halign=Gtk.Align.START, margin_start=6, margin_end=6)
-        self.set_child(label)
+# class NmapTargetRow(Gtk.ListBoxRow):
+#     """A :class:`Gtk.ListBoxRow` customized to display an NmapItem's key."""
+#
+#     nmap_item = GObject.Property(type=NmapItem)
+#
+#     def __init__(self, nmap_item: NmapItem, **kwargs: Any):
+#         """
+#         Initialize an NmapTargetRow.
+#
+#         :param nmap_item: The :class:`.NmapItem` to display.
+#         :type nmap_item: NmapItem
+#         :param kwargs: Additional keyword arguments for :class:`Gtk.ListBoxRow`.
+#         :type kwargs: Any
+#         """
+#         super().__init__(**kwargs)
+#         self.nmap_item = nmap_item
+#         label = Gtk.Label(label=nmap_item.key, halign=Gtk.Align.START, margin_start=6, margin_end=6)
+#         self.set_child(label)
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/nmap_page.ui")
@@ -75,21 +75,21 @@ class NmapPage(Adw.PreferencesPage):
 
     __gtype_name__ = "NmapPage"
 
-    nmap_target_entryrow = Gtk.Template.Child("nmap_target_entryrow") # type: Adw.EntryRow
-    nmap_apply_button = Gtk.Template.Child("nmap_apply_button") # type: Gtk.Button
-    nmap_fingerprint_switchrow = Gtk.Template.Child("nmap_fingerprint_switchrow") # type: Adw.SwitchRow
-    nmap_all_ports_switchrow = Gtk.Template.Child("nmap_all_ports_switchrow") # type: Adw.SwitchRow
-    nmap_scripts_dropdown = Gtk.Template.Child("nmap_scripts_dropdown") # type: Gtk.DropDown
-    nmap_service_version_switchrow = Gtk.Template.Child("nmap_service_version_switchrow") # type: Adw.SwitchRow
-    nmap_no_ping_switchrow = Gtk.Template.Child("nmap_no_ping_switchrow") # type: Adw.SwitchRow
-    nmap_timing_template_comborow = Gtk.Template.Child("nmap_timing_template_comborow") # type: Adw.ComboRow
-    status_row = Gtk.Template.Child("status_row") # type: Adw.ActionRow
-    scan_spinner = Gtk.Template.Child("scan_spinner") # type: Gtk.Spinner
-    nmap_cancel_scan_button = Gtk.Template.Child() # type: Gtk.Button
+    nmap_target_entryrow = Gtk.Template.Child("nmap_target_entryrow")
+    nmap_apply_button = Gtk.Template.Child("nmap_apply_button")
+    nmap_fingerprint_switchrow = Gtk.Template.Child("nmap_fingerprint_switchrow")
+    nmap_all_ports_switchrow = Gtk.Template.Child("nmap_all_ports_switchrow")
+    nmap_scripts_dropdown = Gtk.Template.Child("nmap_scripts_dropdown")
+    nmap_service_version_switchrow = Gtk.Template.Child("nmap_service_version_switchrow")
+    nmap_no_ping_switchrow = Gtk.Template.Child("nmap_no_ping_switchrow")
+    nmap_timing_template_comborow = Gtk.Template.Child("nmap_timing_template_comborow")
+    status_row = Gtk.Template.Child("status_row")
+    scan_spinner = Gtk.Template.Child("scan_spinner")
+    nmap_cancel_scan_button = Gtk.Template.Child()
 
-    nmap_host_listbox = Gtk.Template.Child("nmap_host_listbox") # type: Gtk.ListBox
-    nmap_detail_box = Gtk.Template.Child("nmap_detail_box") # type: Gtk.Box
-    nmap_detail_placeholder = Gtk.Template.Child("nmap_detail_placeholder") # type: Adw.StatusPage
+    nmap_host_listbox = Gtk.Template.Child("nmap_host_listbox")
+    nmap_detail_box = Gtk.Template.Child("nmap_detail_box")
+    nmap_detail_placeholder = Gtk.Template.Child("nmap_detail_placeholder")
 
     def __init__(self, **kwargs: Any):
         """
@@ -110,7 +110,7 @@ class NmapPage(Adw.PreferencesPage):
 
         if self.nmap_apply_button:
             self.nmap_apply_button.get_style_context().add_class("suggested-action")
-        if self.nmap_cancel_scan_button: # type: ignore[truthy-bool]
+        if self.nmap_cancel_scan_button:
             self.nmap_cancel_scan_button.get_style_context().add_class("destructive-action")
 
         self.current_nmap_task: Optional[Gio.Task] = None
@@ -166,20 +166,20 @@ class NmapPage(Adw.PreferencesPage):
         """
         logger.info("Cancel scan button clicked.")
         if self.current_nmap_cancellable and not self.current_nmap_cancellable.is_cancelled():
-            self.current_nmap_cancellable.cancel() # type: ignore[union-attr]
+            self.current_nmap_cancellable.cancel()
             logger.info("Scan cancellation requested.")
         else:
             logger.warning("No active scan or cancellable to cancel.")
 
-    def _on_target_activate(self, _widget: Adw.EntryRow) -> None: # pylint: disable=unused-argument # Standard GTK signal handler signature
-        target = self.nmap_target_entryrow.get_text().strip() # type: ignore[attr-defined]
+    def _on_target_activate(self, _widget: Adw.EntryRow) -> None:
+        target = self.nmap_target_entryrow.get_text().strip()
         self._clear_error()
 
         if not self.scanner.validate_target_input(target):
             message = "Invalid target format. Please enter a valid IP, CIDR, or hostname."
-            show_global_toast(self, message) # type: ignore[arg-type]
+            show_global_toast(self, message)
             return
-        self.nmap_target_entryrow.remove_css_class("error") # type: ignore[attr-defined]
+        self.nmap_target_entryrow.remove_css_class("error")
 
         if not target:
             self._clear_results()
@@ -201,18 +201,18 @@ class NmapPage(Adw.PreferencesPage):
 
         scan_params: dict[str, Any] = {
             "target": target,
-            "os_fingerprinting": self.nmap_fingerprint_switchrow.get_active(), # type: ignore[attr-defined]
-            "scan_all_ports": self.nmap_all_ports_switchrow.get_active(), # type: ignore[attr-defined]
+            "os_fingerprinting": self.nmap_fingerprint_switchrow.get_active(),
+            "scan_all_ports": self.nmap_all_ports_switchrow.get_active(),
             "selected_script": (
-                item.get_string() # type: ignore[union-attr]
-                if isinstance(item := self.nmap_scripts_dropdown.get_selected_item(), Gtk.StringObject) and item.get_string() != "None" # type: ignore[attr-defined]
+                item.get_string()
+                if isinstance(item := self.nmap_scripts_dropdown.get_selected_item(), Gtk.StringObject) and item.get_string() != "None"
                 else None
             ),
-            "service_version": self.nmap_service_version_switchrow.get_active(), # type: ignore[attr-defined]
-            "no_ping": self.nmap_no_ping_switchrow.get_active(), # type: ignore[attr-defined]
+            "service_version": self.nmap_service_version_switchrow.get_active(),
+            "no_ping": self.nmap_no_ping_switchrow.get_active(),
             "timing_template": (
                 f"T{m.group(1)}"
-                if (m := re.search(r"\(T([0-5])\)", self.nmap_timing_template_comborow.get_selected_item().get_string())) # type: ignore[attr-defined]
+                if (m := re.search(r"\(T([0-5])\)", self.nmap_timing_template_comborow.get_selected_item().get_string()))
                 else "T3"
             ),
             "custom_dns_server": self.settings.get_string("custom-dns-server")
@@ -223,14 +223,14 @@ class NmapPage(Adw.PreferencesPage):
             self, self.current_nmap_cancellable, self._nmap_scan_task_done_cb, None
         )
         self._current_nmap_scan_params = scan_params
-        self.current_nmap_task.run_in_thread(self._run_nmap_scan_thread_func) # type: ignore[arg-type]
+        self.current_nmap_task.run_in_thread(self._run_nmap_scan_thread_func)
 
 
     def _run_nmap_scan_thread_func(
         self,
         task: Gio.Task,
         _source_object: GObject.Object,
-        _task_data: Optional[dict[str, Any]], # pylint: disable=unused-argument # This arg from run_in_thread is not used
+        _task_data: Optional[dict[str, Any]],
         cancellable: Optional[Gio.Cancellable]
     ) -> None:
         """
@@ -245,40 +245,40 @@ class NmapPage(Adw.PreferencesPage):
         :param cancellable: A :class:`Gio.Cancellable` object to monitor for cancellation.
         :type cancellable: Optional[Gio.Cancellable]
         """
-        page_instance: NmapPage = _source_object # type: ignore[assignment]
+        page_instance: NmapPage = _source_object
         params = page_instance._current_nmap_scan_params
 
         if not params:
             logger.error("NmapPage: _run_nmap_scan_thread_func: _current_nmap_scan_params is None. This indicates a programming error.")
-            task.return_new_error_literal(GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN), NmapScanErrorType.UNEXPECTED.value, "Internal error: Scan parameters not found.") # type: ignore[union-attr]
+            task.return_new_error_literal(GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN), NmapScanErrorType.UNEXPECTED.value, "Internal error: Scan parameters not found.")
             return
 
         target = params["target"]
 
         if cancellable and cancellable.is_cancelled():
-            task.return_new_error_literal(GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN), NmapScanErrorType.CANCELLED.value, "Scan cancelled before start.") # type: ignore[union-attr]
+            task.return_new_error_literal(GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN), NmapScanErrorType.CANCELLED.value, "Scan cancelled before start.")
             return
 
         try:
             nm = self.scanner.run_nmap_scan(params, cancellable=cancellable)
 
             if cancellable and cancellable.is_cancelled():
-                task.return_new_error_literal(GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN), NmapScanErrorType.CANCELLED.value, "Scan cancelled during operation.") # type: ignore[union-attr]
+                task.return_new_error_literal(GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN), NmapScanErrorType.CANCELLED.value, "Scan cancelled during operation.")
             else:
-                task.return_value(nm) # type: ignore[union-attr]
+                task.return_value(nm)
         except ScanCancelledError as e:
             logger.info("Nmap scan for %s was cancelled: %s", target, e)
-            task.return_new_error_literal(GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN), NmapScanErrorType.CANCELLED.value, str(e)) # type: ignore[union-attr]
+            task.return_new_error_literal(GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN), NmapScanErrorType.CANCELLED.value, str(e))
         except nmap.PortScannerError as e:
             logger.exception("Nmap PortScannerError for %s:", target)
-            task.return_new_error_literal(GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN), NmapScanErrorType.SCAN_FAILED.value, f"Nmap scan error: {e}") # type: ignore[union-attr]
-        except Exception as e: # pylint: disable=broad-except
+            task.return_new_error_literal(GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN), NmapScanErrorType.SCAN_FAILED.value, f"Nmap scan error: {e}")
+        except Exception as e:
             logger.exception("Unexpected exception in Nmap scan task for %s (%s):", target, type(e).__name__)
-            task.return_new_error_literal(GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN), NmapScanErrorType.UNEXPECTED.value, f"Scan failed unexpectedly: {e}") # type: ignore[union-attr]
+            task.return_new_error_literal(GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN), NmapScanErrorType.UNEXPECTED.value, f"Scan failed unexpectedly: {e}")
         finally:
             logger.info("Nmap scan thread finished for %s.", target)
 
-    def _nmap_scan_task_done_cb(self, _source_object: GObject.Object, result: Gio.AsyncResult, _user_data: Optional[Any]) -> None: # pylint: disable=unused-argument
+    def _nmap_scan_task_done_cb(self, _source_object: GObject.Object, result: Gio.AsyncResult, _user_data: Optional[Any]) -> None:
         """
         Handle completion of the Nmap scan :class:`Gio.Task`.
 
@@ -289,7 +289,7 @@ class NmapPage(Adw.PreferencesPage):
         :param _user_data: User data passed with the callback (unused).
         :type _user_data: Optional[Any]
         """
-        original_target = self._current_nmap_scan_params["target"] if self._current_nmap_scan_params else "unknown target" # type: ignore[index]
+        original_target = self._current_nmap_scan_params["target"] if self._current_nmap_scan_params else "unknown target"
 
         logger.info(f"Nmap scan task done for {original_target}.")
 
@@ -299,11 +299,11 @@ class NmapPage(Adw.PreferencesPage):
 
             if isinstance(propagated_value, nmap.PortScanner):
                 nm_results_final = propagated_value
-            elif hasattr(propagated_value, 'value') and isinstance(getattr(propagated_value, 'value'), nmap.PortScanner): # type: ignore[attr-defined]
+            elif hasattr(propagated_value, 'value') and isinstance(getattr(propagated_value, 'value'), nmap.PortScanner):
                 logger.debug(f"NmapPage: Received wrapped object {type(propagated_value)} with .value attribute containing nmap.PortScanner. Unwrapping.")
-                nm_results_final = getattr(propagated_value, 'value') # type: ignore[attr-defined]
-            elif hasattr(propagated_value, 'value'): # type: ignore[attr-defined]
-                logger.error(f"NmapPage: Received wrapped object {type(propagated_value)} with .value of type {type(getattr(propagated_value, 'value'))}. Expected nmap.PortScanner.") # type: ignore[attr-defined]
+                nm_results_final = getattr(propagated_value, 'value')
+            elif hasattr(propagated_value, 'value'):
+                logger.error(f"NmapPage: Received wrapped object {type(propagated_value)} with .value of type {type(getattr(propagated_value, 'value'))}. Expected nmap.PortScanner.")
                 self._handle_scan_error(original_target, "Scan returned unexpectedly wrapped data of the wrong type.")
             else:
                 logger.error(f"Nmap scan for {original_target} returned unexpected result type: {type(propagated_value)}")
@@ -321,17 +321,17 @@ class NmapPage(Adw.PreferencesPage):
                 self._handle_scan_error(original_target, e.message)
             else: # UNEXPECTED or other GLib.Error
                 self._handle_scan_error(original_target, f"Scan error: {e.message}")
-        except Exception as e: # pylint: disable=broad-except
+        except Exception as e:
             logger.exception(f"NmapPage: Unexpected Python error in _nmap_scan_task_done_cb for {original_target}:")
             self._handle_scan_error(original_target, f"Unexpected error processing scan results: {e}")
         finally:
             self.current_nmap_task = None
             self.current_nmap_cancellable = None
             self._set_scan_status(ScanStatus.IDLE, "Idle") # Default status after task completion
-            self.nmap_target_entryrow.set_sensitive(True) # type: ignore[attr-defined]
+            self.nmap_target_entryrow.set_sensitive(True)
             if self.nmap_apply_button:
                 self.nmap_apply_button.set_sensitive(True)
-            if hasattr(self, 'nmap_cancel_scan_button') and self.nmap_cancel_scan_button: # type: ignore[truthy-bool]
+            if hasattr(self, 'nmap_cancel_scan_button') and self.nmap_cancel_scan_button:
                  self.nmap_cancel_scan_button.set_sensitive(False)
                  self.nmap_cancel_scan_button.set_visible(False)
 
@@ -353,11 +353,11 @@ class NmapPage(Adw.PreferencesPage):
                 f"Scan complete for {original_target}. No hosts found or responsive.",
             )
             self._clear_dynamic_details()
-            self.nmap_detail_placeholder.set_title("No Responsive Hosts") # type: ignore[attr-defined]
-            self.nmap_detail_placeholder.set_description( # type: ignore[attr-defined]
+            self.nmap_detail_placeholder.set_title("No Responsive Hosts")
+            self.nmap_detail_placeholder.set_description(
                 (f"The Nmap scan for '{original_target}' did not find any responsive hosts.")
             )
-            self.nmap_detail_placeholder.set_visible(True) # type: ignore[attr-defined]
+            self.nmap_detail_placeholder.set_visible(True)
             return
 
         results_yaml_map: dict[str, str] = self.scanner.convert_results_to_yaml(nm)
@@ -380,7 +380,7 @@ class NmapPage(Adw.PreferencesPage):
         :param error_message: The error message to display.
         :type error_message: str
         """
-        show_global_error(self, f"Error scanning {target}: {error_message}") # type: ignore[arg-type]
+        show_global_error(self, f"Error scanning {target}: {error_message}")
         self._set_scan_status(ScanStatus.FAILED, f"Scan failed for {target}")
 
     def _on_target_selected(self, _listbox: Gtk.ListBox, row: Optional[Gtk.ListBoxRow]) -> None:
@@ -397,18 +397,18 @@ class NmapPage(Adw.PreferencesPage):
         self._current_selected_host_data_dict = None
 
         if row is None:
-            self.nmap_detail_placeholder.set_title("No Host Selected") # type: ignore[attr-defined]
-            self.nmap_detail_placeholder.set_description("Select a host from the list to view details.") # type: ignore[attr-defined]
-            if not self.nmap_detail_placeholder.get_parent(): # type: ignore[attr-defined]
-                self.nmap_detail_box.append(self.nmap_detail_placeholder) # type: ignore[attr-defined]
-            self.nmap_detail_placeholder.set_visible(True) # type: ignore[attr-defined]
+            self.nmap_detail_placeholder.set_title("No Host Selected")
+            self.nmap_detail_placeholder.set_description("Select a host from the list to view details.")
+            if not self.nmap_detail_placeholder.get_parent():
+                self.nmap_detail_box.append(self.nmap_detail_placeholder)
+            self.nmap_detail_placeholder.set_visible(True)
             return
-        self.nmap_detail_placeholder.set_visible(False) # type: ignore[attr-defined]
-        item_obj = row.nmap_item if isinstance(row, NmapTargetRow) else None # type: ignore[attr-defined]
+        self.nmap_detail_placeholder.set_visible(False)
+        item_obj = row.nmap_item if isinstance(row, NmapTargetRow) else None
         if item_obj and isinstance(item_obj, NmapItem):
             selected_target_key = item_obj.key
             try:
-                host_data_dict: dict[str, Any] = yaml.safe_load(item_obj.value) # type: ignore[assignment]
+                host_data_dict: dict[str, Any] = yaml.safe_load(item_obj.value)
                 if not isinstance(host_data_dict, dict):
                     logger.warning(
                         "Parsed YAML for host %s is not a dictionary. Value: %s",
@@ -425,7 +425,7 @@ class NmapPage(Adw.PreferencesPage):
                 error_label = Gtk.Label(label=f"Error: Could not parse scan results for {selected_target_key}.\n{e}")
                 error_label.set_wrap(True)
                 error_label.set_halign(Gtk.Align.START)
-                self.nmap_detail_box.append(error_label) # type: ignore[attr-defined]
+                self.nmap_detail_box.append(error_label)
                 self._current_selected_host_key = None
                 self._current_selected_host_data_dict = None
                 return
@@ -436,18 +436,18 @@ class NmapPage(Adw.PreferencesPage):
             self._add_raw_output_expander(host_data_dict, selected_target_key)
         elif item_obj is None and row is not None:
             logger.warning("Selected row is not a valid NmapTargetRow or has no NmapItem.")
-            self.nmap_detail_placeholder.set_title("Selection Error") # type: ignore[attr-defined]
-            self.nmap_detail_placeholder.set_description("Could not process selected item.") # type: ignore[attr-defined]
-            if not self.nmap_detail_placeholder.get_parent(): # type: ignore[attr-defined]
-                self.nmap_detail_box.append(self.nmap_detail_placeholder) # type: ignore[attr-defined]
-            self.nmap_detail_placeholder.set_visible(True) # type: ignore[attr-defined]
+            self.nmap_detail_placeholder.set_title("Selection Error")
+            self.nmap_detail_placeholder.set_description("Could not process selected item.")
+            if not self.nmap_detail_placeholder.get_parent():
+                self.nmap_detail_box.append(self.nmap_detail_placeholder)
+            self.nmap_detail_placeholder.set_visible(True)
         else:
             logger.warning("Could not retrieve NmapItem from selected row or item_obj is None.")
-            self.nmap_detail_placeholder.set_title("Error") # type: ignore[attr-defined]
-            self.nmap_detail_placeholder.set_description("Could not load details for the selected host.") # type: ignore[attr-defined]
-            if not self.nmap_detail_placeholder.get_parent(): # type: ignore[attr-defined]
-                self.nmap_detail_box.append(self.nmap_detail_placeholder) # type: ignore[attr-defined]
-            self.nmap_detail_placeholder.set_visible(True) # type: ignore[attr-defined]
+            self.nmap_detail_placeholder.set_title("Error")
+            self.nmap_detail_placeholder.set_description("Could not load details for the selected host.")
+            if not self.nmap_detail_placeholder.get_parent():
+                self.nmap_detail_box.append(self.nmap_detail_placeholder)
+            self.nmap_detail_placeholder.set_visible(True)
 
     def _add_raw_output_expander(self, host_data_dict: Dict[str, Any], host_key: str):
         """
@@ -496,24 +496,24 @@ class NmapPage(Adw.PreferencesPage):
         :param summary_text: The summary text to copy to the clipboard.
         """
         if not summary_text:
-            show_global_toast(self, "No summary text available to copy.") # type: ignore
+            show_global_toast(self, "No summary text available to copy.")
             return
 
         try:
-            clipboard = self.get_clipboard() # type: ignore
+            clipboard = self.get_clipboard()
             if clipboard:
-                clipboard.set(summary_text) # type: ignore
-                show_global_toast(self, "Host summary copied to clipboard.") # type: ignore
+                clipboard.set(summary_text)
+                show_global_toast(self, "Host summary copied to clipboard.")
                 logger.info("Copied Nmap host summary to clipboard.")
             else:
                 logger.warning("Could not get clipboard for NmapPage.")
-                show_global_toast(self, "Failed to access clipboard.") # type: ignore
-        except Exception as e: # pylint: disable=broad-except
+                show_global_toast(self, "Failed to access clipboard.")
+        except Exception as e:
             logger.exception("Error copying Nmap host summary to clipboard:")
-            show_global_toast(self, f"Error copying: {e}") # type: ignore
+            show_global_toast(self, f"Error copying: {e}")
 
 
-    def _add_host_details_expander(self, host_data: Dict[str, Any], host_key: str):  # pylint: disable=too-many-locals # UI construction method with many data points
+    def _add_host_details_expander(self, host_data: Dict[str, Any], host_key: str):
         """
         Add an Adw.ExpanderRow to display general host information.
 
@@ -543,7 +543,7 @@ class NmapPage(Adw.PreferencesPage):
             expander.add_row(Adw.ActionRow(title="Hostnames", subtitle="No hostnames reported"))
         self.nmap_detail_box.append(expander)
 
-    def _add_ports_expander(self, host_data: Dict[str, Any], host_key: str):  # pylint: disable=too-many-locals # UI construction method with many data points
+    def _add_ports_expander(self, host_data: Dict[str, Any], host_key: str):
         """
         Add an Adw.ExpanderRow to display detected network ports and their details.
 
@@ -572,7 +572,7 @@ class NmapPage(Adw.PreferencesPage):
             expander.add_row(Adw.ActionRow(title="Ports", subtitle="No open ports reported or port data available."))
         self.nmap_detail_box.append(expander)
 
-    def _add_os_expander(self, host_data: Dict[str, Any], host_key: str):  # pylint: disable=too-many-locals # UI construction method with many data points
+    def _add_os_expander(self, host_data: Dict[str, Any], host_key: str):
         """
         Add an Adw.ExpanderRow to display OS detection results.
 
@@ -670,33 +670,33 @@ class NmapPage(Adw.PreferencesPage):
             style_context.remove_class(css_class)
         if status_type == ScanStatus.IN_PROGRESS:
             self.scan_spinner.set_visible(True)
-            self.scan_spinner.start() # type: ignore
-            self.status_row.set_title("Scanning...") # type: ignore
+            self.scan_spinner.start()
+            self.status_row.set_title("Scanning...")
             style_context.add_class("accent-color")
             if self.nmap_apply_button:
-                self.nmap_apply_button.set_sensitive(False) # type: ignore
+                self.nmap_apply_button.set_sensitive(False)
             if hasattr(self, 'nmap_cancel_scan_button') and self.nmap_cancel_scan_button:
                 self.nmap_cancel_scan_button.set_visible(True)
                 self.nmap_cancel_scan_button.set_sensitive(True)
         else:
-            self.scan_spinner.stop() # type: ignore
-            self.scan_spinner.set_visible(False) # type: ignore
+            self.scan_spinner.stop()
+            self.scan_spinner.set_visible(False)
             if self.nmap_apply_button:
-                self.nmap_apply_button.set_sensitive(True) # type: ignore
+                self.nmap_apply_button.set_sensitive(True)
             if hasattr(self, 'nmap_cancel_scan_button') and self.nmap_cancel_scan_button:
                 self.nmap_cancel_scan_button.set_visible(False)
                 self.nmap_cancel_scan_button.set_sensitive(False)
 
             if status_type == ScanStatus.COMPLETE:
-                self.status_row.set_title("Scan Complete") # type: ignore
+                self.status_row.set_title("Scan Complete")
                 style_context.add_class("success-color")
             elif status_type == ScanStatus.FAILED:
-                self.status_row.set_title("Scan Failed") # type: ignore
+                self.status_row.set_title("Scan Failed")
                 style_context.add_class("error-color")
             elif status_type == ScanStatus.IDLE:
-                self.status_row.set_title("Idle") # type: ignore
+                self.status_row.set_title("Idle")
             else:
-                self.status_row.set_title("Scan Status") # type: ignore
+                self.status_row.set_title("Scan Status")
 
     def _clear_results(self):
         """Clear all Nmap scan results from the UI."""
@@ -710,10 +710,10 @@ class NmapPage(Adw.PreferencesPage):
         if not self.nmap_detail_placeholder.get_parent():
             self.nmap_detail_box.append(self.nmap_detail_placeholder)
         self.nmap_detail_placeholder.set_visible(True)
-        self.nmap_target_entryrow.remove_css_class("error") # type: ignore
-        self.nmap_target_entryrow.set_sensitive(True) # type: ignore
+        self.nmap_target_entryrow.remove_css_class("error")
+        self.nmap_target_entryrow.set_sensitive(True)
         if self.nmap_apply_button:
-            self.nmap_apply_button.set_sensitive(True) # type: ignore
+            self.nmap_apply_button.set_sensitive(True)
         if hasattr(self, 'nmap_cancel_scan_button') and self.nmap_cancel_scan_button:
             self.nmap_cancel_scan_button.set_sensitive(False)
             self.nmap_cancel_scan_button.set_visible(False)
@@ -750,18 +750,18 @@ class NmapPage(Adw.PreferencesPage):
         """
         summary_lines = []
         status_info = host_data_dict.get("status", {})
-        state = status_info.get("state", "N/A") # type: ignore[attr-defined]
-        reason = status_info.get("reason", "N/A") # type: ignore[attr-defined]
-        summary_lines.append(f"Host is {state} (reason: {reason}).") # type: ignore[attr-defined]
-        addresses_info = host_data_dict.get("addresses", {}) # type: ignore[attr-defined]
-        if ipv4 := addresses_info.get("ipv4"): # type: ignore[attr-defined]
+        state = status_info.get("state", "N/A")
+        reason = status_info.get("reason", "N/A")
+        summary_lines.append(f"Host is {state} (reason: {reason}).")
+        addresses_info = host_data_dict.get("addresses", {})
+        if ipv4 := addresses_info.get("ipv4"):
             summary_lines.append(f"IPv4 Address: {ipv4}")
-        if ipv6 := addresses_info.get("ipv6"): # type: ignore[attr-defined]
+        if ipv6 := addresses_info.get("ipv6"):
             summary_lines.append(f"IPv6 Address: {ipv6}")
-        if mac := addresses_info.get("mac"): # type: ignore[attr-defined]
+        if mac := addresses_info.get("mac"):
             summary_lines.append(f"MAC Address: {mac}")
 
-        prescan_results = host_data_dict.get("prescript_results") # type: ignore[attr-defined]
+        prescan_results = host_data_dict.get("prescript_results")
         if prescan_results and isinstance(prescan_results, list):
             summary_lines.append("\nPre-scan script results:")
             for script_item in prescan_results:
@@ -770,46 +770,46 @@ class NmapPage(Adw.PreferencesPage):
                     if script_output and isinstance(script_output, str):
                         formatted_output = "\n".join(
                             [
-                                f"|_ {script_id}: {line.strip()}" if i == 0 else f"|  {line.strip()}" # type: ignore[str-bytes-safe]
+                                f"|_ {script_id}: {line.strip()}" if i == 0 else f"|  {line.strip()}"
                                 for i, line in enumerate(script_output.strip().split("\n"))
                             ]
                         )
                         summary_lines.append(formatted_output)
                     else:
-                        summary_lines.append(f"|_ {script_id}: (no output)") # type: ignore[str-bytes-safe]
+                        summary_lines.append(f"|_ {script_id}: (no output)")
 
-        hostnames_list = host_data_dict.get("hostnames", []) # type: ignore[attr-defined]
+        hostnames_list = host_data_dict.get("hostnames", [])
         if hostnames_list:
             summary_lines.append("\nHostnames:")
             for hn_entry in hostnames_list:
-                summary_lines.append(f"  {hn_entry.get('name', 'N/A')} ({hn_entry.get('type', 'N/A')})") # type: ignore[str-bytes-safe]
+                summary_lines.append(f"  {hn_entry.get('name', 'N/A')} ({hn_entry.get('type', 'N/A')})")
 
-        host_scripts = host_data_dict.get("hostscript") # type: ignore[attr-defined]
+        host_scripts = host_data_dict.get("hostscript")
         if host_scripts and isinstance(host_scripts, list):
             summary_lines.append("\nHost script output:")
             for script_item in host_scripts:
                 if isinstance(script_item, dict):
                     script_id, script_output = script_item.get("id", "N/A"), script_item.get("output", "N/A")
-                    formatted_output = "\n".join([f"    {line.strip()}" for line in script_output.strip().split("\n")]) # type: ignore[union-attr, str-bytes-safe]
-                    summary_lines.append(f"  Script: {script_id}\n{formatted_output}") # type: ignore[str-bytes-safe]
+                    formatted_output = "\n".join([f"    {line.strip()}" for line in script_output.strip().split("\n")])
+                    summary_lines.append(f"  Script: {script_id}\n{formatted_output}")
 
         ports_data = []
         for proto in ["tcp", "udp", "sctp", "ip"]:
-            if proto_data := host_data_dict.get(proto): # type: ignore[attr-defined]
+            if proto_data := host_data_dict.get(proto):
                 if isinstance(proto_data, dict):
                     for port_id, port_info in proto_data.items():
                         p_state = port_info.get("state", "N/A")
-                        if p_state not in ["closed", "filtered out"]: # type: ignore[comparison-overlap]
+                        if p_state not in ["closed", "filtered out"]:
                             p_name, p_product, p_version, p_reason = (
                                 port_info.get(k, "") for k in ["name", "product", "version", "reason"]
                             )
-                            port_str = f"{port_id}/{proto.upper():<4} {p_state:<10} {p_name}" # type: ignore[str-bytes-safe]
+                            port_str = f"{port_id}/{proto.upper():<4} {p_state:<10} {p_name}"
                             if p_product:
-                                port_str += f" {p_product}" # type: ignore[str-bytes-safe]
+                                port_str += f" {p_product}"
                             if p_version:
-                                port_str += f" {p_version}" # type: ignore[str-bytes-safe]
+                                port_str += f" {p_version}"
                             if p_reason:
-                                port_str += f" (reason: {p_reason})" # type: ignore[str-bytes-safe]
+                                port_str += f" (reason: {p_reason})"
                             ports_data.append(port_str)
                         if port_scripts := port_info.get("script"):
                             if isinstance(port_scripts, dict):
@@ -817,7 +817,7 @@ class NmapPage(Adw.PreferencesPage):
                                     if script_output and isinstance(script_output, str):
                                         formatted_script_output = "\n".join(
                                             [
-                                                f"  |_{script_id}: {line.strip()}" if i == 0 else f"  | {line.strip()}" # type: ignore[str-bytes-safe]
+                                                f"  |_{script_id}: {line.strip()}" if i == 0 else f"  | {line.strip()}"
                                                 for i, line in enumerate(script_output.strip().split("\n"))
                                             ]
                                         )
@@ -828,18 +828,18 @@ class NmapPage(Adw.PreferencesPage):
         else:
             summary_lines.append("No open ports reported or port data available.")
 
-        osmatch_data = host_data_dict.get("osmatch", []) # type: ignore[attr-defined]
+        osmatch_data = host_data_dict.get("osmatch", [])
         if osmatch_data:
             summary_lines.append("\nOS details:")
             for match in osmatch_data:
-                summary_lines.append(f"  Name: {match.get('name', 'N/A')}") # type: ignore[str-bytes-safe]
-                summary_lines.append(f"  Accuracy: {match.get('accuracy', 'N/A')}%") # type: ignore[str-bytes-safe]
-                if "osclass" in match: # type: ignore[operator]
-                    osclasses = match["osclass"] if isinstance(match["osclass"], list) else [match["osclass"]] # type: ignore[index]
+                summary_lines.append(f"  Name: {match.get('name', 'N/A')}")
+                summary_lines.append(f"  Accuracy: {match.get('accuracy', 'N/A')}%")
+                if "osclass" in match:
+                    osclasses = match["osclass"] if isinstance(match["osclass"], list) else [match["osclass"]]
                     for os_class in osclasses:
                         if isinstance(os_class, dict):
                             summary_lines.append("  OS Class:")
-                            summary_lines.append( # type: ignore[str-bytes-safe]
+                            summary_lines.append(
                                 f"    Type: {os_class.get('type', 'N/A')}, Vendor: {os_class.get('vendor', 'N/A')}, Family: {os_class.get('osfamily', 'N/A')}, Gen: {os_class.get('osgen', 'N/A')}"
                             )
         else:
@@ -851,7 +851,7 @@ class NmapPage(Adw.PreferencesPage):
         if self.nmap_apply_button and self.nmap_apply_button.get_sensitive():
             self.nmap_apply_button.clicked()
         elif self.current_nmap_task and not self.current_nmap_task.is_done():
-             show_global_toast(self, "A scan is already in progress. Cancel it or wait.") # type: ignore[arg-type]
+             show_global_toast(self, "A scan is already in progress. Cancel it or wait.")
         else:
             logger.warning("Nmap scan button not available or not sensitive, cannot trigger scan.")
 

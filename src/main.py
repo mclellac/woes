@@ -6,7 +6,7 @@ parsing, and launching the main application window and services.
 import sys
 import os
 import logging
-from typing import Callable, List, Optional, Any # Use list
+from typing import Callable, List, Optional, Any
 import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
@@ -33,7 +33,7 @@ def _load_gresources_early():
     either a development path or an installed path. Exits the application
     if the GResource file cannot be found or loaded.
     """
-    installed_resource_path = os.path.join(PKGDATADIR, "woes.gresource") # type: ignore[name-defined]
+    installed_resource_path = os.path.join(PKGDATADIR, "woes.gresource")
     script_dir = os.path.dirname(os.path.abspath(__file__))
     dev_resource_path = os.path.normpath(os.path.join(script_dir, "..", "build", "src", "woes.gresource"))
 
@@ -66,7 +66,7 @@ def _load_gresources_early():
             )
             sys.exit(1)
 
-        Gio.Resource._register(resource)  # pylint: disable=protected-access
+        Gio.Resource._register(resource)
         logging.info("Successfully loaded and registered GResource: %s", resource_file_path)
 
         available_resources = resource.enumerate_children(
@@ -90,7 +90,7 @@ def _load_gresources_early():
             exc_info=True,
         )
         sys.exit(1)
-    except Exception as e:  # pylint: disable=broad-except
+    except Exception as e:
         logging.critical(
             "An unexpected error occurred during GResource loading: %s. Application will now exit.",
             e,
@@ -112,7 +112,7 @@ class WoesApplication(Adw.Application):
         Manages the application lifecycle, actions, and the main window.
     """
 
-    def __init__(self, version: str = VERSION, **kwargs: Any): # type: ignore[assignment]
+    def __init__(self, version: str = VERSION, **kwargs: Any):
         """
         Initialize the WoesApplication.
 
@@ -127,31 +127,31 @@ class WoesApplication(Adw.Application):
 
         logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
 
-        super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.DEFAULT_FLAGS, **kwargs) # type: ignore[no-untyped-call]
+        super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.DEFAULT_FLAGS, **kwargs)
 
-        self.add_main_option( # type: ignore[no-untyped-call]
+        self.add_main_option(
             "debug",
             ord("d"),
-            GLib.OptionFlags.NONE, # type: ignore[attr-defined]
-            GLib.OptionArg.NONE, # type: ignore[attr-defined]
+            GLib.OptionFlags.NONE,
+            GLib.OptionArg.NONE,
             "Enable debug logging",
             None,
         )
 
-        self.create_action("quit", lambda *_: self.quit(), ["<primary>q"]) # type: ignore[no-untyped-call]
-        self.create_action("about", self.on_about_action) # type: ignore[no-untyped-call]
-        self.create_action("preferences", self.on_preferences_action) # type: ignore[no-untyped-call]
-        self.create_action("switch-to-http", self.switch_to_http, ["<primary>1"]) # type: ignore[no-untyped-call]
-        self.create_action("switch-to-nmap", self.switch_to_nmap, ["<primary>2"]) # type: ignore[no-untyped-call]
-        self.create_action("switch-to-dns", self.switch_to_dns, ["<primary>3"]) # type: ignore[no-untyped-call]
-        self.create_action("switch-to-webscan", self.switch_to_webscan, ["<primary>4"]) # type: ignore[no-untyped-call]
+        self.create_action("quit", lambda *_: self.quit(), ["<primary>q"])
+        self.create_action("about", self.on_about_action)
+        self.create_action("preferences", self.on_preferences_action)
+        self.create_action("switch-to-http", self.switch_to_http, ["<primary>1"])
+        self.create_action("switch-to-nmap", self.switch_to_nmap, ["<primary>2"])
+        self.create_action("switch-to-dns", self.switch_to_dns, ["<primary>3"])
+        self.create_action("switch-to-webscan", self.switch_to_webscan, ["<primary>4"])
 
-        self.create_action("page-action-http-fetch", self.on_page_action_http_fetch, ["<Alt>F"]) # type: ignore[no-untyped-call]
-        self.create_action("page-action-nmap-scan", self.on_page_action_nmap_scan, ["<Alt>S"]) # type: ignore[no-untyped-call]
-        self.create_action("page-action-dns-lookup", self.on_page_action_dns_lookup, ["<Alt>L"]) # type: ignore[no-untyped-call]
-        self.create_action("page-action-webscan-scan", self.on_page_action_webscan_scan, ["<Alt>W"]) # type: ignore[no-untyped-call]
+        self.create_action("page-action-http-fetch", self.on_page_action_http_fetch, ["<Alt>F"])
+        self.create_action("page-action-nmap-scan", self.on_page_action_nmap_scan, ["<Alt>S"])
+        self.create_action("page-action-dns-lookup", self.on_page_action_dns_lookup, ["<Alt>L"])
+        self.create_action("page-action-webscan-scan", self.on_page_action_webscan_scan, ["<Alt>W"])
 
-    def do_handle_local_options(self, options: GLib.VariantDict) -> int: # type: ignore[override]
+    def do_handle_local_options(self, options: GLib.VariantDict) -> int:
         """
         Handle local command-line options.
 
@@ -163,7 +163,7 @@ class WoesApplication(Adw.Application):
                  allowing further processing (like :meth:`do_command_line`) to occur.
         :rtype: int
         """
-        if options.contains("debug"): # type: ignore[no-untyped-call]
+        if options.contains("debug"):
             self.debug_enabled = True
             logging.basicConfig(
                 level=logging.DEBUG,
@@ -173,7 +173,7 @@ class WoesApplication(Adw.Application):
             logging.debug("Debug mode enabled via command line.")
         return -1  # Indicates that command line processing is not finished
 
-    def do_command_line(self, command_line: Gio.ApplicationCommandLine) -> int: # type: ignore[override]
+    def do_command_line(self, command_line: Gio.ApplicationCommandLine) -> int:
         """
         Override the :meth:`Gio.Application.do_command_line` virtual method to handle command line arguments.
 
@@ -185,14 +185,14 @@ class WoesApplication(Adw.Application):
         :return: The exit status of the command line processing. 0 for success.
         :rtype: int
         """
-        options: GLib.VariantDict = command_line.get_options_dict() # type: ignore[no-untyped-call]
-        if self.handle_local_options(options): # type: ignore[no-untyped-call]
+        options: GLib.VariantDict = command_line.get_options_dict()
+        if self.handle_local_options(options):
             logging.debug("Local options handled.")
 
-        self.activate() # type: ignore[no-untyped-call]
+        self.activate()
         return 0
 
-    def do_activate(self) -> None: # type: ignore[override]
+    def do_activate(self) -> None:
         """
         Create and present the main application window.
 
@@ -200,18 +200,18 @@ class WoesApplication(Adw.Application):
         It ensures the main window (:class:`.window.WoesWindow`) is created and shown.
         If the window cannot be created or presented, the application may exit.
         """
-        win: Optional[WoesWindow] = self.props.active_window # type: ignore[assignment]
+        win: Optional[WoesWindow] = self.props.active_window
         if not win:
             try:
                 win = WoesWindow(application=self)
-            except Exception:  # pylint: disable=broad-except
+            except Exception:
                 logging.exception("WoesApplication.do_activate: Error creating WoesWindow instance")
                 sys.exit(1)
 
         if win:
             try:
                 win.present()
-            except Exception:  # pylint: disable=broad-except
+            except Exception:
                 logging.exception("WoesApplication.do_activate: Error during win.present()")
             self.win = win
         else:
@@ -226,7 +226,7 @@ class WoesApplication(Adw.Application):
         :type page_name: str
         """
         if self.win and hasattr(self.win, "stack"):
-            self.win.stack.set_visible_child_name(page_name) # type: ignore[no-untyped-call]
+            self.win.stack.set_visible_child_name(page_name)
         else:
             logging.warning(f"Cannot switch to {page_name}_page: window or stack not available.")
 
@@ -289,11 +289,11 @@ class WoesApplication(Adw.Application):
             logging.warning(f"{action_description} action: Window or stack not available.")
             return
 
-        current_page_name: str = self.win.stack.get_visible_child_name() # type: ignore[no-untyped-call]
-        visible_stack_page: Optional[Adw.ViewStackPage] = self.win.stack.get_visible_child() # type: ignore[no-untyped-call, assignment]
+        current_page_name: str = self.win.stack.get_visible_child_name()
+        visible_stack_page: Optional[Adw.ViewStackPage] = self.win.stack.get_visible_child()
 
         if current_page_name == expected_page_name and visible_stack_page:
-            status_page: Optional[Adw.StatusPage] = visible_stack_page.get_child() # type: ignore[no-untyped-call, assignment]
+            status_page: Optional[Adw.StatusPage] = visible_stack_page.get_child()
             if not status_page:
                 logging.warning(f"{action_description} action: StatusPage not found for {current_page_name}.")
                 return
@@ -301,7 +301,7 @@ class WoesApplication(Adw.Application):
             # Child of AdwStatusPage. Based on the previous error, this is likely the GtkBox
             # (e.g., the one with id="HttpPage" in the UI file) that directly contains
             # the actual page class instance (e.g., an instance of your HttpPage class).
-            page_container_widget: Optional[Gtk.Widget] = status_page.get_child() # type: ignore[no-untyped-call]
+            page_container_widget: Optional[Gtk.Widget] = status_page.get_child()
             if not page_container_widget:
                 logging.warning(f"{action_description} action: Page container widget (child of StatusPage) not found for {current_page_name}.")
                 return
@@ -311,7 +311,7 @@ class WoesApplication(Adw.Application):
             if hasattr(page_container_widget, "get_first_child") and callable(getattr(page_container_widget, "get_first_child")):
                 # This assumes the GtkBox (like <object class="GtkBox" id="HttpPage">) is page_container_widget
                 # and its child (<object class="HttpPage">) is the actual page.
-                candidate: Optional[Gtk.Widget] = page_container_widget.get_first_child() # type: ignore[no-untyped-call]
+                candidate: Optional[Gtk.Widget] = page_container_widget.get_first_child()
                 if hasattr(candidate, action_method_name): # Check if this candidate has the method
                     actual_page_object = candidate
                 elif hasattr(page_container_widget, action_method_name): # Check if page_container_widget itself has the method
@@ -436,15 +436,15 @@ class WoesApplication(Adw.Application):
         """
         return Adw.AboutWindow(
             application_name="woes",
-            application_icon=APP_ID, # type: ignore[name-defined]
+            application_icon=APP_ID,
             developer_name="Carey McLelland",
             version=self.version,
             developers=["Carey McLelland"],
             copyright="© 2025 Carey McLelland",
-            website=APP_WEBSITE_URL, # type: ignore[name-defined]
-            license_type=APP_LICENSE_TYPE, # type: ignore[name-defined]
-            comments=APP_DESCRIPTION, # type: ignore[name-defined]
-            issue_url=APP_ISSUES_URL, # type: ignore[name-defined]
+            website=APP_WEBSITE_URL,
+            license_type=APP_LICENSE_TYPE,
+            comments=APP_DESCRIPTION,
+            issue_url=APP_ISSUES_URL,
         )
 
     def on_preferences_action(self, _widget: Gio.SimpleAction, _param: Optional[GLib.Variant]) -> None:
@@ -478,12 +478,12 @@ class WoesApplication(Adw.Application):
         """
         action = Gio.SimpleAction.new(name, None)
         action.connect("activate", callback)
-        self.add_action(action) # type: ignore[no-untyped-call]
+        self.add_action(action)
         if shortcuts:
-            self.set_accels_for_action(f"app.{name}", shortcuts) # type: ignore[no-untyped-call]
+            self.set_accels_for_action(f"app.{name}", shortcuts)
 
 
-def main(version: str = VERSION) -> int: # type: ignore[assignment]
+def main(version: str = VERSION) -> int:
     """
     Run the Woes application.
 
@@ -524,6 +524,6 @@ def main(version: str = VERSION) -> int: # type: ignore[assignment]
 
     # Original application run lines (commented out for this test run)
     # app = WoesApplication(version=version)
-    # exit_status: int = app.run(sys.argv) # type: ignore[no-untyped-call]
+    # exit_status: int = app.run(sys.argv)
     # logging.info("Application exited with status %s.", exit_status)
     # return exit_status
