@@ -384,9 +384,9 @@ class HttpPage(Adw.PreferencesPage):
             # User selected a specific UA in the HTTP page dropdown
             ua_found = False
             # Check in USER_AGENTS
-            for def_title, def_value in USER_AGENTS:
-                if def_title == selected_ua_title_in_http_page_dropdown:
-                    user_agent_to_send = def_value
+            for ua_dict in USER_AGENTS:
+                if ua_dict['title'] == selected_ua_title_in_http_page_dropdown:
+                    user_agent_to_send = ua_dict['value']
                     ua_found = True
                     break
             # If not in default, check custom (self._ua_title_to_value_map includes custom ones)
@@ -403,8 +403,8 @@ class HttpPage(Adw.PreferencesPage):
                     f"Selected UA title '{selected_ua_title_in_http_page_dropdown}' not found in any list. Falling back."
                 )
                 if USER_AGENTS:
-                    user_agent_to_send = USER_AGENTS[0][1]
-                    logger.info(f"Fell back to first default User-Agent: {USER_AGENTS[0][0]}")
+                    user_agent_to_send = USER_AGENTS[0]['value']
+                    logger.info(f"Fell back to first default User-Agent: {USER_AGENTS[0]['title']}")
                 else:
                     user_agent_to_send = f"Woes/{APP_ID} (Fallback)"
                     logger.info(f"Fell back to generic Woes User-Agent: {user_agent_to_send}")
@@ -417,9 +417,9 @@ class HttpPage(Adw.PreferencesPage):
             if default_ua_title_from_prefs:
                 ua_found_in_prefs = False
                 # Check in USER_AGENTS
-                for def_title, def_value in USER_AGENTS:
-                    if def_title == default_ua_title_from_prefs:
-                        user_agent_to_send = def_value
+                for ua_dict in USER_AGENTS:
+                    if ua_dict['title'] == default_ua_title_from_prefs:
+                        user_agent_to_send = ua_dict['value']
                         ua_found_in_prefs = True
                         break
                 # If not in default, check custom (self._ua_title_to_value_map includes custom ones)
@@ -446,8 +446,8 @@ class HttpPage(Adw.PreferencesPage):
 
             if user_agent_to_send is None:  # Fallback if GSettings default is empty or not found
                 if USER_AGENTS:
-                    user_agent_to_send = USER_AGENTS[0][1]
-                    logger.info(f"Fell back to first default User-Agent: {USER_AGENTS[0][0]}")
+                    user_agent_to_send = USER_AGENTS[0]['value']
+                    logger.info(f"Fell back to first default User-Agent: {USER_AGENTS[0]['title']}")
                 else:
                     user_agent_to_send = f"Woes/{APP_ID} (Fallback)"
                     logger.info(f"Fell back to generic Woes User-Agent: {user_agent_to_send}")
@@ -936,11 +936,13 @@ class HttpPage(Adw.PreferencesPage):
         self._ua_title_to_value_map[none_title] = None  # Explicitly map "None" to no specific UA string override
 
         # Populate with USER_AGENTS from constants.py
-        for title, value in USER_AGENTS:  # Iterate list of tuples
+        for ua_dict in USER_AGENTS:  # Iterate list of dictionaries
+            title = ua_dict['title']
+            value = ua_dict['value']
             if title not in self._ua_title_to_value_map:
                 display_titles.append(title)
                 self._ua_title_to_value_map[title] = value
-            else:  # Should not happen if titles are unique in USER_AGENTS
+            else:
                 logger.warning(
                     f"Default User-Agent title '{title}' conflicts with 'None' or another default UA. Skipping."
                 )

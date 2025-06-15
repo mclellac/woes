@@ -475,7 +475,7 @@ class Preferences(Adw.PreferencesWindow):
         )  # type: ignore[union-attr]
 
         # Check for duplicate titles (Default UAs + Custom UAs)
-        all_existing_titles = [pair[0] for pair in USER_AGENTS] + [pair[0] for pair in current_ua_pairs]
+        all_existing_titles = [ua_dict['title'] for ua_dict in USER_AGENTS] + [pair[0] for pair in current_ua_pairs]
         if title_text in all_existing_titles:
             logging.info(f"Custom User-Agent title '{title_text}' already exists or conflicts with a default UA.")
             if self.new_custom_ua_title_entry:
@@ -644,8 +644,10 @@ class Preferences(Adw.PreferencesWindow):
         all_ua_titles.append(NONE_OPTION_TITLE)
 
         # 2. Add standard user agents from constants.py
-        for title, _value in USER_AGENTS:
-            if title not in all_ua_titles: # Avoid duplicates if any standard UA has same title as NONE_OPTION_TITLE
+        for ua_dict in USER_AGENTS:
+            title = ua_dict['title']
+            # _value = ua_dict['value'] # Not strictly needed here if only title is used
+            if title not in all_ua_titles: # Avoid duplicates
                 model.append(title)
                 all_ua_titles.append(title)
             else:
