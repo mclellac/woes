@@ -1,10 +1,10 @@
 """General utility functions for the Woes application."""
+
 import logging
 import ipaddress
 import re
 from urllib.parse import urlparse
 from typing import Optional, List
-import collections.abc # For Sequence if needed
 
 import gi
 from gi.repository import Gtk, Adw
@@ -27,26 +27,17 @@ def show_global_error(widget: Gtk.Widget, message: str):
     """
     try:
         main_window = widget.get_native()
-        if main_window and hasattr(main_window, 'show_error'):
+        if main_window and hasattr(main_window, "show_error"):
             main_window.show_error(message)
             logger.error(f"Global error displayed via main window: {message}")
         else:
-            logger.warning(
-                "Could not find main window or show_error method to display global error: %s",
-                message
-            )
+            logger.warning("Could not find main window or show_error method to display global error: %s", message)
     except Exception as e:
-        logger.exception(
-            "An unexpected error occurred while trying to show global error '%s': %s",
-            message, e
-        )
+        logger.exception("An unexpected error occurred while trying to show global error '%s': %s", message, e)
 
 
 def show_global_toast(
-    widget: Gtk.Widget,
-    message: str,
-    timeout: int = 2,
-    priority: Adw.ToastPriority = Adw.ToastPriority.NORMAL
+    widget: Gtk.Widget, message: str, timeout: int = 2, priority: Adw.ToastPriority = Adw.ToastPriority.NORMAL
 ):
     """
     Display a global toast message using the main window's toast overlay.
@@ -65,19 +56,13 @@ def show_global_toast(
     """
     try:
         main_window = widget.get_native()
-        if main_window and hasattr(main_window, 'show_toast'):
+        if main_window and hasattr(main_window, "show_toast"):
             main_window.show_toast(message, priority=priority, timeout=timeout)
             logger.info(f"Global toast shown via main window: {message}")
         else:
-            logger.warning(
-                "Could not find main window or show_toast method to display global toast: %s",
-                message
-            )
+            logger.warning("Could not find main window or show_toast method to display global toast: %s", message)
     except Exception as e:
-        logger.exception(
-            "An unexpected error occurred while trying to show global toast '%s': %s",
-            message, e
-        )
+        logger.exception("An unexpected error occurred while trying to show global toast '%s': %s", message, e)
 
 
 def is_valid_ip(address: str) -> bool:
@@ -96,6 +81,7 @@ def is_valid_ip(address: str) -> bool:
         return True
     except ValueError:
         return False
+
 
 def is_valid_domain(domain: str) -> bool:
     """
@@ -145,8 +131,8 @@ def is_valid_url(url: str, schemes: Optional[List[str]] = None) -> bool:
     :rtype: bool
     """
     effective_schemes: list[str]
-    if schemes is None: # Default to http and https if not provided
-        effective_schemes = ['http', 'https']
+    if schemes is None:  # Default to http and https if not provided
+        effective_schemes = ["http", "https"]
     else:
         effective_schemes = schemes
 
@@ -161,5 +147,5 @@ def is_valid_url(url: str, schemes: Optional[List[str]] = None) -> bool:
         if effective_schemes and parsed_url.scheme not in effective_schemes:
             return False
         return True
-    except ValueError: # urlparse can raise ValueError for some malformed URLs, though it's rare
+    except ValueError:  # urlparse can raise ValueError for some malformed URLs, though it's rare
         return False

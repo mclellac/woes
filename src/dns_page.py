@@ -68,9 +68,7 @@ class DNSPage(Adw.PreferencesPage):
         # Global Font setting
         self._output_font_gsettings_key = "output-font"
         output_font_str = self.settings.get_string(self._output_font_gsettings_key)
-        self._output_font_desc = Pango.FontDescription.from_string(
-            output_font_str if output_font_str else "Sans 10"
-        )
+        self._output_font_desc = Pango.FontDescription.from_string(output_font_str if output_font_str else "Sans 10")
 
         # Stored results for refresh
         self._current_result_records: Optional[List[Dict[str, Any]]] = None
@@ -94,9 +92,7 @@ class DNSPage(Adw.PreferencesPage):
             self.dns_copy_all_results_button.connect("clicked", self._on_copy_all_results_clicked)
 
         # Connect GSettings change for global font
-        self.settings.connect(
-            f"changed::{self._output_font_gsettings_key}", self._on_global_output_font_changed
-        )
+        self.settings.connect(f"changed::{self._output_font_gsettings_key}", self._on_global_output_font_changed)
 
     def _on_global_output_font_changed(self, settings: Gio.Settings, key: str) -> None:
         logger.debug("DNSPage: Global output font setting changed for key: %s", key)
@@ -239,9 +235,7 @@ class DNSPage(Adw.PreferencesPage):
         logger.debug(f"_on_entry_activated called by widget: {_widget}")
         self._perform_lookup()
 
-    def _on_record_type_changed(
-        self, _dropdown: Gtk.DropDown, _param_spec: GObject.ParamSpec
-    ) -> None:
+    def _on_record_type_changed(self, _dropdown: Gtk.DropDown, _param_spec: GObject.ParamSpec) -> None:
         """
         Handle changes in the selected DNS record type.
 
@@ -256,9 +250,7 @@ class DNSPage(Adw.PreferencesPage):
 
     # --- Helper methods for building record rows ---
 
-    def _create_copy_button(
-        self, text_to_copy: str, tooltip_text: str, widget_for_clipboard: Gtk.Widget
-    ) -> Gtk.Button:
+    def _create_copy_button(self, text_to_copy: str, tooltip_text: str, widget_for_clipboard: Gtk.Widget) -> Gtk.Button:
         """
         Create a :class:`Gtk.Button` for copying text.
 
@@ -276,9 +268,7 @@ class DNSPage(Adw.PreferencesPage):
         button.set_tooltip_text(tooltip_text)
         button.connect(
             "clicked",
-            lambda _btn, text=text_to_copy, w=widget_for_clipboard: DNSPage._copy_to_clipboard(
-                text, w
-            ),
+            lambda _btn, text=text_to_copy, w=widget_for_clipboard: DNSPage._copy_to_clipboard(text, w),
         )
         return button
 
@@ -337,9 +327,7 @@ class DNSPage(Adw.PreferencesPage):
         # suffix_box removed
         row.add_suffix(value_label)  # type: ignore
         row.add_suffix(
-            self._create_copy_button(
-                main_value_text, f"{main_value_tooltip_prefix}: {main_value_text}", row
-            )
+            self._create_copy_button(main_value_text, f"{main_value_tooltip_prefix}: {main_value_text}", row)
         )  # type: ignore
         row.add_suffix(self._create_copy_button(full_summary_text, "Copy Full Record Summary", row))  # type: ignore
 
@@ -364,9 +352,7 @@ class DNSPage(Adw.PreferencesPage):
         if icon_name:
             row.add_prefix(Gtk.Image(icon_name=icon_name))  # type: ignore
 
-        copy_full_button = self._create_copy_button(
-            full_summary_text, "Copy Full Record Summary", row
-        )
+        copy_full_button = self._create_copy_button(full_summary_text, "Copy Full Record Summary", row)
         row.add_suffix(copy_full_button)  # type: ignore
         return row
 
@@ -405,14 +391,10 @@ class DNSPage(Adw.PreferencesPage):
             ellipsize=Pango.EllipsizeMode.END,
         )
         value_label.override_font(self._output_font_desc)
-        copy_button = self._create_copy_button(
-            value_text, f"{copy_tooltip_prefix}: {value_text}", expander_row
-        )
+        copy_button = self._create_copy_button(value_text, f"{copy_tooltip_prefix}: {value_text}", expander_row)
 
         # content_box removed
-        if (
-            is_value_primary_content
-        ):  # For TXT segments where the value is the main content of the row
+        if is_value_primary_content:  # For TXT segments where the value is the main content of the row
             detail_row.add_prefix(value_label)  # type: ignore
             detail_row.add_prefix(copy_button)  # type: ignore
         else:  # For SOA fields where title is present and value is a suffix
@@ -442,13 +424,9 @@ class DNSPage(Adw.PreferencesPage):
             current_subtitle = self.dns_status_row.get_subtitle()  # type: ignore
             if message:
                 self.dns_status_row.set_subtitle(message)  # type: ignore
-            elif (
-                active and current_subtitle != "Looking up..."
-            ):  # Default message when starting an operation
+            elif active and current_subtitle != "Looking up...":  # Default message when starting an operation
                 self.dns_status_row.set_subtitle("Looking up...")  # type: ignore
-            elif (
-                not active and not message
-            ):  # Default message when stopping (idle) and no specific message given
+            elif not active and not message:  # Default message when stopping (idle) and no specific message given
                 self.dns_status_row.set_subtitle("Idle")  # type: ignore
             # If not active and a message is present (e.g. error or success), it will be set by the caller.
 
@@ -533,9 +511,7 @@ class DNSPage(Adw.PreferencesPage):
         # This logic is mainly for updating the dropdown if it wasn't already PTR for an IP.
         actual_record_type_displayed = requested_record_type
         if is_valid_ip(user_input) and requested_record_type.upper() == "PTR":
-            actual_record_type_displayed = self._update_ptr_dropdown(
-                user_input, requested_record_type
-            )
+            actual_record_type_displayed = self._update_ptr_dropdown(user_input, requested_record_type)
 
         nameservers_used = dns_client.resolver.nameservers
 
@@ -545,9 +521,7 @@ class DNSPage(Adw.PreferencesPage):
         self._current_requested_record_type = actual_record_type_displayed
         self._current_dns_servers = nameservers_used
 
-        self._display_result(
-            result_data, user_input, actual_record_type_displayed, nameservers_used
-        )
+        self._display_result(result_data, user_input, actual_record_type_displayed, nameservers_used)
 
         status_message = (
             f"{len(result_data)} {actual_record_type_displayed} record(s) found."
@@ -579,9 +553,7 @@ class DNSPage(Adw.PreferencesPage):
         :type dns_client: .dns_client.DnsResolverClient
         """
         error_message = str(error)  # Original full error message
-        status_subtitle = (
-            f"Error: {error_message.splitlines()[0]}"  # Default status: first line of error
-        )
+        status_subtitle = f"Error: {error_message.splitlines()[0]}"  # Default status: first line of error
 
         if isinstance(error, DnsNxDomainError):
             show_global_error(self, error_message)  # type: ignore
@@ -599,9 +571,7 @@ class DNSPage(Adw.PreferencesPage):
                 [], user_input, requested_record_type, nameservers_used
             )  # Shows "No records found" in results area
             # Override the "No records found" status from _display_result with the actual error for clarity in status row
-            status_subtitle = (
-                f"No {requested_record_type} records found for {user_input} (No Answer)."
-            )
+            status_subtitle = f"No {requested_record_type} records found for {user_input} (No Answer)."
         elif isinstance(error, DnsResolutionTimeoutError):
             show_global_error(self, error_message)  # type: ignore
             status_subtitle = f"Timeout: Could not resolve {user_input}."
@@ -646,14 +616,10 @@ class DNSPage(Adw.PreferencesPage):
         self._set_loading_state(True, "Looking up...")
         user_input = self.domain_entry.get_text().strip()  # type: ignore
         requested_record_type = self._get_selected_record_type()
-        logger.debug(
-            f"DNSPage: Performing DNS lookup for: {user_input}, type: {requested_record_type}"
-        )
+        logger.debug(f"DNSPage: Performing DNS lookup for: {user_input}, type: {requested_record_type}")
 
         if not self._validate_dns_input(user_input):
-            self._set_loading_state(
-                False, "Idle - Invalid input."
-            )  # Reset status to Idle with specific message
+            self._set_loading_state(False, "Idle - Invalid input.")  # Reset status to Idle with specific message
             return
 
         self._clear_error()
@@ -663,9 +629,7 @@ class DNSPage(Adw.PreferencesPage):
 
         try:
             result_data = dns_client.resolve(user_input, requested_record_type)
-            self._handle_dns_lookup_success(
-                result_data, user_input, requested_record_type, dns_client
-            )
+            self._handle_dns_lookup_success(result_data, user_input, requested_record_type, dns_client)
             # Status is set by _handle_dns_lookup_success
         except Exception as e:  # Catch all exceptions here and delegate to the handler
             self._handle_dns_lookup_exception(e, user_input, requested_record_type, dns_client)
@@ -741,9 +705,7 @@ class DNSPage(Adw.PreferencesPage):
         while child := self.dns_results_box_container.get_first_child():  # type: ignore
             self.dns_results_box_container.remove(child)  # type: ignore
 
-        query_info_row = Adw.ActionRow(
-            title=f"Query: {domain_or_ip}", subtitle=f"Record type queried: {record_type}"
-        )
+        query_info_row = Adw.ActionRow(title=f"Query: {domain_or_ip}", subtitle=f"Record type queried: {record_type}")
         query_info_row.set_selectable(False)
         self.dns_results_box_container.append(query_info_row)  # type: ignore
 
@@ -782,9 +744,7 @@ class DNSPage(Adw.PreferencesPage):
 
     # --- Helper methods for building record rows ---
 
-    def _create_copy_button(
-        self, text_to_copy: str, tooltip_text: str, widget_for_clipboard: Gtk.Widget
-    ) -> Gtk.Button:
+    def _create_copy_button(self, text_to_copy: str, tooltip_text: str, widget_for_clipboard: Gtk.Widget) -> Gtk.Button:
         """
         Create a :class:`Gtk.Button` for copying text.
 
@@ -802,9 +762,7 @@ class DNSPage(Adw.PreferencesPage):
         button.set_tooltip_text(tooltip_text)
         button.connect(
             "clicked",
-            lambda _btn, text=text_to_copy, w=widget_for_clipboard: DNSPage._copy_to_clipboard(
-                text, w
-            ),
+            lambda _btn, text=text_to_copy, w=widget_for_clipboard: DNSPage._copy_to_clipboard(text, w),
         )
         return button
 
@@ -862,9 +820,7 @@ class DNSPage(Adw.PreferencesPage):
         copy_value_button = self._create_copy_button(
             main_value_text, f"{main_value_tooltip_prefix}: {main_value_text}", row
         )
-        copy_full_summary_button = self._create_copy_button(
-            full_summary_text, "Copy Full Record Summary", row
-        )
+        copy_full_summary_button = self._create_copy_button(full_summary_text, "Copy Full Record Summary", row)
 
         row.add_suffix(value_label)  # type: ignore
         row.add_suffix(copy_value_button)  # type: ignore
@@ -891,9 +847,7 @@ class DNSPage(Adw.PreferencesPage):
         if icon_name:
             row.add_prefix(Gtk.Image(icon_name=icon_name))  # type: ignore
 
-        copy_full_button = self._create_copy_button(
-            full_summary_text, "Copy Full Record Summary", row
-        )
+        copy_full_button = self._create_copy_button(full_summary_text, "Copy Full Record Summary", row)
         row.add_suffix(copy_full_button)  # type: ignore
         # row.set_expanded(True) # Decided by caller, as TXT/SOA might be empty initially
         return row
@@ -930,14 +884,10 @@ class DNSPage(Adw.PreferencesPage):
             wrap=True,
             wrap_mode=Pango.WrapMode.WORD_CHAR,
         )
-        copy_button = self._create_copy_button(
-            value_text, f"{copy_tooltip_prefix}: {value_text}", expander_row
-        )
+        copy_button = self._create_copy_button(value_text, f"{copy_tooltip_prefix}: {value_text}", expander_row)
 
         # content_box is removed. Widgets will be added directly to the detail_row.
-        if (
-            is_value_primary_content
-        ):  # For TXT segments where the value is the main content of the row
+        if is_value_primary_content:  # For TXT segments where the value is the main content of the row
             detail_row.add_prefix(value_label)  # type: ignore
             detail_row.add_prefix(copy_button)  # type: ignore
         else:  # For SOA fields where title is present and value is a suffix
@@ -966,11 +916,11 @@ class DNSPage(Adw.PreferencesPage):
         :return: An :class:`Adw.ActionRow` for the record.
         :rtype: Adw.ActionRow
         """
-        row = self._create_base_action_row(
-            name, record_type, base_subtitle, "network-wired-symbolic"
-        )
+        row = self._create_base_action_row(name, record_type, base_subtitle, "network-wired-symbolic")
         address_value = str(record_data.get("address", "N/A"))
-        summary_text = f"{name} {record_data.get('ttl', '')} {record_data.get('class', '')} {record_type} {address_value}"
+        summary_text = (
+            f"{name} {record_data.get('ttl', '')} {record_data.get('class', '')} {record_type} {address_value}"
+        )
         self._add_standard_suffix_box_to_row(row, address_value, "Copy Address", summary_text)
         return row
 
@@ -999,7 +949,9 @@ class DNSPage(Adw.PreferencesPage):
 
         row = self._create_base_action_row(name, record_type, base_subtitle, icon_name)
         target_value = str(record_data.get("target", "N/A"))
-        summary_text = f"{name} {record_data.get('ttl', '')} {record_data.get('class', '')} {record_type} {target_value}"
+        summary_text = (
+            f"{name} {record_data.get('ttl', '')} {record_data.get('class', '')} {record_type} {target_value}"
+        )
         self._add_standard_suffix_box_to_row(row, target_value, "Copy Target", summary_text)
         return row
 
@@ -1020,16 +972,14 @@ class DNSPage(Adw.PreferencesPage):
         :return: An :class:`Adw.ActionRow` for the record.
         :rtype: Adw.ActionRow
         """
-        row = self._create_base_action_row(
-            name, record_type, base_subtitle, "help-question-symbolic"
-        )
+        row = self._create_base_action_row(name, record_type, base_subtitle, "help-question-symbolic")
         data_value = str(record_data.get("data", "N/A"))
         summary_text = f"{name} {record_data.get('ttl', '')} {record_data.get('class', '')} {record_type} {data_value}"
         self._add_standard_suffix_box_to_row(row, data_value, "Copy Data", summary_text)
         return row
 
     def _build_mx_record_row(
-        self, record_data: Dict[str, Any], name: str, base_subtitle: str, record_type: str
+        self, record_data: Dict[str, Any], name: str, base_subtitle: str
     ) -> Adw.ExpanderRow:  # record_type is "MX"
         """
         Build a UI row for an MX DNS record.
@@ -1047,7 +997,9 @@ class DNSPage(Adw.PreferencesPage):
         """
         exchange_value = str(record_data.get("exchange", "N/A"))
         preference_value = str(record_data.get("preference", "N/A"))
-        summary_mx = f"{name} {record_data.get('ttl', '')} {record_data.get('class', '')} MX {preference_value} {exchange_value}"
+        summary_mx = (
+            f"{name} {record_data.get('ttl', '')} {record_data.get('class', '')} MX {preference_value} {exchange_value}"
+        )
 
         row = self._create_base_expander_row(
             name, f"MX Record ({base_subtitle})", "mail-send-receive-symbolic", summary_mx
@@ -1063,9 +1015,7 @@ class DNSPage(Adw.PreferencesPage):
             lines=1,
             ellipsize=Pango.EllipsizeMode.END,
         )
-        copy_button_exchange = self._create_copy_button(
-            exchange_value, f"Copy Exchange: {exchange_value}", row
-        )
+        copy_button_exchange = self._create_copy_button(exchange_value, f"Copy Exchange: {exchange_value}", row)
         # mx_detail_row_title_box removed
 
         mx_detail_row = Adw.ActionRow(subtitle=f"Preference: {preference_value}")  # type: ignore
@@ -1079,7 +1029,7 @@ class DNSPage(Adw.PreferencesPage):
         return row
 
     def _build_txt_record_row(
-        self, record_data: Dict[str, Any], name: str, base_subtitle: str, record_type: str
+        self, record_data: Dict[str, Any], name: str, base_subtitle: str
     ) -> Adw.ExpanderRow:  # record_type is "TXT"
         """
         Build a UI row for a TXT DNS record.
@@ -1115,7 +1065,7 @@ class DNSPage(Adw.PreferencesPage):
         return row
 
     def _build_soa_record_row(
-        self, record_data: Dict[str, Any], name: str, base_subtitle: str, record_type: str
+        self, record_data: Dict[str, Any], name: str, base_subtitle: str
     ) -> Adw.ExpanderRow:  # record_type is "SOA"
         """
         Build a UI row for an SOA DNS record.
@@ -1154,9 +1104,7 @@ class DNSPage(Adw.PreferencesPage):
             ("Minimum TTL", minimum_val),
         ]
         for field_name_str, field_value in soa_fields:
-            self._add_expander_detail_row(
-                row, field_name_str, field_value, f"Copy {field_name_str}"
-            )
+            self._add_expander_detail_row(row, field_name_str, field_value, f"Copy {field_name_str}")
         row.set_expanded(True)
         return row
 
@@ -1181,19 +1129,15 @@ class DNSPage(Adw.PreferencesPage):
         if record_type in ("A", "AAAA"):
             return self._build_address_record_row(record_data, name, base_subtitle, record_type)
         elif record_type in ("CNAME", "NS", "PTR"):
-            return self._build_cname_ns_ptr_record_row(
-                record_data, name, base_subtitle, record_type
-            )
+            return self._build_cname_ns_ptr_record_row(record_data, name, base_subtitle, record_type)
         elif record_type == "MX":
-            return self._build_mx_record_row(record_data, name, base_subtitle, record_type)
+            return self._build_mx_record_row(record_data, name, base_subtitle)
         elif record_type == "TXT":
-            return self._build_txt_record_row(record_data, name, base_subtitle, record_type)
+            return self._build_txt_record_row(record_data, name, base_subtitle)
         elif record_type == "SOA":
-            return self._build_soa_record_row(record_data, name, base_subtitle, record_type)
+            return self._build_soa_record_row(record_data, name, base_subtitle)
         elif record_data.get("data"):
-            return self._build_generic_data_record_row(
-                record_data, name, base_subtitle, record_type
-            )  # Renamed
+            return self._build_generic_data_record_row(record_data, name, base_subtitle, record_type)  # Renamed
         else:
             logger.warning(
                 "Could not create row for unknown record_data type or missing data field: %s (Type: %s)",
@@ -1213,6 +1157,4 @@ class DNSPage(Adw.PreferencesPage):
         if self.dns_apply_button and self.dns_apply_button.get_sensitive():  # type: ignore
             self.dns_apply_button.clicked()  # type: ignore
         else:
-            logger.warning(
-                "DNS lookup button not available or not sensitive, cannot trigger lookup."
-            )
+            logger.warning("DNS lookup button not available or not sensitive, cannot trigger lookup.")

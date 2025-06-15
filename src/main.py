@@ -1,16 +1,19 @@
-"""Main application module for Woes.
+"""
+Main application module for Woes.
 
 Handles application initialization, GResource loading, command-line option
 parsing, and launching the main application window and services.
 """
+
 import sys
 import os
 import logging
-from typing import Callable, List, Optional, Any
+from typing import Callable, Optional, Any
 import gi
+
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gio, GLib
+from gi.repository import Adw, Gio, GLib, Gtk
 
 from .constants import (
     APP_ID,
@@ -22,6 +25,7 @@ from .constants import (
     APP_DESCRIPTION,
     APP_ISSUES_URL,
 )
+
 
 # GResource loading must happen before any modules that use Gtk.Template are imported.
 def _load_gresources_early():
@@ -52,10 +56,7 @@ def _load_gresources_early():
         )
         sys.exit(1)
 
-    logging.info(
-        "Attempting to load GResource file from: %s",
-        resource_file_path
-    )
+    logging.info("Attempting to load GResource file from: %s", resource_file_path)
 
     try:
         resource = Gio.Resource.load(resource_file_path)
@@ -69,9 +70,7 @@ def _load_gresources_early():
         Gio.Resource._register(resource)
         logging.info("Successfully loaded and registered GResource: %s", resource_file_path)
 
-        available_resources = resource.enumerate_children(
-            RESOURCE_PREFIX, Gio.ResourceLookupFlags.NONE
-        )
+        available_resources = resource.enumerate_children(RESOURCE_PREFIX, Gio.ResourceLookupFlags.NONE)
         if not available_resources:
             logging.warning(
                 "No resources found under prefix %s after loading %s.",
@@ -99,7 +98,7 @@ def _load_gresources_early():
         sys.exit(1)
 
 
-_load_gresources_early() # Call this as early as possible
+_load_gresources_early()  # Call this as early as possible
 
 from .window import WoesWindow
 from .preferences import Preferences
@@ -215,12 +214,11 @@ class WoesApplication(Adw.Application):
                 logging.exception("WoesApplication.do_activate: Error during win.present()")
             self.win = win
         else:
-            logging.error(
-                "WoesApplication.do_activate: Window object is None after creation attempt, cannot proceed."
-            )
+            logging.error("WoesApplication.do_activate: Window object is None after creation attempt, cannot proceed.")
 
     def _switch_to_page(self, page_name: str) -> None:
-        """Switch the main window's view to the specified page.
+        """
+        Switch the main window's view to the specified page.
 
         :param page_name: The name of the page to switch to (e.g., "http", "nmap").
         :type page_name: str
@@ -303,18 +301,22 @@ class WoesApplication(Adw.Application):
             # the actual page class instance (e.g., an instance of your HttpPage class).
             page_container_widget: Optional[Gtk.Widget] = status_page.get_child()
             if not page_container_widget:
-                logging.warning(f"{action_description} action: Page container widget (child of StatusPage) not found for {current_page_name}.")
+                logging.warning(
+                    f"{action_description} action: Page container widget (child of StatusPage) not found for {current_page_name}."
+                )
                 return
 
             actual_page_object: Optional[Gtk.Widget] = None
             # Scenario 1: The page_container_widget is the GtkBox, and its first child is the page instance.
-            if hasattr(page_container_widget, "get_first_child") and callable(getattr(page_container_widget, "get_first_child")):
+            if hasattr(page_container_widget, "get_first_child") and callable(page_container_widget.get_first_child):
                 # This assumes the GtkBox (like <object class="GtkBox" id="HttpPage">) is page_container_widget
                 # and its child (<object class="HttpPage">) is the actual page.
                 candidate: Optional[Gtk.Widget] = page_container_widget.get_first_child()
-                if hasattr(candidate, action_method_name): # Check if this candidate has the method
+                if hasattr(candidate, action_method_name):  # Check if this candidate has the method
                     actual_page_object = candidate
-                elif hasattr(page_container_widget, action_method_name): # Check if page_container_widget itself has the method
+                elif hasattr(
+                    page_container_widget, action_method_name
+                ):  # Check if page_container_widget itself has the method
                     # This could happen if AdwClampScrollable was the child of AdwStatusPage,
                     # and page_container_widget is that AdwClampScrollable, and *its* child is the actual page object.
                     # However, AdwClampScrollable itself does not have get_first_child.
@@ -325,37 +327,48 @@ class WoesApplication(Adw.Application):
                     # If that first child isn't our page, then we might be wrong about the structure.
                     # Let's refine: if page_container_widget.get_first_child() exists and has the method, use it.
                     # Else, check if page_container_widget itself has the method (e.g. if it IS the actual page object)
-                    actual_page_object = candidate # Keep candidate from above for now.
+                    actual_page_object = candidate  # Keep candidate from above for now.
                     if not actual_page_object or not hasattr(actual_page_object, action_method_name):
-                         # If the first child doesn't have the method, check if page_container_widget itself is the page
+                        # If the first child doesn't have the method, check if page_container_widget itself is the page
                         if hasattr(page_container_widget, action_method_name):
                             actual_page_object = page_container_widget
-                            logging.debug(f"Child of StatusPage (type: {type(page_container_widget)}) appears to be the actual page object itself.")
+                            logging.debug(
+                                f"Child of StatusPage (type: {type(page_container_widget)}) appears to be the actual page object itself."
+                            )
                         else:
-                             logging.warning(f"Neither page_container_widget (type: {type(page_container_widget)}) nor its first_child has method '{action_method_name}'.")
-                             return
-
+                            logging.warning(
+                                f"Neither page_container_widget (type: {type(page_container_widget)}) nor its first_child has method '{action_method_name}'."
+                            )
+                            return
 
             # Scenario 2: The page_container_widget IS the actual page instance.
             # This could happen if AdwStatusPage's child is set directly to the HttpPage/NmapPage instance.
             elif hasattr(page_container_widget, action_method_name):
                 actual_page_object = page_container_widget
-                logging.debug(f"Child of StatusPage (type: {type(page_container_widget)}) appears to be the actual page object itself (no get_first_child).")
+                logging.debug(
+                    f"Child of StatusPage (type: {type(page_container_widget)}) appears to be the actual page object itself (no get_first_child)."
+                )
             else:
-                logging.warning(f"Page container (type: {type(page_container_widget)}) does not have get_first_child and is not the page object. Structure: AdwViewStackPage -> AdwStatusPage -> ?")
+                logging.warning(
+                    f"Page container (type: {type(page_container_widget)}) does not have get_first_child and is not the page object. Structure: AdwViewStackPage -> AdwStatusPage -> ?"
+                )
                 return
 
             if actual_page_object:
                 if hasattr(actual_page_object, action_method_name):
-                    logging.debug(f"Attempting to call {action_method_name} on {type(actual_page_object)} for page {current_page_name}")
+                    logging.debug(
+                        f"Attempting to call {action_method_name} on {type(actual_page_object)} for page {current_page_name}"
+                    )
                     getattr(actual_page_object, action_method_name)()
                 else:
                     # This should ideally not be reached if the above logic is correct
-                    logging.warning(f"Retrieved actual page object for {current_page_name} (type: {type(actual_page_object)}), but it does not have method '{action_method_name}'. This indicates an issue in widget retrieval or page class structure.")
+                    logging.warning(
+                        f"Retrieved actual page object for {current_page_name} (type: {type(actual_page_object)}), but it does not have method '{action_method_name}'. This indicates an issue in widget retrieval or page class structure."
+                    )
             else:
                 logging.warning(f"Could not retrieve actual page object for {current_page_name} after checks.")
 
-        elif current_page_name == expected_page_name: # visible_stack_page is None
+        elif current_page_name == expected_page_name:  # visible_stack_page is None
             logging.warning(f"{action_description} action: AdwViewStackPage for {current_page_name} is None.")
         # No warning if it's not the expected_page_name page, as the action is specific to that page.
 
@@ -499,18 +512,17 @@ def main(version: str = VERSION) -> int:
 
     print("Attempting to directly access GSettings for test...")
     try:
-        # Ensure GResources are loaded as they contain the schema
-        _load_gresources_early() # This is already called above, but ensure it's effective.
+        # Ensure GResources are loaded as they contain the schema (called at module level)
 
         # Directly instantiate Gio.Settings with the application ID
         settings = Gio.Settings(schema_id=APP_ID)
 
         # Try to get the newly added setting
-        test_setting_value = settings.get_string('default-user-agent-title')
+        test_setting_value = settings.get_string("default-user-agent-title")
         print(f"Successfully read 'default-user-agent-title': {test_setting_value}")
 
         # Also try to get an existing setting to be sure
-        test_theme_value = settings.get_string('theme-preference')
+        test_theme_value = settings.get_string("theme-preference")
         print(f"Successfully read 'theme-preference': {test_theme_value}")
 
         print("Settings test passed.")
@@ -519,11 +531,7 @@ def main(version: str = VERSION) -> int:
         print(f"Error during settings test: {e}")
         sys.exit(1)
 
-    print("Settings access test complete. Exiting before full app run.")
-    sys.exit(0) # Exit cleanly after test.
-
-    # Original application run lines (commented out for this test run)
-    # app = WoesApplication(version=version)
-    # exit_status: int = app.run(sys.argv)
-    # logging.info("Application exited with status %s.", exit_status)
-    # return exit_status
+    app = WoesApplication(version=version)
+    exit_status: int = app.run(sys.argv)
+    logging.info("Application exited with status %s.", exit_status)
+    return exit_status

@@ -1,5 +1,6 @@
 """Provides a Helper class for :class:`Gtk.ColumnView` context menus and keyboard shortcuts."""
-from typing import Optional, List
+
+from typing import Optional
 from gi.repository import Gdk, Gtk, GObject
 import gi
 
@@ -16,7 +17,8 @@ class Helper:
     """
 
     def __init__(self, widget: Gtk.Widget, parent_window: Gtk.Window):
-        """Initialize the Helper class.
+        """
+        Initialize the Helper class.
 
         :param widget: The widget to which the helper is attached. This is
                        expected to be a :class:`Gtk.ColumnView` for full
@@ -30,14 +32,14 @@ class Helper:
         self.last_right_click_coords: Optional[tuple[float, float]] = None
         self.popover: Optional[Gtk.Popover] = None
 
-
         if isinstance(self.widget, Gtk.ColumnView):
-            self.widget.set_sensitive(True) # Ensure widget can receive events
+            self.widget.set_sensitive(True)  # Ensure widget can receive events
             self.setup_keyboard_shortcut()
             self.setup_context_menu()
 
     def setup_keyboard_shortcut(self) -> None:
-        """Set up a keyboard shortcut (``Ctrl+C``) for copying.
+        """
+        Set up a keyboard shortcut (``Ctrl+C``) for copying.
 
         This allows copying selected content from the :class:`Gtk.ColumnView`
         to the clipboard using the ``Ctrl+C`` combination.
@@ -45,31 +47,33 @@ class Helper:
         :return: None
         """
         key_controller = Gtk.EventControllerKey.new()
-        key_controller.connect("key-pressed", self.on_key_pressed) # type: ignore[no-untyped-call]
-        self.widget.add_controller(key_controller) # type: ignore[no-untyped-call]
+        key_controller.connect("key-pressed", self.on_key_pressed)  # type: ignore[no-untyped-call]
+        self.widget.add_controller(key_controller)  # type: ignore[no-untyped-call]
 
     def setup_context_menu(self) -> None:
-        """Set up a context menu (right-click) with a 'Copy' option.
+        """
+        Set up a context menu (right-click) with a 'Copy' option.
 
         :return: None
         """
         self.popover = Gtk.Popover.new()
         if isinstance(self.widget, Gtk.Widget):
-            self.popover.set_parent(self.widget) # type: ignore[no-untyped-call]
+            self.popover.set_parent(self.widget)  # type: ignore[no-untyped-call]
 
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         copy_button = Gtk.Button(label="Copy")
-        copy_button.connect("clicked", self.on_copy_menu_item_activated) # type: ignore[no-untyped-call]
-        vbox.append(copy_button) # type: ignore[no-untyped-call]
-        self.popover.set_child(vbox) # type: ignore[no-untyped-call]
+        copy_button.connect("clicked", self.on_copy_menu_item_activated)  # type: ignore[no-untyped-call]
+        vbox.append(copy_button)  # type: ignore[no-untyped-call]
+        self.popover.set_child(vbox)  # type: ignore[no-untyped-call]
 
         gesture = Gtk.GestureClick.new()
         gesture.set_button(3)  # Right-click # type: ignore[no-untyped-call]
-        gesture.connect("pressed", self.on_right_click) # type: ignore[no-untyped-call]
-        self.widget.add_controller(gesture) # type: ignore[no-untyped-call]
+        gesture.connect("pressed", self.on_right_click)  # type: ignore[no-untyped-call]
+        self.widget.add_controller(gesture)  # type: ignore[no-untyped-call]
 
     def on_right_click(self, _gesture: Gtk.GestureClick, n_press: int, x: float, y: float) -> None:
-        """Display the context menu popover at the location of the mouse click.
+        """
+        Display the context menu popover at the location of the mouse click.
 
         Called when the right-click gesture is detected on the widget.
 
@@ -90,12 +94,13 @@ class Helper:
                 rect.y = int(y)
                 rect.width = 1
                 rect.height = 1
-                self.popover.set_pointing_to(rect) # type: ignore[no-untyped-call]
-                self.popover.set_has_arrow(False) # type: ignore[no-untyped-call]
-                self.popover.popup() # type: ignore[no-untyped-call]
+                self.popover.set_pointing_to(rect)  # type: ignore[no-untyped-call]
+                self.popover.set_has_arrow(False)  # type: ignore[no-untyped-call]
+                self.popover.popup()  # type: ignore[no-untyped-call]
 
     def copy_context_item_to_clipboard(self) -> None:
-        """Copy the content of the right-clicked item to the clipboard.
+        """
+        Copy the content of the right-clicked item to the clipboard.
 
         This method uses the coordinates stored from the last right-click event
         to identify the specific :class:`Gtk.ListItem` and its underlying data item
@@ -105,14 +110,16 @@ class Helper:
 
         :return: None
         """
-        if not isinstance(self.widget, Gtk.ColumnView) or \
-           not hasattr(self, 'last_right_click_coords') or \
-           self.last_right_click_coords is None:
+        if (
+            not isinstance(self.widget, Gtk.ColumnView)
+            or not hasattr(self, "last_right_click_coords")
+            or self.last_right_click_coords is None
+        ):
             return
 
         x_coord, y_coord = self.last_right_click_coords
 
-        picked_widget = self.widget.pick(x_coord, y_coord, Gtk.PickFlags.DEFAULT) # type: ignore[no-untyped-call]
+        picked_widget = self.widget.pick(x_coord, y_coord, Gtk.PickFlags.DEFAULT)  # type: ignore[no-untyped-call]
 
         if picked_widget is None:
             return
@@ -124,7 +131,7 @@ class Helper:
             if isinstance(current_widget, Gtk.ListItem):
                 target_list_item_widget = current_widget
                 break
-            if current_widget == self.widget: # Stop if we've reached the ColumnView itself
+            if current_widget == self.widget:  # Stop if we've reached the ColumnView itself
                 break
             current_widget = current_widget.get_parent()
 
@@ -139,24 +146,24 @@ class Helper:
         text_to_copy: str = ""
         try:
             # Assuming item_obj is HeaderItem-like (has 'key', 'value', 'is_special_row')
-            key_attr = getattr(item_obj, 'key', None)
-            value_attr = getattr(item_obj, 'value', None)
-            is_special_attr = getattr(item_obj, 'is_special_row', False)
+            key_attr = getattr(item_obj, "key", None)
+            value_attr = getattr(item_obj, "value", None)
+            is_special_attr = getattr(item_obj, "is_special_row", False)
 
             if is_special_attr:
-                text_to_copy = str(key_attr if key_attr is not None else '')
-                val_str = str(value_attr if value_attr is not None else '')
+                text_to_copy = str(key_attr if key_attr is not None else "")
+                val_str = str(value_attr if value_attr is not None else "")
                 if val_str.strip() and val_str != "N/A":
                     text_to_copy += f" {val_str}"
-            elif key_attr == "": # Continuation line for a multi-part header
-                text_to_copy = str(value_attr if value_attr is not None else '')
-            else: # Standard header (key: value)
+            elif key_attr == "":  # Continuation line for a multi-part header
+                text_to_copy = str(value_attr if value_attr is not None else "")
+            else:  # Standard header (key: value)
                 text_to_copy = f"{str(key_attr if key_attr is not None else '')}: {str(value_attr if value_attr is not None else '')}"
 
-            clipboard: Gdk.Clipboard = self.widget.get_clipboard() # type: ignore[assignment]
+            clipboard: Gdk.Clipboard = self.widget.get_clipboard()  # type: ignore[assignment]
             if clipboard:
                 content_provider = Gdk.ContentProvider.new_for_value(text_to_copy)
-                clipboard.set_content(content_provider) # type: ignore[no-untyped-call]
+                clipboard.set_content(content_provider)  # type: ignore[no-untyped-call]
 
         except AttributeError:
             # This might happen if item_obj is not a HeaderItem-like object.
@@ -164,7 +171,8 @@ class Helper:
             pass
 
     def on_copy_menu_item_activated(self, _button: Gtk.Button) -> None:
-        """Handle activation of the 'Copy' menu item.
+        """
+        Handle activation of the 'Copy' menu item.
 
         Copies the right-clicked item's content to the clipboard and hides the popover.
 
@@ -174,14 +182,10 @@ class Helper:
         """
         self.copy_context_item_to_clipboard()
         if self.popover:
-            self.popover.popdown() # type: ignore[no-untyped-call]
+            self.popover.popdown()  # type: ignore[no-untyped-call]
 
     def on_key_pressed(
-        self,
-        _controller: Gtk.EventControllerKey,
-        keyval: int,
-        _keycode: int,
-        state: Gdk.ModifierType
+        self, _controller: Gtk.EventControllerKey, keyval: int, _keycode: int, state: Gdk.ModifierType
     ) -> bool:
         """
         Handle the ``Ctrl+C`` keyboard shortcut to copy selected content.
@@ -203,7 +207,8 @@ class Helper:
         return False
 
     def copy_to_clipboard(self) -> None:
-        """Copy selected content from the :class:`Gtk.ColumnView` to the clipboard.
+        """
+        Copy selected content from the :class:`Gtk.ColumnView` to the clipboard.
 
         Assumes the items in the :class:`Gtk.ColumnView` model have 'key' and
         'value' attributes to construct the string. This method formats the copied text
@@ -219,41 +224,41 @@ class Helper:
         selection_model: Optional[GObject.Object] = self.widget.get_model()
         selected_texts: list[str] = []
 
-        items_to_copy: list[GObject.Object] = [] # type: ignore[misc]
+        items_to_copy: list[GObject.Object] = []  # type: ignore[misc]
         if isinstance(selection_model, Gtk.MultiSelection):
-            selection_bitset: Gtk.Bitset = selection_model.get_selection() # type: ignore[assignment]
+            selection_bitset: Gtk.Bitset = selection_model.get_selection()  # type: ignore[assignment]
             current_pos = selection_bitset.get_minimum()
-            while current_pos != Gtk.INVALID_LIST_POSITION: # type: ignore[comparison-overlap]
-                item = selection_model.get_item(current_pos) # type: ignore[call-overload]
+            while current_pos != Gtk.INVALID_LIST_POSITION:  # type: ignore[comparison-overlap]
+                item = selection_model.get_item(current_pos)  # type: ignore[call-overload]
                 if item:
                     items_to_copy.append(item)
                 current_pos = selection_bitset.get_next(current_pos)
         elif isinstance(selection_model, Gtk.SingleSelection):
-            item = selection_model.get_selected_item() # type: ignore[call-overload]
+            item = selection_model.get_selected_item()  # type: ignore[call-overload]
             if item:
                 items_to_copy.append(item)
 
         for item_obj in items_to_copy:
-            if item_obj and hasattr(item_obj, 'key') and hasattr(item_obj, 'value'):
-                key_attr = getattr(item_obj, 'key', None)
-                value_attr = getattr(item_obj, 'value', None)
-                is_special_attr = getattr(item_obj, 'is_special_row', False)
+            if item_obj and hasattr(item_obj, "key") and hasattr(item_obj, "value"):
+                key_attr = getattr(item_obj, "key", None)
+                value_attr = getattr(item_obj, "value", None)
+                is_special_attr = getattr(item_obj, "is_special_row", False)
 
                 line_to_copy: str = ""
                 if is_special_attr:
-                    line_to_copy = str(key_attr if key_attr is not None else '')
-                    val_str = str(value_attr if value_attr is not None else '')
+                    line_to_copy = str(key_attr if key_attr is not None else "")
+                    val_str = str(value_attr if value_attr is not None else "")
                     if val_str.strip() and val_str != "N/A":
                         line_to_copy += f" {val_str}"
-                elif key_attr == "": # Continuation line
-                    line_to_copy = str(value_attr if value_attr is not None else '')
-                else: # Standard header
+                elif key_attr == "":  # Continuation line
+                    line_to_copy = str(value_attr if value_attr is not None else "")
+                else:  # Standard header
                     line_to_copy = f"{str(key_attr if key_attr is not None else '')}: {str(value_attr if value_attr is not None else '')}"
                 selected_texts.append(line_to_copy)
 
         if selected_texts:
             clipboard_text = "\n".join(selected_texts)
-            clipboard: Gdk.Clipboard = self.widget.get_clipboard() # type: ignore[assignment]
+            clipboard: Gdk.Clipboard = self.widget.get_clipboard()  # type: ignore[assignment]
             if clipboard:
                 content_provider = Gdk.ContentProvider.new_for_value(clipboard_text)
-                clipboard.set_content(content_provider) # type: ignore[no-untyped-call]
+                clipboard.set_content(content_provider)  # type: ignore[no-untyped-call]

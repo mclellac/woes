@@ -122,7 +122,7 @@ def detect_os_and_distro():
                     distro_info[key] = value.strip('"')
                 distro = distro_info.get("ID", "unknown")
         except Exception as e:
-            raise RuntimeError(f"Could not determine Linux distribution: {str(e)}")
+            raise RuntimeError(f"Could not determine Linux distribution: {str(e)}") from e
     elif os_type == "Darwin":
         distro = "darwin"
     else:
@@ -213,9 +213,7 @@ def main():
     """Parse command-line arguments and run the setup process."""
     parser = argparse.ArgumentParser(description="Dependency installer and application builder")
     parser.add_argument("-i", "--install-deps", action="store_true", help="Install dependencies")
-    parser.add_argument(
-        "-b", "--build", action="store_true", help="Build and install the application"
-    )
+    parser.add_argument("-b", "--build", action="store_true", help="Build and install the application")
     args = parser.parse_args()
 
     if not any(vars(args).values()):

@@ -1,9 +1,11 @@
 """Module for fetching HTTP headers and processing responses."""
+
 import logging
-from typing import Optional, Tuple, Dict, List, Any # Use dict, list
+from typing import Optional, Dict, List, Any  # Use dict, list
 
 import requests
-import requests.utils # For urlparse, urlunparse
+import requests.utils  # For urlparse, urlunparse
+
 try:
     import dns.resolver
     import dns.exception
@@ -14,8 +16,10 @@ except ImportError:
 try:
     import urllib3.exceptions as urllib3_exceptions
 except ImportError:
+
     class _DummyUrllib3Exception(Exception):
         pass
+
     urllib3_exceptions = type(
         "urllib3_exceptions",
         (),
@@ -38,15 +42,18 @@ class HttpClientError(Exception):
 
     pass
 
+
 class HttpRequestTimeoutError(HttpClientError):
     """Exception for request timeouts."""
 
     pass
 
+
 class HttpConnectionError(HttpClientError):
     """Exception for connection errors."""
 
     pass
+
 
 class HttpProcessingError(HttpClientError):
     """
@@ -73,21 +80,25 @@ class HttpProcessingError(HttpClientError):
         self.status_code: Optional[int] = status_code
         self.url = url
 
+
 class HttpGenericRequestError(HttpClientError):
     """Exception for other requests-related errors."""
 
     pass
 
+
 class HttpFetcher:
     """Encapsulates logic for making HTTP requests and processing responses."""
 
-    def __init__(self,
-                 url: str,
-                 use_akamai_pragma: bool = False,
-                 host_header: Optional[str] = None,
-                 user_agent: Optional[str] = None,
-                 custom_dns_server: Optional[str] = None,
-                 cancellable: Optional[Gio.Cancellable] = None):
+    def __init__(
+        self,
+        url: str,
+        use_akamai_pragma: bool = False,
+        host_header: Optional[str] = None,
+        user_agent: Optional[str] = None,
+        custom_dns_server: Optional[str] = None,
+        cancellable: Optional[Gio.Cancellable] = None,
+    ):
         """
         Initialize HttpFetcher.
 
@@ -138,10 +149,15 @@ class HttpFetcher:
 
         if self.use_akamai_pragma:
             directives = [
-                "akamai-x-get-request-id", "akamai-x-get-cache-key", "akamai-x-cache-on",
-                "akamai-x-cache-remote-on", "akamai-x-get-true-cache-key",
-                "akamai-x-check-cacheable", "akamai-x-get-extracted-values",
-                "akamai-x-feo-trace", "x-akamai-logging-mode: verbose",
+                "akamai-x-get-request-id",
+                "akamai-x-get-cache-key",
+                "akamai-x-cache-on",
+                "akamai-x-cache-remote-on",
+                "akamai-x-get-true-cache-key",
+                "akamai-x-check-cacheable",
+                "akamai-x-get-extracted-values",
+                "akamai-x-feo-trace",
+                "x-akamai-logging-mode: verbose",
             ]
             session_headers["Pragma"] = ", ".join(directives)
             logger.info("HttpFetcher: Akamai Pragma headers included.")
@@ -188,7 +204,6 @@ class HttpFetcher:
             logger.warning("HttpFetcher: RequestException for '%s': %s", self.url, e)
             raise HttpGenericRequestError(f"Request failed for {self.url}: {e}") from e
 
-
     def _process_http_response(self, response: requests.Response) -> List[Dict[str, Any]]:
         """
         Process the HTTP response, including redirects.
@@ -203,7 +218,7 @@ class HttpFetcher:
         :rtype: list[dict[str, Any]]
         """
         all_responses_data: list[dict[str, Any]] = []
-        for hist_resp in response.history: # type: ignore[attr-defined]
+        for hist_resp in response.history:  # type: ignore[attr-defined]
             hist_data: dict[str, Any] = {
                 "type": "redirect",
                 "url": str(hist_resp.url),
@@ -212,19 +227,21 @@ class HttpFetcher:
             }
             all_responses_data.append(hist_data)
         try:
-            response.raise_for_status() # type: ignore[attr-defined]
+            response.raise_for_status()  # type: ignore[attr-defined]
             final_data_type = "final"
         except requests.exceptions.HTTPError as http_err:
             error_url = str(http_err.request.url) if http_err.request else self.url
             logger.warning("HttpFetcher: HTTPError for URL '%s' (final URL: '%s'): %s", self.url, error_url, http_err)
             error_message = self._format_http_error(http_err)
-            raise HttpProcessingError(error_message, status_code=http_err.response.status_code, url=error_url) from http_err # type: ignore[union-attr]
+            raise HttpProcessingError(
+                error_message, status_code=http_err.response.status_code, url=error_url
+            ) from http_err  # type: ignore[union-attr]
 
         final_data: dict[str, Any] = {
             "type": final_data_type,
-            "url": str(response.url), # type: ignore[attr-defined]
-            "status_code": response.status_code, # type: ignore[attr-defined]
-            "headers": {str(k): str(v) for k, v in dict(response.headers).items()}, # type: ignore[attr-defined]
+            "url": str(response.url),  # type: ignore[attr-defined]
+            "status_code": response.status_code,  # type: ignore[attr-defined]
+            "headers": {str(k): str(v) for k, v in dict(response.headers).items()},  # type: ignore[attr-defined]
         }
         all_responses_data.append(final_data)
         return all_responses_data
@@ -258,36 +275,47 @@ class HttpFetcher:
                     found_connection_refused = True
                     break
                 if hasattr(current_exc, "original_error"):
-                    original_error = getattr(current_exc, "original_error")
-                    if isinstance(original_error, ConnectionRefusedError) or \
-                       (hasattr(original_error, "errno") and getattr(original_error, "errno") == 111):
+                    original_error = current_exc.original_error
+                    if isinstance(original_error, ConnectionRefusedError) or (
+                        hasattr(original_error, "errno") and original_error.errno == 111
+                    ):
                         found_connection_refused = True
                         break
             if isinstance(current_exc, urllib3_exceptions.MaxRetryError):
-                if hasattr(current_exc, "reason") and isinstance(current_exc.reason, urllib3_exceptions.NewConnectionError):
+                if hasattr(current_exc, "reason") and isinstance(
+                    current_exc.reason, urllib3_exceptions.NewConnectionError
+                ):
                     reason_exc_str = str(current_exc.reason).lower()
                     if "connection refused" in reason_exc_str or "errno 111" in reason_exc_str:
                         found_connection_refused = True
                         break
                     if hasattr(current_exc.reason, "original_error"):
-                        original_error = getattr(current_exc.reason, "original_error")
-                        if isinstance(original_error, ConnectionRefusedError) or \
-                           (hasattr(original_error, "errno") and getattr(original_error, "errno") == 111):
+                        original_error = current_exc.reason.original_error
+                        if isinstance(original_error, ConnectionRefusedError) or (
+                            hasattr(original_error, "errno") and original_error.errno == 111
+                        ):
                             found_connection_refused = True
                             break
-            if any("connection refused" in str(arg).lower() for arg in current_exc.args if isinstance(arg, str)) or \
-               "connection refused" in exc_str:
+            if (
+                any("connection refused" in str(arg).lower() for arg in current_exc.args if isinstance(arg, str))
+                or "connection refused" in exc_str
+            ):
                 found_connection_refused = True
-            if any("errno 111" in str(arg).lower() for arg in current_exc.args if isinstance(arg, str)) or \
-               "errno 111" in exc_str:
+            if (
+                any("errno 111" in str(arg).lower() for arg in current_exc.args if isinstance(arg, str))
+                or "errno 111" in exc_str
+            ):
                 found_connection_refused = True
             if found_connection_refused:
                 break
             next_exc: Optional[BaseException] = None
             if hasattr(current_exc, "__cause__") and current_exc.__cause__ is not None:
                 next_exc = current_exc.__cause__
-            elif hasattr(current_exc, "__context__") and current_exc.__context__ is not None and \
-                 not getattr(current_exc, "__suppress_context__", False):
+            elif (
+                hasattr(current_exc, "__context__")
+                and current_exc.__context__ is not None
+                and not getattr(current_exc, "__suppress_context__", False)
+            ):
                 next_exc = current_exc.__context__
             if current_exc is next_exc:
                 break
@@ -313,9 +341,9 @@ class HttpFetcher:
         :return: A user-friendly error message string.
         :rtype: str
         """
-        status_code = e.response.status_code # type: ignore[union-attr]
-        reason = e.response.reason if e.response.reason else "Unknown Error" # type: ignore[union-attr]
-        url = e.request.url if e.request else "N/A" # type: ignore[union-attr]
+        status_code = e.response.status_code  # type: ignore[union-attr]
+        reason = e.response.reason if e.response.reason else "Unknown Error"  # type: ignore[union-attr]
+        url = e.request.url if e.request else "N/A"  # type: ignore[union-attr]
         if status_code == 403:
             return f"403 Forbidden: Access to {url} denied."
         if status_code == 404:
@@ -341,8 +369,7 @@ class HttpFetcher:
 
         adapter_sni_hint: Optional[str] = None
         if self.host_header:
-            requests.utils.urlparse(self.url) # type: ignore[attr-defined]
-
+            requests.utils.urlparse(self.url)  # type: ignore[attr-defined]
 
         effective_custom_dns_server: Optional[str] = self.custom_dns_server if dns else None
         if self.custom_dns_server and not dns:

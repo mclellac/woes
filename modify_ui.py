@@ -1,11 +1,13 @@
 """Modifies the UI files to fix GtkTemplate issues."""
+
 import re
 
 # Path to your .ui file
-UI_FILE_PATH = "src/woes_gui/window.ui" # Replace with your actual UI file path
+UI_FILE_PATH = "src/woes_gui/window.ui"  # Replace with your actual UI file path
 # UI_FILE_PATH_HTTP = "src/woes_gui/http_page.ui"
 # UI_FILE_PATH_DNS = "src/woes_gui/dns_page.ui"
 # UI_FILE_PATH_NMAP = "src/woes_gui/nmap_page.ui"
+
 
 def modify_template_child_tags(file_path):
     """
@@ -22,28 +24,28 @@ def modify_template_child_tags(file_path):
 
     """
     try:
-        with open(file_path, 'r', encoding='utf-8') as file:
+        with open(file_path, "r", encoding="utf-8") as file:
             content = file.read()
 
         # Regex to find <template ...> tags
         # It captures the part before 'class=', the class attribute itself, and the part after.
         template_regex = r'(<template\s+)([^>]*\bclass\s*=\s*"[^"]*"\s*)([^>]*>)'
+
         # Replacement function for <template>
         def replace_template(match):
             before_class = match.group(1)
-            class_attr_part = match.group(2) # The whole class="XYZ" part
+            class_attr_part = match.group(2)  # The whole class="XYZ" part
             after_class = match.group(3)
 
             # Remove the class attribute by finding its start and end
             # This is safer than just removing based on group 2 if other attributes are mixed
-            modified_attrs = re.sub(r'\bclass\s*=\s*"[^"]*"\s*', '', class_attr_part, count=1)
+            modified_attrs = re.sub(r'\bclass\s*=\s*"[^"]*"\s*', "", class_attr_part, count=1)
 
             # Reconstruct the template tag
             # Ensure there's a space if both parts have content, or just one if the other is empty
             if modified_attrs.strip() and after_class.strip():
                 return f"{before_class}{modified_attrs.strip()} {after_class.strip()}"
             return f"{before_class}{modified_attrs.strip()}{after_class.strip()}"
-
 
         modified_content = re.sub(template_regex, replace_template, content)
         print(f"Processed <template> tags in {file_path}.")
@@ -61,7 +63,7 @@ def modify_template_child_tags(file_path):
         # The main purpose is to clean the <template> tag itself.
 
         if modified_content != content:
-            with open(file_path, 'w', encoding='utf-8') as file:
+            with open(file_path, "w", encoding="utf-8") as file:
                 file.write(modified_content)
             print(f"Successfully modified UI file: {file_path}")
         else:
@@ -69,8 +71,9 @@ def modify_template_child_tags(file_path):
 
     except FileNotFoundError:
         print(f"Error: UI file not found at {file_path}")
-    except Exception as e: # pylint: disable=broad-except
+    except Exception as e:  # pylint: disable=broad-except
         print(f"An error occurred: {e}")
+
 
 if __name__ == "__main__":
     modify_template_child_tags(UI_FILE_PATH)

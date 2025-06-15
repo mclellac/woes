@@ -5,13 +5,14 @@ This module provides functions for applying font preferences, themes,
 and :class:`GtkSource.View` style schemes. It interacts with GSettings to retrieve
 system and application-specific style configurations.
 """
+
 import logging
 import re
 import platform
 from typing import Optional, Tuple
-import collections.abc # For Sequence if needed
 
 import gi
+
 gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
 gi.require_version("GtkSource", "5")
@@ -117,17 +118,13 @@ def apply_system_font_preferences(app_settings: Gio.Settings):
     font_size_to_apply_pt: float = BASE_FONT_SIZE_PT
 
     if platform.system() == "Linux":
-        font_family_to_apply, font_size_to_apply_pt = _get_linux_font_preferences(
-            font_size_to_apply_pt
-        )
+        font_family_to_apply, font_size_to_apply_pt = _get_linux_font_preferences(font_size_to_apply_pt)
 
     parsed_app_percentage = _get_app_font_scaling(app_settings)
     final_font_size_pt = font_size_to_apply_pt * (parsed_app_percentage / 100.0)
 
     if font_family_to_apply:
-        css_font_family = (
-            f"'{font_family_to_apply}'" if " " in font_family_to_apply else font_family_to_apply
-        )
+        css_font_family = f"'{font_family_to_apply}'" if " " in font_family_to_apply else font_family_to_apply
         css = f"* {{ font-family: {css_font_family}; font-size: {final_font_size_pt:.2f}pt; }}"
     else:
         css = f"* {{ font-size: {final_font_size_pt:.2f}pt; }}"

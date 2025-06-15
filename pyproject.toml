@@ -74,7 +74,7 @@ ignore = [
     "E402", # Module level import not at top of file (often needed with Gtk gi.require_version)
     "D203", # Conflicts with D211
     "D212", # Conflicts with D213
-    "B001", # Do not use bare `except:` (broad-except)
+    "E722", # Do not use bare `except:` (broad-except) (formerly B001)
     "PLR0914", # too-many-locals
 ]
 
