@@ -12,7 +12,6 @@ logger = logging.getLogger(__name__)
 import re
 from enum import Enum
 from typing import Optional, List, Dict, Any
-import collections.abc  # For Sequence if needed, though not directly used here
 import yaml
 
 import gi
@@ -345,15 +344,15 @@ class NmapPage(Adw.PreferencesPage):
             if isinstance(propagated_value, nmap.PortScanner):
                 nm_results_final = propagated_value
             elif hasattr(propagated_value, "value") and isinstance(
-                getattr(propagated_value, "value"), nmap.PortScanner
+                propagated_value.value, nmap.PortScanner
             ):
                 logger.debug(
                     f"NmapPage: Received wrapped object {type(propagated_value)} with .value attribute containing nmap.PortScanner. Unwrapping."
                 )
-                nm_results_final = getattr(propagated_value, "value")
+                nm_results_final = propagated_value.value
             elif hasattr(propagated_value, "value"):
                 logger.error(
-                    f"NmapPage: Received wrapped object {type(propagated_value)} with .value of type {type(getattr(propagated_value, 'value'))}. Expected nmap.PortScanner."
+                    f"NmapPage: Received wrapped object {type(propagated_value)} with .value of type {type(propagated_value.value)}. Expected nmap.PortScanner."
                 )
                 self._handle_scan_error(
                     original_target, "Scan returned unexpectedly wrapped data of the wrong type."
