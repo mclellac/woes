@@ -15,7 +15,6 @@
             <property name="title-widget">
               <object class="AdwViewSwitcherTitle" id="switcher_title">
                 <property name="halign">baseline-fill</property>
-                <property name="policy">wide</property>
                 <property name="stack">stack</property>
               </object>
             </property>
