@@ -8,7 +8,7 @@ system and application-specific style configurations.
 import logging
 import re
 import platform
-from typing import Optional # Use lowercase tuple
+from typing import Optional, Tuple
 import collections.abc # For Sequence if needed
 
 import gi
