@@ -4,16 +4,12 @@
 import os
 import subprocess
 
-# Configuration (replace with your actual values)
-APP_ID = "com.example.Woes"  # Replace with your Flatpak App ID
-RUNTIME_REPO = "flathub"
-RUNTIME = "org.gnome.Platform"
-RUNTIME_VERSION = "45"  # Or your desired GNOME runtime version
-SDK = "org.gnome.Sdk"
-BRANCH = "main"  # Or your desired branch
-FLATPAK_MODULE_FILE = f"{APP_ID}.json"  # Or your module file name
+
+APP_ID = "com.github.mclellac.woes"
+BRANCH = "main"
+FLATPAK_MODULE_FILE = "com.github.mclellac.woes.json"
 OUTPUT_DIR = "flatpak_build"
-REPO_NAME = "woes_repo"  # Name for the local Flatpak repository
+REPO_NAME = "woes"
 
 # Ensure the output directory exists
 os.makedirs(OUTPUT_DIR, exist_ok=True)
