@@ -771,6 +771,51 @@ class HttpPage(Adw.PreferencesPage):
         self._on_user_agent_changed(self.http_user_agent_row, None)  # Update visual cue
         logging.info("User-Agent dropdown model updated with %d titles.", len(display_titles))
 
+        # Apply default User-Agent from preferences
+        default_ua_title_pref = self.settings.get_string("default-user-agent-title")
+        model = self.http_user_agent_row.get_model() # type: ignore
+
+        if isinstance(model, Gtk.StringList):
+            target_selection_idx = -1
+            if default_ua_title_pref and default_ua_title_pref != "[System Default]":
+                # Try to find the preferred default title
+                for i in range(model.get_n_items()):
+                    if model.get_string(i) == default_ua_title_pref:
+                        target_selection_idx = i
+                        logging.info(f"HTTP Page: Setting User-Agent to preferred default: '{default_ua_title_pref}' at index {i}.")
+                        break
+                if target_selection_idx == -1:
+                    logging.warning(f"HTTP Page: Preferred default User-Agent title '{default_ua_title_pref}' not found in combo box. Falling back to 'None'.")
+                    # Fallback to "None" if preferred default is not found
+                    for i in range(model.get_n_items()):
+                        if model.get_string(i) == "None": # "None" is explicitly added in _update_user_agent_model
+                            target_selection_idx = i
+                            logging.info(f"HTTP Page: Selected 'None' User-Agent as fallback at index {i}.")
+                            break
+            else:
+                # Default title is empty or "[System Default]", so select the "None" option.
+                for i in range(model.get_n_items()):
+                    if model.get_string(i) == "None": # "None" is explicitly added in _update_user_agent_model
+                        target_selection_idx = i
+                        logging.info(f"HTTP Page: User-Agent set to system default ('None') at index {i}.")
+                        break
+
+            if target_selection_idx != -1:
+                self.http_user_agent_row.set_selected(target_selection_idx) # type: ignore
+            elif model.get_n_items() > 0:
+                # Absolute fallback: if "None" wasn't found for some reason, select the first item.
+                self.http_user_agent_row.set_selected(0) # type: ignore
+                logging.warning("HTTP Page: Could not find 'None' or preferred User-Agent. Defaulting to first item (index 0).")
+            else:
+                logging.warning("HTTP Page: User-Agent ComboBox is empty, cannot set default.")
+
+        else:
+            logging.warning("HTTP Page: User-Agent ComboBox model is not Gtk.StringList, cannot set default.")
+
+        # Ensure visual cue is updated after setting the default, again.
+        # The previous call to _on_user_agent_changed was before this default logic.
+        self._on_user_agent_changed(self.http_user_agent_row, None) # type: ignore
+
     def _create_factory(self, attr_name: str, wrap_text: bool = False) -> Gtk.SignalListItemFactory:
         """
         Create a Gtk.SignalListItemFactory for Gtk.ColumnView columns.
