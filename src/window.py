@@ -27,6 +27,12 @@ gi.require_version("Gtk", "4.0")
 
 # Imports for custom page widgets
 
+# Explicitly reference types to potentially aid GType registration
+_ = http_page.HttpPage
+_ = nmap_page.NmapPage
+_ = dns_page.DNSPage
+_ = webscan_page.WebScanPage
+
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/window.ui")
 class WoesWindow(Adw.ApplicationWindow):
     """
