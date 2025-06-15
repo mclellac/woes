@@ -142,6 +142,12 @@
             <property name="title" translatable="yes">Custom User Agents</property>
             <property name="description" translatable="yes">Manage your list of custom User-Agent strings for the HTTP Page.</property>
             <child>
+              <object class="AdwComboRow" id="user_agent_combo_row">
+                <property name="title" translatable="yes">Default User Agent</property>
+                <!-- Model will be populated from code -->
+              </object>
+            </child>
+            <child>
               <object class="AdwEntryRow" id="new_custom_ua_title_entry">
                 <property name="title" translatable="yes">Display Title</property>
                 <property name="tooltip-text" translatable="yes">A short, user-friendly title for the User-Agent (e.g., 'My Custom Bot')</property>

@@ -79,7 +79,7 @@ class WebScanPage(Adw.PreferencesPage):
 
         self.current_web_scan_task: Optional[Gio.Task] = None
         self.current_web_scan_cancellable: Optional[Gio.Cancellable] = None
-        self.current_nikto_process: Optional[subprocess.Popen[str]] = None  # Added Popen type hint
+        self.current_nikto_process: Optional[subprocess.Popen[str]] = None
         self._current_webscan_params: Optional[dict[str, Any]] = None
         self.settings: Gio.Settings = Gio.Settings.new(APP_ID)
         self.style_manager: Adw.StyleManager = Adw.StyleManager.get_default()
