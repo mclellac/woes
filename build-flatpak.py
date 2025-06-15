@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """Builds the flatpak package."""
 
 import os
@@ -9,7 +10,7 @@ RUNTIME_REPO = "flathub"
 RUNTIME = "org.gnome.Platform"
 RUNTIME_VERSION = "45"  # Or your desired GNOME runtime version
 SDK = "org.gnome.Sdk"
-BRANCH = "master"  # Or your desired branch
+BRANCH = "main"  # Or your desired branch
 FLATPAK_MODULE_FILE = f"{APP_ID}.json"  # Or your module file name
 OUTPUT_DIR = "flatpak_build"
 REPO_NAME = "woes_repo"  # Name for the local Flatpak repository
