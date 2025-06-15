@@ -8,20 +8,19 @@
     <property name="modal">true</property>
     <property name="title">Preferences</property>
     <child>
-      <object class="AdwPreferencesPage" id="appearance_settings_page">
-        <property name="title" translatable="yes">Appearance</property>
-        <property name="icon-name">preferences-desktop-theme-symbolic</property>
+      <object class="AdwPreferencesPage" id="preferences_page">
         <child>
           <object class="AdwBanner" id="preferences_error_banner">
             <property name="revealed">False</property> <!-- Initially hidden -->
             <property name="valign">start</property> <!-- Keep it at the top -->
             <!-- Title/message will be set from code -->
-            <property name="button-label" translatable="yes">Dismiss</property> <!-- Optional: if you want a dismiss button -->
-            <signal name="button-clicked" handler="on_error_banner_dismiss_clicked"/>
+             <property name="button-label" translatable="yes">Dismiss</property> <!-- Optional: if you want a dismiss button -->
+             <signal name="button-clicked" handler="on_error_banner_dismiss_clicked"/>
           </object>
         </child>
         <child>
           <object class="AdwPreferencesGroup" id="appearance_group">
+            <!-- Removed margin-top to let banner be flush if at top -->
             <property name="title">Appearance</property>
             <child>
               <object class="AdwComboRow" id="theme_combo_row">
@@ -72,12 +71,35 @@
                   <object class="GtkFontButton" id="global_output_font_button">
                     <property name="valign">center</property>
                     <property name="use-font">true</property>
-                    <property name="use-size">true</property>
-                    <property name="font">Sans 10</property>
+                    <property name="use-size">true</property> <!-- Enable size selection in the dialog -->
+                    <property name="font">Sans 10</property> <!-- Default, will be updated by GSettings -->
                   </object>
                 </child>
               </object>
             </child>
+          </object>
+        </child>
+        <child>
+          <object class="AdwPreferencesGroup" id="advanced_group">
+            <property name="title">Tool settings</property>
+            <child>
+              <object class="AdwEntryRow" id="dns_server_entryrow">
+                <property name="activates-default">True</property>
+                <property name="title">Custom DNS Server (Optional)</property>
+                <!-- <property name="subtitle">Leave empty to use system default DNS</property> -->
+                <child type="suffix">
+                  <object class="GtkButton" id="prefs_dns_apply_button">
+                    <property name="icon-name">object-select-symbolic</property>
+                    <property name="tooltip-text" translatable="yes">Apply</property>
+                    <property name="valign">center</property>
+                    <style>
+                      <class name="suggested-action"/>
+                    </style>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <!-- Removed empty AdwActionRow -->
           </object>
         </child>
         <child>
@@ -109,33 +131,6 @@
                 <child type="suffix">
                   <object class="GtkColorDialogButton" id="http_special_row_color_button">
                     <property name="valign">center</property>
-                  </object>
-                </child>
-              </object>
-            </child>
-          </object>
-        </child>
-      </object>
-    </child>
-    <child>
-      <object class="AdwPreferencesPage" id="behavior_settings_page">
-        <property name="title" translatable="yes">Behavior</property>
-        <property name="icon-name">preferences-system-symbolic</property>
-        <child>
-          <object class="AdwPreferencesGroup" id="advanced_group">
-            <property name="title" translatable="yes">Network Settings</property> <!-- Retitled -->
-            <child>
-              <object class="AdwEntryRow" id="dns_server_entryrow">
-                <property name="activates-default">True</property>
-                <property name="title">Custom DNS Server (Optional)</property>
-                <child type="suffix">
-                  <object class="GtkButton" id="prefs_dns_apply_button">
-                    <property name="icon-name">object-select-symbolic</property>
-                    <property name="tooltip-text" translatable="yes">Apply</property>
-                    <property name="valign">center</property>
-                    <style>
-                      <class name="suggested-action"/>
-                    </style>
                   </object>
                 </child>
               </object>
@@ -178,24 +173,13 @@
               </object>
             </child>
             <child>
+              <!-- This Gtk.ListBox will act as a container for dynamically added Adw.ActionRows -->
               <object class="GtkListBox" id="custom_ua_list_container">
-                <property name="selection-mode">none</property>
+                <property name="selection-mode">none</property> <!-- We don't want rows to be selectable -->
                 <style>
-                  <class name="boxed-list"/>
+                  <class name="boxed-list"/> <!-- Adwaita style for a list of rows -->
                 </style>
-              </object>
-            </child>
-          </object>
-        </child>
-        <child>
-          <object class="AdwPreferencesGroup" id="default_ua_settings_group">
-            <property name="title" translatable="yes">Default User-Agent</property>
-            <property name="description" translatable="yes">Choose the User-Agent to be active when the application starts.</property>
-            <child>
-              <object class="AdwComboRow" id="default_ua_combo_row">
-                <property name="title" translatable="yes">Startup User-Agent</property>
-                <property name="subtitle" translatable="yes">This User-Agent will be selected by default on the HTTP page.</property>
-                <!-- The model will be populated from code -->
+                <!-- Adw.ActionRows representing custom UAs will be added here from code -->
               </object>
             </child>
           </object>

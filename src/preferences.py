@@ -16,7 +16,7 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import Adw, Gio, Gtk, GLib, GObject, Gdk
 
 # Local application imports
-from .constants import APP_ID, RESOURCE_PREFIX, USER_AGENTS
+from .constants import APP_ID, RESOURCE_PREFIX
 
 # Conditional import for dnspython
 try:
@@ -71,9 +71,6 @@ class Preferences(Adw.PreferencesWindow):
 
     # Global Font Preference UI Element
     global_output_font_button = Gtk.Template.Child("global_output_font_button")
-
-    # Default User Agent UI
-    default_ua_combo_row = Gtk.Template.Child("default_ua_combo_row")
 
 
     def __init__(self, main_window: Optional[Gtk.Window] = None):
@@ -160,27 +157,6 @@ class Preferences(Adw.PreferencesWindow):
         if self.global_output_font_button:
             self.global_output_font_button.connect("font-set", self.on_global_font_setting_changed)
 
-        # Default User Agent Signal
-        if self.default_ua_combo_row: # Check if it exists
-            self.default_ua_combo_row.connect("notify::selected-item", self._on_default_ua_selection_changed)
-        else:
-            logging.warning("default_ua_combo_row is None in load_ui, cannot connect signal.")
-
-
-    def _on_default_ua_selection_changed(self, combo_row: Adw.ComboRow, _gparam: GObject.ParamSpec):
-        selected_item_obj = combo_row.get_selected_item()
-        if isinstance(selected_item_obj, Gtk.StringObject):
-            selected_title = selected_item_obj.get_string()
-            if selected_title == "[System Default]":
-                self.settings.set_string("default-user-agent-title", "")
-                logging.debug("Default User-Agent set to System Default (empty string in GSettings).")
-            else:
-                self.settings.set_string("default-user-agent-title", selected_title)
-                logging.debug(f"Default User-Agent title set to: {selected_title}")
-        elif selected_item_obj is None:
-            # This might happen if the model is cleared or selection is removed
-            self.settings.set_string("default-user-agent-title", "")
-            logging.debug("Default User-Agent selection cleared, set to System Default.")
 
     def on_global_font_setting_changed(self, font_button: Gtk.FontButton):
         """
@@ -544,42 +520,3 @@ class Preferences(Adw.PreferencesWindow):
                 self.global_output_font_button.set_font(default_font)
                 self.settings.set_string("output-font", default_font)
                 logging.warning(f"GSettings 'output-font' was empty, set to default: {default_font}")
-
-        # Default User Agent
-        if self.default_ua_combo_row: # Check if it exists
-            self._populate_default_ua_combo_row() # Populate before trying to set selection
-            default_ua_title_pref = self.settings.get_string("default-user-agent-title")
-            if not self._select_combo_row_item(self.default_ua_combo_row, default_ua_title_pref if default_ua_title_pref else "[System Default]"):
-                logging.warning(f"Could not select default UA '{default_ua_title_pref}' in preferences ComboRow.")
-                self.default_ua_combo_row.set_selected(0) # Default to "[System Default]"
-        else:
-            logging.warning("default_ua_combo_row is None in load_preferences.")
-
-    def _populate_default_ua_combo_row(self):
-        if not self.default_ua_combo_row:
-            logging.warning("Default User-Agent ComboRow not found in Preferences UI.")
-            return
-
-        ua_titles = ["[System Default]"] # Special first item
-
-        # Add predefined User-Agents
-        for ua_dict in USER_AGENTS: # USER_AGENTS is a list of dicts
-            title = ua_dict.get("title")
-            if title:
-                ua_titles.append(title)
-
-        # Add custom User-Agents
-        variant = self.settings.get_value("custom-user-agents")
-        custom_ua_pairs = list(variant.unpack() if variant and variant.get_type_string() == 'a(ss)' else [])
-        for title, _ in custom_ua_pairs:
-            if title not in ua_titles: # Avoid duplicates
-                ua_titles.append(title)
-
-        # For now, keep the order: System Default, Predefined, Custom (as appended)
-        # If sorting is desired later, it can be implemented here. Example:
-        # predefined_and_custom_titles = sorted(list(set(ua_titles) - {"[System Default]"}), key=str.lower)
-        # final_ua_titles = ["[System Default]"] + predefined_and_custom_titles
-
-        string_list = Gtk.StringList.new(ua_titles)
-        self.default_ua_combo_row.set_model(string_list)
-        logging.debug("Populated default User-Agent ComboRow with %d items.", len(ua_titles))
