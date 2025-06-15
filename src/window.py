@@ -38,28 +38,33 @@ class WoesWindow(Adw.ApplicationWindow):
     title switcher. It binds window properties (size, state) to :class:`Gio.Settings`
     and handles theme and font preference changes.
 
-    :ivar switcher_title: The title switcher widget in the header bar.
-    :ivar stack: The main view stack that holds different pages of the application.
-    :ivar main_error_banner: A banner widget used to display application-wide error messages.
-    :ivar toast_overlay: An overlay for displaying non-intrusive toast messages.
+    :ivar switcher_title: The :class:`Adw.ViewSwitcherTitle` widget in the header bar.
+    :vartype switcher_title: Adw.ViewSwitcherTitle
+    :ivar stack: The main :class:`Adw.ViewStack` that holds different pages of the application.
+    :vartype stack: Adw.ViewStack
+    :ivar main_error_banner: An :class:`Adw.Banner` widget used to display application-wide error messages.
+    :vartype main_error_banner: Adw.Banner
+    :ivar toast_overlay: An :class:`Adw.ToastOverlay` for displaying non-intrusive toast messages.
+    :vartype toast_overlay: Adw.ToastOverlay
     """
 
     __gtype_name__ = "WoesWindow"
 
-    switcher_title = Gtk.Template.Child("switcher_title")
-    stack = Gtk.Template.Child("stack")
-    main_error_banner = Gtk.Template.Child("main_error_banner")
-    toast_overlay = Gtk.Template.Child("toast_overlay")
+    switcher_title: Adw.ViewSwitcherTitle = Gtk.Template.Child("switcher_title") # type: ignore
+    stack: Adw.ViewStack = Gtk.Template.Child("stack") # type: ignore
+    main_error_banner: Adw.Banner = Gtk.Template.Child("main_error_banner") # type: ignore
+    toast_overlay: Adw.ToastOverlay = Gtk.Template.Child("toast_overlay") # type: ignore
 
-    def __init__(self, **kwargs: GObject.GObject):
+    def __init__(self, **kwargs: Any): # GObject.GObject is too restrictive if no args passed
         """
         Initialize the WoesWindow.
 
         :param kwargs: Keyword arguments passed to the :class:`Adw.ApplicationWindow`
                        constructor.
+        :type kwargs: Any
         """
         super().__init__(**kwargs)
-        self.settings = Gio.Settings(schema_id=APP_ID)
+        self.settings: Gio.Settings = Gio.Settings(schema_id=APP_ID)
 
         self._output_font_gsettings_key = "output-font"
         self.textview_font_css_provider = Gtk.CssProvider()
@@ -78,16 +83,16 @@ class WoesWindow(Adw.ApplicationWindow):
 
         self.settings.bind("window-width", self, "default-width", Gio.SettingsBindFlags.DEFAULT)
         self.settings.bind("window-height", self, "default-height", Gio.SettingsBindFlags.DEFAULT)
-        self.settings.bind("window-is-maximized", self, "maximized", Gio.SettingsBindFlags.DEFAULT)
+        self.settings.bind("window-is-maximized", self, "maximized", Gio.SettingsBindFlags.DEFAULT) # type: ignore[no-untyped-call]
 
-        self.style_manager = Adw.StyleManager.get_default()
-        self.gnome_interface_settings = None
+        self.style_manager: Adw.StyleManager = Adw.StyleManager.get_default()
+        self.gnome_interface_settings: Optional[Gio.Settings] = None
 
         if platform.system() == "Linux":
             try:
                 self.gnome_interface_settings = Gio.Settings.new(GNOME_INTERFACE_SCHEMA)
-                self.gnome_interface_settings.connect(f"changed::{FONT_NAME_KEY}", self._on_gnome_font_setting_changed)
-                self.gnome_interface_settings.connect(f"changed::{TEXT_SCALING_FACTOR_KEY}", self._on_gnome_font_setting_changed)
+                self.gnome_interface_settings.connect(f"changed::{FONT_NAME_KEY}", self._on_gnome_font_setting_changed) # type: ignore[union-attr]
+                self.gnome_interface_settings.connect(f"changed::{TEXT_SCALING_FACTOR_KEY}", self._on_gnome_font_setting_changed) # type: ignore[union-attr]
                 logging.debug("Successfully connected to GNOME interface settings schema: %s", GNOME_INTERFACE_SCHEMA)
             except GLib.Error as e:
                 logging.warning(
@@ -95,8 +100,8 @@ class WoesWindow(Adw.ApplicationWindow):
                     GNOME_INTERFACE_SCHEMA, e
                 )
 
-        self.settings.connect("changed::theme-preference", self._on_theme_preference_setting_changed)
-        self.settings.connect("changed::font-scaling-percentage", self._on_font_scaling_setting_changed)
+        self.settings.connect("changed::theme-preference", self._on_theme_preference_setting_changed) # type: ignore[arg-type]
+        self.settings.connect("changed::font-scaling-percentage", self._on_font_scaling_setting_changed) # type: ignore[arg-type]
 
         try:
             self.setup_ui()
@@ -165,10 +170,12 @@ class WoesWindow(Adw.ApplicationWindow):
         Handle dismissal of the main error banner.
 
         This callback is connected to the 'button-clicked' signal of the
-        `main_error_banner`.
+        ``main_error_banner``.
 
-        :param _banner: The banner widget that emitted the signal (unused).
+        :param _banner: The :class:`Adw.Banner` widget that emitted the signal (unused).
+        :type _banner: Optional[Adw.Banner]
         :param _data: Additional data passed with the signal (unused).
+        :type _data: Optional[Any]
         """
         self.hide_error()
 
@@ -176,15 +183,16 @@ class WoesWindow(Adw.ApplicationWindow):
         """
         Display a message in the main error banner.
 
-        If the `main_error_banner` widget is available, its title is set to
+        If the ``main_error_banner`` widget is available, its title is set to
         the provided message, an 'error' CSS class is added, and it's revealed.
 
         :param message: The error message to display.
+        :type message: str
         """
         if self.main_error_banner:
-            self.main_error_banner.set_title(message)
-            self.main_error_banner.add_css_class("error")
-            self.main_error_banner.set_revealed(True)
+            self.main_error_banner.set_title(message) # type: ignore[union-attr]
+            self.main_error_banner.add_css_class("error") # type: ignore[union-attr]
+            self.main_error_banner.set_revealed(True) # type: ignore[union-attr]
         else:
             logging.warning("main_error_banner not available to show message: %s", message)
 
@@ -192,13 +200,13 @@ class WoesWindow(Adw.ApplicationWindow):
         """
         Hide the main error banner and clear its title.
 
-        If the `main_error_banner` widget is available, its 'error' CSS class
+        If the ``main_error_banner`` widget is available, its 'error' CSS class
         is removed, it's hidden, and its title is cleared.
         """
         if self.main_error_banner:
-            self.main_error_banner.remove_css_class("error")
-            self.main_error_banner.set_revealed(False)
-            self.main_error_banner.set_title("")
+            self.main_error_banner.remove_css_class("error") # type: ignore[union-attr]
+            self.main_error_banner.set_revealed(False) # type: ignore[union-attr]
+            self.main_error_banner.set_title("") # type: ignore[union-attr]
         else:
             logging.warning("main_error_banner not available to hide.")
 
@@ -206,14 +214,16 @@ class WoesWindow(Adw.ApplicationWindow):
         """
         Handle changes to GNOME's system font settings.
 
-        This callback is connected to changes in `org.gnome.desktop.interface`
-        for `font-name` and `text-scaling-factor`. It triggers re-application
+        This callback is connected to changes in ``org.gnome.desktop.interface``
+        for ``font-name`` and ``text-scaling-factor``. It triggers re-application
         of font sizes based on application and system settings.
 
         :param gnome_settings_obj: The :class:`Gio.Settings` object for
-                                   `org.gnome.desktop.interface` that changed.
+                                   ``org.gnome.desktop.interface`` that changed.
+        :type gnome_settings_obj: Gio.Settings
         :param key_name: The name of the GSettings key that changed
                          (e.g., 'font-name', 'text-scaling-factor').
+        :type key_name: str
         """
         logging.debug(
             "GNOME font setting '%s' changed. Re-applying font preferences.",
@@ -254,8 +264,10 @@ class WoesWindow(Adw.ApplicationWindow):
         are correctly applied.
 
         :param settings: The :class:`Gio.Settings` object for the application
-                         (schema ID: :const:`APP_ID`) that changed.
+                         (schema ID: :const:`.APP_ID`) that changed.
+        :type settings: Gio.Settings
         :param key: The name of the GSettings key that changed (should be 'theme-preference').
+        :type key: str
         """
         theme_pref = settings.get_string(key)
         apply_theme(self.style_manager, theme_pref)
@@ -268,8 +280,10 @@ class WoesWindow(Adw.ApplicationWindow):
         Triggers re-application of font sizes based on the new scaling factor.
 
         :param settings: The :class:`Gio.Settings` object for the application
-                         (schema ID: :const:`APP_ID`) that changed.
+                         (schema ID: :const:`.APP_ID`) that changed.
+        :type settings: Gio.Settings
         :param key: The name of the GSettings key that changed (should be 'font-scaling-percentage').
+        :type key: str
         """
         logging.debug(
             "App font scaling setting '%s' changed. Re-applying font preferences.",
@@ -283,11 +297,11 @@ class WoesWindow(Adw.ApplicationWindow):
 
         The CSS is loaded from GResources and applied to the application.
         """
-        if self.style_manager.get_dark():
+        if self.style_manager.get_dark(): # type: ignore[no-untyped-call]
             css_file = "style-dark.css"
         else:
             css_file = "style.css"
-        css_path = f"{RESOURCE_PREFIX}/{css_file}"
+        css_path = f"{RESOURCE_PREFIX}/{css_file}" # type: ignore[name-defined]
         style_provider = Gtk.CssProvider()
 
         try:
@@ -309,12 +323,12 @@ class WoesWindow(Adw.ApplicationWindow):
         """
         Reload CSS based on the current theme preference.
 
-        This is a convenience method that calls :meth:`load_css`.
+        This is a convenience method that calls :meth:`.load_css`.
         """
         logging.debug("Reloading CSS based on theme preference.")
         self.load_css()
 
-    def apply_preferences(self):
+    def apply_preferences(self) -> None:
         """
         Apply stored font and theme preferences to the application.
 
@@ -324,8 +338,8 @@ class WoesWindow(Adw.ApplicationWindow):
         """
         try:
             theme_pref = self.settings.get_string("theme-preference")
-            apply_font_size(self.settings)
-            apply_theme(self.style_manager, theme_pref)
+            apply_font_size(self.settings) # type: ignore[arg-type]
+            apply_theme(self.style_manager, theme_pref) # type: ignore[arg-type]
         except GLib.Error as e:
             logging.error("Error applying preferences (GSettings): %s", e)
         except Exception as e:  # pylint: disable=broad-except
@@ -339,34 +353,39 @@ class WoesWindow(Adw.ApplicationWindow):
 
         :param widget: The :class:`Adw.ViewSwitcherTitle` that emitted the
                        'notify::selected-page' signal.
+        :type widget: Adw.ViewSwitcherTitle
         :param _gparam: The :class:`GObject.ParamSpec` of the property that changed (unused).
+        :type _gparam: GObject.ParamSpec
         """
         if self.stack:
             logging.debug(
                 "Page switched, new visible page: %s",
-                self.stack.get_visible_child_name()
+                self.stack.get_visible_child_name() # type: ignore[union-attr]
                 )
         else:
             logging.warning("on_page_switched called but self.stack is not available.")
 
 
-    def show_toast(self, title: str, priority: Adw.ToastPriority = Adw.ToastPriority.NORMAL, timeout: int = 2):
+    def show_toast(self, title: str, priority: Adw.ToastPriority = Adw.ToastPriority.NORMAL, timeout: int = 2) -> None:
         """
         Display an :class:`Adw.Toast` message using the window's :class:`Adw.ToastOverlay`.
 
         :param title: The message to display in the toast.
+        :type title: str
         :param priority: The priority of the toast (e.g., NORMAL, HIGH).
                          Defaults to :attr:`Adw.ToastPriority.NORMAL`.
+        :type priority: Adw.ToastPriority
         :param timeout: The duration in seconds for the toast to be visible.
                         Defaults to 2 seconds. A value of 0 means the toast
                         will remain until dismissed.
+        :type timeout: int
         """
         if not self.toast_overlay:
             logging.warning("ToastOverlay not found, cannot display toast: %s", title)
             return
 
         toast = Adw.Toast.new(title)
-        toast.set_priority(priority)
-        toast.set_timeout(timeout)
-        self.toast_overlay.add_toast(toast)
+        toast.set_priority(priority) # type: ignore[no-untyped-call]
+        toast.set_timeout(timeout) # type: ignore[no-untyped-call]
+        self.toast_overlay.add_toast(toast) # type: ignore[union-attr]
         logging.info("Toast shown: %s (Priority: %s, Timeout: %s)", title, priority, timeout)

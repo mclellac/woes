@@ -1,5 +1,4 @@
-"""
-Defines the WebScan page for the Woes application.
+"""Defines the WebScan page for the Woes application.
 
 This page provides a simple interface to run Nikto scans against a target URL
 and display the results.
@@ -9,7 +8,7 @@ import logging
 logger = logging.getLogger(__name__)
 import re
 import ast
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any # Use dict
 import time
 from enum import Enum
 
@@ -29,57 +28,58 @@ class WebScanPage(Adw.PreferencesPage):
 
     __gtype_name__ = "WebScanPage"
 
-    url_entry = Gtk.Template.Child()
-    scan_button = Gtk.Template.Child()
-    results_scrolled_window = Gtk.Template.Child()
-    force_ssl_switch = Gtk.Template.Child()
-    cgi_vulns_switch = Gtk.Template.Child()
-    interesting_content_switch = Gtk.Template.Child()
-    evasion_switch = Gtk.Template.Child()
-    mutate_switch = Gtk.Template.Child()
-    maxtime_entry_row = Gtk.Template.Child()
-    clear_results_button = Gtk.Template.Child()
-    copy_results_button = Gtk.Template.Child()
-    webscan_status_action_row = Gtk.Template.Child()
-    webscan_status_spinner = Gtk.Template.Child("webscan_status_spinner")
-    webscan_cancel_button = Gtk.Template.Child()
+    url_entry: Adw.EntryRow = Gtk.Template.Child() # type: ignore
+    scan_button: Gtk.Button = Gtk.Template.Child() # type: ignore
+    results_scrolled_window: Gtk.ScrolledWindow = Gtk.Template.Child() # type: ignore
+    force_ssl_switch: Adw.SwitchRow = Gtk.Template.Child() # type: ignore
+    cgi_vulns_switch: Adw.SwitchRow = Gtk.Template.Child() # type: ignore
+    interesting_content_switch: Adw.SwitchRow = Gtk.Template.Child() # type: ignore
+    evasion_switch: Adw.SwitchRow = Gtk.Template.Child() # type: ignore
+    mutate_switch: Adw.SwitchRow = Gtk.Template.Child() # type: ignore
+    maxtime_entry_row: Adw.EntryRow = Gtk.Template.Child() # type: ignore
+    clear_results_button: Gtk.Button = Gtk.Template.Child() # type: ignore
+    copy_results_button: Gtk.Button = Gtk.Template.Child() # type: ignore
+    webscan_status_action_row: Adw.ActionRow = Gtk.Template.Child() # type: ignore
+    webscan_status_spinner: Gtk.Spinner = Gtk.Template.Child("webscan_status_spinner") # type: ignore
+    webscan_cancel_button: Gtk.Button = Gtk.Template.Child() # type: ignore
 
     # New UI elements for Nikto options
-    nikto_format_combo_row = Gtk.Template.Child()
-    nikto_output_file_row = Gtk.Template.Child()
-    nikto_output_file_button = Gtk.Template.Child()
-    no404_switch = Gtk.Template.Child()
-    auth_bypass_switch = Gtk.Template.Child()
+    nikto_format_combo_row: Adw.ComboRow = Gtk.Template.Child() # type: ignore
+    nikto_output_file_row: Adw.EntryRow = Gtk.Template.Child() # type: ignore
+    nikto_output_file_button: Gtk.Button = Gtk.Template.Child() # type: ignore
+    no404_switch: Adw.SwitchRow = Gtk.Template.Child() # type: ignore
+    auth_bypass_switch: Adw.SwitchRow = Gtk.Template.Child() # type: ignore
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any):
         """
         Initialize the WebScanPage.
 
         :param kwargs: Keyword arguments passed to the :class:`Adw.PreferencesPage` constructor.
+        :type kwargs: Any
         """
         super().__init__(**kwargs)
-        self.source_view = Gtk.TextView()
+        self.source_view: Gtk.TextView = Gtk.TextView()
         self.source_view.set_name("webscan-output-textview")
         source_buffer = Gtk.TextBuffer()
         self.source_view.set_buffer(source_buffer)
 
-        self.source_view.set_hexpand(True)
-        self.source_view.set_vexpand(True)
-        self.source_view.set_monospace(True)
-        self.source_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
-        self.source_view.set_editable(False)
+        self.source_view.set_hexpand(True) # type: ignore[no-untyped-call]
+        self.source_view.set_vexpand(True) # type: ignore[no-untyped-call]
+        self.source_view.set_monospace(True) # type: ignore[no-untyped-call]
+        self.source_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR) # type: ignore[no-untyped-call]
+        self.source_view.set_editable(False) # type: ignore[no-untyped-call]
 
         if self.results_scrolled_window:
-            self.results_scrolled_window.set_child(self.source_view)
+            self.results_scrolled_window.set_child(self.source_view) # type: ignore[union-attr]
         else:
             logger.error("results_scrolled_window is None in __init__, cannot add Gtk.TextView.")
 
         self.current_web_scan_task: Optional[Gio.Task] = None
         self.current_web_scan_cancellable: Optional[Gio.Cancellable] = None
-        self.current_nikto_process: Optional[subprocess.Popen] = None
-        self._current_webscan_params: Optional[Dict[str, Any]] = None
-        self.settings = Gio.Settings.new(APP_ID)
-        self.style_manager = Adw.StyleManager.get_default()
+        self.current_nikto_process: Optional[subprocess.Popen[str]] = None # Added Popen type hint
+        self._current_webscan_params: Optional[dict[str, Any]] = None
+        self.settings: Gio.Settings = Gio.Settings.new(APP_ID)
+        self.style_manager: Adw.StyleManager = Adw.StyleManager.get_default()
 
         if self.scan_button:
             self.scan_button.get_style_context().add_class("suggested-action")
@@ -132,8 +132,10 @@ class WebScanPage(Adw.PreferencesPage):
         Updates the sensitivity of the output file row based on whether
         the selected format requires an output file.
 
-        :param combo_row: The Adw.ComboRow for Nikto format selection.
-        :param _param_spec: The GObject.ParamSpec of the property that changed (unused).
+        :param combo_row: The :class:`Adw.ComboRow` for Nikto format selection.
+        :type combo_row: Adw.ComboRow
+        :param _param_spec: The :class:`GObject.ParamSpec` of the property that changed (unused).
+        :type _param_spec: GObject.ParamSpec
         """
         selected_item = combo_row.get_selected_item()
         if not selected_item:
@@ -158,7 +160,8 @@ class WebScanPage(Adw.PreferencesPage):
         Opens a Gtk.FileChooserNative dialog to allow the user to select
         a save location and filename for Nikto's output.
 
-        :param _button: The Gtk.Button that was clicked (unused).
+        :param _button: The :class:`Gtk.Button` that was clicked (unused).
+        :type _button: Gtk.Button
         """
         dialog = Gtk.FileChooserNative.new(
             "Save Nikto Output",
@@ -200,7 +203,8 @@ class WebScanPage(Adw.PreferencesPage):
         """
         Handle click on the 'Cancel Scan' button.
 
-        :param _button: The Gtk.Button that was clicked (unused).
+        :param _button: The :class:`Gtk.Button` that was clicked (unused).
+        :type _button: Gtk.Button
         """
         logger.info("Cancel scan button clicked.")
         if self.current_web_scan_cancellable and \
@@ -216,7 +220,8 @@ class WebScanPage(Adw.PreferencesPage):
         """
         Handle click of the 'Clear Results' button.
 
-        :param _button: The Gtk.Button that was clicked (unused).
+        :param _button: The :class:`Gtk.Button` that was clicked (unused).
+        :type _button: Gtk.Button
         """
         if not hasattr(self, 'source_view') or not self.source_view:
             return
@@ -232,7 +237,8 @@ class WebScanPage(Adw.PreferencesPage):
         """
         Handle click of the 'Copy Results' button.
 
-        :param _button: The Gtk.Button that was clicked (unused).
+        :param _button: The :class:`Gtk.Button` that was clicked (unused).
+        :type _button: Gtk.Button
         """
         if not hasattr(self, 'source_view') or not self.source_view:
             return
@@ -263,7 +269,8 @@ class WebScanPage(Adw.PreferencesPage):
         """
         Handle the 'Scan' button click event.
 
-        :param _widget: The Gtk.Button that was clicked (unused).
+        :param _widget: The :class:`Gtk.Button` that was clicked (unused).
+        :type _widget: Gtk.Button
         """
         if not hasattr(self, 'source_view') or not self.source_view:
             return
@@ -340,12 +347,16 @@ class WebScanPage(Adw.PreferencesPage):
         """
         Execute the Nikto scan in a separate thread, with cancellation support.
 
-        :param task: The Gio.Task associated with this operation.
-        :param _source_object: The GObject source of the task.
+        :param task: The :class:`Gio.Task` associated with this operation.
+        :type task: Gio.Task
+        :param _source_object: The :class:`GObject.Object` source of the task.
+        :type _source_object: GObject.Object
         :param _task_data_unused: Additional data passed to the task (unused).
-        :param cancellable: A Gio.Cancellable object to monitor for cancellation.
+        :type _task_data_unused: Any
+        :param cancellable: A :class:`Gio.Cancellable` object to monitor for cancellation.
+        :type cancellable: Gio.Cancellable
         """
-        page_instance: WebScanPage = _source_object # type: ignore
+        page_instance: WebScanPage = _source_object # type: ignore[assignment]
         scan_params = page_instance._current_webscan_params
 
         if not scan_params:
@@ -628,9 +639,12 @@ class WebScanPage(Adw.PreferencesPage):
         """
         Handle completion of the Nikto scan task.
 
-        :param _source_object: The GObject source of the task.
-        :param result: The Gio.AsyncResult from the completed task.
+        :param _source_object: The :class:`GObject.Object` source of the task.
+        :type _source_object: GObject.Object
+        :param result: The :class:`Gio.AsyncResult` from the completed task.
+        :type result: Gio.AsyncResult
         :param _user_data: User data passed with the callback (unused).
+        :type _user_data: object
         """
         target_url = "Unknown URL"
         if self._current_webscan_params:
@@ -764,12 +778,15 @@ class WebScanPage(Adw.PreferencesPage):
 
     def _update_textview(self, stdout_content: Optional[str], stderr_content: Optional[str], is_error_message: bool = False):
         """
-        Update the results TextView with Nikto's stdout and error messages/stderr.
+        Update the results :class:`Gtk.TextView` with Nikto's stdout and error messages/stderr.
 
         :param stdout_content: The standard output content from Nikto.
+        :type stdout_content: Optional[str]
         :param stderr_content: The standard error content from Nikto or a pre-formatted error message.
-        :param is_error_message: If True, stderr_content is treated as a pre-formatted error for display.
-                                 Otherwise, it's treated as raw stderr output from Nikto.
+        :type stderr_content: Optional[str]
+        :param is_error_message: If ``True``, ``stderr_content`` is treated as a pre-formatted error for display.
+                                 Otherwise, it's treated as raw stderr output from Nikto. Defaults to ``False``.
+        :type is_error_message: bool
         """
         if not hasattr(self, 'source_view') or not self.source_view:
             return
@@ -812,17 +829,17 @@ class WebScanPage(Adw.PreferencesPage):
         if self.copy_results_button:
             self.copy_results_button.set_sensitive(has_content)
 
-    def trigger_scan(self):
+    def trigger_scan(self) -> None:
         """Programmatically trigger the WebScan 'Scan' action."""
         logger.debug("Webscan scan triggered by shortcut.")
         if self.scan_button and self.scan_button.get_sensitive():
             self.scan_button.clicked()
         elif self.current_web_scan_task and not self.current_web_scan_task.is_done():
-            show_global_toast(self, "A scan is already in progress. Cancel it or wait.")
+            show_global_toast(self, "A scan is already in progress. Cancel it or wait.") # type: ignore[arg-type]
         else:
             logger.warning("Webscan scan button not available or not sensitive, cannot trigger scan.")
 
 WEB_SCAN_ERROR_DOMAIN = "web-scan-error-domain"
 
 class WebScanErrorType(int, Enum):
-    """Enumeration of Web Scan error types for Gio.Task error reporting."""
+    """Enumeration of Web Scan error types for :class:`Gio.Task` error reporting."""

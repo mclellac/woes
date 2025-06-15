@@ -1,6 +1,6 @@
 """Defines the HTTP Headers page for the Woes application.
 
-This module provides the HttpPage class, which allows users to fetch and
+This module provides the :class:`.HttpPage` class, which allows users to fetch and
 inspect HTTP headers for a given URL. It includes options for custom Host
 headers, User-Agent string selection, and Akamai Pragma header toggling.
 The page also integrates with GSettings for persisting user preferences
@@ -9,7 +9,8 @@ and uses a background thread for network operations to keep the UI responsive.
 
 import logging
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional # Use lowercase for built-in types, e.g. list, dict
+import collections.abc # For Sequence
 
 import gi
 
@@ -48,7 +49,7 @@ class HttpErrorType(int, Enum):
 
 class HeaderItem(GObject.Object):
     """
-    GObject representing a single header key-value pair for the :class:`Gtk.ColumnView`.
+    :class:`GObject.Object` representing a single header key-value pair for the :class:`Gtk.ColumnView`.
 
     :ivar key: The header key or special row title.
     :vartype key: str
@@ -66,10 +67,13 @@ class HeaderItem(GObject.Object):
         """Initialize a HeaderItem.
 
         :param key: The header key or special row title.
+        :type key: str
         :param value: The header value or special row description.
+        :type value: str
         :param is_special_row: Whether this item represents a special row
                                (e.g., URL/status line, separator) rather than
                                a standard key-value header. Defaults to ``False``.
+        :type is_special_row: bool
         """
         super().__init__()
         self.key = key
@@ -104,9 +108,9 @@ class HttpPage(Adw.PreferencesPage):
     :vartype clear_results_button: Gtk.Button
     :ivar copy_results_button: Button to copy results to clipboard.
     :vartype copy_results_button: Gtk.Button
-    :ivar http_status_row: Adw.ActionRow to display status messages.
+    :ivar http_status_row: :class:`Adw.ActionRow` to display status messages.
     :vartype http_status_row: Adw.ActionRow
-    :ivar http_status_spinner: Spinner for loading indication.
+    :ivar http_status_spinner: :class:`Gtk.Spinner` for loading indication.
     :vartype http_status_spinner: Gtk.Spinner
     """
 
@@ -130,13 +134,14 @@ class HttpPage(Adw.PreferencesPage):
         column view, and connects signals.
 
         :param kwargs: Keyword arguments passed to the :class:`Adw.PreferencesPage` constructor.
+        :type kwargs: Any
         """
         super().__init__(**kwargs)
         logger.debug("HttpPage initialized.")
         self.current_http_task: Optional[Gio.Task] = None
-        self._current_header_items: List[HeaderItem] = []
-        self._http_task_data_for_thread: Dict[str, Any] = {}
-        self._ua_title_to_value_map: Dict[str, Optional[str]] = {}
+        self._current_header_items: list[HeaderItem] = []
+        self._http_task_data_for_thread: dict[str, Any] = {}
+        self._ua_title_to_value_map: dict[str, Optional[str]] = {}
         self.settings: Gio.Settings = Gio.Settings(schema_id=APP_ID)
         self._header_key_color: str = self.settings.get_string("http-output-header-key-color")
         self._header_value_color: str = self.settings.get_string("http-output-header-value-color")
@@ -203,7 +208,8 @@ class HttpPage(Adw.PreferencesPage):
 
         Adds or removes a CSS class to indicate if an override is active.
 
-        :param entry_row: The Adw.EntryRow for the Host header.
+        :param entry_row: The :class:`Adw.EntryRow` for the Host header.
+        :type entry_row: Adw.EntryRow
         :return: None
         """
         if not entry_row:
@@ -219,8 +225,10 @@ class HttpPage(Adw.PreferencesPage):
 
         Adds or removes a CSS class to indicate if a non-default User-Agent is active.
 
-        :param combo_row: The Adw.ComboRow for User-Agent selection.
-        :param _gparam: The GObject.ParamSpec of the property that changed (unused).
+        :param combo_row: The :class:`Adw.ComboRow` for User-Agent selection.
+        :type combo_row: Adw.ComboRow
+        :param _gparam: The :class:`GObject.ParamSpec` of the property that changed (unused).
+        :type _gparam: Optional[GObject.ParamSpec]
         :return: None
         """
         if not combo_row:
@@ -242,14 +250,15 @@ class HttpPage(Adw.PreferencesPage):
         Constructs a string representation of the displayed headers and copies
         it to the clipboard.
 
-        :param _button: The Gtk.Button that was clicked (unused).
+        :param _button: The :class:`Gtk.Button` that was clicked (unused).
+        :type _button: Gtk.Button
         :return: None
         """
         logger.info("Copying all headers to clipboard.")
-        lines: List[str] = []
+        lines: list[str] = []
         if self.header_list_store:
-            for i in range(self.header_list_store.get_n_items()):
-                item = self.header_list_store.get_item(i)
+            for i in range(self.header_list_store.get_n_items()): # type: ignore[attr-defined]
+                item = self.header_list_store.get_item(i) # type: ignore[attr-defined]
                 if isinstance(item, HeaderItem):
                     if item.is_special_row:
                         if item.value and item.value.strip():
@@ -278,7 +287,8 @@ class HttpPage(Adw.PreferencesPage):
         Validates the URL, gathers request parameters, and starts the
         background task to fetch HTTP headers.
 
-        :param _widget: The widget that triggered the activation (unused).
+        :param _widget: The :class:`Gtk.Widget` that triggered the activation (unused).
+        :type _widget: Gtk.Widget
         :return: None
         """
         original_url = self.http_entry_row.get_text().strip()
@@ -334,10 +344,14 @@ class HttpPage(Adw.PreferencesPage):
         main fetching method. Results or exceptions are then reported back
         to the main thread via the :class:`Gio.Task`.
 
-        :param task: The Gio.Task associated with this operation.
+        :param task: The :class:`Gio.Task` associated with this operation.
+        :type task: Gio.Task
         :param _source_object: The source object that initiated the task (unused).
+        :type _source_object: GObject.Object
         :param _task_data_arg: Additional data passed to the task (unused).
-        :param cancellable: A Gio.Cancellable object to monitor for cancellation.
+        :type _task_data_arg: dict[str, Any]
+        :param cancellable: A :class:`Gio.Cancellable` object to monitor for cancellation.
+        :type cancellable: Optional[Gio.Cancellable]
         :return: None
         """
         current_task_data = self._http_task_data_for_thread
@@ -417,8 +431,11 @@ class HttpPage(Adw.PreferencesPage):
         or an error message, and re-enables UI elements.
 
         :param _source_object: The source object that initiated the task (unused).
+        :type _source_object: GObject.Object
         :param result: The :class:`Gio.AsyncResult` from the completed task.
+        :type result: Gio.AsyncResult
         :param _user_data: User data passed with the callback (unused).
+        :type _user_data: Optional[Any]
         :return: None
         """
         task_being_processed = self.current_http_task
@@ -435,15 +452,15 @@ class HttpPage(Adw.PreferencesPage):
         logger.info("Processing task completion in _fetch_headers_task_done_cb.")
 
         try:
-            propagate_result = task_being_processed.propagate_value()
-            actual_list_of_responses: Optional[List[Dict[str, Any]]] = None
+            propagate_result = task_being_processed.propagate_value() # type: ignore[union-attr]
+            actual_list_of_responses: Optional[list[dict[str, Any]]] = None
 
             if isinstance(propagate_result, list):
                 actual_list_of_responses = propagate_result
-            elif hasattr(propagate_result, "value") and isinstance(propagate_result.value, list):  # type: ignore
+            elif hasattr(propagate_result, "value") and isinstance(propagate_result.value, list): # type: ignore[attr-defined]
                 # Handles cases where the result might be wrapped, e.g. by older PyGObject versions or specific task types
                 logger.debug("HttpPage: Accessing .value from propagated result of type %s", type(propagate_result))
-                actual_list_of_responses = propagate_result.value  # type: ignore
+                actual_list_of_responses = propagate_result.value # type: ignore[attr-defined]
             else:
                 logger.error("HttpPage: Unexpected type from propagate_value: %s", type(propagate_result))
                 show_global_error(self, "Unexpected result type from background task.")  # type: ignore[arg-type]
@@ -470,9 +487,9 @@ class HttpPage(Adw.PreferencesPage):
                                 response_data_dict_item,
                             )
                             continue
-                        response_data_dict: Dict[str, Any] = response_data_dict_item
+                        response_data_dict: dict[str, Any] = response_data_dict_item
                         url_display = f"URL: {response_data_dict.get('url', 'N/A')}"
-                        status_code = response_data_dict.get("status_code", "N/A")
+                        status_code = response_data_dict.get("status_code", "N/A") # type: ignore
                         response_type = response_data_dict.get("type", "unknown")
                         status_display = f"Status: {status_code} ({str(response_type).capitalize()})"
                         processed_headers_for_store.append(
@@ -566,7 +583,9 @@ class HttpPage(Adw.PreferencesPage):
         and adjusts the sensitivity of input controls.
 
         :param active: If ``True``, sets the UI to a loading state; otherwise, sets it to an idle state.
+        :type active: bool
         :param message: The message to display in the status row. Defaults to "Idle".
+        :type message: str
         :return: None
         """
         if self.http_status_spinner:
@@ -599,7 +618,9 @@ class HttpPage(Adw.PreferencesPage):
         which will perform more robust URL parsing.
 
         :param url: The input URL string.
+        :type url: str
         :return: The URL string, with 'https://' prepended if no scheme was present.
+        :rtype: str
         """
         if "://" not in url:
             logger.debug("URL '%s' has no scheme, prepending 'https://'.", url)
@@ -611,8 +632,10 @@ class HttpPage(Adw.PreferencesPage):
 
         If a URL is present in the entry row, it re-triggers the fetch.
 
-        :param _widget: The Gtk.Switch that was toggled (unused).
-        :param _gparam: The GObject.ParamSpec of the property that changed (unused).
+        :param _widget: The :class:`Gtk.Switch` that was toggled (unused).
+        :type _widget: Gtk.Switch
+        :param _gparam: The :class:`GObject.ParamSpec` of the property that changed (unused).
+        :type _gparam: GObject.ParamSpec
         :return: None
         """
         logger.debug("Akamai Pragma toggled: %s. Re-fetching if URL present.", self.http_pragma_switch_row.get_active())
@@ -625,14 +648,15 @@ class HttpPage(Adw.PreferencesPage):
         Clears the existing items and appends new ones if provided.
         Shows or hides the results group accordingly.
 
-        :param header_items: A list of :class:`HeaderItem` objects to display,
+        :param header_items: A list of :class:`.HeaderItem` objects to display,
                              or ``None`` to clear the view.
+        :type header_items: Optional[list[HeaderItem]]
         :return: None
         """
-        self.header_list_store.remove_all()
+        self.header_list_store.remove_all() # type: ignore[attr-defined]
         if header_items:
             for item in header_items:
-                self.header_list_store.append(item)
+                self.header_list_store.append(item) # type: ignore[attr-defined]
             self._show_results()
         else:
             self._hide_results()
@@ -674,7 +698,8 @@ class HttpPage(Adw.PreferencesPage):
 
         Clears the displayed headers, error state, and the URL entry.
 
-        :param _button: The Gtk.Button that was clicked (unused).
+        :param _button: The :class:`Gtk.Button` that was clicked (unused).
+        :type _button: Gtk.Button
         :return: None
         """
         logger.info("Results cleared by user action.")
@@ -690,8 +715,10 @@ class HttpPage(Adw.PreferencesPage):
         Updates the internal color attributes and re-populates the column view
         to apply the new colors if results are currently displayed.
 
-        :param settings: The Gio.Settings object that changed.
+        :param settings: The :class:`Gio.Settings` object that changed.
+        :type settings: Gio.Settings
         :param key: The GSettings key that changed.
+        :type key: str
         :return: None
         """
         logger.debug("Color setting changed for GSettings key: %s", key)
@@ -711,8 +738,10 @@ class HttpPage(Adw.PreferencesPage):
         Updates the internal font description and re-populates the column view
         to apply the new font if results are currently displayed.
 
-        :param settings: The Gio.Settings object that changed.
+        :param settings: The :class:`Gio.Settings` object that changed.
+        :type settings: Gio.Settings
         :param key: The GSettings key that changed.
+        :type key: str
         :return: None
         """
         logger.debug("HttpPage: Global output font setting changed for key: %s", key)
@@ -729,7 +758,7 @@ class HttpPage(Adw.PreferencesPage):
         """Update the model for the User-Agent :class:`Adw.ComboRow`.
 
         Populates the dropdown with a "None" option (system default),
-        predefined User-Agents from constants, and custom User-Agents from GSettings.
+        predefined User-Agents from :mod:`.constants`, and custom User-Agents from GSettings.
         It attempts to preserve the current selection or apply the application's
         default User-Agent preference.
 
@@ -820,29 +849,32 @@ class HttpPage(Adw.PreferencesPage):
         the appropriate attributes of :class:`HeaderItem`, and applies styling
         (font, color, wrapping) based on the item type and application settings.
 
-        :param attr_name: The attribute name of the :class:`HeaderItem` to display
+        :param attr_name: The attribute name of the :class:`.HeaderItem` to display
                           (e.g., 'key' or 'value').
+        :type attr_name: str
         :param wrap_text: Whether the text in the label should wrap. Defaults to ``False``.
+        :type wrap_text: bool
         :return: A configured :class:`Gtk.SignalListItemFactory`.
+        :rtype: Gtk.SignalListItemFactory
         """
         factory = Gtk.SignalListItemFactory()
 
         def setup_func(_factory: Gtk.SignalListItemFactory, list_item: Gtk.ListItem) -> None:
-            """Setup function for the list item factory. Creates and configures a Gtk.Label."""
+            """Setup function for the list item factory. Creates and configures a :class:`Gtk.Label`."""
             label = Gtk.Label(xalign=0.0, hexpand=True)
             if wrap_text:
-                label.set_wrap(True)
+                label.set_wrap(True) # type: ignore[attr-defined]
                 label.set_wrap_mode(Pango.WrapMode.WORD_CHAR)
                 label.set_max_width_chars(80)
-            list_item.set_child(label)
+            list_item.set_child(label) # type: ignore[attr-defined]
 
         def bind_func_internal(_factory: Gtk.SignalListItemFactory, list_item: Gtk.ListItem) -> None:
             """Bind function for the list item factory. Sets the label's text and style."""
-            label = list_item.get_child()
-            item = list_item.get_item()
-            if not (isinstance(label, Gtk.Label) and isinstance(item, HeaderItem)):
+            label = list_item.get_child() # type: ignore[attr-defined]
+            item = list_item.get_item() # type: ignore[attr-defined]
+            if not (isinstance(label, Gtk.Label) and isinstance(item, HeaderItem)): # type: ignore[attr-defined]
                 if isinstance(label, Gtk.Label):
-                    label.set_text("Error: Invalid item type.")
+                    label.set_text("Error: Invalid item type.") # type: ignore[attr-defined]
                 return
 
             text_to_display = getattr(item, attr_name, "")
