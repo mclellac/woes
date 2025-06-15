@@ -1,4 +1,5 @@
 """Provides a Helper class for :class:`Gtk.ColumnView` context menus and keyboard shortcuts."""
+from typing import Optional
 from gi.repository import Gdk, Gtk
 import gi
 
@@ -27,6 +28,7 @@ class Helper:
         """
         self.widget = widget
         self.parent_window = parent_window
+        self.last_right_click_coords: Optional[tuple[float, float]] = None
 
         if isinstance(self.widget, Gtk.ColumnView):
             self.setup_keyboard_shortcut()
@@ -74,6 +76,7 @@ class Helper:
         """
         _ = gesture # Unused parameter
         if n_press == 1:
+            self.last_right_click_coords = (x, y) # Store coords
             rect = Gdk.Rectangle()
             rect.x = int(x)
             rect.y = int(y)
@@ -83,6 +86,68 @@ class Helper:
             self.popover.set_has_arrow(False)
             self.popover.set_parent(self.widget) # type: ignore
             self.popover.popup() # type: ignore
+
+    def copy_context_item_to_clipboard(self) -> None:
+        if not isinstance(self.widget, Gtk.ColumnView) or not hasattr(self, 'last_right_click_coords') or self.last_right_click_coords is None:
+            return
+
+        x, y = self.last_right_click_coords
+
+        # Find the Gtk.ListItem at x, y
+        picked_widget = self.widget.pick(x, y, Gtk.PickFlags.DEFAULT)
+
+        target_list_item_widget = None
+        current_widget = picked_widget
+        # Traverse up to find the ListItem, stopping if we hit the ColumnView itself or None
+        while current_widget and current_widget != self.widget:
+            if isinstance(current_widget, Gtk.ListItem):
+                target_list_item_widget = current_widget
+                break
+            current_widget = current_widget.get_parent()
+
+        # If the click was directly on ColumnView background and not a row,
+        # picked_widget might be the ColumnView itself.
+        # If target_list_item_widget is still None, and picked_widget is a ListItem
+        # (e.g. if ColumnView has no other children like scrollbars that could be picked first),
+        # and its parent is the ColumnView (meaning it's a direct child row).
+        if not target_list_item_widget and isinstance(picked_widget, Gtk.ListItem):
+            # Check if picked_widget is a direct child of self.widget (ColumnView)
+            # This can happen if the ListItem itself is the one picked.
+            # No, this logic is flawed. Gtk.ListItem is a child of Gtk.ListView normally,
+            # or part of the ColumnView's internal structure.
+            # The loop `while current_widget and current_widget != self.widget:` is the most robust.
+            # If current_widget becomes self.widget, it means we didn't find a ListItem in between.
+            # Let's rely on the loop. If picked_widget *is* the ListItem, the loop will find it.
+            pass
+
+
+        if target_list_item_widget and isinstance(target_list_item_widget, Gtk.ListItem):
+            item = target_list_item_widget.get_item() # This should be the HeaderItem or similar object
+            if item and hasattr(item, 'key') and hasattr(item, 'value'):
+                is_special = getattr(item, 'is_special_row', False)
+                item_key = getattr(item, 'key', '')
+                item_value = getattr(item, 'value', '')
+
+                text_to_copy = ""
+                if is_special:
+                    text_to_copy = str(item_key)
+                    value_text = str(item_value)
+                    if value_text.strip() and value_text != "N/A":
+                        text_to_copy += f" {value_text}"
+                elif item_key == "": # Continuation line
+                    text_to_copy = str(item_value)
+                else: # Standard header
+                    text_to_copy = f"{str(item_key)}: {str(item_value)}"
+
+                clipboard = self.widget.get_clipboard()
+                if clipboard:
+                    content_provider = Gdk.ContentProvider.new_for_value(text_to_copy)
+                    clipboard.set_content(content_provider)
+            # else: # Debugging: Item doesn't have expected attributes
+                # print(f"Helper: Item found but no key/value: {type(item)}")
+        # else: # Debugging: No Gtk.ListItem found at click
+            # print(f"Helper: No Gtk.ListItem found at click ({x},{y}). Picked: {type(picked_widget if picked_widget else None)}")
+
 
     def on_copy_menu_item_activated(self, button: Gtk.Button) -> None:
         """
@@ -94,7 +159,7 @@ class Helper:
         :type button: Gtk.Button
         """
         _ = button # Unused parameter
-        self.copy_to_clipboard()
+        self.copy_context_item_to_clipboard() # Call new method
         self.popover.popdown() # type: ignore
 
     def on_key_pressed(
