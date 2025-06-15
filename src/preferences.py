@@ -35,52 +35,66 @@ class Preferences(Adw.PreferencesWindow):
     allowing users to customize various aspects of the application.
     It binds UI elements to GSettings for persistence.
 
-    :ivar font_scale_combo_row: ComboRow for font scaling.
-    :ivar theme_combo_row: ComboRow for theme selection.
-    :ivar source_style_scheme_combo_row: ComboRow for source style scheme.
-    :ivar dns_server_entryrow: EntryRow for custom DNS server.
-    :ivar prefs_dns_apply_button: Button to apply DNS server settings.
-    :ivar preferences_error_banner: Banner for displaying errors.
-    :ivar http_header_key_color_button: Button for header key color.
-    :ivar http_header_value_color_button: Button for header value color.
-    :ivar http_special_row_color_button: Button for special row color.
-    :ivar new_custom_ua_title_entry: Entry for new custom User-Agent title.
-    :ivar new_custom_ua_value_entry: Entry for new custom User-Agent value.
-    :ivar add_custom_ua_button: Button to add custom User-Agent.
-    :ivar custom_ua_list_container: Container for custom User-Agent list.
+    :ivar font_scale_combo_row: :class:`Adw.ComboRow` for font scaling.
+    :vartype font_scale_combo_row: Adw.ComboRow
+    :ivar theme_combo_row: :class:`Adw.ComboRow` for theme selection.
+    :vartype theme_combo_row: Adw.ComboRow
+    :ivar dns_server_entryrow: :class:`Adw.EntryRow` for custom DNS server.
+    :vartype dns_server_entryrow: Adw.EntryRow
+    :ivar prefs_dns_apply_button: :class:`Gtk.Button` to apply DNS server settings.
+    :vartype prefs_dns_apply_button: Gtk.Button
+    :ivar preferences_error_banner: :class:`Adw.Banner` for displaying errors.
+    :vartype preferences_error_banner: Adw.Banner
+    :ivar http_header_key_color_button: :class:`Gtk.ColorDialogButton` for header key color.
+    :vartype http_header_key_color_button: Gtk.ColorDialogButton
+    :ivar http_header_value_color_button: :class:`Gtk.ColorDialogButton` for header value color.
+    :vartype http_header_value_color_button: Gtk.ColorDialogButton
+    :ivar http_special_row_color_button: :class:`Gtk.ColorDialogButton` for special row color.
+    :vartype http_special_row_color_button: Gtk.ColorDialogButton
+    :ivar new_custom_ua_title_entry: :class:`Gtk.Entry` for new custom User-Agent title.
+    :vartype new_custom_ua_title_entry: Gtk.Entry
+    :ivar new_custom_ua_value_entry: :class:`Gtk.Entry` for new custom User-Agent value.
+    :vartype new_custom_ua_value_entry: Gtk.Entry
+    :ivar add_custom_ua_button: :class:`Gtk.Button` to add custom User-Agent.
+    :vartype add_custom_ua_button: Gtk.Button
+    :ivar custom_ua_list_container: :class:`Gtk.Box` (or similar container) for custom User-Agent list.
+    :vartype custom_ua_list_container: Gtk.Widget
+    :ivar global_output_font_button: :class:`Gtk.FontButton` for global output font.
+    :vartype global_output_font_button: Gtk.FontButton
     """
 
     __gtype_name__ = "Preferences"
 
-    font_scale_combo_row = Gtk.Template.Child("font_scale_combo_row")
-    theme_combo_row = Gtk.Template.Child("theme_combo_row")
-    dns_server_entryrow = Gtk.Template.Child("dns_server_entryrow")
-    prefs_dns_apply_button = Gtk.Template.Child("prefs_dns_apply_button")
-    preferences_error_banner = Gtk.Template.Child("preferences_error_banner")
+    font_scale_combo_row: Adw.ComboRow = Gtk.Template.Child("font_scale_combo_row") # type: ignore
+    theme_combo_row: Adw.ComboRow = Gtk.Template.Child("theme_combo_row") # type: ignore
+    dns_server_entryrow: Adw.EntryRow = Gtk.Template.Child("dns_server_entryrow") # type: ignore
+    prefs_dns_apply_button: Gtk.Button = Gtk.Template.Child("prefs_dns_apply_button") # type: ignore
+    preferences_error_banner: Adw.Banner = Gtk.Template.Child("preferences_error_banner") # type: ignore
 
     # HTTP Output Color Rows
-    http_header_key_color_button = Gtk.Template.Child("http_header_key_color_button")
-    http_header_value_color_button = Gtk.Template.Child("http_header_value_color_button")
-    http_special_row_color_button = Gtk.Template.Child("http_special_row_color_button")
+    http_header_key_color_button: Gtk.ColorDialogButton = Gtk.Template.Child("http_header_key_color_button") # type: ignore
+    http_header_value_color_button: Gtk.ColorDialogButton = Gtk.Template.Child("http_header_value_color_button") # type: ignore
+    http_special_row_color_button: Gtk.ColorDialogButton = Gtk.Template.Child("http_special_row_color_button") # type: ignore
 
     # Custom User Agent UI
-    new_custom_ua_title_entry = Gtk.Template.Child("new_custom_ua_title_entry")
-    new_custom_ua_value_entry = Gtk.Template.Child("new_custom_ua_value_entry")
-    add_custom_ua_button = Gtk.Template.Child("add_custom_ua_button")
-    custom_ua_list_container = Gtk.Template.Child("custom_ua_list_container")
+    new_custom_ua_title_entry: Gtk.Entry = Gtk.Template.Child("new_custom_ua_title_entry") # type: ignore
+    new_custom_ua_value_entry: Gtk.Entry = Gtk.Template.Child("new_custom_ua_value_entry") # type: ignore
+    add_custom_ua_button: Gtk.Button = Gtk.Template.Child("add_custom_ua_button") # type: ignore
+    custom_ua_list_container: Gtk.Box = Gtk.Template.Child("custom_ua_list_container") # type: ignore
 
     # Global Font Preference UI Element
-    global_output_font_button = Gtk.Template.Child("global_output_font_button")
+    global_output_font_button: Gtk.FontButton = Gtk.Template.Child("global_output_font_button") # type: ignore
 
 
     def __init__(self, main_window: Optional[Gtk.Window] = None):
         """
         Initialize the Preferences window.
 
-        :param main_window: The parent Gtk.Window for this dialog.
+        :param main_window: The parent :class:`Gtk.Window` for this dialog.
+        :type main_window: Optional[Gtk.Window]
         """
         super().__init__(modal=True)
-        self.main_window = main_window
+        self.main_window: Optional[Gtk.Window] = main_window
         self.set_transient_for(main_window)
         self.settings = Gio.Settings(schema_id=APP_ID)
         self.load_ui()
@@ -160,11 +174,14 @@ class Preferences(Adw.PreferencesWindow):
 
     def on_global_font_setting_changed(self, font_button: Gtk.FontButton):
         """
-        Handle the 'font-set' signal from the global output font button.
+        Handle the 'font-set' signal from the global output :class:`Gtk.FontButton`.
 
         Updates the 'output-font' GSettings preference with the new font
         description string. This GSettings change is then observed by
         the main window to update the CSS for relevant TextViews.
+
+        :param font_button: The :class:`Gtk.FontButton` that emitted the signal.
+        :type font_button: Gtk.FontButton
         """
         font_desc_str = font_button.get_font() # Gets "Family [Style] Size"
         if font_desc_str:
@@ -182,8 +199,10 @@ class Preferences(Adw.PreferencesWindow):
         """
         Handle the click event for dismissing the error banner.
 
-        :param _banner: The Adw.Banner that was clicked (or its dismiss button).
+        :param _banner: The :class:`Adw.Banner` that was clicked (or its dismiss button).
+        :type _banner: Adw.Banner
         :param _args: Additional arguments (unused).
+        :type _args: Any
         """
         self.hide_banner_and_clear_error_state()
 
@@ -194,7 +213,8 @@ class Preferences(Adw.PreferencesWindow):
         Validates the entered IP address. If valid, saves it to GSettings.
         If invalid, displays an error banner.
 
-        :param _widget: The widget that triggered the change (Adw.EntryRow or Gtk.Button).
+        :param _widget: The :class:`Gtk.Widget` that triggered the change (:class:`Adw.EntryRow` or :class:`Gtk.Button`).
+        :type _widget: Gtk.Widget
         """
         dns_server = self.dns_server_entryrow.get_text().strip()
 
@@ -229,13 +249,15 @@ class Preferences(Adw.PreferencesWindow):
         """
         Hide the error banner and remove 'error' CSS class from an entry row.
 
-        This method is also used as a GLib.timeout_add_seconds callback,
-        in which case it must return GLib.SOURCE_REMOVE.
+        This method is also used as a :func:`GLib.timeout_add_seconds` callback,
+        in which case it must return :data:`GLib.SOURCE_REMOVE`.
 
-        :param entry_row_widget: The Adw.EntryRow to clear the error state from.
-                                 If None, defaults to `self.dns_server_entryrow`.
-        :return: GLib.SOURCE_REMOVE if called as a timeout, indicating the timer should not repeat.
-                 Implicitly returns None otherwise.
+        :param entry_row_widget: The :class:`Adw.EntryRow` to clear the error state from.
+                                 If ``None``, defaults to `self.dns_server_entryrow`.
+        :type entry_row_widget: Optional[Adw.EntryRow]
+        :return: :data:`GLib.SOURCE_REMOVE` if called as a timeout, indicating the timer should not repeat.
+                 Implicitly returns ``None`` otherwise.
+        :rtype: bool
         """
         self.preferences_error_banner.set_revealed(False)
         target_entry_row = entry_row_widget if entry_row_widget else self.dns_server_entryrow
@@ -249,7 +271,9 @@ class Preferences(Adw.PreferencesWindow):
         Validate if the input string is a syntactically valid IPv4 address.
 
         :param ip_address: The string to validate.
-        :return: True if the string is a valid IPv4 address, False otherwise.
+        :type ip_address: str
+        :return: ``True`` if the string is a valid IPv4 address, ``False`` otherwise.
+        :rtype: bool
         """
         parts = ip_address.split(".")
         if len(parts) != 4:
@@ -265,12 +289,14 @@ class Preferences(Adw.PreferencesWindow):
 
     def on_font_scale_changed(self, combo_row: Adw.ComboRow, _gparam: GObject.ParamSpec):
         """
-        Handle changes in the font scale preference ComboRow.
+        Handle changes in the font scale preference :class:`Adw.ComboRow`.
 
         Saves the selected font scaling percentage string to GSettings.
 
-        :param combo_row: The Adw.ComboRow whose selection changed.
-        :param _gparam: The GLib.ParamSpec of the property that changed (unused).
+        :param combo_row: The :class:`Adw.ComboRow` whose selection changed.
+        :type combo_row: Adw.ComboRow
+        :param _gparam: The :class:`GObject.ParamSpec` of the property that changed (unused).
+        :type _gparam: GObject.ParamSpec
         """
         selected_item_obj = combo_row.get_selected_item()
         if isinstance(selected_item_obj, Gtk.StringObject):
@@ -280,12 +306,14 @@ class Preferences(Adw.PreferencesWindow):
 
     def on_theme_preference_changed(self, combo_row: Adw.ComboRow, _gparam: GObject.ParamSpec):
         """
-        Handle changes in the theme preference ComboRow.
+        Handle changes in the theme preference :class:`Adw.ComboRow`.
 
         Saves the selected theme name string (e.g., "Light", "Dark") to GSettings.
 
-        :param combo_row: The Adw.ComboRow whose selection changed.
-        :param _gparam: The GLib.ParamSpec of the property that changed (unused).
+        :param combo_row: The :class:`Adw.ComboRow` whose selection changed.
+        :type combo_row: Adw.ComboRow
+        :param _gparam: The :class:`GObject.ParamSpec` of the property that changed (unused).
+        :type _gparam: GObject.ParamSpec
         """
         selected_item_obj = combo_row.get_selected_item()
         if isinstance(selected_item_obj, Gtk.StringObject):
@@ -299,10 +327,12 @@ class Preferences(Adw.PreferencesWindow):
     @staticmethod
     def _rgba_to_hex(rgba: Gdk.RGBA) -> str:
         """
-        Convert a Gdk.RGBA object to a hex color string (e.g., #RRGGBB).
+        Convert a :class:`Gdk.RGBA` object to a hex color string (e.g., ``#RRGGBB``).
 
-        :param rgba: The Gdk.RGBA object to convert.
+        :param rgba: The :class:`Gdk.RGBA` object to convert.
+        :type rgba: Gdk.RGBA
         :return: The hex color string.
+        :rtype: str
         """
         red = int(rgba.red * 255)
         green = int(rgba.green * 255)
@@ -311,11 +341,14 @@ class Preferences(Adw.PreferencesWindow):
 
     def on_http_color_changed(self, button: Gtk.ColorDialogButton, _gparam: GObject.ParamSpec, gsettings_key: str):
         """
-        Handle RGBA color change from a Gtk.ColorDialogButton and save as hex.
+        Handle RGBA color change from a :class:`Gtk.ColorDialogButton` and save as hex.
 
-        :param button: The Gtk.ColorDialogButton that emitted the signal.
-        :param _gparam: The GLib.ParamSpec of the property that changed (unused).
+        :param button: The :class:`Gtk.ColorDialogButton` that emitted the signal.
+        :type button: Gtk.ColorDialogButton
+        :param _gparam: The :class:`GObject.ParamSpec` of the property that changed (unused).
+        :type _gparam: GObject.ParamSpec
         :param gsettings_key: The GSettings key to save the color to.
+        :type gsettings_key: str
         """
         rgba = button.get_rgba()
         if rgba:
@@ -325,10 +358,12 @@ class Preferences(Adw.PreferencesWindow):
 
     def _load_color_button_preference(self, button: Gtk.ColorDialogButton, gsettings_key: str):
         """
-        Load a color from GSettings (stored as hex) and apply to Gtk.ColorDialogButton.
+        Load a color from GSettings (stored as hex) and apply to :class:`Gtk.ColorDialogButton`.
 
-        :param button: The Gtk.ColorDialogButton to apply the color to.
+        :param button: The :class:`Gtk.ColorDialogButton` to apply the color to.
+        :type button: Gtk.ColorDialogButton
         :param gsettings_key: The GSettings key to load the color from.
+        :type gsettings_key: str
         """
         color_string = self.settings.get_string(gsettings_key)
         if color_string:
@@ -346,41 +381,42 @@ class Preferences(Adw.PreferencesWindow):
         Clear and repopulate the list of custom User-Agents in the UI.
 
         Retrieves User-Agent pairs (title, value) from GSettings,
-        creates an Adw.ActionRow for each, and adds them to the
-        custom_ua_list_container. Each row includes a remove button.
+        creates an :class:`Adw.ActionRow` for each, and adds them to the
+        ``custom_ua_list_container``. Each row includes a remove button.
         """
         if not self.custom_ua_list_container:
             return
 
         child = self.custom_ua_list_container.get_first_child()
         while child:
-            self.custom_ua_list_container.remove(child)
-            child = self.custom_ua_list_container.get_first_child()
+            self.custom_ua_list_container.remove(child) # type: ignore[union-attr]
+            child = self.custom_ua_list_container.get_first_child() # type: ignore[union-attr]
 
         variant = self.settings.get_value("custom-user-agents")
-        custom_ua_pairs = list(variant.unpack() if variant and variant.get_type_string() == 'a(ss)' else [])
+        custom_ua_pairs: list[tuple[str,str]] = list(variant.unpack() if variant and variant.get_type_string() == 'a(ss)' else []) # type: ignore[union-attr]
 
         for title, value in custom_ua_pairs:
             row = Adw.ActionRow(title=title, subtitle=value)
-            row.set_activatable(False)
+            row.set_activatable(False) # type: ignore[no-untyped-call]
             remove_button = Gtk.Button(icon_name="edit-delete-symbolic", valign=Gtk.Align.CENTER)
-            remove_button.add_css_class("flat")
-            remove_button.set_tooltip_text(f"Remove '{title}'")
+            remove_button.add_css_class("flat") # type: ignore[no-untyped-call]
+            remove_button.set_tooltip_text(f"Remove '{title}'") # type: ignore[no-untyped-call]
             remove_button.connect("clicked", lambda _btn, t=title: self._on_remove_custom_ua_clicked(t))
-            row.add_suffix(remove_button)
-            row.set_activatable_widget(remove_button)
-            self.custom_ua_list_container.append(row)
+            row.add_suffix(remove_button) # type: ignore[no-untyped-call]
+            row.set_activatable_widget(remove_button) # type: ignore[no-untyped-call]
+            self.custom_ua_list_container.append(row) # type: ignore[union-attr]
 
-    def _on_add_custom_ua_clicked(self, _widget: Gtk.Widget):
+    def _on_add_custom_ua_clicked(self, _widget: Gtk.Widget) -> None:
         """
-        Handle the 'Add User Agent' button click or entry activation.
+        Handle the 'Add User Agent' button click or :class:`Gtk.Entry` activation.
 
         Retrieves text from the title and value entry fields.
         If both are non-empty and the title is unique, adds the new
         User-Agent pair to GSettings and updates the UI list.
         Provides visual feedback for empty fields or duplicate titles.
 
-        :param _widget: The widget that triggered the signal.
+        :param _widget: The :class:`Gtk.Widget` that triggered the signal.
+        :type _widget: Gtk.Widget
         """
         if not self.new_custom_ua_title_entry or not self.new_custom_ua_value_entry:
             return
@@ -391,31 +427,31 @@ class Preferences(Adw.PreferencesWindow):
         if not title_text or not value_text:
             logging.info("Attempted to add custom User-Agent with empty title or value.")
             if not title_text and self.new_custom_ua_title_entry:
-                self.new_custom_ua_title_entry.add_css_class("error")
+                self.new_custom_ua_title_entry.add_css_class("error") # type: ignore[union-attr]
             elif self.new_custom_ua_title_entry:
-                 self.new_custom_ua_title_entry.remove_css_class("error")
+                 self.new_custom_ua_title_entry.remove_css_class("error") # type: ignore[union-attr]
             if not value_text and self.new_custom_ua_value_entry:
-                self.new_custom_ua_value_entry.add_css_class("error")
+                self.new_custom_ua_value_entry.add_css_class("error") # type: ignore[union-attr]
             elif self.new_custom_ua_value_entry:
-                self.new_custom_ua_value_entry.remove_css_class("error")
+                self.new_custom_ua_value_entry.remove_css_class("error") # type: ignore[union-attr]
             return
 
         if self.new_custom_ua_title_entry:
-            self.new_custom_ua_title_entry.remove_css_class("error")
+            self.new_custom_ua_title_entry.remove_css_class("error") # type: ignore[union-attr]
         if self.new_custom_ua_value_entry:
-            self.new_custom_ua_value_entry.remove_css_class("error")
+            self.new_custom_ua_value_entry.remove_css_class("error") # type: ignore[union-attr]
 
         variant = self.settings.get_value("custom-user-agents")
-        current_ua_pairs = list(variant.unpack() if variant and variant.get_type_string() == 'a(ss)' else [])
+        current_ua_pairs: list[tuple[str,str]] = list(variant.unpack() if variant and variant.get_type_string() == 'a(ss)' else []) # type: ignore[union-attr]
 
         existing_titles = [pair[0] for pair in current_ua_pairs]
         if title_text in existing_titles:
             logging.info(f"Custom User-Agent title '{title_text}' already exists.")
             if self.new_custom_ua_title_entry:
-                 self.new_custom_ua_title_entry.add_css_class("error")
+                 self.new_custom_ua_title_entry.add_css_class("error") # type: ignore[union-attr]
             return
         elif self.new_custom_ua_title_entry:
-            self.new_custom_ua_title_entry.remove_css_class("error")
+            self.new_custom_ua_title_entry.remove_css_class("error") # type: ignore[union-attr]
 
         current_ua_pairs.append((title_text, value_text))
         new_variant = GLib.Variant("a(ss)", current_ua_pairs)
@@ -423,24 +459,25 @@ class Preferences(Adw.PreferencesWindow):
         if self.settings.set_value("custom-user-agents", new_variant):
             logging.info(f"Added custom User-Agent: '{title_text}' -> '{value_text}'")
             if self.new_custom_ua_title_entry:
-                self.new_custom_ua_title_entry.set_text("")
+                self.new_custom_ua_title_entry.set_text("") # type: ignore[union-attr]
             if self.new_custom_ua_value_entry:
-                self.new_custom_ua_value_entry.set_text("")
+                self.new_custom_ua_value_entry.set_text("") # type: ignore[union-attr]
             self._render_custom_ua_list()
         else:
             logging.error(f"Failed to save custom User-Agent list to GSettings with new UA: {title_text}")
 
-    def _on_remove_custom_ua_clicked(self, title_to_remove: str):
+    def _on_remove_custom_ua_clicked(self, title_to_remove: str) -> None:
         """
         Handle the click of a 'remove' button for a custom User-Agent.
 
-        Removes the User-Agent pair identified by title_to_remove from
+        Removes the User-Agent pair identified by ``title_to_remove`` from
         GSettings and updates the UI list.
 
         :param title_to_remove: The title of the User-Agent to remove.
+        :type title_to_remove: str
         """
         variant = self.settings.get_value("custom-user-agents")
-        current_ua_pairs = list(variant.unpack() if variant and variant.get_type_string() == 'a(ss)' else [])
+        current_ua_pairs: list[tuple[str,str]] = list(variant.unpack() if variant and variant.get_type_string() == 'a(ss)' else []) # type: ignore[union-attr]
 
         original_length = len(current_ua_pairs)
         updated_ua_pairs = [pair for pair in current_ua_pairs if pair[0] != title_to_remove]
@@ -459,20 +496,24 @@ class Preferences(Adw.PreferencesWindow):
         self, combo_row: Adw.ComboRow, setting_value: str, case_sensitive: bool = True
     ) -> bool:
         """
-        Select an item in an Adw.ComboRow based on its string value.
+        Select an item in an :class:`Adw.ComboRow` based on its string value.
 
-        Iterates through the items in the ComboRow's model (expected to be Gtk.StringList).
+        Iterates through the items in the :class:`Adw.ComboRow`'s model (expected to be :class:`Gtk.StringList`).
         If a match is found (case-sensitive or insensitive), the item is selected.
 
-        :param combo_row: The Adw.ComboRow to operate on.
+        :param combo_row: The :class:`Adw.ComboRow` to operate on.
+        :type combo_row: Adw.ComboRow
         :param setting_value: The string value of the item to select.
-        :param case_sensitive: Whether the string comparison should be case-sensitive.
-        :return: True if an item was successfully found and selected, False otherwise.
+        :type setting_value: str
+        :param case_sensitive: Whether the string comparison should be case-sensitive. Defaults to ``True``.
+        :type case_sensitive: bool
+        :return: ``True`` if an item was successfully found and selected, ``False`` otherwise.
+        :rtype: bool
         """
         model = combo_row.get_model()
         if isinstance(model, Gtk.StringList):
-            for i in range(model.get_n_items()):
-                item_string = model.get_string(i)
+            for i in range(model.get_n_items()): # type: ignore[attr-defined]
+                item_string = model.get_string(i) # type: ignore[attr-defined]
                 match_condition = (
                     (item_string == setting_value)
                     if case_sensitive
@@ -483,40 +524,40 @@ class Preferences(Adw.PreferencesWindow):
                     return True
         return False
 
-    def load_preferences(self):
+    def load_preferences(self) -> None:
         """
         Load preferences from GSettings and update the UI elements accordingly.
 
         For each preference (font scale, theme, style scheme, DNS server),
         it retrieves the value from GSettings and sets the corresponding
-        UI control (e.g., selects the correct item in a ComboRow, sets text in an EntryRow).
+        UI control (e.g., selects the correct item in a :class:`Adw.ComboRow`, sets text in an :class:`Adw.EntryRow`).
         """
         font_scale_pref = self.settings.get_string("font-scaling-percentage")
-        if not self._select_combo_row_item(self.font_scale_combo_row, font_scale_pref):
-            self.font_scale_combo_row.set_selected(0)
+        if not self._select_combo_row_item(self.font_scale_combo_row, font_scale_pref): # type: ignore[arg-type]
+            self.font_scale_combo_row.set_selected(0) # type: ignore[union-attr]
 
         theme_pref_value = self.settings.get_string("theme-preference")
-        if not self._select_combo_row_item(self.theme_combo_row, theme_pref_value):
-            self.theme_combo_row.set_selected(0)
+        if not self._select_combo_row_item(self.theme_combo_row, theme_pref_value): # type: ignore[arg-type]
+            self.theme_combo_row.set_selected(0) # type: ignore[union-attr]
 
         dns_server = self.settings.get_string("custom-dns-server")
-        self.dns_server_entryrow.set_text(dns_server)
+        self.dns_server_entryrow.set_text(dns_server) # type: ignore[union-attr]
 
         if self.http_header_key_color_button:
-            self._load_color_button_preference(self.http_header_key_color_button, "http-output-header-key-color")
+            self._load_color_button_preference(self.http_header_key_color_button, "http-output-header-key-color") # type: ignore[arg-type]
         if self.http_header_value_color_button:
-            self._load_color_button_preference(self.http_header_value_color_button, "http-output-header-value-color")
+            self._load_color_button_preference(self.http_header_value_color_button, "http-output-header-value-color") # type: ignore[arg-type]
         if self.http_special_row_color_button:
-            self._load_color_button_preference(self.http_special_row_color_button, "http-output-special-row-color")
+            self._load_color_button_preference(self.http_special_row_color_button, "http-output-special-row-color") # type: ignore[arg-type]
 
         self._render_custom_ua_list()
 
         output_font_str = self.settings.get_string("output-font")
         if self.global_output_font_button:
             if output_font_str:
-                self.global_output_font_button.set_font(output_font_str)
+                self.global_output_font_button.set_font(output_font_str) # type: ignore[union-attr]
             else:
                 default_font = "Sans 10"
-                self.global_output_font_button.set_font(default_font)
+                self.global_output_font_button.set_font(default_font) # type: ignore[union-attr]
                 self.settings.set_string("output-font", default_font)
                 logging.warning(f"GSettings 'output-font' was empty, set to default: {default_font}")

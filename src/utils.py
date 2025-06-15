@@ -3,7 +3,8 @@ import logging
 import ipaddress
 import re
 from urllib.parse import urlparse
-from typing import List, Optional
+from typing import Optional # Use list instead of List
+import collections.abc # For Sequence if needed
 
 import gi
 from gi.repository import Gtk, Adw
@@ -25,9 +26,9 @@ def show_global_error(widget: Gtk.Widget, message: str):
     :type message: str
     """
     try:
-        main_window = widget.get_native() # type: ignore
+        main_window = widget.get_native() # type: ignore[no-untyped-call]
         if main_window and hasattr(main_window, 'show_error'):
-            main_window.show_error(message)
+            main_window.show_error(message) # type: ignore[attr-defined]
             logger.error(f"Global error displayed via main window: {message}")
         else:
             logger.warning(
@@ -59,13 +60,13 @@ def show_global_toast(
                     Defaults to 2.
     :type timeout: int
     :param priority: The priority of the toast.
-                     Defaults to :attr:`Adw.ToastPriority.NORMAL`.
+                     Defaults to :const:`Adw.ToastPriority.NORMAL`.
     :type priority: Adw.ToastPriority
     """
     try:
-        main_window = widget.get_native() # type: ignore
+        main_window = widget.get_native() # type: ignore[no-untyped-call]
         if main_window and hasattr(main_window, 'show_toast'):
-            main_window.show_toast(message, priority=priority, timeout=timeout)
+            main_window.show_toast(message, priority=priority, timeout=timeout) # type: ignore[attr-defined]
             logger.info(f"Global toast shown via main window: {message}")
         else:
             logger.warning(
@@ -138,13 +139,16 @@ def is_valid_url(url: str, schemes: Optional[List[str]] = None) -> bool:
                     If ``None``, defaults to ``['http', 'https']``.
                     If an empty list is provided, any scheme is effectively allowed
                     as long as one is present in the URL.
-    :type schemes: Optional[List[str]]
+    :type schemes: Optional[list[str]]
     :return: ``True`` if the string is a valid URL with an allowed scheme
              (or any scheme if ``schemes`` is empty), ``False`` otherwise.
     :rtype: bool
     """
+    effective_schemes: list[str]
     if schemes is None: # Default to http and https if not provided
-        schemes = ['http', 'https']
+        effective_schemes = ['http', 'https']
+    else:
+        effective_schemes = schemes
 
     if not url or not isinstance(url, str):
         return False
@@ -154,7 +158,7 @@ def is_valid_url(url: str, schemes: Optional[List[str]] = None) -> bool:
         if not (parsed_url.scheme and parsed_url.netloc):
             return False
         # If a non-empty list of schemes is provided, the URL's scheme must be in it.
-        if schemes and parsed_url.scheme not in schemes:
+        if effective_schemes and parsed_url.scheme not in effective_schemes:
             return False
         return True
     except ValueError: # urlparse can raise ValueError for some malformed URLs, though it's rare

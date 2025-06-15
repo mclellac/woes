@@ -1,6 +1,6 @@
 """Module for fetching HTTP headers and processing responses."""
 import logging
-from typing import Optional, Tuple, Dict, List, Any
+from typing import Optional, Tuple, Dict, List, Any # Use dict, list
 
 import requests
 import requests.utils # For urlparse, urlunparse
@@ -8,7 +8,7 @@ try:
     import dns.resolver
     import dns.exception
 except ImportError:
-    dns = None # HttpFetcher will check this
+    dns = None
     logging.warning("dnspython library not found. Custom DNS functionality will be disabled for HttpFetcher.")
 
 try:
@@ -26,13 +26,13 @@ except ImportError:
     )
     logging.warning("Could not import urllib3.exceptions. Connection refused detection might be limited.")
 
-from gi.repository import Gio # For Cancellable
+from gi.repository import Gio
 
 from .custom_dns_adapter import CustomDNSAdapter
 
 logger = logging.getLogger(__name__)
 
-# Custom Exceptions
+
 class HttpClientError(Exception):
     """Base exception for HttpFetcher errors."""
 
@@ -58,19 +58,19 @@ class HttpProcessingError(HttpClientError):
     :vartype url: Optional[str]
     """
 
-    def __init__(self, message, status_code: Optional[int] = None, url: Optional[str] = None):
+    def __init__(self, message: str, status_code: Optional[int] = None, url: Optional[str] = None):
         """
         Initialize the HTTP client error.
 
-        Args:
-        ----
-            message: The error message.
-            status_code: The HTTP status code, if applicable.
-            url: The URL associated with the error, if applicable.
-
+        :param message: The error message.
+        :type message: str
+        :param status_code: The HTTP status code, if applicable. Defaults to ``None``.
+        :type status_code: Optional[int]
+        :param url: The URL associated with the error, if applicable. Defaults to ``None``.
+        :type url: Optional[str]
         """
         super().__init__(message)
-        self.status_code = status_code
+        self.status_code: Optional[int] = status_code
         self.url = url
 
 class HttpGenericRequestError(HttpClientError):
@@ -101,30 +101,30 @@ class HttpFetcher:
         :type user_agent: Optional[str]
         :param custom_dns_server: Optional custom DNS server IP.
         :type custom_dns_server: Optional[str]
-        :param cancellable: Optional Gio.Cancellable object for cancellation.
+        :param cancellable: Optional :class:`Gio.Cancellable` object for cancellation.
         :type cancellable: Optional[Gio.Cancellable]
         """
-        self.url = url
-        self.use_akamai_pragma = use_akamai_pragma
-        self.host_header = host_header
-        self.user_agent = user_agent
-        self.custom_dns_server = custom_dns_server
-        self.cancellable = cancellable
-        self.session = requests.Session()
+        self.url: str = url
+        self.use_akamai_pragma: bool = use_akamai_pragma
+        self.host_header: Optional[str] = host_header
+        self.user_agent: Optional[str] = user_agent
+        self.custom_dns_server: Optional[str] = custom_dns_server
+        self.cancellable: Optional[Gio.Cancellable] = cancellable
+        self.session: requests.Session = requests.Session()
 
-    def _prepare_request_headers(self) -> Tuple[Dict[str, str], Dict[str, str]]:
+    def _prepare_request_headers(self) -> tuple[dict[str, str], dict[str, str]]:
         """
         Prepare initial request-specific headers and session-wide headers.
 
-        Moved from HttpPage.
+        Moved from ``HttpPage``.
 
         :return: A tuple containing two dictionaries:
-                 - initial_request_specific_headers: Headers for the first request only.
-                 - session_headers: Headers to apply to the requests.Session.
-        :rtype: Tuple[Dict[str, str], Dict[str, str]]
+                 - ``initial_request_specific_headers``: Headers for the first request only.
+                 - ``session_headers``: Headers to apply to the :class:`requests.Session`.
+        :rtype: tuple[dict[str, str], dict[str, str]]
         """
-        initial_request_specific_headers: Dict[str, str] = {}
-        session_headers: Dict[str, str] = {}
+        initial_request_specific_headers: dict[str, str] = {}
+        session_headers: dict[str, str] = {}
 
         if self.host_header:
             initial_request_specific_headers["Host"] = self.host_header
@@ -153,14 +153,14 @@ class HttpFetcher:
         """
         Execute the HTTP GET request using the configured session.
 
-        Moved from HttpPage.
+        Moved from ``HttpPage``.
 
         :param initial_request_headers: Headers to send with the initial request.
-        :type initial_request_headers: Dict[str, str]
-        :raises HttpRequestTimeoutError: If the request times out.
-        :raises HttpConnectionError: If a connection error occurs.
-        :raises HttpGenericRequestError: For other request-related errors.
-        :raises HttpClientError: If cancelled.
+        :type initial_request_headers: dict[str, str]
+        :raises .HttpRequestTimeoutError: If the request times out.
+        :raises .HttpConnectionError: If a connection error occurs.
+        :raises .HttpGenericRequestError: For other request-related errors.
+        :raises .HttpClientError: If cancelled.
         :return: The :class:`requests.Response` object.
         :rtype: requests.Response
         """
@@ -173,7 +173,7 @@ class HttpFetcher:
                 self.url,
                 headers=(initial_request_headers if initial_request_headers else None),
                 allow_redirects=True,
-                timeout=5, # Standard timeout
+                timeout=5,
             )
             return response
         except requests.exceptions.Timeout as e:
@@ -193,18 +193,18 @@ class HttpFetcher:
         """
         Process the HTTP response, including redirects.
 
-        Moved from HttpPage.
+        Moved from ``HttpPage``.
 
         :param response: The final :class:`requests.Response` object.
         :type response: requests.Response
-        :raises HttpProcessingError: If an HTTPError (4xx/5xx) occurs.
+        :raises .HttpProcessingError: If an :exc:`requests.exceptions.HTTPError` (4xx/5xx) occurs.
         :return: A list of dictionaries, where each dictionary represents a
                  response (redirect or final).
-        :rtype: List[Dict[str, Any]]
+        :rtype: list[dict[str, Any]]
         """
-        all_responses_data: List[Dict[str, Any]] = []
-        for hist_resp in response.history:
-            hist_data: Dict[str, Any] = {
+        all_responses_data: list[dict[str, Any]] = []
+        for hist_resp in response.history: # type: ignore[attr-defined]
+            hist_data: dict[str, Any] = {
                 "type": "redirect",
                 "url": str(hist_resp.url),
                 "status_code": hist_resp.status_code,
@@ -212,19 +212,19 @@ class HttpFetcher:
             }
             all_responses_data.append(hist_data)
         try:
-            response.raise_for_status()  # Raises HTTPError for 4xx/5xx
+            response.raise_for_status() # type: ignore[attr-defined]
             final_data_type = "final"
         except requests.exceptions.HTTPError as http_err:
             error_url = str(http_err.request.url) if http_err.request else self.url
             logger.warning("HttpFetcher: HTTPError for URL '%s' (final URL: '%s'): %s", self.url, error_url, http_err)
             error_message = self._format_http_error(http_err)
-            raise HttpProcessingError(error_message, status_code=http_err.response.status_code, url=error_url) from http_err
+            raise HttpProcessingError(error_message, status_code=http_err.response.status_code, url=error_url) from http_err # type: ignore[union-attr]
 
-        final_data: Dict[str, Any] = {
+        final_data: dict[str, Any] = {
             "type": final_data_type,
-            "url": str(response.url),
-            "status_code": response.status_code,
-            "headers": {str(k): str(v) for k, v in dict(response.headers).items()},
+            "url": str(response.url), # type: ignore[attr-defined]
+            "status_code": response.status_code, # type: ignore[attr-defined]
+            "headers": {str(k): str(v) for k, v in dict(response.headers).items()}, # type: ignore[attr-defined]
         }
         all_responses_data.append(final_data)
         return all_responses_data
@@ -233,7 +233,7 @@ class HttpFetcher:
         """
         Attempt to find a 'Connection Refused' error within a chain of exceptions.
 
-        Moved from HttpPage.
+        Moved from ``HttpPage``.
 
         :param exc: The initial exception object.
         :type exc: Exception
@@ -244,7 +244,7 @@ class HttpFetcher:
         :rtype: Optional[str]
         """
         current_exc: Optional[BaseException] = exc
-        found_connection_refused = False
+        found_connection_refused: bool = False
         max_depth = 5
         for _depth in range(max_depth):
             if current_exc is None:
@@ -304,18 +304,18 @@ class HttpFetcher:
 
     def _format_http_error(self, e: requests.exceptions.HTTPError) -> str:
         """
-        Format an HTTPError into a user-friendly string.
+        Format an :exc:`requests.exceptions.HTTPError` into a user-friendly string.
 
-        Moved from HttpPage.
+        Moved from ``HttpPage``.
 
-        :param e: The :class:`requests.exceptions.HTTPError` object.
+        :param e: The :exc:`requests.exceptions.HTTPError` object.
         :type e: requests.exceptions.HTTPError
         :return: A user-friendly error message string.
         :rtype: str
         """
-        status_code = e.response.status_code
-        reason = e.response.reason if e.response.reason else "Unknown Error"
-        url = e.request.url if e.request else "N/A"
+        status_code = e.response.status_code # type: ignore[union-attr]
+        reason = e.response.reason if e.response.reason else "Unknown Error" # type: ignore[union-attr]
+        url = e.request.url if e.request else "N/A" # type: ignore[union-attr]
         if status_code == 403:
             return f"403 Forbidden: Access to {url} denied."
         if status_code == 404:
@@ -324,37 +324,32 @@ class HttpFetcher:
             return f"500 Internal Server Error for {url}."
         return f"HTTP Error {status_code} ({reason}) for URL: {url}."
 
-    def fetch_headers(self) -> List[Dict[str, Any]]:
+    def fetch_headers(self) -> list[dict[str, Any]]:
         """
         Fetch and process HTTP headers.
 
-        :raises HttpRequestTimeoutError: If the request times out.
-        :raises HttpConnectionError: If a connection error occurs.
-        :raises HttpProcessingError: If an HTTPError (4xx/5xx) occurs.
-        :raises HttpGenericRequestError: For other request-related errors.
-        :raises HttpClientError: If cancelled or other client-side issue.
+        :raises .HttpRequestTimeoutError: If the request times out.
+        :raises .HttpConnectionError: If a connection error occurs.
+        :raises .HttpProcessingError: If an :exc:`requests.exceptions.HTTPError` (4xx/5xx) occurs.
+        :raises .HttpGenericRequestError: For other request-related errors.
+        :raises .HttpClientError: If cancelled or other client-side issue.
         :return: A list of dictionaries, where each dictionary represents a
                  response (redirect or final).
-        :rtype: List[Dict[str, Any]]
+        :rtype: list[dict[str, Any]]
         """
         initial_request_specific_headers, session_headers = self._prepare_request_headers()
 
         adapter_sni_hint: Optional[str] = None
-        if self.host_header: # If a host header is provided, it might be for an IP-based URL
-            requests.utils.urlparse(self.url)
-            # The try...except block for IP address check and setting adapter_sni_hint has been removed.
-            # adapter_sni_hint will retain its initial None value if self.host_header is set,
-            # or remain None if self.host_header was not set.
+        if self.host_header:
+            requests.utils.urlparse(self.url) # type: ignore[attr-defined]
 
 
-        effective_custom_dns_server = self.custom_dns_server if dns else None
+        effective_custom_dns_server: Optional[str] = self.custom_dns_server if dns else None
         if self.custom_dns_server and not dns:
             logger.warning(
                 "HttpFetcher: Custom DNS ('%s') configured, but dnspython missing for adapter.", self.custom_dns_server
             )
 
-        # Instantiate CustomDNSAdapter
-        # default_sni is used if the URL is an IP address, to set SNI for HTTPS.
         adapter = CustomDNSAdapter(custom_dns_server=effective_custom_dns_server, default_sni=adapter_sni_hint)
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
@@ -373,7 +368,6 @@ class HttpFetcher:
         response = self._execute_http_request(initial_request_specific_headers)
 
         if self.cancellable and self.cancellable.is_cancelled():
-            # Check cancellation again after request returns, before processing
             raise HttpClientError("Request cancelled during/after execution, before processing.")
 
         return self._process_http_response(response)

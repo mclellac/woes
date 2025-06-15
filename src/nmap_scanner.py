@@ -14,15 +14,12 @@ import shutil
 import time
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
-from typing import Any, Dict, List, Optional, TypedDict, Union
+from typing import Any, Dict, List, Optional, TypedDict, Union # Use dict, list
 
-# Import Gio for Cancellable type hint, actual object passed by caller
 try:
     from gi.repository import Gio
 except ImportError:
-    # Fallback for environments where gi might not be available during linting/testing
-    # The actual Cancellable object will be passed by NmapPage.
-    Gio = None
+    Gio = None # type: ignore
 
 import nmap
 from nmap import PortScannerError
@@ -87,17 +84,16 @@ class NmapScanParameters(TypedDict, total=False):
     custom_dns_server: Optional[str]
 
 
-def _is_scan_root_required(nmap_args_list: List[str]) -> bool:
+def _is_scan_root_required(nmap_args_list: list[str]) -> bool:
     """
     Check if the given Nmap arguments require root privileges.
 
     :param nmap_args_list: A list of Nmap command arguments.
-    :type nmap_args_list: List[str]
-    :return: True if root privileges are required, False otherwise.
+    :type nmap_args_list: list[str]
+    :return: ``True`` if root privileges are required, ``False`` otherwise.
     :rtype: bool
     """
     logger.debug("Checking if root is required for args: %s", nmap_args_list)
-    # Common options requiring root: -sS (TCP SYN scan), -O (OS detection), -A (Aggressive scan)
     root_options = ["-sS", "-O", "-A"]
     is_required = any(opt in nmap_args_list for opt in root_options)
     logger.debug("Root required: %s", is_required)
@@ -109,11 +105,11 @@ def get_escalated_command(command_parts: List[str]) -> List[str]:
     Construct a command list for privilege escalation based on the OS.
 
     :param command_parts: The command parts to escalate.
-    :type command_parts: List[str]
-    :raises FileNotFoundError: If nmap or a required escalation tool (pkexec, osascript) is not found.
+    :type command_parts: list[str]
+    :raises FileNotFoundError: If ``nmap`` or a required escalation tool (``pkexec``, ``osascript``) is not found.
     :raises NotImplementedError: If privilege escalation is not supported on the current platform.
     :return: The command list with privilege escalation.
-    :rtype: List[str]
+    :rtype: list[str]
     """
     system = platform.system()
     logger.debug("Getting escalated command for: %s on system: %s", command_parts, system)
@@ -162,30 +158,29 @@ class NmapScanner:
     def __init__(self):
         """Initialize the NmapScanner."""
         logger.debug("NmapScanner initialized.")
-        self.executor = ThreadPoolExecutor(max_workers=4) # Remains for now, though NmapPage uses Gio.Task
+        self.executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=4)
         self.nm: Optional[nmap.PortScanner] = None
-        self.current_process: Optional[subprocess.Popen] = None
+        self.current_process: Optional[subprocess.Popen[str]] = None
         self.current_cancellable: Optional[Gio.Cancellable] = None
 
 
-    def __del__(self):
+    def __del__(self) -> None:
         """Ensure the ThreadPoolExecutor is shut down and any running Nmap process is terminated."""
         logger.debug("NmapScanner.__del__ called.")
         if self.current_process and self.current_process.poll() is None:
             logger.info("Terminating active Nmap process during NmapScanner deletion.")
             try:
                 self.current_process.terminate()
-                self.current_process.wait(timeout=1) # Wait a bit for termination
+                self.current_process.wait(timeout=1)
             except subprocess.TimeoutExpired:
                 logger.warning("Nmap process did not terminate gracefully, killing.")
                 self.current_process.kill()
-            except OSError as e_os: # More specific than Exception
+            except OSError as e_os:
                 logger.exception(f"OS error terminating Nmap process during deletion: {e_os}")
-            except Exception as e: # Catch any other unexpected errors
+            except Exception as e:
                 logger.exception(f"Unexpected error terminating Nmap process during deletion: {e}")
             self.current_process = None
 
-        # Ensure executor is shutdown only if it was initialized and is not None
         if hasattr(self, 'executor') and self.executor is not None:
             self.executor.shutdown(wait=True)
         logger.debug("NmapScanner cleanup complete.")
@@ -201,25 +196,24 @@ class NmapScanner:
 
         :param target: The target string to validate.
         :type target: str
-        :return: True if the target string is valid, False otherwise.
+        :return: ``True`` if the target string is valid, ``False`` otherwise.
         :rtype: bool
         """
-        if not target or not isinstance(target, str): # Handle empty or non-string input early
+        if not target or not isinstance(target, str):
             return False
 
-        targets = re.split(r"[ ,]+", target.strip())
-        if not targets or all(not t for t in targets): # Handle if split results in empty list or list of empty strings
+        targets: list[str] = re.split(r"[ ,]+", target.strip())
+        if not targets or all(not t for t in targets):
             return False
 
         ipv4_segment_regex = r"(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9]|0)"
         ipv4_address_regex_str = r"{s}\.{s}\.{s}\.{s}".format(s=ipv4_segment_regex)
-        # CIDR regex for IPv4.
         cidr_regex = re.compile(rf"^{ipv4_address_regex_str}/(?:[0-9]|[12][0-9]|3[0-2])$")
 
         logger.debug(f"Validating Nmap target input: '{target}' (split into: {targets})")
 
         for t in targets:
-            if not t: # Skip empty strings from multiple separators
+            if not t:
                 continue
             if t.lower() == "localhost":
                 logger.debug("Target segment '%s' is 'localhost'. Valid.", t)
@@ -246,9 +240,9 @@ class NmapScanner:
         """
         Construct Nmap command-line options string based on boolean flags.
 
-        :param os_fingerprinting: If True, add OS fingerprinting options.
+        :param os_fingerprinting: If ``True``, add OS fingerprinting options.
         :type os_fingerprinting: bool
-        :param scan_all_ports: If True, add all ports scan option.
+        :param scan_all_ports: If ``True``, add all ports scan option.
         :type scan_all_ports: bool
         :param selected_script: Name of the Nmap script to use (or "None").
         :type selected_script: str
@@ -265,16 +259,16 @@ class NmapScanner:
         logger.debug("Nmap options constructed: %s", options)
         return options
 
-    def _build_nmap_arguments(self, params: NmapScanParameters) -> List[str]:
+    def _build_nmap_arguments(self, params: NmapScanParameters) -> list[str]:
         """
         Build the list of arguments for the Nmap command.
 
-        :param params: A dictionary of Nmap scan parameters.
-        :type params: NmapScanParameters
+        :param params: A dictionary of Nmap scan parameters, conforming to :class:`.NmapScanParameters`.
+        :type params: .NmapScanParameters
         :return: A list of arguments for the Nmap command.
-        :rtype: List[str]
+        :rtype: list[str]
         """
-        nmap_args_list = ["nmap", "-sS"] # -sS (TCP SYN scan) requires root.
+        nmap_args_list: list[str] = ["nmap", "-sS"] # -sS (TCP SYN scan) requires root
 
         if params.get("os_fingerprinting"):
             nmap_args_list.append("-O")
@@ -282,8 +276,8 @@ class NmapScanner:
             nmap_args_list.append("-sV")
         if params.get("scan_all_ports"):
             nmap_args_list.append("-p-")
-        if params.get("selected_script") and params["selected_script"] != "None":
-            nmap_args_list.append(f"--script={params['selected_script']}")
+        if params.get("selected_script") and params["selected_script"] != "None": # type: ignore[comparison-overlap]
+            nmap_args_list.append(f"--script={params['selected_script']}") # type: ignore[literal-required]
         if params.get("no_ping"):
             nmap_args_list.append("-Pn")
 
@@ -291,38 +285,35 @@ class NmapScanner:
         if timing_template and re.match(r"^T[0-5]$", timing_template):
             nmap_args_list.append(f"-{timing_template}")
         else:
-            nmap_args_list.append("-T3")  # Default timing
+            nmap_args_list.append("-T3")
 
         custom_dns_server = params.get("custom_dns_server")
         if custom_dns_server and custom_dns_server.strip():
             nmap_args_list.append(f"--dns-servers={custom_dns_server.strip()}")
             logger.info("Using custom DNS server for Nmap scan: %s", custom_dns_server.strip())
 
-        nmap_args_list.extend(["-oX", "-", params['target']])  # XML output to stdout, target last
+        nmap_args_list.extend(["-oX", "-", params['target']])
         logger.debug("Built Nmap arguments: %s", nmap_args_list)
         return nmap_args_list
 
-    def _prepare_final_nmap_command(self, nmap_args_list: List[str], needs_escalation: bool) -> List[str]:
+    def _prepare_final_nmap_command(self, nmap_args_list: list[str], needs_escalation: bool) -> list[str]:
         """
         Prepare the final Nmap command list, including path resolution and escalation.
 
         :param nmap_args_list: The base list of Nmap arguments.
-        :type nmap_args_list: List[str]
+        :type nmap_args_list: list[str]
         :param needs_escalation: Whether privilege escalation is required.
         :type needs_escalation: bool
-        :raises PortScannerError: If escalation fails or nmap executable is not found.
-        :raises FileNotFoundError: If nmap executable is not found for non-escalated command.
+        :raises PortScannerError: If escalation fails or ``nmap`` executable is not found.
+        :raises FileNotFoundError: If ``nmap`` executable is not found for non-escalated command.
         :return: The final list of command parts for execution.
-        :rtype: List[str]
+        :rtype: list[str]
         """
-        final_command_parts: List[str] = []
+        final_command_parts: list[str] = []
         if needs_escalation:
             logger.info("Escalation required for Nmap scan execution.")
             final_command_parts = get_escalated_command(nmap_args_list)
             if not final_command_parts:
-                # This case should ideally be handled within get_escalated_command by raising an error
-                # or returning a value that indicates failure, which can then be checked.
-                # For now, assume get_escalated_command raises or this check is sufficient.
                 raise PortScannerError("Failed to prepare escalated command (empty result from get_escalated_command).")
         else:
             nmap_executable = nmap_args_list[0]
@@ -332,7 +323,6 @@ class NmapScanner:
             final_command_parts = [nmap_path] + nmap_args_list[1:]
         return final_command_parts
 
-    # _execute_nmap_command was merged into run_nmap_scan for Popen and cancellation handling
 
     def _parse_nmap_error_message(
         self, returncode: int, nmap_xml_output: str, nmap_stderr: str, needs_escalation: bool,
@@ -378,14 +368,14 @@ class NmapScanner:
         This method constructs the Nmap command, executes it as a subprocess,
         monitors for cancellation, and parses the XML output.
 
-        :param params: The parameters for the Nmap scan.
-        :type params: NmapScanParameters
-        :param cancellable: An optional Gio.Cancellable object to monitor for cancellation requests.
+        :param params: The parameters for the Nmap scan, conforming to :class:`.NmapScanParameters`.
+        :type params: .NmapScanParameters
+        :param cancellable: An optional :class:`Gio.Cancellable` object to monitor for cancellation requests.
         :type cancellable: Optional[Gio.Cancellable]
-        :raises ScanCancelledError: If the scan is cancelled.
-        :raises PortScannerError: If the Nmap scan fails, prerequisites are missing,
+        :raises .ScanCancelledError: If the scan is cancelled.
+        :raises nmap.PortScannerError: If the Nmap scan fails, prerequisites are missing,
                                   or output parsing fails.
-        :return: An nmap.PortScanner object containing the scan results.
+        :return: An :class:`nmap.PortScanner` object containing the scan results.
         :rtype: nmap.PortScanner
         """
         logger.debug(
@@ -395,14 +385,16 @@ class NmapScanner:
         self.nm = nmap.PortScanner()
         self.current_cancellable = cancellable
 
-        nmap_args_list = self._build_nmap_arguments(params)
-        needs_escalation = _is_scan_root_required(nmap_args_list)
+        nmap_args_list: list[str] = self._build_nmap_arguments(params)
+        needs_escalation: bool = _is_scan_root_required(nmap_args_list)
 
-        final_command_parts = self._prepare_final_nmap_command(nmap_args_list, needs_escalation)
+        final_command_parts: list[str] = self._prepare_final_nmap_command(nmap_args_list, needs_escalation)
 
         logger.info("Executing Nmap command (first few parts): %s...", " ".join(shlex.quote(part) for part in final_command_parts[:4]))
 
-        stdout_str, stderr_str, returncode = "", "", -1
+        stdout_str: str = ""
+        stderr_str: str = ""
+        returncode: int = -1
 
         try:
             if self.current_cancellable and self.current_cancellable.is_cancelled():
@@ -412,26 +404,25 @@ class NmapScanner:
 
             while self.current_process.poll() is None:
                 if self.current_cancellable and self.current_cancellable.is_cancelled():
-                    logger.info("Cancellation requested for Nmap scan of target: %s", params['target'])
+                    logger.info("Cancellation requested for Nmap scan of target: %s", params['target']) # type: ignore[literal-required]
                     self.current_process.terminate()
                     try:
-                        self.current_process.wait(timeout=1) # Wait for graceful termination
+                        self.current_process.wait(timeout=1)
                     except subprocess.TimeoutExpired:
                         logger.warning("Nmap process did not terminate gracefully, killing.")
                         self.current_process.kill()
                     self.current_process = None
-                    raise ScanCancelledError(f"Nmap scan for {params['target']} was cancelled.")
-                time.sleep(0.2) # Polling interval
+                    raise ScanCancelledError(f"Nmap scan for {params['target']} was cancelled.") # type: ignore[literal-required]
+                time.sleep(0.2)
 
-            # Process completed (either normally or terminated/killed)
-            if self.current_process: # If not already set to None by cancellation logic
+            if self.current_process:
                 stdout_bytes, stderr_bytes = self.current_process.communicate()
-                stdout_str = stdout_bytes # Already decoded due to text=True
+                stdout_str = stdout_bytes
                 stderr_str = stderr_bytes
                 returncode = self.current_process.returncode
                 self.current_process = None
 
-            if returncode != 0: # Check return code after process has finished
+            if returncode != 0:
                 logger.debug("Nmap process stdout (on error code %s): %s", returncode, stdout_str)
                 logger.debug("Nmap process stderr (on error code %s): %s", returncode, stderr_str)
                 error_message = self._parse_nmap_error_message(returncode, stdout_str, stderr_str, needs_escalation)
@@ -444,7 +435,7 @@ class NmapScanner:
 
             try:
                 logger.debug("Attempting to parse Nmap XML output (first 500 chars): %s", stdout_str[:500])
-                self.nm.analyse_nmap_xml_scan(nmap_xml_output=stdout_str)
+                self.nm.analyse_nmap_xml_scan(nmap_xml_output=stdout_str) # type: ignore[no-untyped-call]
             except PortScannerError as e_parse:
                 logger.exception("Failed to parse Nmap XML output:")
                 logger.debug("Problematic Nmap XML Output (full, on parse error):\n%s", stdout_str)
@@ -458,9 +449,9 @@ class NmapScanner:
         except NotImplementedError as e_ni:
             logger.exception("Privilege escalation not implemented for this platform:")
             raise PortScannerError(f"Privilege escalation not implemented for this platform: {e_ni}") from e_ni
-        except ScanCancelledError: # Re-raise ScanCancelledError
+        except ScanCancelledError:
             raise
-        except PortScannerError: # Re-raise other PortScannerErrors
+        except PortScannerError:
             raise
         except TypeError as e_type:
             logger.exception("Type error during Nmap scan setup or execution:")
@@ -469,11 +460,9 @@ class NmapScanner:
             logger.exception("Value error during Nmap scan setup or execution (e.g., invalid arguments):")
             raise PortScannerError(f"Value error encountered: {e_value}") from e_value
         except OSError as e_os:
-            # FileNotFoundError is a subclass of OSError, but handled separately.
-            # This will catch other OS-related errors.
             logger.exception("OS error occurred during Nmap scan process (excluding FileNotFoundError):")
             raise PortScannerError(f"OS error occurred: {e_os}") from e_os
-        except Exception as e_unexpected: # General catch-all
+        except Exception as e_unexpected:
             logger.exception("An unexpected error occurred during the Nmap scan process:")
             raise PortScannerError(f"An unexpected error occurred: {e_unexpected}") from e_unexpected
         finally:
@@ -481,26 +470,26 @@ class NmapScanner:
             self.current_cancellable = None
 
 
-    def convert_results_to_yaml(self, nm: nmap.PortScanner) -> Dict[str, str]:
+    def convert_results_to_yaml(self, nm: nmap.PortScanner) -> dict[str, str]:
         """
         Convert Nmap scan results to YAML for each host.
 
-        :param nm: The nmap.PortScanner object containing the scan results.
+        :param nm: The :class:`nmap.PortScanner` object containing the scan results.
         :type nm: nmap.PortScanner
         :return: A dictionary where keys are host IPs and values are YAML strings
                  representing the scan results for that host.
-        :rtype: Dict[str, str]
+        :rtype: dict[str, str]
         """
         logger.debug(f"Converting Nmap results to YAML for {len(nm.all_hosts())} hosts.")
-        all_results = {}
-        prescan_scripts_data = nm.scaninfo().get('prescript', [])
+        all_results: dict[str, str] = {}
+        prescan_scripts_data: list[Any] = nm.scaninfo().get('prescript', []) # type: ignore[no-untyped-call]
         logger.debug("Pre-scan script data: %s", prescan_scripts_data)
         for host in nm.all_hosts():
             logger.debug("Processing results for host: %s", host)
             host_data = nm[host]
             plain_dict = self.to_plain_dict(host_data)
-            if prescan_scripts_data: # Only add if there's actual pre-scan data
-                plain_dict["prescript_results"] = prescan_scripts_data
+            if prescan_scripts_data:
+                plain_dict["prescript_results"] = prescan_scripts_data # type: ignore
             yaml_output = yaml.safe_dump(plain_dict, default_flow_style=False)
             all_results[host] = yaml_output
         return all_results
