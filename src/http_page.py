@@ -18,7 +18,7 @@ gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
 from gi.repository import Adw, Gio, GObject, Gtk, GLib, Gdk, Pango
 
-from .constants import RESOURCE_PREFIX, APP_ID, DEFAULT_USER_AGENTS
+from .constants import RESOURCE_PREFIX, USER_AGENTS, APP_ID
 from .utils import show_global_error, show_global_toast, is_valid_url
 from .helper import Helper
 from .http_client import (
@@ -374,75 +374,60 @@ class HttpPage(Adw.PreferencesPage):
 
         host_header = self.http_host_header_row.get_text().strip()
         user_agent_to_send: Optional[str] = None
-        selected_ua_title_in_http_page_dropdown: Optional[str] = None
+        # Determine the User-Agent string to send
+        # Priority: 1. UI override, 2. GSettings default, 3. Fallback
 
-        selected_item_obj = self.http_user_agent_row.get_selected_item()
-        if isinstance(selected_item_obj, Gtk.StringObject):
-            selected_ua_title_in_http_page_dropdown = selected_item_obj.get_string()
+        # 1. Check UI override from http_user_agent_row
+        selected_title_obj_ui = self.http_user_agent_row.get_selected_item()
+        ui_selected_ua_title: Optional[str] = None
+        if isinstance(selected_title_obj_ui, Gtk.StringObject):
+            ui_selected_ua_title = selected_title_obj_ui.get_string()
+        logger.info(f"HTTP_PAGE_UA_SEND: UI Dropdown selection: '{ui_selected_ua_title}'")
 
-        if selected_ua_title_in_http_page_dropdown and selected_ua_title_in_http_page_dropdown != "None":
-            # User selected a specific UA in the HTTP page dropdown
-            ua_found = False
-            # Check in DEFAULT_USER_AGENTS
-            for def_title, def_value in DEFAULT_USER_AGENTS:
-                if def_title == selected_ua_title_in_http_page_dropdown:
-                    user_agent_to_send = def_value
-                    ua_found = True
-                    break
-            # If not in default, check custom (self._ua_title_to_value_map includes custom ones)
-            if not ua_found and selected_ua_title_in_http_page_dropdown in self._ua_title_to_value_map:
-                user_agent_to_send = self._ua_title_to_value_map[selected_ua_title_in_http_page_dropdown]
-                ua_found = True # Should be true if title is in map
+        if ui_selected_ua_title and ui_selected_ua_title != "None": # "None" means use default logic (GSettings -> fallback)
+            user_agent_to_send = self._ua_title_to_value_map.get(ui_selected_ua_title) # _ua_title_to_value_map is populated from USER_AGENTS and custom UAs
+            logger.info(f"HTTP_PAGE_UA_SEND: Using User-Agent from HTTP Page UI selection: '{ui_selected_ua_title}' -> UA: '{user_agent_to_send}'")
+        else:
+            logger.info("HTTP_PAGE_UA_SEND: HTTP Page UI Dropdown is 'None' or no selection. Using GSettings default logic.")
+            # 2. No UI override or "None" selected, so use GSettings default
+            default_ua_title_pref = self.settings.get_string("default-user-agent-title")
+            logger.info(f"HTTP_PAGE_UA_SEND: GSettings 'default-user-agent-title': '{default_ua_title_pref}'")
 
-            if ua_found:
-                logger.info(f"Using User-Agent from HTTP Page UI selection: '{selected_ua_title_in_http_page_dropdown}'")
-            else: # Should not happen if dropdown is populated correctly
-                logger.warning(f"Selected UA title '{selected_ua_title_in_http_page_dropdown}' not found in any list. Falling back.")
-                if DEFAULT_USER_AGENTS:
-                    user_agent_to_send = DEFAULT_USER_AGENTS[0][1]
-                    logger.info(f"Fell back to first default User-Agent: {DEFAULT_USER_AGENTS[0][0]}")
-                else:
-                    user_agent_to_send = f"Woes/{APP_ID} (Fallback)"
-                    logger.info(f"Fell back to generic Woes User-Agent: {user_agent_to_send}")
-
-        else: # "None" selected in HTTP page, or no selection; use GSettings default
-            default_ua_title_from_prefs = self.settings.get_string("default-user-agent-title")
-            logger.info(f"HTTP Page UI set to 'None' or no selection. Using GSettings default: '{default_ua_title_from_prefs}'")
-            if default_ua_title_from_prefs:
-                ua_found_in_prefs = False
-                # Check in DEFAULT_USER_AGENTS
-                for def_title, def_value in DEFAULT_USER_AGENTS:
-                    if def_title == default_ua_title_from_prefs:
-                        user_agent_to_send = def_value
-                        ua_found_in_prefs = True
+            if default_ua_title_pref:
+                # Try to find it in default UAs (from constants.USER_AGENTS)
+                for title, value in USER_AGENTS: # Use USER_AGENTS from constants
+                    if title == default_ua_title_pref:
+                        user_agent_to_send = value
+                        logger.info(f"HTTP_PAGE_UA_SEND: Found GSettings title in USER_AGENTS (constants). UA: '{user_agent_to_send}'")
                         break
-                # If not in default, check custom (self._ua_title_to_value_map includes custom ones)
-                if not ua_found_in_prefs and default_ua_title_from_prefs in self._ua_title_to_value_map:
-                     # Need to ensure _ua_title_to_value_map is populated with custom UAs correctly
-                    custom_uas_variant = self.settings.get_value("custom-user-agents")
+                # If not in default, try custom UAs (GSettings "custom-user-agents")
+                if user_agent_to_send is None:
+                    custom_ua_variant = self.settings.get_value("custom-user-agents")
                     custom_ua_pairs: list[tuple[str, str]] = list(
-                        custom_uas_variant.unpack() if custom_uas_variant and custom_uas_variant.get_type_string() == "a(ss)" else []
+                        custom_ua_variant.unpack() if custom_ua_variant and custom_ua_variant.get_type_string() == "a(ss)" else []
                     )
-                    for cust_title, cust_value in custom_ua_pairs:
-                        if cust_title == default_ua_title_from_prefs:
-                            user_agent_to_send = cust_value
-                            ua_found_in_prefs = True
+                    for title, value in custom_ua_pairs:
+                        if title == default_ua_title_pref:
+                            user_agent_to_send = value
+                            logger.info(f"HTTP_PAGE_UA_SEND: Found GSettings title in custom UAs (GSettings). UA: '{user_agent_to_send}'")
                             break
 
-                if ua_found_in_prefs:
-                    logger.info(f"Using default User-Agent from GSettings: '{default_ua_title_from_prefs}'")
+                if user_agent_to_send:
+                    logger.info(f"HTTP_PAGE_UA_SEND: Determined User-Agent from GSettings: '{default_ua_title_pref}' -> UA: '{user_agent_to_send}'")
                 else:
-                    logger.warning(f"Default User-Agent title '{default_ua_title_from_prefs}' from GSettings not found. Falling back.")
+                    logger.warning(f"HTTP_PAGE_UA_SEND: Default User-Agent title '{default_ua_title_pref}' from GSettings NOT FOUND in any list. Falling back.")
 
-            if user_agent_to_send is None: # Fallback if GSettings default is empty or not found
-                if DEFAULT_USER_AGENTS:
-                    user_agent_to_send = DEFAULT_USER_AGENTS[0][1]
-                    logger.info(f"Fell back to first default User-Agent: {DEFAULT_USER_AGENTS[0][0]}")
-                else:
+            # 3. Fallback if GSettings default is not set, not found, or "None" was chosen in UI and GSettings is empty
+            if user_agent_to_send is None:
+                logger.info("HTTP_PAGE_UA_SEND: No UA determined from GSettings default. Applying fallback.")
+                if USER_AGENTS: # Use USER_AGENTS from constants
+                    user_agent_to_send = USER_AGENTS[0][1] # Value of the first default UA
+                    logger.info(f"HTTP_PAGE_UA_SEND: Fell back to first User-Agent from constants: '{USER_AGENTS[0][0]}' -> UA: '{user_agent_to_send}'")
+                else: # Absolute fallback if USER_AGENTS is somehow empty
                     user_agent_to_send = f"Woes/{APP_ID} (Fallback)"
-                    logger.info(f"Fell back to generic Woes User-Agent: {user_agent_to_send}")
+                    logger.info(f"HTTP_PAGE_UA_SEND: Fell back to generic Woes User-Agent: '{user_agent_to_send}'")
 
-        logger.info(f"Final User-Agent string for request: {user_agent_to_send}")
+        logger.info(f"HTTP_PAGE_UA_SEND: Final User-Agent to be sent for request to '{url}': '{user_agent_to_send}'")
         custom_dns_server = self.settings.get_string("custom-dns-server")
 
         self._http_task_data_for_thread = {
@@ -910,6 +895,7 @@ class HttpPage(Adw.PreferencesPage):
             return
         self._ua_title_to_value_map.clear()
         current_selection_text: Optional[str] = None
+        logger.info("HTTP_PAGE_UA_DROPDOWN: Updating User-Agent model...")
 
         if (
             self.http_user_agent_row.get_model()
@@ -921,17 +907,19 @@ class HttpPage(Adw.PreferencesPage):
 
         display_titles: list[str] = []
 
-        none_title = "None" # Represents using the default resolution logic (GSettings -> Fallback)
+        none_title = "None" # Represents using the default logic (GSettings -> fallback)
         display_titles.append(none_title)
-        self._ua_title_to_value_map[none_title] = None # Explicitly map "None" to no specific UA string override
+        self._ua_title_to_value_map[none_title] = None # Explicitly map "None" to no specific UA string override for UI selection
 
-        # Populate with DEFAULT_USER_AGENTS from constants.py
-        for title, value in DEFAULT_USER_AGENTS: # Iterate list of tuples
+        # Populate with USER_AGENTS from constants.py
+        logger.info("HTTP_PAGE_UA_DROPDOWN: Adding default UAs from constants.USER_AGENTS:")
+        for title, value in USER_AGENTS: # Iterate list of tuples
             if title not in self._ua_title_to_value_map:
                 display_titles.append(title)
-                self._ua_title_to_value_map[title] = value
-            else: # Should not happen if titles are unique in DEFAULT_USER_AGENTS
-                logger.warning(f"Default User-Agent title '{title}' conflicts with 'None' or another default UA. Skipping.")
+                self._ua_title_to_value_map[title] = value # Store title -> value mapping
+                logger.info(f"HTTP_PAGE_UA_DROPDOWN: Added title from constants: '{title}'")
+            else: # Should not happen if "None" is the only one added before this loop
+                logger.warning(f"HTTP_PAGE_UA_DROPDOWN: User-Agent title '{title}' from constants conflicts with an existing entry. Skipping.")
 
         variant = self.settings.get_value("custom-user-agents")
         custom_ua_pairs: list[tuple[str, str]] = list(
@@ -1015,6 +1003,8 @@ class HttpPage(Adw.PreferencesPage):
             len(display_titles),
             selected_now_obj.get_string() if selected_now_obj else "None",
         )
+        logger.info(f"HTTP_PAGE_UA_DROPDOWN: Population complete. All titles in dropdown: {display_titles}")
+        logger.info(f"HTTP_PAGE_UA_DROPDOWN: Final selected title in dropdown: '{selected_now_obj.get_string() if selected_now_obj else 'None'}'")
 
     def _create_factory(self, attr_name: str, wrap_text: bool = False) -> Gtk.SignalListItemFactory:
         """
