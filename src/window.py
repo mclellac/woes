@@ -144,7 +144,7 @@ class WoesWindow(Adw.ApplicationWindow):
 
         # Construct CSS string using f-string (which is fine inside Python code)
         css_string = (
-            f"#nmap-raw-output-textview, #webscan-output-textview {{"
+            f"#nmap-raw-output-textview text, #webscan-output-textview text {{"
             f"font-family: '{safe_family}'; "
             f"font-size: {str(size_pt).replace(',', '.')}pt; "
             f"font-weight: {int(weight)}; "
