@@ -1,5 +1,4 @@
-# WebOps Evaluation Suite (WOES)
-
+# WOES
 ![woes](images/app.png)
 
 WOES is a GTK 4/Adwaita GUI for web operations tasks like:
@@ -48,17 +47,7 @@ sudo ninja -C build install --verbose
 # Follow instructions in the flatpak directory to install and run.
 ```
 
-## Testing and Linting
 
-This project uses [Tox](https://tox.wiki/) for managing testing and linting environments.
-
-To run all tests and linters, simply execute the following command in the root of the project:
-
-```bash
-tox
-```
-
-This will run the unit tests and the Ruff linter.
 
 ## Development Status
-Early development. HTTP Headers, Nmap, and DNS tools are functional. More features planned.
+Early development. HTTP Headers, Nmap, Wescan and DNS tools are functional.
