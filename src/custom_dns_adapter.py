@@ -8,7 +8,7 @@ for hostname resolution and handles Server Name Indication (SNI) for HTTPS conne
 import logging
 import socket
 import ssl
-from typing import Optional, Tuple, Any  # Use list, dict
+from typing import Optional, Tuple, Any
 
 import requests
 import requests.utils  # For urlparse, urlunparse
