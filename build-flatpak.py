@@ -4,16 +4,15 @@
 import os
 import subprocess
 
-# Configuration (replace with your actual values)
-APP_ID = "com.github.mclellac.woes"  # Replace with your Flatpak App ID
+APP_ID = "com.github.mclellac.woes"
 RUNTIME_REPO = "flathub"
 RUNTIME = "org.gnome.Platform"
-RUNTIME_VERSION = "45"  # Or your desired GNOME runtime version
+RUNTIME_VERSION = "48"
 SDK = "org.gnome.Sdk"
-BRANCH = "main"  # Or your desired branch
-FLATPAK_MODULE_FILE = "com.github.mclellac.woes.json"  # Or your module file name
+BRANCH = "main"
+FLATPAK_MODULE_FILE = "com.github.mclellac.woes.json"
 OUTPUT_DIR = "flatpak_build"
-REPO_NAME = "woes_repo"  # Name for the local Flatpak repository
+REPO_NAME = "woes"
 
 # Ensure the output directory exists
 os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -43,7 +42,7 @@ if not os.path.exists(os.path.join(OUTPUT_DIR, REPO_NAME)):
             "flatpak",
             "build-init",
             os.path.join(OUTPUT_DIR, REPO_NAME),
-            APP_ID, # This should match the app-id in your static manifest
+            APP_ID,  # This should match the app-id in your static manifest
             SDK,
             RUNTIME,
             RUNTIME_VERSION,
@@ -79,8 +78,8 @@ subprocess.run(
         "build-bundle",
         os.path.join(OUTPUT_DIR, REPO_NAME),
         bundle_path,
-        APP_ID, # This should match the app-id in your static manifest
-        f"--runtime-repo=https://dl.flathub.org/repo/{RUNTIME_REPO}.flatpakrepo", # Use configured RUNTIME_REPO
+        APP_ID,  # This should match the app-id in your static manifest
+        f"--runtime-repo=https://dl.flathub.org/repo/{RUNTIME_REPO}.flatpakrepo",  # Use configured RUNTIME_REPO
     ],
     check=True,
 )
