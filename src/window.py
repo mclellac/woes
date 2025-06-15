@@ -50,10 +50,10 @@ class WoesWindow(Adw.ApplicationWindow):
 
     __gtype_name__ = "WoesWindow"
 
-    switcher_title: Adw.ViewSwitcherTitle = Gtk.Template.Child("switcher_title") # type: ignore
-    stack: Adw.ViewStack = Gtk.Template.Child("stack") # type: ignore
-    main_error_banner: Adw.Banner = Gtk.Template.Child("main_error_banner") # type: ignore
-    toast_overlay: Adw.ToastOverlay = Gtk.Template.Child("toast_overlay") # type: ignore
+    switcher_title: Adw.ViewSwitcherTitle = Gtk.Template.Child("switcher_title")
+    stack: Adw.ViewStack = Gtk.Template.Child("stack")
+    main_error_banner: Adw.Banner = Gtk.Template.Child("main_error_banner")
+    toast_overlay: Adw.ToastOverlay = Gtk.Template.Child("toast_overlay")
 
     def __init__(self, **kwargs: Any): # GObject.GObject is too restrictive if no args passed
         """
@@ -83,7 +83,7 @@ class WoesWindow(Adw.ApplicationWindow):
 
         self.settings.bind("window-width", self, "default-width", Gio.SettingsBindFlags.DEFAULT)
         self.settings.bind("window-height", self, "default-height", Gio.SettingsBindFlags.DEFAULT)
-        self.settings.bind("window-is-maximized", self, "maximized", Gio.SettingsBindFlags.DEFAULT) # type: ignore[no-untyped-call]
+        self.settings.bind("window-is-maximized", self, "maximized", Gio.SettingsBindFlags.DEFAULT)
 
         self.style_manager: Adw.StyleManager = Adw.StyleManager.get_default()
         self.gnome_interface_settings: Optional[Gio.Settings] = None
@@ -91,8 +91,8 @@ class WoesWindow(Adw.ApplicationWindow):
         if platform.system() == "Linux":
             try:
                 self.gnome_interface_settings = Gio.Settings.new(GNOME_INTERFACE_SCHEMA)
-                self.gnome_interface_settings.connect(f"changed::{FONT_NAME_KEY}", self._on_gnome_font_setting_changed) # type: ignore[union-attr]
-                self.gnome_interface_settings.connect(f"changed::{TEXT_SCALING_FACTOR_KEY}", self._on_gnome_font_setting_changed) # type: ignore[union-attr]
+                self.gnome_interface_settings.connect(f"changed::{FONT_NAME_KEY}", self._on_gnome_font_setting_changed)
+                self.gnome_interface_settings.connect(f"changed::{TEXT_SCALING_FACTOR_KEY}", self._on_gnome_font_setting_changed)
                 logging.debug("Successfully connected to GNOME interface settings schema: %s", GNOME_INTERFACE_SCHEMA)
             except GLib.Error as e:
                 logging.warning(
@@ -100,12 +100,12 @@ class WoesWindow(Adw.ApplicationWindow):
                     GNOME_INTERFACE_SCHEMA, e
                 )
 
-        self.settings.connect("changed::theme-preference", self._on_theme_preference_setting_changed) # type: ignore[arg-type]
-        self.settings.connect("changed::font-scaling-percentage", self._on_font_scaling_setting_changed) # type: ignore[arg-type]
+        self.settings.connect("changed::theme-preference", self._on_theme_preference_setting_changed)
+        self.settings.connect("changed::font-scaling-percentage", self._on_font_scaling_setting_changed)
 
         try:
             self.setup_ui()
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:
             logging.exception("WoesWindow.__init__: Error during self.setup_ui(): %s", e)
 
         if self.main_error_banner:
@@ -190,9 +190,9 @@ class WoesWindow(Adw.ApplicationWindow):
         :type message: str
         """
         if self.main_error_banner:
-            self.main_error_banner.set_title(message) # type: ignore[union-attr]
-            self.main_error_banner.add_css_class("error") # type: ignore[union-attr]
-            self.main_error_banner.set_revealed(True) # type: ignore[union-attr]
+            self.main_error_banner.set_title(message)
+            self.main_error_banner.add_css_class("error")
+            self.main_error_banner.set_revealed(True)
         else:
             logging.warning("main_error_banner not available to show message: %s", message)
 
@@ -204,9 +204,9 @@ class WoesWindow(Adw.ApplicationWindow):
         is removed, it's hidden, and its title is cleared.
         """
         if self.main_error_banner:
-            self.main_error_banner.remove_css_class("error") # type: ignore[union-attr]
-            self.main_error_banner.set_revealed(False) # type: ignore[union-attr]
-            self.main_error_banner.set_title("") # type: ignore[union-attr]
+            self.main_error_banner.remove_css_class("error")
+            self.main_error_banner.set_revealed(False)
+            self.main_error_banner.set_title("")
         else:
             logging.warning("main_error_banner not available to hide.")
 
@@ -240,18 +240,18 @@ class WoesWindow(Adw.ApplicationWindow):
         """
         try:
             self.load_css()
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:
             logging.exception("WoesWindow.setup_ui: Error during self.load_css(): %s", e)
 
         try:
             self.apply_preferences()
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:
             logging.exception("WoesWindow.setup_ui: Error during self.apply_preferences(): %s", e)
 
         if self.switcher_title and self.stack:
             try:
                 self.switcher_title.connect("notify::selected-page", self.on_page_switched)
-            except Exception as e:  # pylint: disable=broad-except
+            except Exception as e:
                 logging.exception("WoesWindow.setup_ui: Error connecting switcher_title signal: %s", e)
         else:
             logging.warning("switcher_title or stack not found during setup_ui.")
@@ -273,7 +273,7 @@ class WoesWindow(Adw.ApplicationWindow):
         apply_theme(self.style_manager, theme_pref)
         self.load_css()
 
-    def _on_font_scaling_setting_changed(self, settings: Gio.Settings, key: str):  # pylint: disable=unused-argument
+    def _on_font_scaling_setting_changed(self, settings: Gio.Settings, key: str):
         """
         Handle changes to the 'font-scaling-percentage' GSettings key.
 
@@ -297,11 +297,11 @@ class WoesWindow(Adw.ApplicationWindow):
 
         The CSS is loaded from GResources and applied to the application.
         """
-        if self.style_manager.get_dark(): # type: ignore[no-untyped-call]
+        if self.style_manager.get_dark():
             css_file = "style-dark.css"
         else:
             css_file = "style.css"
-        css_path = f"{RESOURCE_PREFIX}/{css_file}" # type: ignore[name-defined]
+        css_path = f"{RESOURCE_PREFIX}/{css_file}"
         style_provider = Gtk.CssProvider()
 
         try:
@@ -313,7 +313,7 @@ class WoesWindow(Adw.ApplicationWindow):
             )
         except GLib.Error as e:
             logging.error("Failed to load CSS resource from %s: %s", css_path, e)
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:
             logging.error(
                 "An unexpected error of type %s occurred while loading CSS from %s: %s",
                 type(e).__name__, css_path, e,
@@ -338,11 +338,11 @@ class WoesWindow(Adw.ApplicationWindow):
         """
         try:
             theme_pref = self.settings.get_string("theme-preference")
-            apply_font_size(self.settings) # type: ignore[arg-type]
-            apply_theme(self.style_manager, theme_pref) # type: ignore[arg-type]
+            apply_font_size(self.settings)
+            apply_theme(self.style_manager, theme_pref)
         except GLib.Error as e:
             logging.error("Error applying preferences (GSettings): %s", e)
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:
             logging.error("An unexpected error of type %s occurred while applying preferences: %s", type(e).__name__, e)
 
     def on_page_switched(self, widget: Adw.ViewSwitcherTitle, _gparam: GObject.ParamSpec):
@@ -360,7 +360,7 @@ class WoesWindow(Adw.ApplicationWindow):
         if self.stack:
             logging.debug(
                 "Page switched, new visible page: %s",
-                self.stack.get_visible_child_name() # type: ignore[union-attr]
+                self.stack.get_visible_child_name()
                 )
         else:
             logging.warning("on_page_switched called but self.stack is not available.")
@@ -385,7 +385,7 @@ class WoesWindow(Adw.ApplicationWindow):
             return
 
         toast = Adw.Toast.new(title)
-        toast.set_priority(priority) # type: ignore[no-untyped-call]
-        toast.set_timeout(timeout) # type: ignore[no-untyped-call]
-        self.toast_overlay.add_toast(toast) # type: ignore[union-attr]
+        toast.set_priority(priority)
+        toast.set_timeout(timeout)
+        self.toast_overlay.add_toast(toast)
         logging.info("Toast shown: %s (Priority: %s, Timeout: %s)", title, priority, timeout)
