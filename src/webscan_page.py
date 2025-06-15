@@ -26,7 +26,7 @@ gi.require_version("Adw", "1")
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/webscan_page.ui")
-class WebScanPage(Adw.PreferencesPage):
+class WebScanPage(Gtk.Box):
     """Page for conducting web scans using Nikto, displaying results and errors."""
 
     __gtype_name__ = "WebScanPage"

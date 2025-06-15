@@ -5,9 +5,8 @@
   <requires lib="GtkSource" version="5.0"/>
   <requires lib="gtk" version="4.0"/>
   <requires lib="libadwaita" version="1.0"/>
-  <template class="WebScanPage" parent="AdwPreferencesPage">
+  <template class="WebScanPage" parent="GtkBox">
     <property name="hexpand">True</property>
-    <property name="title">Web Scan</property>
     <child>
       <object class="AdwPreferencesGroup">
         <property name="description" translatable="yes">Enter a URL to scan for common web vulnerabilities using Nikto.</property>

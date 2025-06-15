@@ -83,7 +83,7 @@ class HeaderItem(GObject.Object):
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/http_page.ui")
-class HttpPage(Adw.PreferencesPage):
+class HttpPage(Gtk.Box):
     """
     Activity page for fetching and inspecting HTTP headers.
 
@@ -135,7 +135,7 @@ class HttpPage(Adw.PreferencesPage):
         Initializes UI elements, GSettings, the header list store for the
         column view, and connects signals.
 
-        :param kwargs: Keyword arguments passed to the :class:`Adw.PreferencesPage` constructor.
+        :param kwargs: Keyword arguments passed to the :class:`Gtk.Box` constructor.
         :type kwargs: Any
         """
         super().__init__(**kwargs)
