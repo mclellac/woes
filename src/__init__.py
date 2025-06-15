@@ -1,2 +1,2 @@
-"""Initializes the src package."""
+"""Initializes the woes package."""
 
