@@ -1,4 +1,3 @@
-"""
 """Custom HTTPAdapter for 'requests' with custom DNS resolution and SNI handling.
 
 This module provides a custom :class:`requests.adapters.HTTPAdapter` that allows for specifying a DNS server
