@@ -488,20 +488,35 @@ class HttpPage(Adw.PreferencesPage):
                         if isinstance(headers_for_this_response, dict):
                             for key, value in headers_for_this_response.items():
                                 original_value_str = str(value)
-                                parts = original_value_str.split(';')
+                                display_parts = []
+                                current_value_segment = original_value_str
 
-                                first_part = True
-                                for i, part_content in enumerate(parts):
-                                    trimmed_part = part_content.strip()
-                                    if first_part:
+                                if original_value_str.strip() == "": # Handle completely empty header values
+                                    display_parts.append("")
+                                else:
+                                    while True:
+                                        semicolon_index = current_value_segment.find(';')
+                                        if semicolon_index != -1:
+                                            # Part includes the semicolon
+                                            part_to_add = current_value_segment[:semicolon_index+1].strip()
+                                            display_parts.append(part_to_add)
+                                            # Update segment to what's after the semicolon
+                                            current_value_segment = current_value_segment[semicolon_index+1:]
+                                        else:
+                                            # No more semicolons, add the remainder of the segment
+                                            display_parts.append(current_value_segment.strip())
+                                            break
+
+                                first_part_processed = False
+                                for part_content in display_parts:
+                                    if not first_part_processed:
                                         processed_headers_for_store.append(
-                                            HeaderItem(key=str(key), value=trimmed_part, is_special_row=False)
+                                            HeaderItem(key=str(key), value=part_content, is_special_row=False)
                                         )
-                                        first_part = False
+                                        first_part_processed = True
                                     else:
-                                        # For subsequent parts, the key is empty, value is the part.
                                         processed_headers_for_store.append(
-                                            HeaderItem(key="", value=trimmed_part, is_special_row=False)
+                                            HeaderItem(key="", value=part_content, is_special_row=False)
                                         )
                         else:
                             logger.warning(
