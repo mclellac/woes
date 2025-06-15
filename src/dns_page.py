@@ -324,6 +324,7 @@ class DNSPage(Adw.PreferencesPage):
             ellipsize=Pango.EllipsizeMode.END,
         )
         value_label.override_font(self._output_font_desc)
+        # suffix_box removed
         row.add_suffix(value_label)  # type: ignore
         row.add_suffix(
             self._create_copy_button(main_value_text, f"{main_value_tooltip_prefix}: {main_value_text}", row)
@@ -392,6 +393,7 @@ class DNSPage(Adw.PreferencesPage):
         value_label.override_font(self._output_font_desc)
         copy_button = self._create_copy_button(value_text, f"{copy_tooltip_prefix}: {value_text}", expander_row)
 
+        # content_box removed
         if is_value_primary_content:  # For TXT segments where the value is the main content of the row
             detail_row.add_prefix(value_label)  # type: ignore
             detail_row.add_prefix(copy_button)  # type: ignore
@@ -1014,6 +1016,7 @@ class DNSPage(Adw.PreferencesPage):
             ellipsize=Pango.EllipsizeMode.END,
         )
         copy_button_exchange = self._create_copy_button(exchange_value, f"Copy Exchange: {exchange_value}", row)
+        # mx_detail_row_title_box removed
 
         mx_detail_row = Adw.ActionRow(subtitle=f"Preference: {preference_value}")  # type: ignore
         mx_detail_row.add_prefix(exchange_value_label)  # type: ignore
@@ -1134,7 +1137,7 @@ class DNSPage(Adw.PreferencesPage):
         elif record_type == "SOA":
             return self._build_soa_record_row(record_data, name, base_subtitle)
         elif record_data.get("data"):
-            return self._build_generic_data_record_row(record_data, name, base_subtitle, record_type)
+            return self._build_generic_data_record_row(record_data, name, base_subtitle, record_type)  # Renamed
         else:
             logger.warning(
                 "Could not create row for unknown record_data type or missing data field: %s (Type: %s)",

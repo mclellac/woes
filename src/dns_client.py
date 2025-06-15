@@ -1,7 +1,7 @@
 """Module for performing DNS lookups."""
 
 import logging
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any  # Use list, dict
 import ipaddress
 
 import dns.resolver

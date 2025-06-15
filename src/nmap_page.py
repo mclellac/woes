@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 import re
 from enum import Enum
 from typing import Optional, List, Dict, Any
-import collections.abc
+import collections.abc  # For Sequence if needed, though not directly used here
 import yaml
 
 import gi

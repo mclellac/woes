@@ -18,8 +18,7 @@ gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
 from gi.repository import Adw, Gio, GObject, Gtk, GLib, Gdk, Pango
 
-from .constants import RESOURCE_PREFIX, APP_ID # USER_AGENTS removed
-from .preferences import STANDARD_USER_AGENTS # Import from preferences
+from .constants import RESOURCE_PREFIX, APP_ID, DEFAULT_USER_AGENTS
 from .utils import show_global_error, show_global_toast, is_valid_url
 from .helper import Helper
 from .http_client import (
@@ -375,48 +374,75 @@ class HttpPage(Adw.PreferencesPage):
 
         host_header = self.http_host_header_row.get_text().strip()
         user_agent_to_send: Optional[str] = None
-        # Determine the User-Agent string to send
-        # Priority: 1. UI override, 2. GSettings default, 3. Fallback
+        selected_ua_title_in_http_page_dropdown: Optional[str] = None
 
-        # 1. Check UI override from http_user_agent_row
-        selected_title_obj_ui = self.http_user_agent_row.get_selected_item()
-        ui_selected_ua_title: Optional[str] = None
-        if isinstance(selected_title_obj_ui, Gtk.StringObject):
-            ui_selected_ua_title = selected_title_obj_ui.get_string()
+        selected_item_obj = self.http_user_agent_row.get_selected_item()
+        if isinstance(selected_item_obj, Gtk.StringObject):
+            selected_ua_title_in_http_page_dropdown = selected_item_obj.get_string()
 
-        if ui_selected_ua_title and ui_selected_ua_title != "None": # "None" means use default logic
-            user_agent_to_send = self._ua_title_to_value_map.get(ui_selected_ua_title)
-            logger.debug(f"Using User-Agent from UI selection: '{ui_selected_ua_title}' -> '{user_agent_to_send}'")
-        else:
-            # 2. No UI override or "None" selected, so use GSettings default
-            default_ua_title_pref = self.settings.get_string("default-user-agent-title")
-            logger.debug(f"UI override not used or 'None'. GSettings default-user-agent-title: '{default_ua_title_pref}'")
+        if selected_ua_title_in_http_page_dropdown and selected_ua_title_in_http_page_dropdown != "None":
+            # User selected a specific UA in the HTTP page dropdown
+            ua_found = False
+            # Check in DEFAULT_USER_AGENTS
+            for def_title, def_value in DEFAULT_USER_AGENTS:
+                if def_title == selected_ua_title_in_http_page_dropdown:
+                    user_agent_to_send = def_value
+                    ua_found = True
+                    break
+            # If not in default, check custom (self._ua_title_to_value_map includes custom ones)
+            if not ua_found and selected_ua_title_in_http_page_dropdown in self._ua_title_to_value_map:
+                user_agent_to_send = self._ua_title_to_value_map[selected_ua_title_in_http_page_dropdown]
+                ua_found = True # Should be true if title is in map
 
-            if default_ua_title_pref:
-                # Try to find it in standard UAs
-                for std_title, std_value in STANDARD_USER_AGENTS:
-                    if std_title == default_ua_title_pref:
-                        user_agent_to_send = std_value
-                        break
-                # If not in standard, try custom UAs (already populated in self._ua_title_to_value_map)
-                if user_agent_to_send is None and default_ua_title_pref in self._ua_title_to_value_map:
-                    user_agent_to_send = self._ua_title_to_value_map[default_ua_title_pref]
-
-                if user_agent_to_send:
-                    logger.info(f"Using default User-Agent from GSettings: '{default_ua_title_pref}' -> '{user_agent_to_send}'")
+            if ua_found:
+                logger.info(f"Using User-Agent from HTTP Page UI selection: '{selected_ua_title_in_http_page_dropdown}'")
+            else: # Should not happen if dropdown is populated correctly
+                logger.warning(f"Selected UA title '{selected_ua_title_in_http_page_dropdown}' not found in any list. Falling back.")
+                if DEFAULT_USER_AGENTS:
+                    user_agent_to_send = DEFAULT_USER_AGENTS[0][1]
+                    logger.info(f"Fell back to first default User-Agent: {DEFAULT_USER_AGENTS[0][0]}")
                 else:
-                    logger.warning(f"Default User-Agent title '{default_ua_title_pref}' from GSettings not found. Falling back.")
-
-            # 3. Fallback if GSettings default is not set, not found, or "None" was chosen in UI and GSettings is empty
-            if user_agent_to_send is None:
-                # Sensible fallback: first standard UA or a generic one
-                if STANDARD_USER_AGENTS:
-                    user_agent_to_send = STANDARD_USER_AGENTS[0][1] # Value of the first standard UA
-                    logger.info(f"Fell back to first standard User-Agent: '{STANDARD_USER_AGENTS[0][0]}'")
-                else: # Absolute fallback if STANDARD_USER_AGENTS is somehow empty
                     user_agent_to_send = f"Woes/{APP_ID} (Fallback)"
-                    logger.info(f"Fell back to generic Woes User-Agent: '{user_agent_to_send}'")
+                    logger.info(f"Fell back to generic Woes User-Agent: {user_agent_to_send}")
 
+        else: # "None" selected in HTTP page, or no selection; use GSettings default
+            default_ua_title_from_prefs = self.settings.get_string("default-user-agent-title")
+            logger.info(f"HTTP Page UI set to 'None' or no selection. Using GSettings default: '{default_ua_title_from_prefs}'")
+            if default_ua_title_from_prefs:
+                ua_found_in_prefs = False
+                # Check in DEFAULT_USER_AGENTS
+                for def_title, def_value in DEFAULT_USER_AGENTS:
+                    if def_title == default_ua_title_from_prefs:
+                        user_agent_to_send = def_value
+                        ua_found_in_prefs = True
+                        break
+                # If not in default, check custom (self._ua_title_to_value_map includes custom ones)
+                if not ua_found_in_prefs and default_ua_title_from_prefs in self._ua_title_to_value_map:
+                     # Need to ensure _ua_title_to_value_map is populated with custom UAs correctly
+                    custom_uas_variant = self.settings.get_value("custom-user-agents")
+                    custom_ua_pairs: list[tuple[str, str]] = list(
+                        custom_uas_variant.unpack() if custom_uas_variant and custom_uas_variant.get_type_string() == "a(ss)" else []
+                    )
+                    for cust_title, cust_value in custom_ua_pairs:
+                        if cust_title == default_ua_title_from_prefs:
+                            user_agent_to_send = cust_value
+                            ua_found_in_prefs = True
+                            break
+
+                if ua_found_in_prefs:
+                    logger.info(f"Using default User-Agent from GSettings: '{default_ua_title_from_prefs}'")
+                else:
+                    logger.warning(f"Default User-Agent title '{default_ua_title_from_prefs}' from GSettings not found. Falling back.")
+
+            if user_agent_to_send is None: # Fallback if GSettings default is empty or not found
+                if DEFAULT_USER_AGENTS:
+                    user_agent_to_send = DEFAULT_USER_AGENTS[0][1]
+                    logger.info(f"Fell back to first default User-Agent: {DEFAULT_USER_AGENTS[0][0]}")
+                else:
+                    user_agent_to_send = f"Woes/{APP_ID} (Fallback)"
+                    logger.info(f"Fell back to generic Woes User-Agent: {user_agent_to_send}")
+
+        logger.info(f"Final User-Agent string for request: {user_agent_to_send}")
         custom_dns_server = self.settings.get_string("custom-dns-server")
 
         self._http_task_data_for_thread = {
@@ -899,14 +925,13 @@ class HttpPage(Adw.PreferencesPage):
         display_titles.append(none_title)
         self._ua_title_to_value_map[none_title] = None # Explicitly map "None" to no specific UA string override
 
-        # Populate with STANDARD_USER_AGENTS from preferences.py
-        for title, value in STANDARD_USER_AGENTS:
-            if title not in self._ua_title_to_value_map: # Avoid overwriting "None" if a standard UA is named "None"
+        # Populate with DEFAULT_USER_AGENTS from constants.py
+        for title, value in DEFAULT_USER_AGENTS: # Iterate list of tuples
+            if title not in self._ua_title_to_value_map:
                 display_titles.append(title)
                 self._ua_title_to_value_map[title] = value
-            else:
-                logger.warning(f"Standard User-Agent title '{title}' conflicts with an existing entry (e.g. 'None' or another standard/custom UA). Skipping.")
-
+            else: # Should not happen if titles are unique in DEFAULT_USER_AGENTS
+                logger.warning(f"Default User-Agent title '{title}' conflicts with 'None' or another default UA. Skipping.")
 
         variant = self.settings.get_value("custom-user-agents")
         custom_ua_pairs: list[tuple[str, str]] = list(
@@ -925,23 +950,41 @@ class HttpPage(Adw.PreferencesPage):
         title_to_select = none_title  # Default to "None" (system UA)
 
         # 1. If there's a current selection in the UI, try to maintain it,
-        #    unless it's no longer a valid choice. If current selection is valid, keep it.
+        #    unless it's no longer a valid choice.
         if current_selection_text and current_selection_text in display_titles:
             title_to_select = current_selection_text
-            logger.debug(f"Retaining current UI selection for UA ComboBox: '{title_to_select}'")
-        # 2. If no valid current selection, or if current selection is "None", then apply GSettings default.
-        #    An empty string for `default_ua_title_pref` means "use the 'None' option in UI".
-        #    A non-empty `default_ua_title_pref` refers to a specific UA title.
-        elif default_ua_title_pref and default_ua_title_pref in display_titles:
-            title_to_select = default_ua_title_pref
-            logger.info(f"HTTP Page: Applying User-Agent from GSettings: '{default_ua_title_pref}'.")
-        else: # Fallback if GSettings default is not set, or not found in current list
-            title_to_select = none_title # Default to "None"
-            if default_ua_title_pref: # Log if a GSettings default was specified but not found
-                 logger.warning(f"HTTP Page: GSettings User-Agent title '{default_ua_title_pref}' not found. Using '{none_title}'.")
-            else:
-                 logger.info(f"HTTP Page: No GSettings User-Agent title. Using '{none_title}'.")
 
+        # 2. If `default_ua_title_pref` from GSettings is a non-empty string,
+        #    it means the user has explicitly saved a preference. Try to apply it.
+        #    An empty string `''` for `default_ua_title_pref` means "System Default" (i.e., "None" option).
+        #    The legacy "[System Default]" string is also treated as "System Default".
+        if default_ua_title_pref and default_ua_title_pref != "[System Default]":
+            if default_ua_title_pref in display_titles:
+                title_to_select = default_ua_title_pref
+                logger.info(
+                    f"HTTP Page: Applying preferred default User-Agent from GSettings: '{default_ua_title_pref}'."
+                )
+            else:
+                # The preferred default is not in the current list (e.g., was removed from custom UAs).
+                # Fallback to "None" (system default) in this case.
+                title_to_select = none_title
+                logger.warning(
+                    f"HTTP Page: Preferred default User-Agent title '{default_ua_title_pref}' from GSettings not found in available UAs. Falling back to 'None' (System Default)."
+                )
+        elif not default_ua_title_pref or default_ua_title_pref == "[System Default]":
+            # If GSettings stores empty string or the legacy "[System Default]",
+            # ensure "None" (system default) is selected, unless a valid `current_selection_text`
+            # already superseded this (e.g. user just changed it but model is refreshing).
+            # If current_selection_text was valid and different from "None", it takes precedence.
+            if not (
+                current_selection_text
+                and current_selection_text in display_titles
+                and current_selection_text != none_title
+            ):
+                title_to_select = none_title
+            logger.info(
+                f"HTTP Page: User-Agent set to '{title_to_select}' (System Default or retained current selection) as per GSettings preference ('{default_ua_title_pref}')."
+            )
 
         # Select the determined title
         if title_to_select in display_titles:

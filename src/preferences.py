@@ -18,7 +18,7 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import Adw, Gio, Gtk, GLib, GObject, Gdk
 
 # Local application imports
-from .constants import APP_ID, RESOURCE_PREFIX
+from .constants import APP_ID, RESOURCE_PREFIX, DEFAULT_USER_AGENTS
 
 # Conditional import for dnspython
 try:
@@ -81,7 +81,7 @@ class Preferences(Adw.PreferencesWindow):
     http_special_row_color_button: Gtk.ColorDialogButton = Gtk.Template.Child("http_special_row_color_button")  # type: ignore
 
     # Custom User Agent UI
-    user_agent_combo_row: Adw.ComboRow = Gtk.Template.Child("user_agent_combo_row")  # type: ignore
+    user_agent_combo_row: Adw.ComboRow = Gtk.Template.Child("user_agent_combo_row") # type: ignore
     new_custom_ua_title_entry: Gtk.Entry = Gtk.Template.Child("new_custom_ua_title_entry")  # type: ignore
     new_custom_ua_value_entry: Gtk.Entry = Gtk.Template.Child("new_custom_ua_value_entry")  # type: ignore
     add_custom_ua_button: Gtk.Button = Gtk.Template.Child("add_custom_ua_button")  # type: ignore
@@ -473,9 +473,10 @@ class Preferences(Adw.PreferencesWindow):
             variant.unpack() if variant and variant.get_type_string() == "a(ss)" else []
         )  # type: ignore[union-attr]
 
-        existing_titles = [pair[0] for pair in current_ua_pairs]
-        if title_text in existing_titles:
-            logging.info(f"Custom User-Agent title '{title_text}' already exists.")
+        # Check for duplicate titles (Default UAs + Custom UAs)
+        all_existing_titles = [pair[0] for pair in DEFAULT_USER_AGENTS] + [pair[0] for pair in current_ua_pairs]
+        if title_text in all_existing_titles:
+            logging.info(f"Custom User-Agent title '{title_text}' already exists or conflicts with a default UA.")
             if self.new_custom_ua_title_entry:
                 self.new_custom_ua_title_entry.add_css_class("error")  # type: ignore[union-attr]
             return
@@ -633,7 +634,7 @@ class Preferences(Adw.PreferencesWindow):
         all_ua_titles = []
 
         # Add standard user agents
-        for title, _value in STANDARD_USER_AGENTS:
+        for title, _value in STANDARD_USER_AGENTS:  # <<< THIS IS THE LINE TO CHANGE
             model.append(title)
             all_ua_titles.append(title)
 
@@ -698,3 +699,5 @@ class Preferences(Adw.PreferencesWindow):
             if current_gsettings_val != "":
                 self.settings.set_string("default-user-agent-title", "")
                 logging.debug("Default user agent selection cleared as list is empty.")
+
+[end of src/preferences.py]
