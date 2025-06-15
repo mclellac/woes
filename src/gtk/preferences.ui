@@ -184,6 +184,19 @@
             </child>
           </object>
         </child>
+        <child>
+          <object class="AdwPreferencesGroup" id="default_ua_settings_group">
+            <property name="title" translatable="yes">Default User-Agent</property>
+            <property name="description" translatable="yes">Choose the User-Agent to be active when the application starts.</property>
+            <child>
+              <object class="AdwComboRow" id="default_ua_combo_row">
+                <property name="title" translatable="yes">Startup User-Agent</property>
+                <property name="subtitle" translatable="yes">This User-Agent will be selected by default on the HTTP page.</property>
+                <!-- The model will be populated from code -->
+              </object>
+            </child>
+          </object>
+        </child>
       </object>
     </child>
   </template>

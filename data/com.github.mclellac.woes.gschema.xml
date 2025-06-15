@@ -71,5 +71,10 @@
       <summary>Font for tool output areas</summary>
       <description>Sets the font family and size for text in HTTP, DNS, Nmap, and WebScan result views. Format is "FamilyName [Style] Size", e.g., "Ubuntu Mono 11".</description>
     </key>
+  <key name="default-user-agent-title" type="s">
+    <default>""</default>
+    <summary>Default User-Agent Title</summary>
+    <description>The title of the User-Agent to be used by default on the HTTP page. Empty means system default or no override.</description>
+  </key>
   </schema>
 </schemalist>
