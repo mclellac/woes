@@ -4,7 +4,9 @@ Provides the NmapScanner class and related utilities for performing Nmap scans.
 This module includes functionality for building Nmap commands, handling
 privilege escalation, executing scans, and processing results.
 """
+
 import logging
+
 logger = logging.getLogger(__name__)
 import re
 import platform
@@ -14,12 +16,12 @@ import shutil
 import time
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
-from typing import Any, Dict, List, Optional, TypedDict, Union # Use dict, list
+from typing import Any, Dict, List, Optional, TypedDict, Union  # Use dict, list
 
 try:
     from gi.repository import Gio
 except ImportError:
-    Gio = None # type: ignore
+    Gio = None  # type: ignore
 
 import nmap
 from nmap import PortScannerError
@@ -163,7 +165,6 @@ class NmapScanner:
         self.current_process: Optional[subprocess.Popen[str]] = None
         self.current_cancellable: Optional[Gio.Cancellable] = None
 
-
     def __del__(self) -> None:
         """Ensure the ThreadPoolExecutor is shut down and any running Nmap process is terminated."""
         logger.debug("NmapScanner.__del__ called.")
@@ -181,10 +182,9 @@ class NmapScanner:
                 logger.exception(f"Unexpected error terminating Nmap process during deletion: {e}")
             self.current_process = None
 
-        if hasattr(self, 'executor') and self.executor is not None:
+        if hasattr(self, "executor") and self.executor is not None:
             self.executor.shutdown(wait=True)
         logger.debug("NmapScanner cleanup complete.")
-
 
     def validate_target_input(self, target: str) -> bool:
         """
@@ -234,9 +234,7 @@ class NmapScanner:
         logger.debug(f"All target segments validated successfully for input '{target}'.")
         return True
 
-    def build_nmap_options(
-        self, os_fingerprinting: bool, scan_all_ports: bool, selected_script: str
-    ) -> str:
+    def build_nmap_options(self, os_fingerprinting: bool, scan_all_ports: bool, selected_script: str) -> str:
         """
         Construct Nmap command-line options string based on boolean flags.
 
@@ -268,7 +266,7 @@ class NmapScanner:
         :return: A list of arguments for the Nmap command.
         :rtype: list[str]
         """
-        nmap_args_list: list[str] = ["nmap", "-sS"] # -sS (TCP SYN scan) requires root
+        nmap_args_list: list[str] = ["nmap", "-sS"]  # -sS (TCP SYN scan) requires root
 
         if params.get("os_fingerprinting"):
             nmap_args_list.append("-O")
@@ -276,8 +274,8 @@ class NmapScanner:
             nmap_args_list.append("-sV")
         if params.get("scan_all_ports"):
             nmap_args_list.append("-p-")
-        if params.get("selected_script") and params["selected_script"] != "None": # type: ignore[comparison-overlap]
-            nmap_args_list.append(f"--script={params['selected_script']}") # type: ignore[literal-required]
+        if params.get("selected_script") and params["selected_script"] != "None":  # type: ignore[comparison-overlap]
+            nmap_args_list.append(f"--script={params['selected_script']}")  # type: ignore[literal-required]
         if params.get("no_ping"):
             nmap_args_list.append("-Pn")
 
@@ -292,7 +290,7 @@ class NmapScanner:
             nmap_args_list.append(f"--dns-servers={custom_dns_server.strip()}")
             logger.info("Using custom DNS server for Nmap scan: %s", custom_dns_server.strip())
 
-        nmap_args_list.extend(["-oX", "-", params['target']])
+        nmap_args_list.extend(["-oX", "-", params["target"]])
         logger.debug("Built Nmap arguments: %s", nmap_args_list)
         return nmap_args_list
 
@@ -323,9 +321,12 @@ class NmapScanner:
             final_command_parts = [nmap_path] + nmap_args_list[1:]
         return final_command_parts
 
-
     def _parse_nmap_error_message(
-        self, returncode: int, nmap_xml_output: str, nmap_stderr: str, needs_escalation: bool,
+        self,
+        returncode: int,
+        nmap_xml_output: str,
+        nmap_stderr: str,
+        needs_escalation: bool,
     ) -> str:
         """
         Construct a detailed error message from Nmap's output when a scan fails.
@@ -352,14 +353,25 @@ class NmapScanner:
             error_message += f" Stderr: {nmap_stderr.strip()}"
 
         if needs_escalation:
-            if (platform.system() == "Darwin" and returncode == 1 and not nmap_xml_output.strip() and not nmap_stderr.strip()):
+            if (
+                platform.system() == "Darwin"
+                and returncode == 1
+                and not nmap_xml_output.strip()
+                and not nmap_stderr.strip()
+            ):
                 error_message = "User cancelled the request for administrator privileges."
-            elif (platform.system() == "Linux" and returncode in [1, 126, 127] and not nmap_xml_output.strip() and not nmap_stderr.strip()):
+            elif (
+                platform.system() == "Linux"
+                and returncode in [1, 126, 127]
+                and not nmap_xml_output.strip()
+                and not nmap_stderr.strip()
+            ):
                 error_message = "User cancelled the request for administrator privileges or authentication failed."
         return error_message
 
     def run_nmap_scan(  # pylint: disable=too-many-locals # Justified: manages subprocess lifecycle, I/O, and multiple error states.
-        self, params: NmapScanParameters,
+        self,
+        params: NmapScanParameters,
         cancellable: Optional[Gio.Cancellable] = None,
     ) -> nmap.PortScanner:
         """
@@ -378,10 +390,7 @@ class NmapScanner:
         :return: An :class:`nmap.PortScanner` object containing the scan results.
         :rtype: nmap.PortScanner
         """
-        logger.debug(
-            "run_nmap_scan called with params: %s, Cancellable: %s",
-            params, bool(cancellable)
-        )
+        logger.debug("run_nmap_scan called with params: %s, Cancellable: %s", params, bool(cancellable))
         self.nm = nmap.PortScanner()
         self.current_cancellable = cancellable
 
@@ -390,7 +399,10 @@ class NmapScanner:
 
         final_command_parts: list[str] = self._prepare_final_nmap_command(nmap_args_list, needs_escalation)
 
-        logger.info("Executing Nmap command (first few parts): %s...", " ".join(shlex.quote(part) for part in final_command_parts[:4]))
+        logger.info(
+            "Executing Nmap command (first few parts): %s...",
+            " ".join(shlex.quote(part) for part in final_command_parts[:4]),
+        )
 
         stdout_str: str = ""
         stderr_str: str = ""
@@ -400,11 +412,13 @@ class NmapScanner:
             if self.current_cancellable and self.current_cancellable.is_cancelled():
                 raise ScanCancelledError("Scan cancelled before process start.")
 
-            self.current_process = subprocess.Popen(final_command_parts, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8")
+            self.current_process = subprocess.Popen(
+                final_command_parts, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8"
+            )
 
             while self.current_process.poll() is None:
                 if self.current_cancellable and self.current_cancellable.is_cancelled():
-                    logger.info("Cancellation requested for Nmap scan of target: %s", params['target']) # type: ignore[literal-required]
+                    logger.info("Cancellation requested for Nmap scan of target: %s", params["target"])  # type: ignore[literal-required]
                     self.current_process.terminate()
                     try:
                         self.current_process.wait(timeout=1)
@@ -412,7 +426,7 @@ class NmapScanner:
                         logger.warning("Nmap process did not terminate gracefully, killing.")
                         self.current_process.kill()
                     self.current_process = None
-                    raise ScanCancelledError(f"Nmap scan for {params['target']} was cancelled.") # type: ignore[literal-required]
+                    raise ScanCancelledError(f"Nmap scan for {params['target']} was cancelled.")  # type: ignore[literal-required]
                 time.sleep(0.2)
 
             if self.current_process:
@@ -435,11 +449,13 @@ class NmapScanner:
 
             try:
                 logger.debug("Attempting to parse Nmap XML output (first 500 chars): %s", stdout_str[:500])
-                self.nm.analyse_nmap_xml_scan(nmap_xml_output=stdout_str) # type: ignore[no-untyped-call]
+                self.nm.analyse_nmap_xml_scan(nmap_xml_output=stdout_str)  # type: ignore[no-untyped-call]
             except PortScannerError as e_parse:
                 logger.exception("Failed to parse Nmap XML output:")
                 logger.debug("Problematic Nmap XML Output (full, on parse error):\n%s", stdout_str)
-                raise PortScannerError(f"Failed to parse Nmap XML output: {e_parse}. Stderr was: '{stderr_str.strip()}'") from e_parse
+                raise PortScannerError(
+                    f"Failed to parse Nmap XML output: {e_parse}. Stderr was: '{stderr_str.strip()}'"
+                ) from e_parse
 
             return self.nm
 
@@ -469,7 +485,6 @@ class NmapScanner:
             self.current_process = None
             self.current_cancellable = None
 
-
     def convert_results_to_yaml(self, nm: nmap.PortScanner) -> dict[str, str]:
         """
         Convert Nmap scan results to YAML for each host.
@@ -482,14 +497,14 @@ class NmapScanner:
         """
         logger.debug(f"Converting Nmap results to YAML for {len(nm.all_hosts())} hosts.")
         all_results: dict[str, str] = {}
-        prescan_scripts_data: list[Any] = nm.scaninfo().get('prescript', []) # type: ignore[no-untyped-call]
+        prescan_scripts_data: list[Any] = nm.scaninfo().get("prescript", [])  # type: ignore[no-untyped-call]
         logger.debug("Pre-scan script data: %s", prescan_scripts_data)
         for host in nm.all_hosts():
             logger.debug("Processing results for host: %s", host)
             host_data = nm[host]
             plain_dict = self.to_plain_dict(host_data)
             if prescan_scripts_data:
-                plain_dict["prescript_results"] = prescan_scripts_data # type: ignore
+                plain_dict["prescript_results"] = prescan_scripts_data  # type: ignore
             yaml_output = yaml.safe_dump(plain_dict, default_flow_style=False)
             all_results[host] = yaml_output
         return all_results

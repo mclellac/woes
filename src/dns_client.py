@@ -1,6 +1,7 @@
 """Module for performing DNS lookups."""
+
 import logging
-from typing import Optional, List, Dict, Any # Use list, dict
+from typing import Optional, List, Dict, Any  # Use list, dict
 import ipaddress
 
 import dns.resolver
@@ -17,20 +18,24 @@ class DnsClientError(Exception):
 
     pass
 
+
 class DnsResolutionTimeoutError(DnsClientError):
     """Exception for DNS resolution timeouts."""
 
     pass
+
 
 class DnsNxDomainError(DnsClientError):
     """Exception for NXDOMAIN errors (non-existent domain)."""
 
     pass
 
+
 class DnsNoAnswerError(DnsClientError):
     """Exception for NoAnswer errors (query name exists, but not for specified type)."""
 
     pass
+
 
 class DnsGenericError(DnsClientError):
     """Exception for other DNS resolution errors."""
@@ -72,40 +77,40 @@ class DnsResolverClient:
         :rtype: list[dict[str, Any]]
         """
         try:
-            answer: dns.resolver.Answer = self.resolver.resolve(query_name_str, record_type_str) # type: ignore[no-untyped-call]
+            answer: dns.resolver.Answer = self.resolver.resolve(query_name_str, record_type_str)  # type: ignore[no-untyped-call]
             parsed_records: list[dict[str, Any]] = []
             for rdata in answer:
                 record: dict[str, Any] = {
-                    'name': answer.qname.to_text(), # type: ignore[attr-defined]
-                    'ttl': rdata.ttl if hasattr(rdata, 'ttl') else answer.response.answer[0].ttl, # type: ignore[union-attr]
-                    'class': dns.rdataclass.to_text(rdata.rdclass), # type: ignore[no-untyped-call]
-                    'type': dns.rdatatype.to_text(rdata.rdtype) # type: ignore[no-untyped-call]
+                    "name": answer.qname.to_text(),  # type: ignore[attr-defined]
+                    "ttl": rdata.ttl if hasattr(rdata, "ttl") else answer.response.answer[0].ttl,  # type: ignore[union-attr]
+                    "class": dns.rdataclass.to_text(rdata.rdclass),  # type: ignore[no-untyped-call]
+                    "type": dns.rdatatype.to_text(rdata.rdtype),  # type: ignore[no-untyped-call]
                 }
                 if rdata.rdtype == dns.rdatatype.A:
-                    record['address'] = rdata.address
+                    record["address"] = rdata.address
                 elif rdata.rdtype == dns.rdatatype.AAAA:
-                    record['address'] = rdata.address
+                    record["address"] = rdata.address
                 elif rdata.rdtype == dns.rdatatype.CNAME:
-                    record['target'] = rdata.target.to_text()
+                    record["target"] = rdata.target.to_text()
                 elif rdata.rdtype == dns.rdatatype.MX:
-                    record['preference'] = rdata.preference
-                    record['exchange'] = rdata.exchange.to_text()
-                elif rdata.rdtype == dns.rdatatype.TXT: # type: ignore[attr-defined]
-                    record['texts'] = [s.decode('utf-8', 'replace') for s in rdata.strings] # type: ignore[attr-defined]
-                elif rdata.rdtype == dns.rdatatype.NS: # type: ignore[attr-defined]
-                    record['target'] = rdata.target.to_text() # type: ignore[attr-defined]
-                elif rdata.rdtype == dns.rdatatype.PTR: # type: ignore[attr-defined]
-                    record['target'] = rdata.target.to_text() # type: ignore[attr-defined]
-                elif rdata.rdtype == dns.rdatatype.SOA: # type: ignore[attr-defined]
-                    record['mname'] = rdata.mname.to_text() # type: ignore[attr-defined]
-                    record['rname'] = rdata.rname.to_text() # type: ignore[attr-defined]
-                    record['serial'] = rdata.serial # type: ignore[attr-defined]
-                    record['refresh'] = rdata.refresh # type: ignore[attr-defined]
-                    record['retry'] = rdata.retry # type: ignore[attr-defined]
-                    record['expire'] = rdata.expire # type: ignore[attr-defined]
-                    record['minimum'] = rdata.minimum # type: ignore[attr-defined]
+                    record["preference"] = rdata.preference
+                    record["exchange"] = rdata.exchange.to_text()
+                elif rdata.rdtype == dns.rdatatype.TXT:  # type: ignore[attr-defined]
+                    record["texts"] = [s.decode("utf-8", "replace") for s in rdata.strings]  # type: ignore[attr-defined]
+                elif rdata.rdtype == dns.rdatatype.NS:  # type: ignore[attr-defined]
+                    record["target"] = rdata.target.to_text()  # type: ignore[attr-defined]
+                elif rdata.rdtype == dns.rdatatype.PTR:  # type: ignore[attr-defined]
+                    record["target"] = rdata.target.to_text()  # type: ignore[attr-defined]
+                elif rdata.rdtype == dns.rdatatype.SOA:  # type: ignore[attr-defined]
+                    record["mname"] = rdata.mname.to_text()  # type: ignore[attr-defined]
+                    record["rname"] = rdata.rname.to_text()  # type: ignore[attr-defined]
+                    record["serial"] = rdata.serial  # type: ignore[attr-defined]
+                    record["refresh"] = rdata.refresh  # type: ignore[attr-defined]
+                    record["retry"] = rdata.retry  # type: ignore[attr-defined]
+                    record["expire"] = rdata.expire  # type: ignore[attr-defined]
+                    record["minimum"] = rdata.minimum  # type: ignore[attr-defined]
                 else:
-                    record['data'] = rdata.to_text() # type: ignore[no-untyped-call]
+                    record["data"] = rdata.to_text()  # type: ignore[no-untyped-call]
                 parsed_records.append(record)
             return parsed_records
         except dns.resolver.NXDOMAIN as e:
@@ -113,7 +118,9 @@ class DnsResolverClient:
             raise DnsNxDomainError(f"Domain not found: {query_name_str}") from e
         except dns.resolver.NoAnswer as e:
             logger.info("DnsResolverClient: NoAnswer for %s (%s): %s", query_name_str, record_type_str, e)
-            raise DnsNoAnswerError(f"No {record_type_str} records found for {query_name_str}, though the name exists.") from e
+            raise DnsNoAnswerError(
+                f"No {record_type_str} records found for {query_name_str}, though the name exists."
+            ) from e
         except dns.resolver.Timeout as e:
             logger.warning("DnsResolverClient: Timeout for %s (%s): %s", query_name_str, record_type_str, e)
             raise DnsResolutionTimeoutError(f"DNS query timed out for {query_name_str}") from e
@@ -145,24 +152,44 @@ class DnsResolverClient:
             try:
                 is_ip = False
                 try:
-                    ipaddress.ip_address(domain_or_ip) # Use a proper IP validation library
+                    ipaddress.ip_address(domain_or_ip)  # Use a proper IP validation library
                     is_ip = True
                 except ValueError:
                     is_ip = False
 
                 if is_ip:
                     query_target = dns.reversename.from_address(domain_or_ip)
-                    logger.debug("DnsResolverClient: Converted IP %s to reverse name %s for PTR lookup", domain_or_ip, query_target)
+                    logger.debug(
+                        "DnsResolverClient: Converted IP %s to reverse name %s for PTR lookup",
+                        domain_or_ip,
+                        query_target,
+                    )
                 # If it's not an IP, and PTR is requested, it will likely fail or return empty,
                 # which is the correct behavior for a non-IP PTR query.
             except dns.exception.SyntaxError as e:
-                 logger.warning("DnsResolverClient: Syntax error converting '%s' for PTR query: %s. Proceeding with original target.", domain_or_ip, e)
-                 # Proceed with domain_or_ip as query_target, which might be intentional for non-IP PTRs
+                logger.warning(
+                    "DnsResolverClient: Syntax error converting '%s' for PTR query: %s. Proceeding with original target.",
+                    domain_or_ip,
+                    e,
+                )
+                # Proceed with domain_or_ip as query_target, which might be intentional for non-IP PTRs
             except TypeError as e_type:
-                 logger.error("DnsResolverClient: Type error during IP to reverse name conversion for PTR query on '%s': %s. Proceeding with original target.", domain_or_ip, e_type)
+                logger.error(
+                    "DnsResolverClient: Type error during IP to reverse name conversion for PTR query on '%s': %s. Proceeding with original target.",
+                    domain_or_ip,
+                    e_type,
+                )
             except ValueError as e_value:
-                 logger.error("DnsResolverClient: Value error during IP to reverse name conversion for PTR query on '%s': %s. Proceeding with original target.", domain_or_ip, e_value)
+                logger.error(
+                    "DnsResolverClient: Value error during IP to reverse name conversion for PTR query on '%s': %s. Proceeding with original target.",
+                    domain_or_ip,
+                    e_value,
+                )
             except Exception as e:
-                 logger.error("DnsResolverClient: Unexpected error converting '%s' for PTR query: %s. Proceeding with original target.", domain_or_ip, e)
+                logger.error(
+                    "DnsResolverClient: Unexpected error converting '%s' for PTR query: %s. Proceeding with original target.",
+                    domain_or_ip,
+                    e,
+                )
 
         return self._lookup_record_internal(query_target, record_type.upper())

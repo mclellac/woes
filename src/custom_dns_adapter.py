@@ -1,4 +1,5 @@
-"""Custom HTTPAdapter for 'requests' with custom DNS resolution and SNI handling.
+"""
+Custom HTTPAdapter for 'requests' with custom DNS resolution and SNI handling.
 
 This module provides a custom :class:`requests.adapters.HTTPAdapter` that allows for specifying a DNS server
 for hostname resolution and handles Server Name Indication (SNI) for HTTPS connections.
@@ -7,10 +8,10 @@ for hostname resolution and handles Server Name Indication (SNI) for HTTPS conne
 import logging
 import socket
 import ssl
-from typing import Optional, Tuple, List, Dict, Any # Use list, dict
+from typing import Optional, Tuple, Any  # Use list, dict
 
 import requests
-import requests.utils # For urlparse, urlunparse
+import requests.utils  # For urlparse, urlunparse
 from requests.adapters import HTTPAdapter
 
 try:
@@ -18,7 +19,9 @@ try:
     import dns.exception
 except ImportError:
     dns = None
-    logging.getLogger(__name__).warning("dnspython library not found. Custom DNS functionality will be disabled in CustomDNSAdapter.")
+    logging.getLogger(__name__).warning(
+        "dnspython library not found. Custom DNS functionality will be disabled in CustomDNSAdapter."
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +44,9 @@ class CustomDNSAdapter(HTTPAdapter):
     If custom DNS is not used or resolution fails, it behaves like a standard :class:`requests.adapters.HTTPAdapter`.
     """
 
-    def __init__(self, *args: Any, custom_dns_server: Optional[str] = None, default_sni: Optional[str] = None, **kwargs: Any):
+    def __init__(
+        self, *args: Any, custom_dns_server: Optional[str] = None, default_sni: Optional[str] = None, **kwargs: Any
+    ):
         """
         Initialize the CustomDNSAdapter.
 
@@ -76,11 +81,17 @@ class CustomDNSAdapter(HTTPAdapter):
         :rtype: Optional[str]
         """
         if not self.custom_dns_server or not dns:
-            logger.debug("CustomDNSAdapter: Skipping custom DNS (server: %s, dnspython available: %s) for %s.",
-                         self.custom_dns_server, bool(dns), hostname)
+            logger.debug(
+                "CustomDNSAdapter: Skipping custom DNS (server: %s, dnspython available: %s) for %s.",
+                self.custom_dns_server,
+                bool(dns),
+                hostname,
+            )
             return None
 
-        logger.info("CustomDNSAdapter: Attempting to resolve '%s' using DNS server %s", hostname, self.custom_dns_server)
+        logger.info(
+            "CustomDNSAdapter: Attempting to resolve '%s' using DNS server %s", hostname, self.custom_dns_server
+        )
         resolver = dns.resolver.Resolver()
         resolver.nameservers = [self.custom_dns_server]
         resolver.timeout = 2.0
@@ -96,21 +107,42 @@ class CustomDNSAdapter(HTTPAdapter):
                     if ips:
                         break
                 except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
-                    logger.debug("CustomDNSAdapter: No %s records found for %s via %s.", rdtype, hostname, self.custom_dns_server)
+                    logger.debug(
+                        "CustomDNSAdapter: No %s records found for %s via %s.", rdtype, hostname, self.custom_dns_server
+                    )
                 except dns.exception.DNSException as e:
-                    logger.warning("CustomDNSAdapter: DNS %s query for %s via %s failed: %s",
-                                   rdtype, hostname, self.custom_dns_server, e)
+                    logger.warning(
+                        "CustomDNSAdapter: DNS %s query for %s via %s failed: %s",
+                        rdtype,
+                        hostname,
+                        self.custom_dns_server,
+                        e,
+                    )
 
             if ips:
                 selected_ip = ips[0]
-                logger.info("CustomDNSAdapter: Resolved '%s' to %s (using %s).", hostname, selected_ip, self.custom_dns_server)
+                logger.info(
+                    "CustomDNSAdapter: Resolved '%s' to %s (using %s).", hostname, selected_ip, self.custom_dns_server
+                )
                 return selected_ip
-            logger.warning("CustomDNSAdapter: No AAAA or A records found for %s via %s.", hostname, self.custom_dns_server)
+            logger.warning(
+                "CustomDNSAdapter: No AAAA or A records found for %s via %s.", hostname, self.custom_dns_server
+            )
         except Exception as e:
-            logger.error("CustomDNSAdapter: Unexpected error during custom DNS resolution for %s: %s", hostname, e, exc_info=True)
+            logger.error(
+                "CustomDNSAdapter: Unexpected error during custom DNS resolution for %s: %s", hostname, e, exc_info=True
+            )
         return None
 
-    def send(self, request: requests.models.PreparedRequest, stream: bool = False, timeout: Optional[float | Tuple[float, float]] = None, verify: bool = True, cert: Optional[Tuple[str, str] | str] = None, proxies: Optional[dict[str,str]]=None) -> requests.Response: # type: ignore[override]
+    def send(
+        self,
+        request: requests.models.PreparedRequest,
+        stream: bool = False,
+        timeout: Optional[float | Tuple[float, float]] = None,
+        verify: bool = True,
+        cert: Optional[Tuple[str, str] | str] = None,
+        proxies: Optional[dict[str, str]] = None,
+    ) -> requests.Response:  # type: ignore[override]
         """
         Send a prepared request.
 
@@ -139,7 +171,7 @@ class CustomDNSAdapter(HTTPAdapter):
         :return: The :class:`requests.Response` object.
         :rtype: requests.Response
         """
-        parsed_url = requests.utils.urlparse(request.url) # type: ignore[attr-defined]
+        parsed_url = requests.utils.urlparse(request.url)  # type: ignore[attr-defined]
         original_hostname = parsed_url.hostname
         self._resolved_sni = None
 
@@ -160,12 +192,16 @@ class CustomDNSAdapter(HTTPAdapter):
             if resolved_ip:
                 self._resolved_sni = original_hostname
                 self.resolved_ip_cache[original_hostname] = resolved_ip
-                logger.info("CustomDNSAdapter.send: Original request URL %s will be used. Connection will target resolved IP %s (SNI will be: %s)", # type: ignore[str-format]
-                             request.url, resolved_ip, self._resolved_sni)
+                logger.info(
+                    "CustomDNSAdapter.send: Original request URL %s will be used. Connection will target resolved IP %s (SNI will be: %s)",  # type: ignore[str-format]
+                    request.url,
+                    resolved_ip,
+                    self._resolved_sni,
+                )
 
-        return super().send(request, stream, timeout, verify, cert, proxies) # type: ignore[return-value]
+        return super().send(request, stream, timeout, verify, cert, proxies)  # type: ignore[return-value]
 
-    def get_connection(self, url: str, proxies: Optional[dict[str, str]] = None) -> Any: # type: ignore[override]
+    def get_connection(self, url: str, proxies: Optional[dict[str, str]] = None) -> Any:  # type: ignore[override]
         """
         Override :meth:`requests.adapters.HTTPAdapter.get_connection` for custom IP resolution.
 
@@ -176,7 +212,7 @@ class CustomDNSAdapter(HTTPAdapter):
         :return: The connection object from `urllib3`.
         :rtype: urllib3.connectionpool.HTTPConnectionPool or urllib3.connectionpool.HTTPSConnectionPool
         """
-        parsed_url = requests.utils.urlparse(url) # type: ignore[attr-defined]
+        parsed_url = requests.utils.urlparse(url)  # type: ignore[attr-defined]
         original_hostname = parsed_url.hostname
 
         resolved_ip_for_connection: Optional[str] = None
@@ -184,10 +220,14 @@ class CustomDNSAdapter(HTTPAdapter):
             resolved_ip_for_connection = self.resolved_ip_cache[original_hostname]
 
         if resolved_ip_for_connection:
-            logger.info("CustomDNSAdapter.get_connection: Using resolved IP %s for connection to original host %s (URL: %s)", # type: ignore[str-format]
-                         resolved_ip_for_connection, original_hostname, url)
+            logger.info(
+                "CustomDNSAdapter.get_connection: Using resolved IP %s for connection to original host %s (URL: %s)",  # type: ignore[str-format]
+                resolved_ip_for_connection,
+                original_hostname,
+                url,
+            )
 
-            conn_url_parts = list(parsed_url[:]) # Make a mutable copy
+            conn_url_parts = list(parsed_url[:])  # Make a mutable copy
             new_netloc = resolved_ip_for_connection
             if parsed_url.port:
                 new_netloc += f":{parsed_url.port}"
@@ -196,16 +236,22 @@ class CustomDNSAdapter(HTTPAdapter):
             if not conn_url_parts[0]:
                 conn_url_parts[0] = "https" if parsed_url.scheme == "https" else "http"
 
-            connection_target_url = requests.utils.urlunparse(conn_url_parts) # type: ignore[attr-defined]
+            connection_target_url = requests.utils.urlunparse(conn_url_parts)  # type: ignore[attr-defined]
 
-            logger.debug("CustomDNSAdapter.get_connection: PoolManager will connect to IP-based URL: %s (SNI via _resolved_sni: %s)", # type: ignore[str-format]
-                         connection_target_url, self._resolved_sni)
-            return self.poolmanager.connection_from_url(connection_target_url) # type: ignore[no-any-return]
+            logger.debug(
+                "CustomDNSAdapter.get_connection: PoolManager will connect to IP-based URL: %s (SNI via _resolved_sni: %s)",  # type: ignore[str-format]
+                connection_target_url,
+                self._resolved_sni,
+            )
+            return self.poolmanager.connection_from_url(connection_target_url)  # type: ignore[no-any-return]
         else:
-            logger.debug("CustomDNSAdapter.get_connection: Proceeding with default connection for URL: %s. Cache miss or custom DNS not used for this host.", url)
-            return super().get_connection(url, proxies=proxies) # type: ignore[no-any-return]
+            logger.debug(
+                "CustomDNSAdapter.get_connection: Proceeding with default connection for URL: %s. Cache miss or custom DNS not used for this host.",
+                url,
+            )
+            return super().get_connection(url, proxies=proxies)  # type: ignore[no-any-return]
 
-    def init_poolmanager(self, connections: int, maxsize: int, block: bool = False, **pool_kwargs: Any) -> None: # type: ignore[override]
+    def init_poolmanager(self, connections: int, maxsize: int, block: bool = False, **pool_kwargs: Any) -> None:  # type: ignore[override]
         """
         Initialize the `urllib3.PoolManager` with SNI and certificate validation settings.
 
@@ -221,7 +267,10 @@ class CustomDNSAdapter(HTTPAdapter):
         sni_hostname_for_pool: Optional[str] = None
         if self._resolved_sni:
             sni_hostname_for_pool = self._resolved_sni
-            logger.info("CustomDNSAdapter.init_poolmanager: Using SNI/assert_hostname from resolved hostname: %s", sni_hostname_for_pool)
+            logger.info(
+                "CustomDNSAdapter.init_poolmanager: Using SNI/assert_hostname from resolved hostname: %s",
+                sni_hostname_for_pool,
+            )
         elif self.default_sni_for_ip_url:
             sni_hostname_for_pool = self.default_sni_for_ip_url
             logger.info("CustomDNSAdapter.init_poolmanager: Using default SNI for IP URL: %s", sni_hostname_for_pool)
@@ -230,8 +279,12 @@ class CustomDNSAdapter(HTTPAdapter):
             pool_kwargs["assert_hostname"] = sni_hostname_for_pool
             pool_kwargs["server_hostname"] = sni_hostname_for_pool
             pool_kwargs["cert_reqs"] = ssl.CERT_REQUIRED
-            logger.debug("CustomDNSAdapter.init_poolmanager: Pool configured with SNI/assert_hostname: %s", sni_hostname_for_pool)
+            logger.debug(
+                "CustomDNSAdapter.init_poolmanager: Pool configured with SNI/assert_hostname: %s", sni_hostname_for_pool
+            )
         else:
-            logger.debug("CustomDNSAdapter.init_poolmanager: No specific SNI/assert_hostname configuration for this pool.")
+            logger.debug(
+                "CustomDNSAdapter.init_poolmanager: No specific SNI/assert_hostname configuration for this pool."
+            )
 
         super().init_poolmanager(connections, maxsize, block=block, **pool_kwargs)

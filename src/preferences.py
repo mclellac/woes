@@ -6,12 +6,14 @@ preferences such as font scaling, color themes, source view style schemes,
 custom DNS server settings, and HTTP output colors. It interacts with
 GSettings to persist these preferences.
 """
+
 import logging
 import re
 from typing import Optional
 
 import gi
-gi.require_version("Adw", "1") # Must be called before importing from gi.repository
+
+gi.require_version("Adw", "1")  # Must be called before importing from gi.repository
 gi.require_version("Gtk", "4.0")
 from gi.repository import Adw, Gio, Gtk, GLib, GObject, Gdk
 
@@ -65,26 +67,25 @@ class Preferences(Adw.PreferencesWindow):
 
     __gtype_name__ = "Preferences"
 
-    font_scale_combo_row: Adw.ComboRow = Gtk.Template.Child("font_scale_combo_row") # type: ignore
-    theme_combo_row: Adw.ComboRow = Gtk.Template.Child("theme_combo_row") # type: ignore
-    dns_server_entryrow: Adw.EntryRow = Gtk.Template.Child("dns_server_entryrow") # type: ignore
-    prefs_dns_apply_button: Gtk.Button = Gtk.Template.Child("prefs_dns_apply_button") # type: ignore
-    preferences_error_banner: Adw.Banner = Gtk.Template.Child("preferences_error_banner") # type: ignore
+    font_scale_combo_row: Adw.ComboRow = Gtk.Template.Child("font_scale_combo_row")  # type: ignore
+    theme_combo_row: Adw.ComboRow = Gtk.Template.Child("theme_combo_row")  # type: ignore
+    dns_server_entryrow: Adw.EntryRow = Gtk.Template.Child("dns_server_entryrow")  # type: ignore
+    prefs_dns_apply_button: Gtk.Button = Gtk.Template.Child("prefs_dns_apply_button")  # type: ignore
+    preferences_error_banner: Adw.Banner = Gtk.Template.Child("preferences_error_banner")  # type: ignore
 
     # HTTP Output Color Rows
-    http_header_key_color_button: Gtk.ColorDialogButton = Gtk.Template.Child("http_header_key_color_button") # type: ignore
-    http_header_value_color_button: Gtk.ColorDialogButton = Gtk.Template.Child("http_header_value_color_button") # type: ignore
-    http_special_row_color_button: Gtk.ColorDialogButton = Gtk.Template.Child("http_special_row_color_button") # type: ignore
+    http_header_key_color_button: Gtk.ColorDialogButton = Gtk.Template.Child("http_header_key_color_button")  # type: ignore
+    http_header_value_color_button: Gtk.ColorDialogButton = Gtk.Template.Child("http_header_value_color_button")  # type: ignore
+    http_special_row_color_button: Gtk.ColorDialogButton = Gtk.Template.Child("http_special_row_color_button")  # type: ignore
 
     # Custom User Agent UI
-    new_custom_ua_title_entry: Gtk.Entry = Gtk.Template.Child("new_custom_ua_title_entry") # type: ignore
-    new_custom_ua_value_entry: Gtk.Entry = Gtk.Template.Child("new_custom_ua_value_entry") # type: ignore
-    add_custom_ua_button: Gtk.Button = Gtk.Template.Child("add_custom_ua_button") # type: ignore
-    custom_ua_list_container: Gtk.Box = Gtk.Template.Child("custom_ua_list_container") # type: ignore
+    new_custom_ua_title_entry: Gtk.Entry = Gtk.Template.Child("new_custom_ua_title_entry")  # type: ignore
+    new_custom_ua_value_entry: Gtk.Entry = Gtk.Template.Child("new_custom_ua_value_entry")  # type: ignore
+    add_custom_ua_button: Gtk.Button = Gtk.Template.Child("add_custom_ua_button")  # type: ignore
+    custom_ua_list_container: Gtk.Box = Gtk.Template.Child("custom_ua_list_container")  # type: ignore
 
     # Global Font Preference UI Element
-    global_output_font_button: Gtk.FontButton = Gtk.Template.Child("global_output_font_button") # type: ignore
-
+    global_output_font_button: Gtk.FontButton = Gtk.Template.Child("global_output_font_button")  # type: ignore
 
     def __init__(self, main_window: Optional[Gtk.Window] = None):
         """
@@ -105,32 +106,41 @@ class Preferences(Adw.PreferencesWindow):
                 if not dnspython_available:
                     self.dns_server_entryrow.set_sensitive(False)
                     self.dns_server_entryrow.set_subtitle("Requires 'dnspython' library to be installed.")
-                    self.dns_server_entryrow.set_tooltip_text("Custom DNS functionality is disabled because the 'dnspython' library is not installed.")
+                    self.dns_server_entryrow.set_tooltip_text(
+                        "Custom DNS functionality is disabled because the 'dnspython' library is not installed."
+                    )
                     if self.prefs_dns_apply_button:
                         self.prefs_dns_apply_button.set_sensitive(False)
                 else:
                     self.dns_server_entryrow.set_sensitive(True)
                     self.dns_server_entryrow.set_subtitle("")
-                    self.dns_server_entryrow.set_tooltip_text("Enter your custom DNS server IP address. Leave empty to use system default.")
+                    self.dns_server_entryrow.set_tooltip_text(
+                        "Enter your custom DNS server IP address. Leave empty to use system default."
+                    )
                     if self.prefs_dns_apply_button:
                         self.prefs_dns_apply_button.set_sensitive(True)
                 logging.info(
                     "'dnspython' status: %s. Custom DNS server entry in preferences updated.",
-                    "found" if dnspython_available else "not found"
+                    "found" if dnspython_available else "not found",
                 )
             else:
-                logging.warning("Adw.EntryRow 'dns_server_entryrow' does not have 'set_subtitle' method. Using tooltip fallback.")
+                logging.warning(
+                    "Adw.EntryRow 'dns_server_entryrow' does not have 'set_subtitle' method. Using tooltip fallback."
+                )
                 if not dnspython_available:
                     self.dns_server_entryrow.set_sensitive(False)
-                    self.dns_server_entryrow.set_tooltip_text("Custom DNS disabled: 'dnspython' library not found. Install it for this feature.")
+                    self.dns_server_entryrow.set_tooltip_text(
+                        "Custom DNS disabled: 'dnspython' library not found. Install it for this feature."
+                    )
                     if self.prefs_dns_apply_button:
                         self.prefs_dns_apply_button.set_sensitive(False)
                 else:
                     self.dns_server_entryrow.set_sensitive(True)
-                    self.dns_server_entryrow.set_tooltip_text("Enter custom DNS server IP. Leave empty for system default.")
+                    self.dns_server_entryrow.set_tooltip_text(
+                        "Enter custom DNS server IP. Leave empty for system default."
+                    )
         else:
             logging.error("'dns_server_entryrow' template child not found during __init__.")
-
 
     def load_ui(self):
         """
@@ -147,15 +157,21 @@ class Preferences(Adw.PreferencesWindow):
         if self.http_header_key_color_button:
             dialog_hk = Gtk.ColorDialog(title="Select Header Key Colour", modal=True, with_alpha=True)
             self.http_header_key_color_button.set_dialog(dialog_hk)
-            self.http_header_key_color_button.connect("notify::rgba", self.on_http_color_changed, "http-output-header-key-color")
+            self.http_header_key_color_button.connect(
+                "notify::rgba", self.on_http_color_changed, "http-output-header-key-color"
+            )
         if self.http_header_value_color_button:
             dialog_hv = Gtk.ColorDialog(title="Select Header Value Colour", modal=True, with_alpha=True)
             self.http_header_value_color_button.set_dialog(dialog_hv)
-            self.http_header_value_color_button.connect("notify::rgba", self.on_http_color_changed, "http-output-header-value-color")
+            self.http_header_value_color_button.connect(
+                "notify::rgba", self.on_http_color_changed, "http-output-header-value-color"
+            )
         if self.http_special_row_color_button:
             dialog_sr = Gtk.ColorDialog(title="Select Special Row Colour", modal=True, with_alpha=True)
             self.http_special_row_color_button.set_dialog(dialog_sr)
-            self.http_special_row_color_button.connect("notify::rgba", self.on_http_color_changed, "http-output-special-row-color")
+            self.http_special_row_color_button.connect(
+                "notify::rgba", self.on_http_color_changed, "http-output-special-row-color"
+            )
 
         # Custom User Agent Signals
         if self.add_custom_ua_button:
@@ -171,7 +187,6 @@ class Preferences(Adw.PreferencesWindow):
         if self.global_output_font_button:
             self.global_output_font_button.connect("font-set", self.on_global_font_setting_changed)
 
-
     def on_global_font_setting_changed(self, font_button: Gtk.FontButton):
         """
         Handle the 'font-set' signal from the global output :class:`Gtk.FontButton`.
@@ -183,7 +198,7 @@ class Preferences(Adw.PreferencesWindow):
         :param font_button: The :class:`Gtk.FontButton` that emitted the signal.
         :type font_button: Gtk.FontButton
         """
-        font_desc_str = font_button.get_font() # Gets "Family [Style] Size"
+        font_desc_str = font_button.get_font()  # Gets "Family [Style] Size"
         if font_desc_str:
             self.settings.set_string("output-font", font_desc_str)
             logging.debug(f"Global output font set to: {font_desc_str}")
@@ -241,9 +256,7 @@ class Preferences(Adw.PreferencesWindow):
 
             self.preferences_error_banner.set_title(error_message)
             self.preferences_error_banner.set_revealed(True)
-            GLib.timeout_add_seconds(
-                4, self.hide_banner_and_clear_error_state, self.dns_server_entryrow
-            )
+            GLib.timeout_add_seconds(4, self.hide_banner_and_clear_error_state, self.dns_server_entryrow)
 
     def hide_banner_and_clear_error_state(self, entry_row_widget: Optional[Adw.EntryRow] = None) -> bool:
         """
@@ -372,9 +385,13 @@ class Preferences(Adw.PreferencesWindow):
                 if color.parse(color_string):
                     button.set_rgba(color)
                 else:
-                    logging.warning(f"Gdk.RGBA.parse returned false for color string '{color_string}' for GSettings key '{gsettings_key}'.")
+                    logging.warning(
+                        f"Gdk.RGBA.parse returned false for color string '{color_string}' for GSettings key '{gsettings_key}'."
+                    )
             except GLib.Error as e:
-                logging.warning(f"Failed to parse color string '{color_string}' for GSettings key '{gsettings_key}': {e}.")
+                logging.warning(
+                    f"Failed to parse color string '{color_string}' for GSettings key '{gsettings_key}': {e}."
+                )
 
     def _render_custom_ua_list(self):
         """
@@ -389,22 +406,24 @@ class Preferences(Adw.PreferencesWindow):
 
         child = self.custom_ua_list_container.get_first_child()
         while child:
-            self.custom_ua_list_container.remove(child) # type: ignore[union-attr]
-            child = self.custom_ua_list_container.get_first_child() # type: ignore[union-attr]
+            self.custom_ua_list_container.remove(child)  # type: ignore[union-attr]
+            child = self.custom_ua_list_container.get_first_child()  # type: ignore[union-attr]
 
         variant = self.settings.get_value("custom-user-agents")
-        custom_ua_pairs: list[tuple[str,str]] = list(variant.unpack() if variant and variant.get_type_string() == 'a(ss)' else []) # type: ignore[union-attr]
+        custom_ua_pairs: list[tuple[str, str]] = list(
+            variant.unpack() if variant and variant.get_type_string() == "a(ss)" else []
+        )  # type: ignore[union-attr]
 
         for title, value in custom_ua_pairs:
             row = Adw.ActionRow(title=title, subtitle=value)
-            row.set_activatable(False) # type: ignore[no-untyped-call]
+            row.set_activatable(False)  # type: ignore[no-untyped-call]
             remove_button = Gtk.Button(icon_name="edit-delete-symbolic", valign=Gtk.Align.CENTER)
-            remove_button.add_css_class("flat") # type: ignore[no-untyped-call]
-            remove_button.set_tooltip_text(f"Remove '{title}'") # type: ignore[no-untyped-call]
+            remove_button.add_css_class("flat")  # type: ignore[no-untyped-call]
+            remove_button.set_tooltip_text(f"Remove '{title}'")  # type: ignore[no-untyped-call]
             remove_button.connect("clicked", lambda _btn, t=title: self._on_remove_custom_ua_clicked(t))
-            row.add_suffix(remove_button) # type: ignore[no-untyped-call]
-            row.set_activatable_widget(remove_button) # type: ignore[no-untyped-call]
-            self.custom_ua_list_container.append(row) # type: ignore[union-attr]
+            row.add_suffix(remove_button)  # type: ignore[no-untyped-call]
+            row.set_activatable_widget(remove_button)  # type: ignore[no-untyped-call]
+            self.custom_ua_list_container.append(row)  # type: ignore[union-attr]
 
     def _on_add_custom_ua_clicked(self, _widget: Gtk.Widget) -> None:
         """
@@ -427,31 +446,33 @@ class Preferences(Adw.PreferencesWindow):
         if not title_text or not value_text:
             logging.info("Attempted to add custom User-Agent with empty title or value.")
             if not title_text and self.new_custom_ua_title_entry:
-                self.new_custom_ua_title_entry.add_css_class("error") # type: ignore[union-attr]
+                self.new_custom_ua_title_entry.add_css_class("error")  # type: ignore[union-attr]
             elif self.new_custom_ua_title_entry:
-                 self.new_custom_ua_title_entry.remove_css_class("error") # type: ignore[union-attr]
+                self.new_custom_ua_title_entry.remove_css_class("error")  # type: ignore[union-attr]
             if not value_text and self.new_custom_ua_value_entry:
-                self.new_custom_ua_value_entry.add_css_class("error") # type: ignore[union-attr]
+                self.new_custom_ua_value_entry.add_css_class("error")  # type: ignore[union-attr]
             elif self.new_custom_ua_value_entry:
-                self.new_custom_ua_value_entry.remove_css_class("error") # type: ignore[union-attr]
+                self.new_custom_ua_value_entry.remove_css_class("error")  # type: ignore[union-attr]
             return
 
         if self.new_custom_ua_title_entry:
-            self.new_custom_ua_title_entry.remove_css_class("error") # type: ignore[union-attr]
+            self.new_custom_ua_title_entry.remove_css_class("error")  # type: ignore[union-attr]
         if self.new_custom_ua_value_entry:
-            self.new_custom_ua_value_entry.remove_css_class("error") # type: ignore[union-attr]
+            self.new_custom_ua_value_entry.remove_css_class("error")  # type: ignore[union-attr]
 
         variant = self.settings.get_value("custom-user-agents")
-        current_ua_pairs: list[tuple[str,str]] = list(variant.unpack() if variant and variant.get_type_string() == 'a(ss)' else []) # type: ignore[union-attr]
+        current_ua_pairs: list[tuple[str, str]] = list(
+            variant.unpack() if variant and variant.get_type_string() == "a(ss)" else []
+        )  # type: ignore[union-attr]
 
         existing_titles = [pair[0] for pair in current_ua_pairs]
         if title_text in existing_titles:
             logging.info(f"Custom User-Agent title '{title_text}' already exists.")
             if self.new_custom_ua_title_entry:
-                 self.new_custom_ua_title_entry.add_css_class("error") # type: ignore[union-attr]
+                self.new_custom_ua_title_entry.add_css_class("error")  # type: ignore[union-attr]
             return
         elif self.new_custom_ua_title_entry:
-            self.new_custom_ua_title_entry.remove_css_class("error") # type: ignore[union-attr]
+            self.new_custom_ua_title_entry.remove_css_class("error")  # type: ignore[union-attr]
 
         current_ua_pairs.append((title_text, value_text))
         new_variant = GLib.Variant("a(ss)", current_ua_pairs)
@@ -459,9 +480,9 @@ class Preferences(Adw.PreferencesWindow):
         if self.settings.set_value("custom-user-agents", new_variant):
             logging.info(f"Added custom User-Agent: '{title_text}' -> '{value_text}'")
             if self.new_custom_ua_title_entry:
-                self.new_custom_ua_title_entry.set_text("") # type: ignore[union-attr]
+                self.new_custom_ua_title_entry.set_text("")  # type: ignore[union-attr]
             if self.new_custom_ua_value_entry:
-                self.new_custom_ua_value_entry.set_text("") # type: ignore[union-attr]
+                self.new_custom_ua_value_entry.set_text("")  # type: ignore[union-attr]
             self._render_custom_ua_list()
         else:
             logging.error(f"Failed to save custom User-Agent list to GSettings with new UA: {title_text}")
@@ -477,7 +498,9 @@ class Preferences(Adw.PreferencesWindow):
         :type title_to_remove: str
         """
         variant = self.settings.get_value("custom-user-agents")
-        current_ua_pairs: list[tuple[str,str]] = list(variant.unpack() if variant and variant.get_type_string() == 'a(ss)' else []) # type: ignore[union-attr]
+        current_ua_pairs: list[tuple[str, str]] = list(
+            variant.unpack() if variant and variant.get_type_string() == "a(ss)" else []
+        )  # type: ignore[union-attr]
 
         original_length = len(current_ua_pairs)
         updated_ua_pairs = [pair for pair in current_ua_pairs if pair[0] != title_to_remove]
@@ -492,9 +515,7 @@ class Preferences(Adw.PreferencesWindow):
         else:
             logging.warning(f"Attempted to remove non-existent User-Agent with title: {title_to_remove}")
 
-    def _select_combo_row_item(
-        self, combo_row: Adw.ComboRow, setting_value: str, case_sensitive: bool = True
-    ) -> bool:
+    def _select_combo_row_item(self, combo_row: Adw.ComboRow, setting_value: str, case_sensitive: bool = True) -> bool:
         """
         Select an item in an :class:`Adw.ComboRow` based on its string value.
 
@@ -512,8 +533,8 @@ class Preferences(Adw.PreferencesWindow):
         """
         model = combo_row.get_model()
         if isinstance(model, Gtk.StringList):
-            for i in range(model.get_n_items()): # type: ignore[attr-defined]
-                item_string = model.get_string(i) # type: ignore[attr-defined]
+            for i in range(model.get_n_items()):  # type: ignore[attr-defined]
+                item_string = model.get_string(i)  # type: ignore[attr-defined]
                 match_condition = (
                     (item_string == setting_value)
                     if case_sensitive
@@ -533,31 +554,31 @@ class Preferences(Adw.PreferencesWindow):
         UI control (e.g., selects the correct item in a :class:`Adw.ComboRow`, sets text in an :class:`Adw.EntryRow`).
         """
         font_scale_pref = self.settings.get_string("font-scaling-percentage")
-        if not self._select_combo_row_item(self.font_scale_combo_row, font_scale_pref): # type: ignore[arg-type]
-            self.font_scale_combo_row.set_selected(0) # type: ignore[union-attr]
+        if not self._select_combo_row_item(self.font_scale_combo_row, font_scale_pref):  # type: ignore[arg-type]
+            self.font_scale_combo_row.set_selected(0)  # type: ignore[union-attr]
 
         theme_pref_value = self.settings.get_string("theme-preference")
-        if not self._select_combo_row_item(self.theme_combo_row, theme_pref_value): # type: ignore[arg-type]
-            self.theme_combo_row.set_selected(0) # type: ignore[union-attr]
+        if not self._select_combo_row_item(self.theme_combo_row, theme_pref_value):  # type: ignore[arg-type]
+            self.theme_combo_row.set_selected(0)  # type: ignore[union-attr]
 
         dns_server = self.settings.get_string("custom-dns-server")
-        self.dns_server_entryrow.set_text(dns_server) # type: ignore[union-attr]
+        self.dns_server_entryrow.set_text(dns_server)  # type: ignore[union-attr]
 
         if self.http_header_key_color_button:
-            self._load_color_button_preference(self.http_header_key_color_button, "http-output-header-key-color") # type: ignore[arg-type]
+            self._load_color_button_preference(self.http_header_key_color_button, "http-output-header-key-color")  # type: ignore[arg-type]
         if self.http_header_value_color_button:
-            self._load_color_button_preference(self.http_header_value_color_button, "http-output-header-value-color") # type: ignore[arg-type]
+            self._load_color_button_preference(self.http_header_value_color_button, "http-output-header-value-color")  # type: ignore[arg-type]
         if self.http_special_row_color_button:
-            self._load_color_button_preference(self.http_special_row_color_button, "http-output-special-row-color") # type: ignore[arg-type]
+            self._load_color_button_preference(self.http_special_row_color_button, "http-output-special-row-color")  # type: ignore[arg-type]
 
         self._render_custom_ua_list()
 
         output_font_str = self.settings.get_string("output-font")
         if self.global_output_font_button:
             if output_font_str:
-                self.global_output_font_button.set_font(output_font_str) # type: ignore[union-attr]
+                self.global_output_font_button.set_font(output_font_str)  # type: ignore[union-attr]
             else:
                 default_font = "Sans 10"
-                self.global_output_font_button.set_font(default_font) # type: ignore[union-attr]
+                self.global_output_font_button.set_font(default_font)  # type: ignore[union-attr]
                 self.settings.set_string("output-font", default_font)
                 logging.warning(f"GSettings 'output-font' was empty, set to default: {default_font}")

@@ -1,4 +1,5 @@
 """Builds the flatpak package."""
+
 import os
 import subprocess
 
@@ -67,18 +68,24 @@ print(f"Generated Flatpak module file: {FLATPAK_MODULE_FILE}")
 if not os.path.exists(os.path.join(OUTPUT_DIR, REPO_NAME)):
     print(f"Initializing Flatpak repository: {REPO_NAME}")
     subprocess.run(
-        ["flatpak", "build-init", os.path.join(OUTPUT_DIR, REPO_NAME), APP_ID, SDK, RUNTIME, RUNTIME_VERSION, f"--branch={BRANCH}"],
-        check=True
+        [
+            "flatpak",
+            "build-init",
+            os.path.join(OUTPUT_DIR, REPO_NAME),
+            APP_ID,
+            SDK,
+            RUNTIME,
+            RUNTIME_VERSION,
+            f"--branch={BRANCH}",
+        ],
+        check=True,
     )
 else:
     print(f"Flatpak repository {REPO_NAME} already exists.")
 
 # 3. Build the application
 print(f"Building {APP_ID}...")
-subprocess.run(
-    ["flatpak", "build", os.path.join(OUTPUT_DIR, REPO_NAME), FLATPAK_MODULE_FILE],
-    check=True
-)
+subprocess.run(["flatpak", "build", os.path.join(OUTPUT_DIR, REPO_NAME), FLATPAK_MODULE_FILE], check=True)
 
 # 4. Finish the build (optional, for creating a runnable Flatpak)
 # This step creates a bundle or installs to a local repository.
@@ -87,10 +94,7 @@ subprocess.run(
 
 # Example: Install to the local repository (for testing)
 print(f"Installing {APP_ID} to local repository {REPO_NAME}...")
-subprocess.run(
-    ["flatpak", "build-finish", os.path.join(OUTPUT_DIR, REPO_NAME)],
-    check=True
-)
+subprocess.run(["flatpak", "build-finish", os.path.join(OUTPUT_DIR, REPO_NAME)], check=True)
 # To run after installing to local repo:
 # flatpak run --user --command=sh -c 'flatpak install --user --reinstall {REPO_NAME} {APP_ID} && flatpak run {APP_ID}'
 
@@ -98,8 +102,15 @@ subprocess.run(
 bundle_path = os.path.join(OUTPUT_DIR, f"{APP_ID}.flatpak")
 print(f"Creating Flatpak bundle: {bundle_path}")
 subprocess.run(
-    ["flatpak", "build-bundle", os.path.join(OUTPUT_DIR, REPO_NAME), bundle_path, APP_ID, "--runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo"],
-    check=True
+    [
+        "flatpak",
+        "build-bundle",
+        os.path.join(OUTPUT_DIR, REPO_NAME),
+        bundle_path,
+        APP_ID,
+        "--runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo",
+    ],
+    check=True,
 )
 
 print("\nFlatpak build process completed.")
