@@ -19,10 +19,10 @@ from .constants import (
     TEXT_SCALING_FACTOR_KEY,
 )
 from .style_utils import apply_font_size, apply_theme
-from .webscan_page import WebScanPage  # noqa: F401
-from .nmap_page import NmapPage  # noqa: F401
-from .http_page import HttpPage  # noqa: F401
-from .dns_page import DNSPage  # noqa: F401
+from .webscan_page import WebScanPage
+from .nmap_page import NmapPage
+from .http_page import HttpPage
+from .dns_page import DNSPage
 
 
 gi.require_version("Adw", "1")
