@@ -18,7 +18,7 @@ gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
 from gi.repository import Adw, Gio, GObject, Gtk, GLib, Gdk, Pango
 
-from .constants import RESOURCE_PREFIX, APP_ID, DEFAULT_USER_AGENTS
+from .constants import RESOURCE_PREFIX, APP_ID, USER_AGENTS
 from .utils import show_global_error, show_global_toast, is_valid_url
 from .helper import Helper
 from .http_client import (
@@ -383,8 +383,8 @@ class HttpPage(Adw.PreferencesPage):
         if selected_ua_title_in_http_page_dropdown and selected_ua_title_in_http_page_dropdown != "None":
             # User selected a specific UA in the HTTP page dropdown
             ua_found = False
-            # Check in DEFAULT_USER_AGENTS
-            for def_title, def_value in DEFAULT_USER_AGENTS:
+            # Check in USER_AGENTS
+            for def_title, def_value in USER_AGENTS:
                 if def_title == selected_ua_title_in_http_page_dropdown:
                     user_agent_to_send = def_value
                     ua_found = True
@@ -402,9 +402,9 @@ class HttpPage(Adw.PreferencesPage):
                 logger.warning(
                     f"Selected UA title '{selected_ua_title_in_http_page_dropdown}' not found in any list. Falling back."
                 )
-                if DEFAULT_USER_AGENTS:
-                    user_agent_to_send = DEFAULT_USER_AGENTS[0][1]
-                    logger.info(f"Fell back to first default User-Agent: {DEFAULT_USER_AGENTS[0][0]}")
+                if USER_AGENTS:
+                    user_agent_to_send = USER_AGENTS[0][1]
+                    logger.info(f"Fell back to first default User-Agent: {USER_AGENTS[0][0]}")
                 else:
                     user_agent_to_send = f"Woes/{APP_ID} (Fallback)"
                     logger.info(f"Fell back to generic Woes User-Agent: {user_agent_to_send}")
@@ -416,8 +416,8 @@ class HttpPage(Adw.PreferencesPage):
             )
             if default_ua_title_from_prefs:
                 ua_found_in_prefs = False
-                # Check in DEFAULT_USER_AGENTS
-                for def_title, def_value in DEFAULT_USER_AGENTS:
+                # Check in USER_AGENTS
+                for def_title, def_value in USER_AGENTS:
                     if def_title == default_ua_title_from_prefs:
                         user_agent_to_send = def_value
                         ua_found_in_prefs = True
@@ -445,9 +445,9 @@ class HttpPage(Adw.PreferencesPage):
                     )
 
             if user_agent_to_send is None:  # Fallback if GSettings default is empty or not found
-                if DEFAULT_USER_AGENTS:
-                    user_agent_to_send = DEFAULT_USER_AGENTS[0][1]
-                    logger.info(f"Fell back to first default User-Agent: {DEFAULT_USER_AGENTS[0][0]}")
+                if USER_AGENTS:
+                    user_agent_to_send = USER_AGENTS[0][1]
+                    logger.info(f"Fell back to first default User-Agent: {USER_AGENTS[0][0]}")
                 else:
                     user_agent_to_send = f"Woes/{APP_ID} (Fallback)"
                     logger.info(f"Fell back to generic Woes User-Agent: {user_agent_to_send}")
@@ -935,12 +935,12 @@ class HttpPage(Adw.PreferencesPage):
         display_titles.append(none_title)
         self._ua_title_to_value_map[none_title] = None  # Explicitly map "None" to no specific UA string override
 
-        # Populate with DEFAULT_USER_AGENTS from constants.py
-        for title, value in DEFAULT_USER_AGENTS:  # Iterate list of tuples
+        # Populate with USER_AGENTS from constants.py
+        for title, value in USER_AGENTS:  # Iterate list of tuples
             if title not in self._ua_title_to_value_map:
                 display_titles.append(title)
                 self._ua_title_to_value_map[title] = value
-            else:  # Should not happen if titles are unique in DEFAULT_USER_AGENTS
+            else:  # Should not happen if titles are unique in USER_AGENTS
                 logger.warning(
                     f"Default User-Agent title '{title}' conflicts with 'None' or another default UA. Skipping."
                 )
