@@ -5,13 +5,13 @@ import os
 import subprocess
 
 # Configuration (replace with your actual values)
-APP_ID = "com.github.mclellac.woes"  # Replace with your Flatpak App ID
+APP_ID = "com.example.Woes"  # Replace with your Flatpak App ID
 RUNTIME_REPO = "flathub"
 RUNTIME = "org.gnome.Platform"
 RUNTIME_VERSION = "45"  # Or your desired GNOME runtime version
 SDK = "org.gnome.Sdk"
 BRANCH = "main"  # Or your desired branch
-FLATPAK_MODULE_FILE = "com.github.mclellac.woes.json"  # Or your module file name
+FLATPAK_MODULE_FILE = f"{APP_ID}.json"  # Or your module file name
 OUTPUT_DIR = "flatpak_build"
 REPO_NAME = "woes_repo"  # Name for the local Flatpak repository
 
@@ -23,19 +23,49 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 # sources, and cleanup steps according to your project's needs.
 # Refer to Flatpak documentation for details:
 # https://docs.flatpak.org/en/latest/first-build.html
-# The manifest file (com.github.mclellac.woes.json) is now static and part of the repository.
-# Ensure it exists and is correctly formatted.
-if not os.path.exists(FLATPAK_MODULE_FILE):
-    print(f"Error: Flatpak module file {FLATPAK_MODULE_FILE} not found.")
-    print("Please ensure the manifest file exists in the root of the repository.")
-    exit(1)
-else:
-    print(f"Using existing Flatpak module file: {FLATPAK_MODULE_FILE}")
+module_content = f"""
+{{
+    "app-id": "{APP_ID}",
+    "runtime": "{RUNTIME}",
+    "runtime-version": "{RUNTIME_VERSION}",
+    "sdk": "{SDK}",
+    "command": "woes",
+    "finish-args": [
+        "--share=network",
+        "--share=ipc",
+        "--socket=fallback-x11",
+        "--socket=wayland",
+        "--filesystem=home"
+    ],
+    "cleanup": [
+        "/include",
+        "/lib/pkgconfig",
+        "/man",
+        "/share/doc",
+        "/share/man",
+        "*.la",
+        "*.a"
+    ],
+    "modules": [
+        {{
+            "name": "woes",
+            "buildsystem": "meson",
+            "sources": [
+                {{
+                    "type": "dir",
+                    "path": "."
+                }}
+            ]
+        }}
+    ]
+}}
+"""
+with open(FLATPAK_MODULE_FILE, "w", encoding="utf-8") as f:
+    f.write(module_content)
+
+print(f"Generated Flatpak module file: {FLATPAK_MODULE_FILE}")
 
 # 2. Initialize Flatpak repository (if it doesn't exist)
-# The APP_ID in build-init command is taken from the manifest file directly by flatpak-builder,
-# but it's good practice to ensure our APP_ID variable matches.
-# The command itself doesn't strictly need APP_ID if it can infer from manifest, but let's keep it for clarity.
 if not os.path.exists(os.path.join(OUTPUT_DIR, REPO_NAME)):
     print(f"Initializing Flatpak repository: {REPO_NAME}")
     subprocess.run(
@@ -43,7 +73,7 @@ if not os.path.exists(os.path.join(OUTPUT_DIR, REPO_NAME)):
             "flatpak",
             "build-init",
             os.path.join(OUTPUT_DIR, REPO_NAME),
-            APP_ID, # This should match the app-id in your static manifest
+            APP_ID,
             SDK,
             RUNTIME,
             RUNTIME_VERSION,
@@ -55,8 +85,7 @@ else:
     print(f"Flatpak repository {REPO_NAME} already exists.")
 
 # 3. Build the application
-# The flatpak build command reads the APP_ID from the manifest file.
-print(f"Building {APP_ID} using manifest {FLATPAK_MODULE_FILE}...")
+print(f"Building {APP_ID}...")
 subprocess.run(["flatpak", "build", os.path.join(OUTPUT_DIR, REPO_NAME), FLATPAK_MODULE_FILE], check=True)
 
 # 4. Finish the build (optional, for creating a runnable Flatpak)
@@ -79,8 +108,8 @@ subprocess.run(
         "build-bundle",
         os.path.join(OUTPUT_DIR, REPO_NAME),
         bundle_path,
-        APP_ID, # This should match the app-id in your static manifest
-        f"--runtime-repo=https://dl.flathub.org/repo/{RUNTIME_REPO}.flatpakrepo", # Use configured RUNTIME_REPO
+        APP_ID,
+        "--runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo",
     ],
     check=True,
 )

@@ -1,7 +1,7 @@
 """Module for fetching HTTP headers and processing responses."""
 
 import logging
-from typing import Optional, Dict, List, Any
+from typing import Optional, Dict, List, Any  # Use dict, list
 
 import requests
 import requests.utils  # For urlparse, urlunparse
@@ -127,6 +127,8 @@ class HttpFetcher:
         """
         Prepare initial request-specific headers and session-wide headers.
 
+        Moved from ``HttpPage``.
+
         :return: A tuple containing two dictionaries:
                  - ``initial_request_specific_headers``: Headers for the first request only.
                  - ``session_headers``: Headers to apply to the :class:`requests.Session`.
@@ -167,6 +169,8 @@ class HttpFetcher:
         """
         Execute the HTTP GET request using the configured session.
 
+        Moved from ``HttpPage``.
+
         :param initial_request_headers: Headers to send with the initial request.
         :type initial_request_headers: dict[str, str]
         :raises .HttpRequestTimeoutError: If the request times out.
@@ -203,6 +207,8 @@ class HttpFetcher:
     def _process_http_response(self, response: requests.Response) -> List[Dict[str, Any]]:
         """
         Process the HTTP response, including redirects.
+
+        Moved from ``HttpPage``.
 
         :param response: The final :class:`requests.Response` object.
         :type response: requests.Response
@@ -243,6 +249,8 @@ class HttpFetcher:
     def _get_detailed_connection_error_message(self, exc: Exception, url: str) -> Optional[str]:
         """
         Attempt to find a 'Connection Refused' error within a chain of exceptions.
+
+        Moved from ``HttpPage``.
 
         :param exc: The initial exception object.
         :type exc: Exception
@@ -325,6 +333,8 @@ class HttpFetcher:
     def _format_http_error(self, e: requests.exceptions.HTTPError) -> str:
         """
         Format an :exc:`requests.exceptions.HTTPError` into a user-friendly string.
+
+        Moved from ``HttpPage``.
 
         :param e: The :exc:`requests.exceptions.HTTPError` object.
         :type e: requests.exceptions.HTTPError
