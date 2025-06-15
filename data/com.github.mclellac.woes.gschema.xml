@@ -67,7 +67,7 @@
       <description>Users can add their own User-Agent strings to this list. Each entry consists of a display title and the full User-Agent value.</description>
     </key>
     <key name="default-user-agent-title" type="s">
-      <default>'Firefox (Latest) on Linux'</default>
+      <default>''</default>
       <summary>Title of the default User-Agent</summary>
       <description>Stores the title of the User-Agent string that is selected by default in the HTTP tool.</description>
     </key>

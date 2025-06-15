@@ -182,8 +182,10 @@ class HttpPage(Adw.PreferencesPage):
 
         if self.http_host_header_row:
             self._on_host_header_changed(self.http_host_header_row)
+        # Initial call to _on_user_agent_changed is mainly for CSS,
+        # GSetting persistence is handled by _save_selected_user_agent_preference
         if self.http_user_agent_row:
-            self._on_user_agent_changed(self.http_user_agent_row, None)
+            self._on_user_agent_changed_visual_feedback(self.http_user_agent_row, None)
 
         self.column_view_helper = Helper(widget=self.http_column_view, parent_window=self.get_native())
 
@@ -201,7 +203,10 @@ class HttpPage(Adw.PreferencesPage):
         if self.http_host_header_row:
             self.http_host_header_row.connect("changed", self._on_host_header_changed)
         if self.http_user_agent_row:
-            self.http_user_agent_row.connect("notify::selected-item", self._on_user_agent_changed)
+            # For visual feedback (CSS class)
+            self.http_user_agent_row.connect("notify::selected-item", self._on_user_agent_changed_visual_feedback)
+            # For saving preference
+            self.http_user_agent_row.connect("notify::selected-item", self._save_selected_user_agent_preference)
 
     def _on_host_header_changed(self, entry_row: Adw.EntryRow) -> None:
         """Handle changes in the Host header entry row.
@@ -243,6 +248,52 @@ class HttpPage(Adw.PreferencesPage):
                 combo_row.remove_css_class("active-override")
         elif selected_item_obj is None and not self._ua_title_to_value_map:  # Model might be empty
             combo_row.remove_css_class("active-override")
+
+    def _on_user_agent_changed_visual_feedback(self, combo_row: Adw.ComboRow, _gparam: Optional[GObject.ParamSpec]) -> None:
+        """Handle visual feedback for User-Agent combo row selection changes.
+
+        This method is responsible for adding/removing the 'active-override' CSS class.
+        It is separated from the logic that saves the preference to GSettings.
+
+        :param combo_row: The :class:`Adw.ComboRow` for User-Agent selection.
+        :type combo_row: Adw.ComboRow
+        :param _gparam: The :class:`GObject.ParamSpec` of the property that changed (unused).
+        :type _gparam: Optional[GObject.ParamSpec]
+        :return: None
+        """
+        self._on_user_agent_changed(combo_row, _gparam) # Call the original method for CSS
+
+    def _save_selected_user_agent_preference(self, combo_row: Adw.ComboRow, _gparam: Optional[GObject.ParamSpec]) -> None:
+        """Save the selected User-Agent title to GSettings.
+
+        This method is connected to the 'notify::selected-item' signal of the User-Agent ComboRow.
+        It persists the user's choice.
+
+        :param combo_row: The :class:`Adw.ComboRow` for User-Agent selection.
+        :type combo_row: Adw.ComboRow
+        :param _gparam: The :class:`GObject.ParamSpec` of the property that changed (unused).
+        :type _gparam: Optional[GObject.ParamSpec]
+        :return: None
+        """
+        if not combo_row:
+            return
+
+        selected_item_obj = combo_row.get_selected_item()
+        if isinstance(selected_item_obj, Gtk.StringObject):
+            selected_title = selected_item_obj.get_string()
+            if selected_title == "None": # "None" is the display title for system default
+                self.settings.set_string("default-user-agent-title", "")
+                logger.info("User-Agent preference saved: System Default (empty string).")
+            else:
+                self.settings.set_string("default-user-agent-title", selected_title)
+                logger.info(f"User-Agent preference saved: '{selected_title}'.")
+        elif selected_item_obj is None:
+             # This case might occur if the model is empty or selection is cleared programmatically
+             # in a way that doesn't involve selecting the "None" Gtk.StringObject.
+             # Setting to empty string to signify no specific UA default.
+            self.settings.set_string("default-user-agent-title", "")
+            logger.info("User-Agent preference saved: No selection (empty string).")
+
 
     def _on_copy_results_clicked(self, _button: Gtk.Button) -> None:
         """Handle the click event for the 'Copy Results' button.
@@ -804,37 +855,61 @@ class HttpPage(Adw.PreferencesPage):
         default_ua_title_pref = self.settings.get_string("default-user-agent-title")
 
         # Determine the title to select: current, preferred default, or "None"
-        title_to_select = none_title  # Default to "None"
+        title_to_select = none_title  # Default to "None" (system UA)
+
+        # 1. If there's a current selection in the UI, try to maintain it,
+        #    unless it's no longer a valid choice.
         if current_selection_text and current_selection_text in display_titles:
             title_to_select = current_selection_text
 
+        # 2. If `default_ua_title_pref` from GSettings is a non-empty string,
+        #    it means the user has explicitly saved a preference. Try to apply it.
+        #    An empty string `''` for `default_ua_title_pref` means "System Default" (i.e., "None" option).
+        #    The legacy "[System Default]" string is also treated as "System Default".
         if default_ua_title_pref and default_ua_title_pref != "[System Default]":
             if default_ua_title_pref in display_titles:
                 title_to_select = default_ua_title_pref
-                logger.info(f"HTTP Page: Applying preferred default User-Agent: '{default_ua_title_pref}'.")
+                logger.info(f"HTTP Page: Applying preferred default User-Agent from GSettings: '{default_ua_title_pref}'.")
             else:
+                # The preferred default is not in the current list (e.g., was removed from custom UAs).
+                # Fallback to "None" (system default) in this case.
+                title_to_select = none_title
                 logger.warning(
-                    f"HTTP Page: Preferred default User-Agent title '{default_ua_title_pref}' not found. Using '{title_to_select}'."
+                    f"HTTP Page: Preferred default User-Agent title '{default_ua_title_pref}' from GSettings not found in available UAs. Falling back to 'None' (System Default)."
                 )
         elif not default_ua_title_pref or default_ua_title_pref == "[System Default]":
-            title_to_select = none_title  # Explicitly set to "None" if preference is system default
-            logger.info("HTTP Page: User-Agent set to system default ('None') as per preference.")
+            # If GSettings stores empty string or the legacy "[System Default]",
+            # ensure "None" (system default) is selected, unless a valid `current_selection_text`
+            # already superseded this (e.g. user just changed it but model is refreshing).
+            # If current_selection_text was valid and different from "None", it takes precedence.
+            if not (current_selection_text and current_selection_text in display_titles and current_selection_text != none_title) :
+                 title_to_select = none_title
+            logger.info(f"HTTP Page: User-Agent set to '{title_to_select}' (System Default or retained current selection) as per GSettings preference ('{default_ua_title_pref}').")
+
 
         # Select the determined title
         if title_to_select in display_titles:
             try:
                 idx = display_titles.index(title_to_select)
+                # Block signal handler temporarily if it writes back to GSettings immediately
+                # to prevent loops if _update_user_agent_model is called from GSettings change.
+                # For now, assuming _on_user_agent_changed_visual_feedback doesn't write to GSettings.
+                # _save_selected_user_agent_preference will handle GSettings persistence.
                 self.http_user_agent_row.set_selected(idx)
-            except ValueError:  # Should not happen if title_to_select is in display_titles
-                if display_titles:
-                    self.http_user_agent_row.set_selected(0)
-        elif display_titles:  # Fallback if something went wrong with title_to_select
-            self.http_user_agent_row.set_selected(0)
-        else:
+            except ValueError: # Should not happen if title_to_select is in display_titles
+                if display_titles: # Should not be empty if none_title was added
+                    self.http_user_agent_row.set_selected(0) # Select "None"
+        elif display_titles:  # Fallback if something went wrong
+            self.http_user_agent_row.set_selected(display_titles.index(none_title) if none_title in display_titles else 0)
+        else: # Should not happen as "None" is always added
             self.http_user_agent_row.set_selected(Gtk.INVALID_LIST_POSITION)
 
-        self._on_user_agent_changed(self.http_user_agent_row, None)
-        selected_now = self.http_user_agent_row.get_selected_item()
+        # Update visual feedback based on the final selection
+        self._on_user_agent_changed_visual_feedback(self.http_user_agent_row, None)
+
+        selected_now_obj = self.http_user_agent_row.get_selected_item()
+        selected_now_text = selected_now_obj.get_string() if selected_now_obj else "Nothing"
+
         logging.info(
             "User-Agent dropdown model updated. Titles: %d. Selected: %s",
             len(display_titles),
