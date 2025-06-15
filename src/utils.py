@@ -3,7 +3,7 @@ import logging
 import ipaddress
 import re
 from urllib.parse import urlparse
-from typing import Optional # Use list instead of List
+from typing import Optional, List
 import collections.abc # For Sequence if needed
 
 import gi
@@ -26,16 +26,16 @@ def show_global_error(widget: Gtk.Widget, message: str):
     :type message: str
     """
     try:
-        main_window = widget.get_native() # type: ignore[no-untyped-call]
+        main_window = widget.get_native()
         if main_window and hasattr(main_window, 'show_error'):
-            main_window.show_error(message) # type: ignore[attr-defined]
+            main_window.show_error(message)
             logger.error(f"Global error displayed via main window: {message}")
         else:
             logger.warning(
                 "Could not find main window or show_error method to display global error: %s",
                 message
             )
-    except Exception as e: # pylint: disable=broad-except
+    except Exception as e:
         logger.exception(
             "An unexpected error occurred while trying to show global error '%s': %s",
             message, e
@@ -64,16 +64,16 @@ def show_global_toast(
     :type priority: Adw.ToastPriority
     """
     try:
-        main_window = widget.get_native() # type: ignore[no-untyped-call]
+        main_window = widget.get_native()
         if main_window and hasattr(main_window, 'show_toast'):
-            main_window.show_toast(message, priority=priority, timeout=timeout) # type: ignore[attr-defined]
+            main_window.show_toast(message, priority=priority, timeout=timeout)
             logger.info(f"Global toast shown via main window: {message}")
         else:
             logger.warning(
                 "Could not find main window or show_toast method to display global toast: %s",
                 message
             )
-    except Exception as e: # pylint: disable=broad-except
+    except Exception as e:
         logger.exception(
             "An unexpected error occurred while trying to show global toast '%s': %s",
             message, e
