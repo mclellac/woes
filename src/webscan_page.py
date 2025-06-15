@@ -8,7 +8,7 @@ import logging
 logger = logging.getLogger(__name__)
 import re
 import ast
-from typing import Optional, Dict, Any # Use dict
+from typing import Optional, Dict, Any
 import time
 from enum import Enum
 
@@ -28,27 +28,27 @@ class WebScanPage(Adw.PreferencesPage):
 
     __gtype_name__ = "WebScanPage"
 
-    url_entry: Adw.EntryRow = Gtk.Template.Child() # type: ignore
-    scan_button: Gtk.Button = Gtk.Template.Child() # type: ignore
-    results_scrolled_window: Gtk.ScrolledWindow = Gtk.Template.Child() # type: ignore
-    force_ssl_switch: Adw.SwitchRow = Gtk.Template.Child() # type: ignore
-    cgi_vulns_switch: Adw.SwitchRow = Gtk.Template.Child() # type: ignore
-    interesting_content_switch: Adw.SwitchRow = Gtk.Template.Child() # type: ignore
-    evasion_switch: Adw.SwitchRow = Gtk.Template.Child() # type: ignore
-    mutate_switch: Adw.SwitchRow = Gtk.Template.Child() # type: ignore
-    maxtime_entry_row: Adw.EntryRow = Gtk.Template.Child() # type: ignore
-    clear_results_button: Gtk.Button = Gtk.Template.Child() # type: ignore
-    copy_results_button: Gtk.Button = Gtk.Template.Child() # type: ignore
-    webscan_status_action_row: Adw.ActionRow = Gtk.Template.Child() # type: ignore
-    webscan_status_spinner: Gtk.Spinner = Gtk.Template.Child("webscan_status_spinner") # type: ignore
-    webscan_cancel_button: Gtk.Button = Gtk.Template.Child() # type: ignore
+    url_entry: Adw.EntryRow = Gtk.Template.Child()
+    scan_button: Gtk.Button = Gtk.Template.Child()
+    results_scrolled_window: Gtk.ScrolledWindow = Gtk.Template.Child()
+    force_ssl_switch: Adw.SwitchRow = Gtk.Template.Child()
+    cgi_vulns_switch: Adw.SwitchRow = Gtk.Template.Child()
+    interesting_content_switch: Adw.SwitchRow = Gtk.Template.Child()
+    evasion_switch: Adw.SwitchRow = Gtk.Template.Child()
+    mutate_switch: Adw.SwitchRow = Gtk.Template.Child()
+    maxtime_entry_row: Adw.EntryRow = Gtk.Template.Child()
+    clear_results_button: Gtk.Button = Gtk.Template.Child()
+    copy_results_button: Gtk.Button = Gtk.Template.Child()
+    webscan_status_action_row: Adw.ActionRow = Gtk.Template.Child()
+    webscan_status_spinner: Gtk.Spinner = Gtk.Template.Child("webscan_status_spinner")
+    webscan_cancel_button: Gtk.Button = Gtk.Template.Child()
 
     # New UI elements for Nikto options
-    nikto_format_combo_row: Adw.ComboRow = Gtk.Template.Child() # type: ignore
-    nikto_output_file_row: Adw.EntryRow = Gtk.Template.Child() # type: ignore
-    nikto_output_file_button: Gtk.Button = Gtk.Template.Child() # type: ignore
-    no404_switch: Adw.SwitchRow = Gtk.Template.Child() # type: ignore
-    auth_bypass_switch: Adw.SwitchRow = Gtk.Template.Child() # type: ignore
+    nikto_format_combo_row: Adw.ComboRow = Gtk.Template.Child()
+    nikto_output_file_row: Adw.EntryRow = Gtk.Template.Child()
+    nikto_output_file_button: Gtk.Button = Gtk.Template.Child()
+    no404_switch: Adw.SwitchRow = Gtk.Template.Child()
+    auth_bypass_switch: Adw.SwitchRow = Gtk.Template.Child()
 
     def __init__(self, **kwargs: Any):
         """
@@ -63,14 +63,14 @@ class WebScanPage(Adw.PreferencesPage):
         source_buffer = Gtk.TextBuffer()
         self.source_view.set_buffer(source_buffer)
 
-        self.source_view.set_hexpand(True) # type: ignore[no-untyped-call]
-        self.source_view.set_vexpand(True) # type: ignore[no-untyped-call]
-        self.source_view.set_monospace(True) # type: ignore[no-untyped-call]
-        self.source_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR) # type: ignore[no-untyped-call]
-        self.source_view.set_editable(False) # type: ignore[no-untyped-call]
+        self.source_view.set_hexpand(True)
+        self.source_view.set_vexpand(True)
+        self.source_view.set_monospace(True)
+        self.source_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        self.source_view.set_editable(False)
 
         if self.results_scrolled_window:
-            self.results_scrolled_window.set_child(self.source_view) # type: ignore[union-attr]
+            self.results_scrolled_window.set_child(self.source_view)
         else:
             logger.error("results_scrolled_window is None in __init__, cannot add Gtk.TextView.")
 
@@ -188,7 +188,7 @@ class WebScanPage(Adw.PreferencesPage):
 
         def on_dialog_response(_source_object, response_id, _user_data):
             if response_id == Gtk.ResponseType.ACCEPT:
-                file_path = dialog.get_file().get_path() # type: ignore
+                file_path = dialog.get_file().get_path()
                 if self.nikto_output_file_row:
                     self.nikto_output_file_row.set_text(file_path if file_path else "")
                     logger.info(f"Nikto output file set to: {file_path}")
@@ -260,7 +260,7 @@ class WebScanPage(Adw.PreferencesPage):
                         logger.info("Webscan results copied to clipboard successfully.")
                     else:
                         logger.warning("Failed to get default clipboard for copying webscan results.")
-                except Exception as e: # pylint: disable=broad-except # Clipboard operations can be unreliable
+                except Exception as e: # Clipboard operations can be unreliable
                     logger.error(f"Error copying webscan results to clipboard: {e}", exc_info=True)
             else:
                 logger.info("No webscan results to copy.")
@@ -356,7 +356,7 @@ class WebScanPage(Adw.PreferencesPage):
         :param cancellable: A :class:`Gio.Cancellable` object to monitor for cancellation.
         :type cancellable: Gio.Cancellable
         """
-        page_instance: WebScanPage = _source_object # type: ignore[assignment]
+        page_instance: WebScanPage = _source_object
         scan_params = page_instance._current_webscan_params
 
         if not scan_params:
@@ -835,7 +835,7 @@ class WebScanPage(Adw.PreferencesPage):
         if self.scan_button and self.scan_button.get_sensitive():
             self.scan_button.clicked()
         elif self.current_web_scan_task and not self.current_web_scan_task.is_done():
-            show_global_toast(self, "A scan is already in progress. Cancel it or wait.") # type: ignore[arg-type]
+            show_global_toast(self, "A scan is already in progress. Cancel it or wait.")
         else:
             logger.warning("Webscan scan button not available or not sensitive, cannot trigger scan.")
 
