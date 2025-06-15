@@ -70,7 +70,7 @@ class NmapTargetRow(Gtk.ListBoxRow):
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/nmap_page.ui")
-class NmapPage(Adw.PreferencesPage):
+class NmapPage(Gtk.Box):
     """Activity page for performing Nmap scans and viewing results."""
 
     __gtype_name__ = "NmapPage"
@@ -95,7 +95,7 @@ class NmapPage(Adw.PreferencesPage):
         """
         Initialize the NmapPage.
 
-        :param kwargs: Keyword arguments passed to the :class:`Adw.PreferencesPage` constructor.
+        :param kwargs: Keyword arguments passed to the :class:`Gtk.Box` constructor.
         :type kwargs: Any
         """
         super().__init__(**kwargs)

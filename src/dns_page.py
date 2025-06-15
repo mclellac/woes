@@ -31,7 +31,7 @@ gi.require_version("Gtk", "4.0")
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/dns_page.ui")
-class DNSPage(Adw.PreferencesPage):
+class DNSPage(Gtk.Box):
     """
     Activity page for performing DNS lookups and displaying results.
 
@@ -58,7 +58,7 @@ class DNSPage(Adw.PreferencesPage):
 
         Sets up UI elements, connects signals, and initializes GSettings.
 
-        :param kwargs: Keyword arguments passed to the :class:`Adw.PreferencesPage` constructor.
+        :param kwargs: Keyword arguments passed to the :class:`Gtk.Box` constructor.
         :type kwargs: GObject.GObject
         """
         super().__init__(**kwargs)

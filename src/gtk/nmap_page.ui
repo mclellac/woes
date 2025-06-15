@@ -4,7 +4,7 @@
   <!-- interface-name nmap_page.ui -->
   <requires lib="gtk" version="4.18"/>
   <requires lib="libadwaita" version="1.7"/>
-  <template class="NmapPage" parent="AdwPreferencesPage">
+  <template class="NmapPage" parent="GtkBox">
     <property name="height-request">600</property>
     <property name="width-request">700</property>
     <child>
