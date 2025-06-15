@@ -6,6 +6,7 @@ headers, User-Agent string selection, and Akamai Pragma header toggling.
 The page also integrates with GSettings for persisting user preferences
 and uses a background thread for network operations to keep the UI responsive.
 """
+
 import logging
 from enum import Enum
 from typing import Any, Dict, List, Optional
@@ -143,14 +144,16 @@ class HttpPage(Adw.PreferencesPage):
 
         self._output_font_gsettings_key: str = "output-font"
         output_font_str: str = self.settings.get_string(self._output_font_gsettings_key)
-        self._output_font_desc: Pango.FontDescription = Pango.FontDescription.from_string(output_font_str if output_font_str else "Sans 10")
+        self._output_font_desc: Pango.FontDescription = Pango.FontDescription.from_string(
+            output_font_str if output_font_str else "Sans 10"
+        )
 
         self.settings.connect("changed::http-output-header-key-color", self._on_color_setting_changed)
         self.settings.connect("changed::http-output-header-value-color", self._on_color_setting_changed)
         self.settings.connect("changed::http-output-special-row-color", self._on_color_setting_changed)
         self.settings.connect(f"changed::{self._output_font_gsettings_key}", self._on_global_output_font_changed)
 
-        self.header_list_store: Gio.ListStore = Gio.ListStore.new(HeaderItem) # type: ignore[attr-defined]
+        self.header_list_store: Gio.ListStore = Gio.ListStore.new(HeaderItem)  # type: ignore[attr-defined]
         selection_model = Gtk.MultiSelection.new(self.header_list_store)
         self.http_column_view.set_model(selection_model)
         if not self.http_column_view.get_columns():
@@ -285,10 +288,10 @@ class HttpPage(Adw.PreferencesPage):
         if not is_valid_url(url):
             logger.warning("Invalid URL provided: %s (processed as: %s)", original_url, url)
             toast_message = "Invalid URL format. Please enter a valid URL (e.g., https://example.com)."
-            show_global_toast(self, toast_message) # type: ignore[arg-type]
+            show_global_toast(self, toast_message)  # type: ignore[arg-type]
             main_window = self.get_native()
             if not (main_window and hasattr(main_window, "show_toast")):
-                show_global_error(self, toast_message) # type: ignore[arg-type]
+                show_global_error(self, toast_message)  # type: ignore[arg-type]
             self._update_column_view_model(None)
             self._set_loading_state(False, "Idle - Invalid URL.")
             return
@@ -313,9 +316,9 @@ class HttpPage(Adw.PreferencesPage):
         }
         logger.debug("HttpPage: Starting header fetch task with data: %s", self._http_task_data_for_thread)
 
-        task = Gio.Task.new(self, None, self._fetch_headers_task_done_cb, None) # type: ignore[arg-type]
+        task = Gio.Task.new(self, None, self._fetch_headers_task_done_cb, None)  # type: ignore[arg-type]
         self.current_http_task = task
-        task.run_in_thread(self._fetch_headers_task_thread_func) # type: ignore[arg-type]
+        task.run_in_thread(self._fetch_headers_task_thread_func)  # type: ignore[arg-type]
 
     def _fetch_headers_task_thread_func(
         self,
@@ -344,7 +347,7 @@ class HttpPage(Adw.PreferencesPage):
             task.return_new_error_literal(
                 GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
                 HttpErrorType.CANCELLED.value,
-                "Task cancelled before fetching."
+                "Task cancelled before fetching.",
             )
             return
 
@@ -354,14 +357,16 @@ class HttpPage(Adw.PreferencesPage):
             host_header=current_task_data.get("host_header"),
             user_agent=current_task_data.get("user_agent"),
             custom_dns_server=current_task_data.get("custom_dns_server"),
-            cancellable=cancellable
+            cancellable=cancellable,
         )
 
         try:
             processed_data = fetcher.fetch_headers()
             if cancellable and cancellable.is_cancelled():
                 task.return_new_error_literal(
-                    GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN), HttpErrorType.CANCELLED.value, "Task cancelled after fetching."
+                    GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
+                    HttpErrorType.CANCELLED.value,
+                    "Task cancelled after fetching.",
                 )
             else:
                 task.return_value(processed_data)
@@ -388,7 +393,7 @@ class HttpPage(Adw.PreferencesPage):
         except HttpClientError as e:
             logger.warning("HttpPage Task: HttpClientError for '%s': %s", url_to_fetch, e)
             if "cancelled" in str(e).lower():
-                 task.return_new_error_literal(
+                task.return_new_error_literal(
                     GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN), HttpErrorType.CANCELLED.value, str(e)
                 )
             else:
@@ -398,7 +403,9 @@ class HttpPage(Adw.PreferencesPage):
         except Exception as e:
             logger.exception("HttpPage Task: Unexpected generic error for URL '%s':", url_to_fetch)
             task.return_new_error_literal(
-                GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN), HttpErrorType.GENERIC_UNEXPECTED.value, f"Unexpected internal error: {e}"
+                GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
+                HttpErrorType.GENERIC_UNEXPECTED.value,
+                f"Unexpected internal error: {e}",
             )
 
     def _fetch_headers_task_done_cb(
@@ -416,13 +423,15 @@ class HttpPage(Adw.PreferencesPage):
         """
         task_being_processed = self.current_http_task
         if task_being_processed is None:
-            logger.warning("_fetch_headers_task_done_cb: current_http_task is None, possibly already handled or cancelled.")
+            logger.warning(
+                "_fetch_headers_task_done_cb: current_http_task is None, possibly already handled or cancelled."
+            )
             # Ensure UI is not stuck in loading state if this callback is somehow invoked late
             if self.http_status_row and self.http_status_row.get_subtitle() == "Fetching headers...":
                 self._set_loading_state(False, "Idle.")
             return
 
-        self.current_http_task = None # Clear the current task reference
+        self.current_http_task = None  # Clear the current task reference
         logger.info("Processing task completion in _fetch_headers_task_done_cb.")
 
         try:
@@ -431,21 +440,23 @@ class HttpPage(Adw.PreferencesPage):
 
             if isinstance(propagate_result, list):
                 actual_list_of_responses = propagate_result
-            elif hasattr(propagate_result, 'value') and isinstance(propagate_result.value, list): # type: ignore
+            elif hasattr(propagate_result, "value") and isinstance(propagate_result.value, list):  # type: ignore
                 # Handles cases where the result might be wrapped, e.g. by older PyGObject versions or specific task types
                 logger.debug("HttpPage: Accessing .value from propagated result of type %s", type(propagate_result))
-                actual_list_of_responses = propagate_result.value # type: ignore
+                actual_list_of_responses = propagate_result.value  # type: ignore
             else:
                 logger.error("HttpPage: Unexpected type from propagate_value: %s", type(propagate_result))
-                show_global_error(self, "Unexpected result type from background task.") # type: ignore[arg-type]
+                show_global_error(self, "Unexpected result type from background task.")  # type: ignore[arg-type]
                 if self.http_entry_row:
                     self.http_entry_row.add_css_class("error")
                 self._update_column_view_model(None)
                 self._set_loading_state(False, "Error: Unexpected data format.")
                 return
 
-            if actual_list_of_responses is not None: # This check is now more robust
-                logger.info("HttpPage: Successfully processed task result: %d response stages.", len(actual_list_of_responses))
+            if actual_list_of_responses is not None:  # This check is now more robust
+                logger.info(
+                    "HttpPage: Successfully processed task result: %d response stages.", len(actual_list_of_responses)
+                )
                 processed_headers_for_store: list[HeaderItem] = []
                 if not actual_list_of_responses:
                     logger.info("HttpPage: Received empty list of responses.")
@@ -455,13 +466,14 @@ class HttpPage(Adw.PreferencesPage):
                         if not isinstance(response_data_dict_item, dict):
                             logger.error(
                                 "HttpPage: Expected dict item in response list, got %s. Data: %s",
-                                type(response_data_dict_item), response_data_dict_item,
+                                type(response_data_dict_item),
+                                response_data_dict_item,
                             )
                             continue
                         response_data_dict: Dict[str, Any] = response_data_dict_item
                         url_display = f"URL: {response_data_dict.get('url', 'N/A')}"
-                        status_code = response_data_dict.get('status_code', 'N/A')
-                        response_type = response_data_dict.get('type', 'unknown')
+                        status_code = response_data_dict.get("status_code", "N/A")
+                        response_type = response_data_dict.get("type", "unknown")
                         status_display = f"Status: {status_code} ({str(response_type).capitalize()})"
                         processed_headers_for_store.append(
                             HeaderItem(key=url_display, value=status_display, is_special_row=True)
@@ -477,11 +489,11 @@ class HttpPage(Adw.PreferencesPage):
                                     display_parts.append("")
                                 else:
                                     while True:
-                                        semicolon_index = current_value_segment.find(';')
+                                        semicolon_index = current_value_segment.find(";")
                                         if semicolon_index != -1:
-                                            part_to_add = current_value_segment[:semicolon_index+1].strip()
+                                            part_to_add = current_value_segment[: semicolon_index + 1].strip()
                                             display_parts.append(part_to_add)
-                                            current_value_segment = current_value_segment[semicolon_index+1:]
+                                            current_value_segment = current_value_segment[semicolon_index + 1 :]
                                         else:
                                             display_parts.append(current_value_segment.strip())
                                             break
@@ -499,7 +511,9 @@ class HttpPage(Adw.PreferencesPage):
                                         )
                         else:
                             logger.warning(
-                                "HttpPage: Headers data for response stage %d is not a dict: %s", i, headers_for_this_response
+                                "HttpPage: Headers data for response stage %d is not a dict: %s",
+                                i,
+                                headers_for_this_response,
                             )
                         if i < len(actual_list_of_responses) - 1:
                             processed_headers_for_store.append(
@@ -511,22 +525,23 @@ class HttpPage(Adw.PreferencesPage):
                     self.http_entry_row.remove_css_class("error")
                 self._set_loading_state(False, "Headers loaded successfully.")
             else:
-                logger.error("HttpPage: Failed to obtain a valid list of responses. Value: %s", actual_list_of_responses)
-                show_global_error(self, "Failed to process data from background task.") # type: ignore[arg-type]
+                logger.error(
+                    "HttpPage: Failed to obtain a valid list of responses. Value: %s", actual_list_of_responses
+                )
+                show_global_error(self, "Failed to process data from background task.")  # type: ignore[arg-type]
                 if self.http_entry_row:
                     self.http_entry_row.add_css_class("error")
                 self._update_column_view_model(None)
                 self._set_loading_state(False, "Error: Failed to process data.")
         except GLib.Error as e:
             logger.warning(
-                "HttpPage: Task failed with GLib.Error (Domain: %s, Code: %d, Message: %s)",
-                 e.domain, e.code, e.message
+                "HttpPage: Task failed with GLib.Error (Domain: %s, Code: %d, Message: %s)", e.domain, e.code, e.message
             )
             display_message = e.message if e.message else "An unknown error occurred."
             if "<b>" in display_message or "<" in display_message:
                 display_message = GLib.markup_escape_text(display_message)
 
-            show_global_error(self, display_message) # type: ignore[arg-type]
+            show_global_error(self, display_message)  # type: ignore[arg-type]
             if self.http_entry_row:
                 self.http_entry_row.add_css_class("error")
             self._update_column_view_model(None)
@@ -534,7 +549,7 @@ class HttpPage(Adw.PreferencesPage):
         except Exception as e:
             logger.exception("HttpPage: Unexpected Python error in _fetch_headers_task_done_cb:")
             error_message = f"An unexpected application error occurred: {e}"
-            show_global_error(self, error_message) # type: ignore[arg-type]
+            show_global_error(self, error_message)  # type: ignore[arg-type]
             if self.http_entry_row:
                 self.http_entry_row.add_css_class("error")
             self._update_column_view_model(None)
@@ -575,7 +590,6 @@ class HttpPage(Adw.PreferencesPage):
             self.http_user_agent_row.set_sensitive(sensitive)
         if self.http_pragma_switch_row:
             self.http_pragma_switch_row.set_sensitive(sensitive)
-
 
     @staticmethod
     def _ensure_scheme(url: str) -> str:
@@ -649,7 +663,7 @@ class HttpPage(Adw.PreferencesPage):
         """
         main_window = self.get_native()
         if main_window and hasattr(main_window, "hide_error"):
-            main_window.hide_error() # type: ignore[attr-defined]
+            main_window.hide_error()  # type: ignore[attr-defined]
         else:
             logger.warning("Could not find main window or hide_error method to clear error.")
         if self.http_entry_row:
@@ -704,7 +718,9 @@ class HttpPage(Adw.PreferencesPage):
         logger.debug("HttpPage: Global output font setting changed for key: %s", key)
         if key == self._output_font_gsettings_key:
             output_font_str = settings.get_string(key)
-            self._output_font_desc = Pango.FontDescription.from_string(output_font_str if output_font_str else "Sans 10")
+            self._output_font_desc = Pango.FontDescription.from_string(
+                output_font_str if output_font_str else "Sans 10"
+            )
             if self._current_header_items:
                 logger.debug("HttpPage: Re-populating ColumnView to apply new global font.")
                 self._update_column_view_model(self._current_header_items)
@@ -725,8 +741,10 @@ class HttpPage(Adw.PreferencesPage):
         self._ua_title_to_value_map.clear()
         current_selection_text: Optional[str] = None
 
-        if self.http_user_agent_row.get_model() and \
-           self.http_user_agent_row.get_selected() != Gtk.INVALID_LIST_POSITION:
+        if (
+            self.http_user_agent_row.get_model()
+            and self.http_user_agent_row.get_selected() != Gtk.INVALID_LIST_POSITION
+        ):
             selected_item_obj = self.http_user_agent_row.get_selected_item()
             if isinstance(selected_item_obj, Gtk.StringObject):
                 current_selection_text = selected_item_obj.get_string()
@@ -757,7 +775,7 @@ class HttpPage(Adw.PreferencesPage):
         default_ua_title_pref = self.settings.get_string("default-user-agent-title")
 
         # Determine the title to select: current, preferred default, or "None"
-        title_to_select = none_title # Default to "None"
+        title_to_select = none_title  # Default to "None"
         if current_selection_text and current_selection_text in display_titles:
             title_to_select = current_selection_text
 
@@ -766,9 +784,11 @@ class HttpPage(Adw.PreferencesPage):
                 title_to_select = default_ua_title_pref
                 logger.info(f"HTTP Page: Applying preferred default User-Agent: '{default_ua_title_pref}'.")
             else:
-                logger.warning(f"HTTP Page: Preferred default User-Agent title '{default_ua_title_pref}' not found. Using '{title_to_select}'.")
+                logger.warning(
+                    f"HTTP Page: Preferred default User-Agent title '{default_ua_title_pref}' not found. Using '{title_to_select}'."
+                )
         elif not default_ua_title_pref or default_ua_title_pref == "[System Default]":
-            title_to_select = none_title # Explicitly set to "None" if preference is system default
+            title_to_select = none_title  # Explicitly set to "None" if preference is system default
             logger.info("HTTP Page: User-Agent set to system default ('None') as per preference.")
 
         # Select the determined title
@@ -776,18 +796,21 @@ class HttpPage(Adw.PreferencesPage):
             try:
                 idx = display_titles.index(title_to_select)
                 self.http_user_agent_row.set_selected(idx)
-            except ValueError: # Should not happen if title_to_select is in display_titles
-                 if display_titles: self.http_user_agent_row.set_selected(0)
-        elif display_titles: # Fallback if something went wrong with title_to_select
+            except ValueError:  # Should not happen if title_to_select is in display_titles
+                if display_titles:
+                    self.http_user_agent_row.set_selected(0)
+        elif display_titles:  # Fallback if something went wrong with title_to_select
             self.http_user_agent_row.set_selected(0)
         else:
-             self.http_user_agent_row.set_selected(Gtk.INVALID_LIST_POSITION)
+            self.http_user_agent_row.set_selected(Gtk.INVALID_LIST_POSITION)
 
         self._on_user_agent_changed(self.http_user_agent_row, None)
         selected_now = self.http_user_agent_row.get_selected_item()
-        logging.info("User-Agent dropdown model updated. Titles: %d. Selected: %s",
-                     len(display_titles),
-                     selected_now.get_string() if selected_now else "None")
+        logging.info(
+            "User-Agent dropdown model updated. Titles: %d. Selected: %s",
+            len(display_titles),
+            selected_now.get_string() if selected_now else "None",
+        )
 
     def _create_factory(self, attr_name: str, wrap_text: bool = False) -> Gtk.SignalListItemFactory:
         """Create a Gtk.SignalListItemFactory for Gtk.ColumnView columns.
@@ -864,4 +887,3 @@ class HttpPage(Adw.PreferencesPage):
             self.http_apply_button.clicked()
         else:
             logging.warning("HTTP fetch button not available or not sensitive, cannot trigger fetch.")
->>>>>>> REPLACE
