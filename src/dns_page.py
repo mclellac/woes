@@ -53,6 +53,7 @@ class DNSPage(Gtk.Box):
     dns_status_spinner = Gtk.Template.Child()
 
     def __init__(self, **kwargs: GObject.GObject):
+        logging.debug("DNSPage.__init__ called")
         """
         Initialize the DNSPage.
 

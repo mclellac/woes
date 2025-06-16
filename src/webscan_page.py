@@ -54,6 +54,7 @@ class WebScanPage(Gtk.Box):
     auth_bypass_switch: Adw.SwitchRow = Gtk.Template.Child()
 
     def __init__(self, **kwargs: Any):
+        logging.debug("WebScanPage.__init__ called")
         """
         Initialize the WebScanPage.
 
