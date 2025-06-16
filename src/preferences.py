@@ -18,7 +18,7 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import Adw, Gio, Gtk, GLib, GObject, Gdk
 
 # Local application imports
-from .constants import APP_ID, RESOURCE_PREFIX, USER_AGENTS, DEFAULT_HTTP_HEADERS
+from .constants import APP_ID, RESOURCE_PREFIX, USER_AGENTS
 
 # Conditional import for dnspython
 try:
@@ -67,18 +67,6 @@ class Preferences(Adw.PreferencesWindow):
     :vartype user_agent_combo_row: Adw.ComboRow
     :ivar global_output_font_button: :class:`Gtk.FontButton` for global output font.
     :vartype global_output_font_button: Gtk.FontButton
-    :ivar default_http_header_combo_row: :class:`Adw.ComboRow` for default HTTP header selection.
-    :vartype default_http_header_combo_row: Adw.ComboRow
-    :ivar new_custom_http_header_title_entry: :class:`Gtk.Entry` for new custom HTTP header display title.
-    :vartype new_custom_http_header_title_entry: Gtk.Entry
-    :ivar new_custom_http_header_name_entry: :class:`Gtk.Entry` for new custom HTTP header name.
-    :vartype new_custom_http_header_name_entry: Gtk.Entry
-    :ivar new_custom_http_header_value_entry: :class:`Gtk.Entry` for new custom HTTP header value.
-    :vartype new_custom_http_header_value_entry: Gtk.Entry
-    :ivar add_custom_http_header_button: :class:`Gtk.Button` to add a new custom HTTP header.
-    :vartype add_custom_http_header_button: Gtk.Button
-    :ivar custom_http_header_list_container: :class:`Gtk.Box` for displaying the list of custom HTTP headers.
-    :vartype custom_http_header_list_container: Gtk.Box
     """
 
     __gtype_name__ = "Preferences"

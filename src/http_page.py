@@ -349,10 +349,8 @@ class HttpPage(Gtk.Box):
         Handle activation of the URL entry row or click of the 'Fetch' button.
 
         Validates the URL, gathers request parameters (including Host header,
-        User-Agent, custom DNS, Akamai Pragma state, and the selected default
-        HTTP header from GSettings), and starts the background task to fetch
-        HTTP headers. The resolved default HTTP header is passed as
-        ``additional_headers`` to the :class:`.http_client.HttpFetcher`.
+        User-Agent, custom DNS, and Akamai Pragma state), and starts the
+        background task to fetch HTTP headers.
 
         :param _widget: The :class:`Gtk.Widget` that triggered the activation (unused).
         :type _widget: Gtk.Widget
@@ -483,10 +481,9 @@ class HttpPage(Gtk.Box):
         Background thread function for fetching HTTP headers.
 
         This function is executed by :meth:`Gio.Task.run_in_thread`.
-        It instantiates :class:`.http_client.HttpFetcher` with all necessary
-        parameters, including any resolved ``additional_headers`` (like a
-        default HTTP header), and calls its main fetching method. Results or
-        exceptions are then reported back to the main thread via the :class:`Gio.Task`.
+        It instantiates :class:`.http_client.HttpFetcher` with necessary parameters
+        and calls its main fetching method. Results or exceptions are reported
+        back to the main thread via the :class:`Gio.Task`.
 
         :param task: The :class:`Gio.Task` associated with this operation.
         :type task: Gio.Task
