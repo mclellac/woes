@@ -91,6 +91,7 @@ class NmapPage(Gtk.Box):
     nmap_detail_placeholder = Gtk.Template.Child("nmap_detail_placeholder")
 
     def __init__(self, **kwargs: Any):
+        logging.debug("NmapPage.__init__ called")
         """
         Initialize the NmapPage.
 

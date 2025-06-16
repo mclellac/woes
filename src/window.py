@@ -25,6 +25,13 @@ from .style_utils import apply_font_size, apply_theme
 gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
 
+from .http_page import HttpPage
+from .nmap_page import NmapPage
+from .dns_page import DNSPage
+from .webscan_page import WebScanPage
+
+logging.debug("Custom page widgets (HttpPage, NmapPage, DNSPage, WebScanPage) imported into window.py")
+
 # Imports for custom page widgets
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/window.ui")
@@ -54,6 +61,7 @@ class WoesWindow(Adw.ApplicationWindow):
     toast_overlay: Adw.ToastOverlay = Gtk.Template.Child("toast_overlay")
 
     def __init__(self, **kwargs: Any):  # GObject.GObject is too restrictive if no args passed
+        logging.debug("WoesWindow.__init__ called")
         """
         Initialize the WoesWindow.
 

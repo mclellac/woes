@@ -129,6 +129,7 @@ class HttpPage(Gtk.Box):
     http_status_spinner: Gtk.Spinner = Gtk.Template.Child()
 
     def __init__(self, **kwargs: Any):
+        logging.debug("HttpPage.__init__ called")
         """
         Initialize the HttpPage.
 
