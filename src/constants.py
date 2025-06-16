@@ -30,6 +30,14 @@ FONT_NAME_KEY = "font-name"
 TEXT_SCALING_FACTOR_KEY = "text-scaling-factor"
 USER_AGENTS = [
     {
+        "title": "Chrome (Linux)",
+        "value": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
+    },
+    {
+        "title": "Firefox (Linux)",
+        "value": "Mozilla/5.0 (X11; Linux x86_64; rv:125.0) Gecko/20100101 Firefox/125.0",
+    },
+    {
         "title": "Chrome (Windows)",
         "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     },
