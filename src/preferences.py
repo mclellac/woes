@@ -104,6 +104,7 @@ class Preferences(Adw.PreferencesWindow):
         self.set_transient_for(main_window)
         self.settings = Gio.Settings(schema_id=APP_ID)
         self._ua_combo_handler_id = None
+        self._is_programmatically_changing_ua_combo = False
         self.load_ui()
         self.load_preferences()
 
@@ -593,6 +594,8 @@ class Preferences(Adw.PreferencesWindow):
         # which handles loading and setting the default user agent.
         self._render_custom_ua_list() # This will call _populate_user_agent_combo_row
 
+        logging.debug("load_preferences: Setting programmatic change flag and blocking handler for UA combo.")
+        self._is_programmatically_changing_ua_combo = True
         if self._ua_combo_handler_id and self.user_agent_combo_row:
             self.user_agent_combo_row.handler_block(self._ua_combo_handler_id)
             logging.debug(f"load_preferences: Blocked handler {self._ua_combo_handler_id} for user_agent_combo_row before setting selection.")
@@ -630,7 +633,8 @@ class Preferences(Adw.PreferencesWindow):
 
         if self._ua_combo_handler_id and self.user_agent_combo_row:
             self.user_agent_combo_row.handler_unblock(self._ua_combo_handler_id)
-            logging.debug(f"load_preferences: Unblocked handler {self._ua_combo_handler_id} for user_agent_combo_row after setting selection.")
+        self._is_programmatically_changing_ua_combo = False
+        logging.debug("load_preferences: Cleared programmatic change flag and unblocked handler for UA combo.")
 
         output_font_str = self.settings.get_string("output-font")
         if self.global_output_font_button:
@@ -656,6 +660,8 @@ class Preferences(Adw.PreferencesWindow):
         # current_selection_title was previously read here but not used, so removed.
         # The selection is now primarily driven by load_preferences after model population.
 
+        logging.debug("_populate_user_agent_combo_row: Setting programmatic change flag and blocking handler.")
+        self._is_programmatically_changing_ua_combo = True
         if self._ua_combo_handler_id and self.user_agent_combo_row:
             self.user_agent_combo_row.handler_block(self._ua_combo_handler_id)
             logging.debug(f"_populate_user_agent_combo_row: Blocked handler {self._ua_combo_handler_id} for user_agent_combo_row.")
@@ -709,7 +715,8 @@ class Preferences(Adw.PreferencesWindow):
         # Ensure unblock is at the very end
         if self._ua_combo_handler_id and self.user_agent_combo_row:
             self.user_agent_combo_row.handler_unblock(self._ua_combo_handler_id)
-            logging.debug(f"_populate_user_agent_combo_row: Unblocked handler {self._ua_combo_handler_id} for user_agent_combo_row.")
+        self._is_programmatically_changing_ua_combo = False
+        logging.debug("_populate_user_agent_combo_row: Cleared programmatic change flag and unblocked handler.")
 
 
     def _on_default_user_agent_changed(self, combo_row: Adw.ComboRow, _gparam: GObject.ParamSpec):
@@ -718,6 +725,10 @@ class Preferences(Adw.PreferencesWindow):
         Saves the selected user agent *title* to GSettings.
         An empty string in GSettings means "System Default".
         """
+        if self._is_programmatically_changing_ua_combo:
+            logging.debug(f"_on_default_user_agent_changed: Ignoring signal for '{combo_row.get_selected_item().get_string() if combo_row.get_selected_item() else 'N/A'}' due to _is_programmatically_changing_ua_combo flag.")
+            return
+        logging.debug(f"_on_default_user_agent_changed: Processing signal for '{combo_row.get_selected_item().get_string() if combo_row.get_selected_item() else 'N/A'}'. Flag is False.")
         selected_item_obj = combo_row.get_selected_item()
         if isinstance(selected_item_obj, Gtk.StringObject):
             selected_ua_title = selected_item_obj.get_string()
