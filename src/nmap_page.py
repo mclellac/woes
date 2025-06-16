@@ -211,7 +211,7 @@ class NmapPage(Gtk.Box):
             return
 
         font_str = self._output_font_desc.to_string()
-        css = f"* {{ font: {font_str}; }}"
+        css = f"textview#nmap-raw-output-textview {{ font: '{font_str}'; }}"
         try:
             self.font_css_provider.load_from_string(css)
         except GLib.Error as e: # Catch potential errors from load_from_string

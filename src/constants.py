@@ -3,7 +3,7 @@ Global constants for the Woes application.
 
 This module defines various global constants used throughout the Woes application,
 including application identifiers, resource paths, theme names, version information,
-URLs, and predefined User-Agent strings.
+URLs, predefined User-Agent strings, and default HTTP header examples.
 """
 
 import os
@@ -148,4 +148,19 @@ USER_AGENTS = [
     {"title": "TimpiBot", "value": "Timpibot/0.8 (+http://www.timpi.io)"},
     {"title": "You.com YouBot", "value": "Mozilla/5.0 (compatible; YouBot (+http://www.you.com))"},
     {"title": "MistralAI User", "value": "Mozilla/5.0 (compatible; MistralAI-User/1.0; +https://mistral.ai/bot)"},
+]
+
+DEFAULT_HTTP_HEADERS = [
+    {
+        "title": "X-Forwarded-For: 127.0.0.1 (Example)",
+        "value": {"X-Forwarded-For": "127.0.0.1"}
+    },
+    {
+        "title": "X-Custom-Header: MyValue (Example)",
+        "value": {"X-Custom-Header": "MyValue"}
+    },
+    {
+        "title": "X-Client-Type: woes-app (Example)",
+        "value": {"X-Client-Type": "woes-app"}
+    }
 ]

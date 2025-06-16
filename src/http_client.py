@@ -97,6 +97,7 @@ class HttpFetcher:
         host_header: Optional[str] = None,
         user_agent: Optional[str] = None,
         custom_dns_server: Optional[str] = None,
+        additional_headers: Optional[Dict[str, str]] = None,
         cancellable: Optional[Gio.Cancellable] = None,
     ):
         """
@@ -104,15 +105,18 @@ class HttpFetcher:
 
         :param url: The URL to fetch.
         :type url: str
-        :param use_akamai_pragma: Whether to include Akamai Pragma headers.
+        :param use_akamai_pragma: Whether to include Akamai Pragma headers. Defaults to ``False``.
         :type use_akamai_pragma: bool
-        :param host_header: Optional custom Host header.
+        :param host_header: Optional custom Host header. Defaults to ``None``.
         :type host_header: Optional[str]
-        :param user_agent: Optional custom User-Agent string.
+        :param user_agent: Optional custom User-Agent string. Defaults to ``None``.
         :type user_agent: Optional[str]
-        :param custom_dns_server: Optional custom DNS server IP.
+        :param custom_dns_server: Optional custom DNS server IP. Defaults to ``None``.
         :type custom_dns_server: Optional[str]
-        :param cancellable: Optional :class:`Gio.Cancellable` object for cancellation.
+        :param additional_headers: Optional dictionary of additional headers to send with all requests
+                                   in the session. Defaults to ``None``.
+        :type additional_headers: Optional[Dict[str, str]]
+        :param cancellable: Optional :class:`Gio.Cancellable` object for cancellation. Defaults to ``None``.
         :type cancellable: Optional[Gio.Cancellable]
         """
         self.url: str = url
@@ -120,6 +124,7 @@ class HttpFetcher:
         self.host_header: Optional[str] = host_header
         self.user_agent: Optional[str] = user_agent
         self.custom_dns_server: Optional[str] = custom_dns_server
+        self.additional_headers: Optional[Dict[str, str]] = additional_headers
         self.cancellable: Optional[Gio.Cancellable] = cancellable
         self.session: requests.Session = requests.Session()
 
@@ -127,26 +132,48 @@ class HttpFetcher:
         """
         Prepare initial request-specific headers and session-wide headers.
 
-        Moved from ``HttpPage``.
+        The ``session_headers`` are built with the following precedence (later items override earlier):
+        1. `self.additional_headers` (general default headers).
+        2. `self.user_agent` (if provided, overrides 'User-Agent' from additional_headers).
+        3. Akamai Pragma headers (if `self.use_akamai_pragma` is true, overrides 'Pragma').
+
+        The `self.host_header` is handled separately in ``initial_request_specific_headers``
+        and typically overrides any 'Host' set in session headers for the first request.
 
         :return: A tuple containing two dictionaries:
-                 - ``initial_request_specific_headers``: Headers for the first request only.
-                 - ``session_headers``: Headers to apply to the :class:`requests.Session`.
+                 - ``initial_request_specific_headers``: Headers for the first request only (e.g., Host).
+                 - ``session_headers``: Headers to apply to the :class:`requests.Session` for all requests.
         :rtype: tuple[dict[str, str], dict[str, str]]
         """
         initial_request_specific_headers: dict[str, str] = {}
         session_headers: dict[str, str] = {}
 
-        if self.host_header:
-            initial_request_specific_headers["Host"] = self.host_header
-            logger.info("HttpFetcher: Using user-provided Host header: '%s'", self.host_header)
+        # Start with additional_headers for the session
+        if self.additional_headers:
+            session_headers.update(self.additional_headers)
+            logger.info(f"HttpFetcher: Applying additional headers: {self.additional_headers}")
 
+        # User-Agent override
         if self.user_agent:
-            session_headers["User-Agent"] = self.user_agent
+            session_headers["User-Agent"] = self.user_agent # This will override if 'User-Agent' was in additional_headers
             logger.info("HttpFetcher: Using custom User-Agent: '%s'", self.user_agent)
-        else:
+        elif "User-Agent" not in session_headers: # Only log if no UA is set at all yet
             logger.info("HttpFetcher: No custom User-Agent; `requests` default will be used.")
 
+        # Host header is special and often set on the initial request directly
+        if self.host_header:
+            initial_request_specific_headers["Host"] = self.host_header
+            logger.info("HttpFetcher: Using user-provided Host header for initial request: '%s'", self.host_header)
+            # If 'Host' was in additional_headers, it might be in session_headers.
+            # The initial_request_specific_headers usually takes precedence for the *first* request for 'Host'.
+            # For subsequent requests in a session (redirects), session_headers['Host'] would be used if present.
+            # To avoid confusion or requests library warnings, if Host is set for initial, don't also set in session.
+            if 'Host' in session_headers:
+                del session_headers['Host']
+                logger.info("HttpFetcher: Removed 'Host' from session headers as it's set for the initial request specifically.")
+
+
+        # Akamai Pragma headers - these should append or override Pragma from additional_headers
         if self.use_akamai_pragma:
             directives = [
                 "akamai-x-get-request-id",

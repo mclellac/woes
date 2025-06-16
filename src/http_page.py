@@ -18,7 +18,7 @@ gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
 from gi.repository import Adw, Gio, GObject, Gtk, GLib, Gdk, Pango
 
-from .constants import RESOURCE_PREFIX, APP_ID, USER_AGENTS
+from .constants import RESOURCE_PREFIX, APP_ID, USER_AGENTS, DEFAULT_HTTP_HEADERS
 from .utils import show_global_error, show_global_toast, is_valid_url
 from .helper import Helper
 from .http_client import (
@@ -348,8 +348,11 @@ class HttpPage(Gtk.Box):
         """
         Handle activation of the URL entry row or click of the 'Fetch' button.
 
-        Validates the URL, gathers request parameters, and starts the
-        background task to fetch HTTP headers.
+        Validates the URL, gathers request parameters (including Host header,
+        User-Agent, custom DNS, Akamai Pragma state, and the selected default
+        HTTP header from GSettings), and starts the background task to fetch
+        HTTP headers. The resolved default HTTP header is passed as
+        ``additional_headers`` to the :class:`.http_client.HttpFetcher`.
 
         :param _widget: The :class:`Gtk.Widget` that triggered the activation (unused).
         :type _widget: Gtk.Widget
@@ -456,12 +459,42 @@ class HttpPage(Gtk.Box):
         logger.info(f"Final User-Agent string for request: {user_agent_to_send}")
         custom_dns_server = self.settings.get_string("custom-dns-server")
 
+        # Resolve Default HTTP Header
+        additional_headers: Optional[Dict[str, str]] = None
+        default_header_title = self.settings.get_string("default-http-header-title")
+
+        if default_header_title and default_header_title != "None": # Assuming "None" is the UI string for no selection
+            header_found = False
+            # Check predefined DEFAULT_HTTP_HEADERS
+            for header_def in DEFAULT_HTTP_HEADERS:
+                if header_def["title"] == default_header_title:
+                    additional_headers = header_def["value"].copy() # Ensure we pass a copy
+                    header_found = True
+                    logger.info(f"Using predefined default HTTP header: '{default_header_title}' -> {additional_headers}")
+                    break
+
+            # If not in predefined, check custom headers
+            if not header_found:
+                custom_headers_variant = self.settings.get_value("custom-http-headers")
+                custom_headers_triples: list[tuple[str, str, str]] = list(
+                    custom_headers_variant.unpack() if custom_headers_variant and custom_headers_variant.get_type_string() == "a(sss)" else []
+                )
+                for title, name, value in custom_headers_triples:
+                    if title == default_header_title:
+                        additional_headers = {name: value}
+                        logger.info(f"Using custom default HTTP header: '{default_header_title}' -> {additional_headers}")
+                        break
+
+            if not additional_headers: # Log if title was set but not found (should ideally not happen if UI is synced)
+                 logger.warning(f"Default HTTP header title '{default_header_title}' was set but not found in predefined or custom headers.")
+
         self._http_task_data_for_thread = {
             "url": url,
             "use_akamai_pragma": self.http_pragma_switch_row.get_active(),
             "host_header": host_header if host_header else None,
             "user_agent": user_agent_to_send,
             "custom_dns_server": custom_dns_server if custom_dns_server else None,
+            "additional_headers": additional_headers,
         }
         logger.debug("HttpPage: Starting header fetch task with data: %s", self._http_task_data_for_thread)
 
@@ -480,15 +513,17 @@ class HttpPage(Gtk.Box):
         Background thread function for fetching HTTP headers.
 
         This function is executed by :meth:`Gio.Task.run_in_thread`.
-        It instantiates :class:`.http_client.HttpFetcher` and calls its
-        main fetching method. Results or exceptions are then reported back
-        to the main thread via the :class:`Gio.Task`.
+        It instantiates :class:`.http_client.HttpFetcher` with all necessary
+        parameters, including any resolved ``additional_headers`` (like a
+        default HTTP header), and calls its main fetching method. Results or
+        exceptions are then reported back to the main thread via the :class:`Gio.Task`.
 
         :param task: The :class:`Gio.Task` associated with this operation.
         :type task: Gio.Task
         :param _source_object: The source object that initiated the task (unused).
         :type _source_object: GObject.Object
         :param _task_data_arg: Additional data passed to the task (unused).
+                               The actual data is retrieved from ``self._http_task_data_for_thread``.
         :type _task_data_arg: dict[str, Any]
         :param cancellable: A :class:`Gio.Cancellable` object to monitor for cancellation.
         :type cancellable: Optional[Gio.Cancellable]
@@ -511,6 +546,7 @@ class HttpPage(Gtk.Box):
             host_header=current_task_data.get("host_header"),
             user_agent=current_task_data.get("user_agent"),
             custom_dns_server=current_task_data.get("custom_dns_server"),
+            additional_headers=current_task_data.get("additional_headers"),
             cancellable=cancellable,
         )
 
