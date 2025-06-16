@@ -99,6 +99,7 @@ def _load_gresources_early():
 
 
 _load_gresources_early()  # Call this as early as possible
+# Ensure Gtk.Template custom widgets defined in these modules are registered
 
 from .window import WoesWindow
 from .preferences import Preferences
