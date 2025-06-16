@@ -1,9 +1,9 @@
-/* Margin for GtkSourceView widgets */
-.source-view {
-  margin-top: 10;
-  margin-bottom: 10;
-  margin-left: 10;
-  margin-right: 10;
+/* Padding for webscan output GtkTextView */
+textview#webscan-output-textview {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  padding-left: 10px;
+  padding-right: 10px;
 }
 
 /* HTTP Page Specific Styles */
