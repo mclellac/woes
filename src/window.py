@@ -57,6 +57,7 @@ class WoesWindow(Adw.ApplicationWindow):
     toast_overlay: Adw.ToastOverlay = Gtk.Template.Child("toast_overlay")
 
     def __init__(self, **kwargs: Any):  # GObject.GObject is too restrictive if no args passed
+        """Initialize the WoesWindow."""
         logging.debug("WoesWindow.__init__ called")
         """
         Initialize the WoesWindow.
