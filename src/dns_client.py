@@ -1,7 +1,7 @@
-"""Module for performing DNS lookups."""
+"""Provides a client for performing DNS lookups."""
 
 import logging
-from typing import Optional, List, Dict, Any  # Use list, dict
+from typing import Optional, List, Dict, Any # Use list, dict
 import ipaddress
 
 import dns.resolver
@@ -14,44 +14,38 @@ logger = logging.getLogger(__name__)
 
 
 class DnsClientError(Exception):
-    """Base exception for :class:`.DnsResolverClient` errors."""
-
+    """Base exception for :class:`DnsResolverClient` errors."""
     pass
 
 
 class DnsResolutionTimeoutError(DnsClientError):
-    """Exception for DNS resolution timeouts."""
-
+    """DNS resolution timeout."""
     pass
 
 
 class DnsNxDomainError(DnsClientError):
-    """Exception for NXDOMAIN errors (non-existent domain)."""
-
+    """NXDOMAIN error (non-existent domain)."""
     pass
 
 
 class DnsNoAnswerError(DnsClientError):
-    """Exception for NoAnswer errors (query name exists, but not for specified type)."""
-
+    """NoAnswer error (query name exists, but not for specified type)."""
     pass
 
 
 class DnsGenericError(DnsClientError):
-    """Exception for other DNS resolution errors."""
-
+    """Other DNS resolution error."""
     pass
 
 
 class DnsResolverClient:
-    """Encapsulates logic for performing DNS lookups."""
+    """Encapsulates DNS lookup logic."""
 
     def __init__(self, custom_dns_server: Optional[str] = None):
-        """
-        Initialize :class:`.DnsResolverClient`.
+        """Initialize :class:`DnsResolverClient`.
 
         :param custom_dns_server: Optional IP address of a custom DNS server.
-        :type custom_dns_server: Optional[str]
+        :type custom_dns_server: str, optional
         """
         self.resolver: dns.resolver.Resolver = dns.resolver.Resolver()
         if custom_dns_server:
@@ -59,21 +53,20 @@ class DnsResolverClient:
         self.resolver.timeout = 2.0
         self.resolver.lifetime = 2.0
 
-    def _lookup_record_internal(self, query_name_str: str, record_type_str: str) -> List[Dict[str, Any]]:
-        """
-        Look up DNS records and parse them internally.
+    def _lookup_record_internal(self, query_name_str: str, record_type_str: str) -> list[dict[str, Any]]:
+        """Look up and parse DNS records.
 
-        Adapted from ``DNSPage._lookup_record``.
+        Internal method.
 
-        :param query_name_str: The domain name or reverse IP to query.
+        :param query_name_str: Domain name or reverse IP to query.
         :type query_name_str: str
-        :param record_type_str: The string representation of the DNS record type.
+        :param record_type_str: DNS record type string.
         :type record_type_str: str
-        :raises .DnsResolutionTimeoutError: If the DNS query times out.
-        :raises .DnsNxDomainError: If the domain does not exist.
-        :raises .DnsNoAnswerError: If the query name is valid but no records of the requested type exist.
-        :raises .DnsGenericError: For other DNS lookup failures.
-        :return: A list of dictionaries, where each dictionary represents a parsed DNS record.
+        :raises DnsResolutionTimeoutError: If DNS query times out.
+        :raises DnsNxDomainError: If domain does not exist.
+        :raises DnsNoAnswerError: If query name valid but no records of requested type exist.
+        :raises DnsGenericError: For other DNS lookup failures.
+        :return: List of parsed DNS record dictionaries.
         :rtype: list[dict[str, Any]]
         """
         try:
@@ -129,16 +122,15 @@ class DnsResolverClient:
             raise DnsGenericError(f"DNS error for {query_name_str}: {e}") from e
 
     def resolve(self, domain_or_ip: str, record_type: str) -> list[dict[str, Any]]:
-        """
-        Resolve DNS records for the given domain/IP and record type.
+        """Resolve DNS records for a domain/IP and record type.
 
-        :param domain_or_ip: The domain name or IP address to query.
+        :param domain_or_ip: Domain name or IP address to query.
         :type domain_or_ip: str
-        :param record_type: The DNS record type string (e.g., "A", "MX", "PTR").
-                            If "PTR" is requested for an IP, it handles reverse DNS.
+        :param record_type: DNS record type string (e.g., "A", "MX", "PTR").
+                            Handles reverse DNS for "PTR" queries of IP addresses.
         :type record_type: str
-        :raises .DnsClientError: and its subclasses for various DNS resolution issues.
-        :return: A list of dictionaries, each representing a parsed DNS record.
+        :raises DnsClientError: and its subclasses for DNS resolution issues.
+        :return: List of parsed DNS record dictionaries.
         :rtype: list[dict[str, Any]]
         """
         logger.debug("DnsResolverClient: resolve called for %s, type %s", domain_or_ip, record_type)

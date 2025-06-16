@@ -1,17 +1,16 @@
-"""
-Custom HTTPAdapter for 'requests' with custom DNS resolution and SNI handling.
+"""Custom HTTPAdapter for requests with custom DNS and SNI.
 
-This module provides a custom :class:`requests.adapters.HTTPAdapter` that allows for specifying a DNS server
-for hostname resolution and handles Server Name Indication (SNI) for HTTPS connections.
+Provides a :class:`requests.adapters.HTTPAdapter` for custom DNS resolution
+and Server Name Indication (SNI) for HTTPS connections.
 """
 
 import logging
 import socket
 import ssl
-from typing import Optional, Tuple, Any  # Use list, dict
+from typing import Optional, Tuple, Any # Use list, dict
 
 import requests
-import requests.utils  # For urlparse, urlunparse
+import requests.utils # For urlparse, urlunparse
 from requests.adapters import HTTPAdapter
 
 try:
@@ -27,39 +26,28 @@ logger = logging.getLogger(__name__)
 
 
 class CustomDNSAdapter(HTTPAdapter):
-    """
-    A custom :class:`requests.adapters.HTTPAdapter` for `requests` that enables custom DNS resolution and SNI handling.
+    """Custom requests.adapters.HTTPAdapter for DNS and SNI.
 
-    This adapter intercepts requests to:
-    1. Resolve the hostname using a specified custom DNS server if `dnspython` is available.
-       If resolution occurs, the request URL is internally modified to use the resolved IP address
-       for the connection, while the original hostname is saved for SNI and Host header purposes.
-    2. Configure Server Name Indication (SNI) for HTTPS connections:
-       - If a hostname was resolved to an IP, the original hostname is used for SNI.
-       - If the request URL is already an IP address, a ``default_sni`` (typically from the
-         user's 'Host' header input) can be used for SNI.
-    3. Set ``assert_hostname`` for `urllib3`'s connection pool to ensure the SSL certificate
-       is validated against the correct hostname (either the original or the specified SNI).
-
-    If custom DNS is not used or resolution fails, it behaves like a standard :class:`requests.adapters.HTTPAdapter`.
+    Enables custom DNS resolution and SNI handling. Resolves hostnames using
+    a specified DNS server (if dnspython is available) and configures SNI
+    for HTTPS connections. If the request URL is an IP, `default_sni` (from
+    Host header) can be used. Sets `assert_hostname` for urllib3's connection
+    pool for SSL certificate validation. Falls back to standard adapter behavior
+    if custom DNS is not used or resolution fails.
     """
 
     def __init__(
         self, *args: Any, custom_dns_server: Optional[str] = None, default_sni: Optional[str] = None, **kwargs: Any
     ):
-        """
-        Initialize the CustomDNSAdapter.
+        """Initialize the CustomDNSAdapter.
 
-        :param args: Positional arguments to pass to the parent :class:`requests.adapters.HTTPAdapter`.
+        :param args: Positional arguments for :class:`requests.adapters.HTTPAdapter`.
         :type args: Any
-        :param custom_dns_server: IP address of the custom DNS server. If ``None``, or if `dns` (dnspython)
-                                  module is unavailable, system DNS will be used.
-        :type custom_dns_server: Optional[str]
-        :param default_sni: The hostname to use for SNI and certificate validation if the request URL
-                            is already an IP address. This is typically derived from the user's
-                            'Host' header input.
-        :type default_sni: Optional[str]
-        :param kwargs: Keyword arguments to pass to the parent :class:`requests.adapters.HTTPAdapter`.
+        :param custom_dns_server: IP of the custom DNS server. Uses system DNS if None or dnspython is unavailable.
+        :type custom_dns_server: str, optional
+        :param default_sni: Hostname for SNI/certificate validation if URL is an IP. Typically from Host header.
+        :type default_sni: str, optional
+        :param kwargs: Keyword arguments for :class:`requests.adapters.HTTPAdapter`.
         :type kwargs: Any
         """
         self.custom_dns_server: Optional[str] = custom_dns_server
@@ -69,16 +57,15 @@ class CustomDNSAdapter(HTTPAdapter):
         super().__init__(*args, **kwargs)
 
     def _resolve_hostname_to_ip(self, hostname: str) -> Optional[str]:
-        """
-        Resolve a hostname using the custom DNS server.
+        """Resolve a hostname using the custom DNS server.
 
-        Attempts to resolve AAAA records first, then A records.
+        Attempts AAAA records first, then A.
 
         :param hostname: The hostname to resolve.
         :type hostname: str
-        :return: The first resolved IP address (preferring IPv6) as a string, or ``None`` if
-                 resolution fails, custom DNS is not configured, or `dnspython` is unavailable.
-        :rtype: Optional[str]
+        :return: Resolved IP address (IPv6 preferred) or None if resolution fails,
+                 custom DNS is not configured, or dnspython is unavailable.
+        :rtype: str, optional
         """
         if not self.custom_dns_server or not dns:
             logger.debug(
@@ -143,31 +130,24 @@ class CustomDNSAdapter(HTTPAdapter):
         cert: Optional[Tuple[str, str] | str] = None,
         proxies: Optional[dict[str, str]] = None,
     ) -> requests.Response:  # type: ignore[override]
-        """
-        Send a prepared request.
+        """Send a prepared request.
 
-        This method handles the sending of a request, potentially using a custom DNS resolver
-        to modify the destination IP address and configuring SNI. It overrides the base
-        :meth:`requests.adapters.HTTPAdapter.send` method.
+        Handles sending a request, potentially using custom DNS to modify the
+        destination IP and configuring SNI. Overrides
+        :meth:`requests.adapters.HTTPAdapter.send`.
 
-        :param request: The :class:`requests.PreparedRequest` object to send.
+        :param request: The :class:`requests.PreparedRequest` to send.
         :type request: requests.models.PreparedRequest
-        :param stream: (optional) Whether to stream the request content. Defaults to ``False``.
-        :type stream: bool
-        :param timeout: (optional) How long to wait for the server to send data
-                        before giving up, as a float, or a :ref:`(connect timeout, read
-                        timeout) <requests:timeouts>` tuple. Defaults to ``None``.
-        :type timeout: Optional[float | tuple[float, float]]
-        :param verify: (optional) Either a boolean, in which case it controls whether we verify
-                       the server's TLS certificate, or a string, in which case it must be a path
-                       to a CA bundle to use. Defaults to ``True``.
-        :type verify: bool | str
-        :param cert: (optional) Any user-provided SSL certificate to be trusted.
-                     Can be a single file (containing the private key and the certificate)
-                     or a tuple of (cert file, key file) paths. Defaults to ``None``.
-        :type cert: Optional[tuple[str, str] | str]
-        :param proxies: (optional) The proxies dictionary to apply to the request. Defaults to ``None``.
-        :type proxies: Optional[dict[str,str]]
+        :param stream: Whether to stream the request content, defaults to False.
+        :type stream: bool, optional
+        :param timeout: Timeout for the request (float or tuple), defaults to None.
+        :type timeout: float or tuple[float, float], optional
+        :param verify: Whether to verify TLS certificate (bool or path to CA bundle), defaults to True.
+        :type verify: bool or str, optional
+        :param cert: Path to SSL certificate (single file or tuple of cert/key), defaults to None.
+        :type cert: tuple[str, str] or str, optional
+        :param proxies: Proxies dictionary for the request, defaults to None.
+        :type proxies: dict[str, str], optional
         :return: The :class:`requests.Response` object.
         :rtype: requests.Response
         """
@@ -202,14 +182,13 @@ class CustomDNSAdapter(HTTPAdapter):
         return super().send(request, stream, timeout, verify, cert, proxies)  # type: ignore[return-value]
 
     def get_connection(self, url: str, proxies: Optional[dict[str, str]] = None) -> Any:  # type: ignore[override]
-        """
-        Override :meth:`requests.adapters.HTTPAdapter.get_connection` for custom IP resolution.
+        """Override :meth:`requests.adapters.HTTPAdapter.get_connection` for custom IP.
 
         :param url: The URL to connect to.
         :type url: str
         :param proxies: Proxies configuration.
-        :type proxies: Optional[dict[str, str]]
-        :return: The connection object from `urllib3`.
+        :type proxies: dict[str, str], optional
+        :return: The connection object from urllib3.
         :rtype: urllib3.connectionpool.HTTPConnectionPool or urllib3.connectionpool.HTTPSConnectionPool
         """
         parsed_url = requests.utils.urlparse(url)  # type: ignore[attr-defined]
@@ -252,16 +231,15 @@ class CustomDNSAdapter(HTTPAdapter):
             return super().get_connection(url, proxies=proxies)  # type: ignore[no-any-return]
 
     def init_poolmanager(self, connections: int, maxsize: int, block: bool = False, **pool_kwargs: Any) -> None:  # type: ignore[override]
-        """
-        Initialize the `urllib3.PoolManager` with SNI and certificate validation settings.
+        """Initialize `urllib3.PoolManager` with SNI and cert validation.
 
-        :param connections: The number of `urllib3` connection pools to cache.
+        :param connections: Number of urllib3 connection pools to cache.
         :type connections: int
-        :param maxsize: The maximum number of connections to save in the pool.
+        :param maxsize: Maximum number of connections to save in the pool.
         :type maxsize: int
-        :param block: Whether the connection pool should block for connections. Defaults to ``False``.
-        :type block: bool
-        :param pool_kwargs: Extra keyword arguments used to initialize the PoolManager.
+        :param block: Whether the pool should block for connections, defaults to False.
+        :type block: bool, optional
+        :param pool_kwargs: Extra keyword arguments for PoolManager initialization.
         :type pool_kwargs: Any
         """
         sni_hostname_for_pool: Optional[str] = None
