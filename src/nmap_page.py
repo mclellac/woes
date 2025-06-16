@@ -118,7 +118,13 @@ class NmapPage(Gtk.Box):
         self.nmap_output_textview.set_editable(False)
         self.nmap_output_textview.set_hexpand(True)
         self.nmap_output_textview.set_vexpand(True)
-        self.nmap_output_textview.override_font(self._output_font_desc)
+        # self.nmap_output_textview.override_font(self._output_font_desc) # Replaced by CssProvider
+
+        self.font_css_provider = Gtk.CssProvider()
+        self.nmap_output_textview.get_style_context().add_provider(
+            self.font_css_provider, Gtk.STYLE_PROVIDER_PRIORITY_USER
+        )
+        self._update_font_css() # Initial font application
 
         self.nmap_output_scrolled_window = Gtk.ScrolledWindow()
         self.nmap_output_scrolled_window.set_child(self.nmap_output_textview)
@@ -189,10 +195,28 @@ class NmapPage(Gtk.Box):
             self._output_font_desc = Pango.FontDescription.from_string(
                 output_font_str if output_font_str else "Monospace 10"
             )
-            if hasattr(self, "nmap_output_textview") and self.nmap_output_textview:
-                self.nmap_output_textview.override_font(self._output_font_desc)
-            else:
-                logger.warning("NmapPage: nmap_output_textview not available to apply font change.")
+            # if hasattr(self, "nmap_output_textview") and self.nmap_output_textview: # Replaced by CssProvider
+            #     self.nmap_output_textview.override_font(self._output_font_desc)
+            # else:
+            #     logger.warning("NmapPage: nmap_output_textview not available to apply font change.")
+            self._update_font_css()
+
+    def _update_font_css(self) -> None:
+        """Update the CSS provider with the current font description."""
+        if not hasattr(self, "font_css_provider") or not self.font_css_provider:
+            logger.warning("NmapPage: font_css_provider is not available to update CSS.")
+            return
+        if not hasattr(self, "_output_font_desc") or not self._output_font_desc:
+            logger.warning("NmapPage: _output_font_desc is not available to update CSS.")
+            return
+
+        font_str = self._output_font_desc.to_string()
+        css = f"* {{ font: {font_str}; }}"
+        try:
+            self.font_css_provider.load_from_string(css)
+        except GLib.Error as e: # Catch potential errors from load_from_string
+            logger.error(f"NmapPage: Error loading CSS string '{css}': {e}")
+
 
     def _on_cancel_scan_clicked(self, _button: Gtk.Button) -> None:
         """

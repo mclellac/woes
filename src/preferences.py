@@ -128,9 +128,6 @@ class Preferences(Adw.PreferencesWindow):
                     "found" if dnspython_available else "not found",
                 )
             else:
-                logging.warning(
-                    "Adw.EntryRow 'dns_server_entryrow' does not have 'set_subtitle' method. Using tooltip fallback."
-                )
                 if not dnspython_available:
                     self.dns_server_entryrow.set_sensitive(False)
                     self.dns_server_entryrow.set_tooltip_text(

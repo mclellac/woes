@@ -1,10 +1,13 @@
 """Provides a Helper class for :class:`Gtk.ColumnView` context menus and keyboard shortcuts."""
 
+import logging
 from typing import Optional
 from gi.repository import Gdk, Gtk, GObject
 import gi
 
 gi.require_version("Gtk", "4.0")
+
+logger = logging.getLogger(__name__)
 
 
 class Helper:
@@ -110,18 +113,23 @@ class Helper:
 
         :return: None
         """
+        logger.debug("copy_context_item_to_clipboard called.")
         if (
             not isinstance(self.widget, Gtk.ColumnView)
             or not hasattr(self, "last_right_click_coords")
             or self.last_right_click_coords is None
         ):
+            logger.debug("Pre-conditions not met for copy_context_item_to_clipboard (widget type, coords).")
             return
 
         x_coord, y_coord = self.last_right_click_coords
+        logger.debug(f"Coordinates for pick: x={x_coord}, y={y_coord}")
 
         picked_widget = self.widget.pick(x_coord, y_coord, Gtk.PickFlags.DEFAULT)  # type: ignore[no-untyped-call]
+        logger.debug(f"widget.pick result: {picked_widget}")
 
         if picked_widget is None:
+            logger.debug("No widget picked at coordinates.")
             return
 
         target_list_item_widget: Optional[Gtk.ListItem] = None
@@ -132,23 +140,29 @@ class Helper:
                 target_list_item_widget = current_widget
                 break
             if current_widget == self.widget:  # Stop if we've reached the ColumnView itself
+                logger.debug("Reached ColumnView widget while traversing up, Gtk.ListItem not found in path.")
                 break
             current_widget = current_widget.get_parent()
 
         if not target_list_item_widget:
+            logger.debug("Gtk.ListItem widget not found by traversing up from picked_widget.")
             return
+        logger.debug(f"Found target_list_item_widget: {target_list_item_widget}")
 
         item_obj: Optional[GObject.Object] = target_list_item_widget.get_item()
 
         if item_obj is None:
+            logger.debug("item_obj is None from target_list_item_widget.get_item().")
             return
+        logger.debug(f"Got item_obj: {item_obj}, type: {type(item_obj)}")
 
         text_to_copy: str = ""
         try:
-            # Assuming item_obj is HeaderItem-like (has 'key', 'value', 'is_special_row')
+            logger.debug("Attempting to treat item_obj as HeaderItem-like (attributes: key, value, is_special_row).")
             key_attr = getattr(item_obj, "key", None)
             value_attr = getattr(item_obj, "value", None)
             is_special_attr = getattr(item_obj, "is_special_row", False)
+            logger.debug(f"Retrieved attributes: key='{key_attr}', value='{value_attr}', is_special={is_special_attr}")
 
             if is_special_attr:
                 text_to_copy = str(key_attr if key_attr is not None else "")
@@ -161,14 +175,21 @@ class Helper:
                 text_to_copy = f"{str(key_attr if key_attr is not None else '')}: {str(value_attr if value_attr is not None else '')}"
 
             clipboard: Gdk.Clipboard = self.widget.get_clipboard()  # type: ignore[assignment]
+            if not text_to_copy:
+                logger.debug("text_to_copy is empty after attribute processing.")
+            else:
+                logger.debug(f"Constructed text_to_copy: '{text_to_copy}'")
+
+            clipboard: Gdk.Clipboard = self.widget.get_clipboard()  # type: ignore[assignment]
             if clipboard:
                 content_provider = Gdk.ContentProvider.new_for_value(text_to_copy)
                 clipboard.set_content(content_provider)  # type: ignore[no-untyped-call]
+                logger.debug("Successfully set clipboard content.")
+            else:
+                logger.warning("Failed to get clipboard object.")
 
-        except AttributeError:
-            # This might happen if item_obj is not a HeaderItem-like object.
-            # Consider logging this error for debugging if necessary.
-            pass
+        except AttributeError as e:
+            logger.warning(f"AttributeError in copy_context_item_to_clipboard: {e}")
 
     def on_copy_menu_item_activated(self, _button: Gtk.Button) -> None:
         """
