@@ -8,20 +8,20 @@
     <property name="modal">true</property>
     <property name="title">Preferences</property>
     <child>
-      <object class="AdwPreferencesPage" id="preferences_page">
+      <object class="AdwPreferencesPage" id="appearance_page">
+        <property name="title">Appearance</property>
+        <property name="icon-name">preferences-desktop-theme-symbolic</property>
         <child>
           <object class="AdwBanner" id="preferences_error_banner">
-            <property name="revealed">False</property> <!-- Initially hidden -->
-            <property name="valign">start</property> <!-- Keep it at the top -->
-            <!-- Title/message will be set from code -->
-             <property name="button-label" translatable="yes">Dismiss</property> <!-- Optional: if you want a dismiss button -->
-             <signal name="button-clicked" handler="on_error_banner_dismiss_clicked"/>
+            <property name="revealed">False</property>
+            <property name="valign">start</property>
+            <property name="button-label" translatable="yes">Dismiss</property>
+            <signal name="button-clicked" handler="on_error_banner_dismiss_clicked"/>
           </object>
         </child>
         <child>
           <object class="AdwPreferencesGroup" id="appearance_group">
-            <!-- Removed margin-top to let banner be flush if at top -->
-            <property name="title">Appearance</property>
+            <property name="title">Theme &amp; Font Size</property>
             <child>
               <object class="AdwComboRow" id="theme_combo_row">
                 <property name="title" translatable="yes">Theme</property>
@@ -60,116 +60,28 @@
           </object>
         </child>
         <child>
-          <object class="AdwPreferencesGroup" id="default_http_header_group">
-            <property name="title">Default HTTP Header</property>
-            <child>
-              <object class="AdwComboRow" id="default_http_header_combo_row">
-                <property name="title" translatable="yes">Default HTTP Header</property>
-                <property name="subtitle" translatable="yes">Select a default HTTP header to send with requests in the HTTP Page</property>
-                <!-- Model will be populated from code -->
-              </object>
-            </child>
-          </object>
-        </child>
-        <child>
-          <object class="AdwPreferencesGroup" id="custom_http_headers_group">
-            <property name="title" translatable="yes">Custom HTTP Headers</property>
-            <property name="description" translatable="yes">Manage your list of custom HTTP headers for the HTTP Page.</property>
-            <child>
-              <object class="AdwEntryRow" id="new_custom_http_header_title_entry">
-                <property name="title" translatable="yes">Display Title</property>
-                <property name="tooltip-text" translatable="yes">A short, user-friendly title for the custom header set (e.g., 'My API Key')</property>
-              </object>
-            </child>
-            <child>
-              <object class="AdwEntryRow" id="new_custom_http_header_name_entry">
-                <property name="title" translatable="yes">Header Name</property>
-                <property name="tooltip-text" translatable="yes">The name of the HTTP header (e.g., 'Authorization')</property>
-              </object>
-            </child>
-            <child>
-              <object class="AdwEntryRow" id="new_custom_http_header_value_entry">
-                <property name="title" translatable="yes">Header Value</property>
-                <property name="tooltip-text" translatable="yes">The value of the HTTP header (e.g., 'Bearer yourtoken')</property>
-              </object>
-            </child>
-            <child>
-              <object class="GtkBox">
-                <property name="orientation">horizontal</property>
-                <property name="halign">end</property>
-                <property name="spacing">6</property>
-                <property name="margin-top">6</property>
-                <property name="margin-bottom">6</property>
-                <child>
-                  <object class="GtkButton" id="add_custom_http_header_button">
-                    <property name="label" translatable="yes">Add Custom HTTP Header</property>
-                    <property name="icon-name">list-add-symbolic</property>
-                    <property name="tooltip-text" translatable="yes">Add the new custom HTTP header to the list</property>
-                    <style>
-                      <class name="suggested-action"/>
-                    </style>
-                  </object>
-                </child>
-              </object>
-            </child>
-            <child>
-              <object class="GtkBox" id="custom_http_header_list_container">
-                <property name="orientation">vertical</property>
-                <property name="spacing">6</property>
-                <!-- Adw.ActionRows or similar representing custom HTTP headers will be added here from code -->
-                <style>
-                  <class name="boxed-list"/>
-                </style>
-              </object>
-            </child>
-          </object>
-        </child>
-        <child>
           <object class="AdwPreferencesGroup" id="output_font_settings_group">
-            <property name="title" translatable="yes">Output Font Settings</property>
-            <property name="description" translatable="yes">Configure the global font for all tool output text areas.</property>
+            <property name="title" translatable="yes">Global Output Font</property>
+            <property name="description" translatable="yes">Configure the font for all tool output text areas.</property>
             <child>
               <object class="AdwActionRow" id="global_output_font_row">
                 <property name="title" translatable="yes">Output Area Font</property>
-                <property name="subtitle" translatable="yes">Select font family and size for all tool output text areas</property>
+                <property name="subtitle" translatable="yes">Select font family and size</property>
                 <child type="suffix">
                   <object class="GtkFontButton" id="global_output_font_button">
                     <property name="valign">center</property>
                     <property name="use-font">true</property>
-                    <property name="use-size">true</property> <!-- Enable size selection in the dialog -->
-                    <property name="font">Sans 10</property> <!-- Default, will be updated by GSettings -->
+                    <property name="use-size">true</property>
+                    <property name="font">Sans 10</property>
                   </object>
                 </child>
               </object>
             </child>
-          </object>
-        </child>
-        <child>
-          <object class="AdwPreferencesGroup" id="advanced_group">
-            <property name="title">Tool settings</property>
-            <child>
-              <object class="AdwEntryRow" id="dns_server_entryrow">
-                <property name="activates-default">True</property>
-                <property name="title">Custom DNS Server (Optional)</property>
-                <!-- <property name="subtitle">Leave empty to use system default DNS</property> -->
-                <child type="suffix">
-                  <object class="GtkButton" id="prefs_dns_apply_button">
-                    <property name="icon-name">object-select-symbolic</property>
-                    <property name="tooltip-text" translatable="yes">Apply</property>
-                    <property name="valign">center</property>
-                    <style>
-                      <class name="suggested-action"/>
-                    </style>
-                  </object>
-                </child>
-              </object>
-            </child>
-            <!-- Removed empty AdwActionRow -->
           </object>
         </child>
         <child>
           <object class="AdwPreferencesGroup" id="http_colors_group">
-            <property name="title">HTTP Output Colours</property>
+            <property name="title">HTTP Output Colors</property>
             <child>
               <object class="AdwActionRow">
                 <property name="title">Header Key Colour</property>
@@ -202,10 +114,37 @@
             </child>
           </object>
         </child>
+      </object>
+    </child>
+    <child>
+      <object class="AdwPreferencesPage" id="behavior_page">
+        <property name="title">Behavior</property>
+        <property name="icon-name">preferences-system-symbolic</property>
         <child>
-          <object class="AdwPreferencesGroup" id="custom_ua_group">
-            <property name="title" translatable="yes">Custom User Agents</property>
-            <property name="description" translatable="yes">Manage your list of custom User-Agent strings for the HTTP Page.</property>
+          <object class="AdwPreferencesGroup" id="network_configuration_group"> <!-- Renamed from advanced_group -->
+            <property name="title">Network Configuration</property> <!-- Renamed title -->
+            <child>
+              <object class="AdwEntryRow" id="dns_server_entryrow">
+                <property name="activates-default">True</property>
+                <property name="title">Custom DNS Server (Optional)</property>
+                <child type="suffix">
+                  <object class="GtkButton" id="prefs_dns_apply_button">
+                    <property name="icon-name">object-select-symbolic</property>
+                    <property name="tooltip-text" translatable="yes">Apply</property>
+                    <property name="valign">center</property>
+                    <style>
+                      <class name="suggested-action"/>
+                    </style>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="AdwPreferencesGroup" id="user_agent_configuration_group"> <!-- Renamed from custom_ua_group -->
+            <property name="title" translatable="yes">User Agent Configuration</property> <!-- Renamed title -->
+            <property name="description" translatable="yes">Manage your list of custom User-Agent strings and select a default for the HTTP Page.</property>
             <child>
               <object class="AdwActionRow" id="default_ua_selection_row">
                 <property name="title" translatable="yes">Default User Agent for HTTP Page</property>
@@ -213,8 +152,7 @@
                 <child type="suffix">
                   <object class="AdwComboRow" id="user_agent_combo_row">
                     <property name="valign">center</property>
-                    <property name="title" translatable="yes">Default User Agent</property> <!-- This title is not directly visible but good for accessibility -->
-                    <!-- The model will be populated from code -->
+                    <property name="title" translatable="yes">Default User Agent</property>
                   </object>
                 </child>
               </object>
@@ -251,13 +189,11 @@
               </object>
             </child>
             <child>
-              <!-- This Gtk.ListBox will act as a container for dynamically added Adw.ActionRows -->
               <object class="GtkListBox" id="custom_ua_list_container">
-                <property name="selection-mode">none</property> <!-- We don't want rows to be selectable -->
+                <property name="selection-mode">none</property>
                 <style>
-                  <class name="boxed-list"/> <!-- Adwaita style for a list of rows -->
+                  <class name="boxed-list"/>
                 </style>
-                <!-- Adw.ActionRows representing custom UAs will be added here from code -->
               </object>
             </child>
           </object>

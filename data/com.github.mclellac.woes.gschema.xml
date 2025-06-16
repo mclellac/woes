@@ -31,16 +31,6 @@
       <description>Specifies the custom DNS server IP address to be used for DNS lookups. Leave
         empty to use the system default.</description>
     </key>
-    <key name="custom-http-headers" type="a(sss)">
-      <default>[]</default>
-      <summary>Custom HTTP headers defined by the user</summary>
-      <description>Stores a list of custom HTTP headers. Each header is a triple: (display_title, header_name, header_value).</description>
-    </key>
-    <key name="default-http-header-title" type="s">
-      <default>''</default>
-      <summary>Title of the default HTTP header to be used</summary>
-      <description>Stores the title of the HTTP header selected as default. The actual header name and value are resolved from this title by looking through predefined and custom headers. An empty string means no default header is selected.</description>
-    </key>
     <key name="window-width" type="i">
       <default>900</default>
       <summary>Window Width</summary>

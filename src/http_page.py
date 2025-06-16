@@ -18,7 +18,7 @@ gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
 from gi.repository import Adw, Gio, GObject, Gtk, GLib, Gdk, Pango
 
-from .constants import RESOURCE_PREFIX, APP_ID, USER_AGENTS, DEFAULT_HTTP_HEADERS
+from .constants import RESOURCE_PREFIX, APP_ID, USER_AGENTS
 from .utils import show_global_error, show_global_toast, is_valid_url
 from .helper import Helper
 from .http_client import (
@@ -276,10 +276,14 @@ class HttpPage(Gtk.Box):
         self, combo_row: Adw.ComboRow, _gparam: Optional[GObject.ParamSpec]
     ) -> None:
         """
-        Save the selected User-Agent title to GSettings.
+        Handle User-Agent selection changes in the HTTP Page's dropdown.
 
-        This method is connected to the 'notify::selected-item' signal of the User-Agent ComboRow.
-        It persists the user's choice.
+        This method is connected to the 'notify::selected-item' signal of the
+        User-Agent ComboRow on the HTTP Page. It logs the change for the current
+        session. It does *not* save this selection back to the global
+        `default-user-agent-title` GSettings key, ensuring that the HTTP Page's
+        User-Agent choice is session-specific and does not alter the
+        globally configured default User-Agent preference.
 
         :param combo_row: The :class:`Adw.ComboRow` for User-Agent selection.
         :type combo_row: Adw.ComboRow
@@ -293,18 +297,14 @@ class HttpPage(Gtk.Box):
         selected_item_obj = combo_row.get_selected_item()
         if isinstance(selected_item_obj, Gtk.StringObject):
             selected_title = selected_item_obj.get_string()
-            if selected_title == "None":  # "None" is the display title for system default
-                self.settings.set_string("default-user-agent-title", "")
-                logger.info("User-Agent preference saved: System Default (empty string).")
-            else:
-                self.settings.set_string("default-user-agent-title", selected_title)
-                logger.info(f"User-Agent preference saved: '{selected_title}'.")
+            logger.info(f"HTTP Page User-Agent selection changed to: '{selected_title}'. This is a session-specific change.")
+            # The line below is commented out to prevent HTTP page selection from changing global default.
+            # self.settings.set_string("default-user-agent-title", selected_title if selected_title != "None" else "")
         elif selected_item_obj is None:
-            # This case might occur if the model is empty or selection is cleared programmatically
-            # in a way that doesn't involve selecting the "None" Gtk.StringObject.
-            # Setting to empty string to signify no specific UA default.
-            self.settings.set_string("default-user-agent-title", "")
-            logger.info("User-Agent preference saved: No selection (empty string).")
+            logger.info("HTTP Page User-Agent selection cleared (None). This is a session-specific change.")
+            # The line below is commented out
+            # self.settings.set_string("default-user-agent-title", "")
+
 
     def _on_copy_results_clicked(self, _button: Gtk.Button) -> None:
         """
@@ -459,42 +459,12 @@ class HttpPage(Gtk.Box):
         logger.info(f"Final User-Agent string for request: {user_agent_to_send}")
         custom_dns_server = self.settings.get_string("custom-dns-server")
 
-        # Resolve Default HTTP Header
-        additional_headers: Optional[Dict[str, str]] = None
-        default_header_title = self.settings.get_string("default-http-header-title")
-
-        if default_header_title and default_header_title != "None": # Assuming "None" is the UI string for no selection
-            header_found = False
-            # Check predefined DEFAULT_HTTP_HEADERS
-            for header_def in DEFAULT_HTTP_HEADERS:
-                if header_def["title"] == default_header_title:
-                    additional_headers = header_def["value"].copy() # Ensure we pass a copy
-                    header_found = True
-                    logger.info(f"Using predefined default HTTP header: '{default_header_title}' -> {additional_headers}")
-                    break
-
-            # If not in predefined, check custom headers
-            if not header_found:
-                custom_headers_variant = self.settings.get_value("custom-http-headers")
-                custom_headers_triples: list[tuple[str, str, str]] = list(
-                    custom_headers_variant.unpack() if custom_headers_variant and custom_headers_variant.get_type_string() == "a(sss)" else []
-                )
-                for title, name, value in custom_headers_triples:
-                    if title == default_header_title:
-                        additional_headers = {name: value}
-                        logger.info(f"Using custom default HTTP header: '{default_header_title}' -> {additional_headers}")
-                        break
-
-            if not additional_headers: # Log if title was set but not found (should ideally not happen if UI is synced)
-                 logger.warning(f"Default HTTP header title '{default_header_title}' was set but not found in predefined or custom headers.")
-
         self._http_task_data_for_thread = {
             "url": url,
             "use_akamai_pragma": self.http_pragma_switch_row.get_active(),
             "host_header": host_header if host_header else None,
             "user_agent": user_agent_to_send,
             "custom_dns_server": custom_dns_server if custom_dns_server else None,
-            "additional_headers": additional_headers,
         }
         logger.debug("HttpPage: Starting header fetch task with data: %s", self._http_task_data_for_thread)
 
@@ -546,7 +516,6 @@ class HttpPage(Gtk.Box):
             host_header=current_task_data.get("host_header"),
             user_agent=current_task_data.get("user_agent"),
             custom_dns_server=current_task_data.get("custom_dns_server"),
-            additional_headers=current_task_data.get("additional_headers"),
             cancellable=cancellable,
         )
 
@@ -943,12 +912,18 @@ class HttpPage(Gtk.Box):
 
     def _update_user_agent_model(self) -> None:
         """
-        Update the model for the User-Agent :class:`Adw.ComboRow`.
+        Update the model for the User-Agent :class:`Adw.ComboRow` on the HTTP Page.
 
-        Populates the dropdown with a "None" option (system default),
-        predefined User-Agents from :mod:`.constants`, and custom User-Agents from GSettings.
-        It attempts to preserve the current selection or apply the application's
-        default User-Agent preference.
+        This method populates the dropdown with a "None" option, standard User-Agents
+        from :mod:`.constants.USER_AGENTS`, and any custom User-Agents defined in
+        GSettings.
+
+        Crucially, after populating, it sets the initial selection of this dropdown
+        based on the `default-user-agent-title` GSettings value. If this
+        preference is empty or the specified User-Agent title is not found in the
+        populated list, it defaults to selecting the "None" option. This ensures
+        the HTTP Page respects the global default User-Agent preference on
+        initialization.
 
         :return: None
         """
@@ -956,15 +931,15 @@ class HttpPage(Gtk.Box):
             logger.error("HttpPage._update_user_agent_model: http_user_agent_row is None.")
             return
         self._ua_title_to_value_map.clear()
-        current_selection_text: Optional[str] = None
+        # current_selection_text: Optional[str] = None # Removed as per new logic
 
-        if (
-            self.http_user_agent_row.get_model()
-            and self.http_user_agent_row.get_selected() != Gtk.INVALID_LIST_POSITION
-        ):
-            selected_item_obj = self.http_user_agent_row.get_selected_item()
-            if isinstance(selected_item_obj, Gtk.StringObject):
-                current_selection_text = selected_item_obj.get_string()
+        # if (
+        #     self.http_user_agent_row.get_model()
+        #     and self.http_user_agent_row.get_selected() != Gtk.INVALID_LIST_POSITION
+        # ):
+        #     selected_item_obj = self.http_user_agent_row.get_selected_item()
+        #     if isinstance(selected_item_obj, Gtk.StringObject):
+        #         current_selection_text = selected_item_obj.get_string()
 
         display_titles: list[str] = []
 
@@ -995,66 +970,39 @@ class HttpPage(Gtk.Box):
 
         self.http_user_agent_row.set_model(Gtk.StringList.new(display_titles))
 
-        default_ua_title_pref = self.settings.get_string("default-user-agent-title")
+        default_ua_title_from_prefs = self.settings.get_string("default-user-agent-title")
+        title_to_select_in_http_page_dropdown = none_title # Default to "None"
 
-        # Determine the title to select: current, preferred default, or "None"
-        title_to_select = none_title  # Default to "None" (system UA)
-
-        # 1. If there's a current selection in the UI, try to maintain it,
-        #    unless it's no longer a valid choice.
-        if current_selection_text and current_selection_text in display_titles:
-            title_to_select = current_selection_text
-
-        # 2. If `default_ua_title_pref` from GSettings is a non-empty string,
-        #    it means the user has explicitly saved a preference. Try to apply it.
-        #    An empty string `''` for `default_ua_title_pref` means "System Default" (i.e., "None" option).
-        #    The legacy "[System Default]" string is also treated as "System Default".
-        if default_ua_title_pref and default_ua_title_pref != "[System Default]":
-            if default_ua_title_pref in display_titles:
-                title_to_select = default_ua_title_pref
-                logger.info(
-                    f"HTTP Page: Applying preferred default User-Agent from GSettings: '{default_ua_title_pref}'."
-                )
+        if default_ua_title_from_prefs: # If there's a global default set
+            if default_ua_title_from_prefs in display_titles:
+                title_to_select_in_http_page_dropdown = default_ua_title_from_prefs
+                logger.info(f"HTTP Page: Setting User-Agent dropdown to global default: '{default_ua_title_from_prefs}'.")
             else:
-                # The preferred default is not in the current list (e.g., was removed from custom UAs).
-                # Fallback to "None" (system default) in this case.
-                title_to_select = none_title
                 logger.warning(
-                    f"HTTP Page: Preferred default User-Agent title '{default_ua_title_pref}' from GSettings not found in available UAs. Falling back to 'None' (System Default)."
+                    f"HTTP Page: Global default User-Agent '{default_ua_title_from_prefs}' not in available titles. Falling back to 'None'."
                 )
-        elif not default_ua_title_pref or default_ua_title_pref == "[System Default]":
-            # If GSettings stores empty string or the legacy "[System Default]",
-            # ensure "None" (system default) is selected, unless a valid `current_selection_text`
-            # already superseded this (e.g. user just changed it but model is refreshing).
-            # If current_selection_text was valid and different from "None", it takes precedence.
-            if not (
-                current_selection_text
-                and current_selection_text in display_titles
-                and current_selection_text != none_title
-            ):
-                title_to_select = none_title
-            logger.info(
-                f"HTTP Page: User-Agent set to '{title_to_select}' (System Default or retained current selection) as per GSettings preference ('{default_ua_title_pref}')."
-            )
+        else: # Global default is "System Default" (empty string in GSettings)
+            logger.info("HTTP Page: Global default User-Agent is 'System Default'. Setting dropdown to 'None'.")
+            # title_to_select_in_http_page_dropdown is already "None"
 
-        # Select the determined title
-        if title_to_select in display_titles:
+        # Set the selection in the ComboBox
+        if title_to_select_in_http_page_dropdown in display_titles:
             try:
-                idx = display_titles.index(title_to_select)
-                # Block signal handler temporarily if it writes back to GSettings immediately
-                # to prevent loops if _update_user_agent_model is called from GSettings change.
-                # For now, assuming _on_user_agent_changed_visual_feedback doesn't write to GSettings.
-                # _save_selected_user_agent_preference will handle GSettings persistence.
+                idx = display_titles.index(title_to_select_in_http_page_dropdown)
                 self.http_user_agent_row.set_selected(idx)
-            except ValueError:  # Should not happen if title_to_select is in display_titles
-                if display_titles:  # Should not be empty if none_title was added
-                    self.http_user_agent_row.set_selected(0)  # Select "None"
-        elif display_titles:  # Fallback if something went wrong
-            self.http_user_agent_row.set_selected(
-                display_titles.index(none_title) if none_title in display_titles else 0
-            )
-        else:  # Should not happen as "None" is always added
-            self.http_user_agent_row.set_selected(Gtk.INVALID_LIST_POSITION)
+            except ValueError: # Should not happen if logic is correct
+                logger.error(f"HTTP Page: Title '{title_to_select_in_http_page_dropdown}' not found in display_titles for indexing, though it should be. Selecting first item as fallback.")
+                if display_titles:
+                    self.http_user_agent_row.set_selected(0)
+                else: # Should not happen
+                    self.http_user_agent_row.set_selected(Gtk.INVALID_LIST_POSITION)
+        else: # Should only happen if display_titles is empty, which means "None" wasn't added.
+            logger.error(f"HTTP Page: Critical - '{title_to_select_in_http_page_dropdown}' (or even 'None') not in display_titles. ListBox might be empty.")
+            if display_titles: # Should not be empty
+                 self.http_user_agent_row.set_selected(0)
+            else:
+                 self.http_user_agent_row.set_selected(Gtk.INVALID_LIST_POSITION)
+
 
         # Update visual feedback based on the final selection
         self._on_user_agent_changed_visual_feedback(self.http_user_agent_row, None)
