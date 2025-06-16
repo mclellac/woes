@@ -1156,6 +1156,6 @@ class DNSPage(Gtk.Box):
         """
         logger.debug("DNS lookup triggered by shortcut.")
         if self.dns_apply_button and self.dns_apply_button.get_sensitive():  # type: ignore
-            self.dns_apply_button.clicked()  # type: ignore
+            self.dns_apply_button.activate()  # type: ignore[attr-defined]
         else:
             logger.warning("DNS lookup button not available or not sensitive, cannot trigger lookup.")

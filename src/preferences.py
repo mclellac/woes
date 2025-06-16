@@ -636,19 +636,15 @@ class Preferences(Adw.PreferencesWindow):
             if isinstance(selected_item, Gtk.StringObject):
                 current_selection_title = selected_item.get_string()
 
-        model = Gtk.StringList()
         all_ua_titles = []
 
         # 1. Add "None" option (System Default)
-        model.append(NONE_OPTION_TITLE)
         all_ua_titles.append(NONE_OPTION_TITLE)
 
         # 2. Add standard user agents from constants.py
         for ua_dict in USER_AGENTS:
             title = ua_dict['title']
-            # _value = ua_dict['value'] # Not strictly needed here if only title is used
             if title not in all_ua_titles: # Avoid duplicates
-                model.append(title)
                 all_ua_titles.append(title)
             else:
                 logging.warning(f"Standard User-Agent title '{title}' conflicts with '{NONE_OPTION_TITLE}' or another standard UA. Skipping.")
@@ -661,14 +657,17 @@ class Preferences(Adw.PreferencesWindow):
 
         for title, _value in custom_ua_pairs:
             if title not in all_ua_titles:
-                model.append(title)
                 all_ua_titles.append(title)
             else:
                 logging.warning(
                     f"Custom UA title '{title}' conflicts with a standard or another custom UA title. Skipping."
                 )
 
+        model = Gtk.StringList.new(all_ua_titles)
+
+        logging.debug(f"Populating UA ComboBox. Titles collected: {len(all_ua_titles)}. First few: {all_ua_titles[:5]}")
         self.user_agent_combo_row.set_model(model)
+        logging.debug(f"Model set for user_agent_combo_row. Model size: {self.user_agent_combo_row.get_model().get_n_items() if self.user_agent_combo_row.get_model() else 'None'}")
 
         # Attempt to restore previous selection if it's still valid
         # This is important because _render_custom_ua_list calls this, and we don't want to reset user's choice unnecessarily
@@ -683,6 +682,13 @@ class Preferences(Adw.PreferencesWindow):
         else: # Should not happen as NONE_OPTION_TITLE is always added
             self.user_agent_combo_row.set_selected(Gtk.INVALID_LIST_POSITION)
             logging.warning("Populate UA: No user agents available to select, even NONE_OPTION_TITLE is missing.")
+
+        selected_idx = self.user_agent_combo_row.get_selected()
+        if selected_idx != Gtk.INVALID_LIST_POSITION and self.user_agent_combo_row.get_model():
+            selected_title_after_set = self.user_agent_combo_row.get_model().get_string(selected_idx)
+            logging.debug(f"UA ComboBox selection after populate: Index {selected_idx}, Title '{selected_title_after_set}'")
+        else:
+            logging.debug(f"UA ComboBox no selection or invalid index after populate: {selected_idx}")
 
     def _on_default_user_agent_changed(self, combo_row: Adw.ComboRow, _gparam: GObject.ParamSpec):
         """
