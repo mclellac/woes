@@ -5,6 +5,7 @@
   <requires lib="gtk" version="4.18"/>
   <requires lib="libadwaita" version="1.7"/>
   <template class="HttpPage" parent="GtkBox">
+    <property name="orientation">vertical</property>
     <property name="width-request">800</property>
     <child>
       <object class="AdwPreferencesGroup" id="http_request_group">
