@@ -587,6 +587,10 @@ class Preferences(Adw.PreferencesWindow):
         # Call to _render_custom_ua_list also calls _populate_user_agent_combo_row
         # which handles loading and setting the default user agent.
         self._render_custom_ua_list() # This will call _populate_user_agent_combo_row
+
+        self.user_agent_combo_row.freeze_notify()
+        logging.debug("load_preferences: 'notify' frozen for user_agent_combo_row before setting selection from GSettings.")
+
         default_ua_title_gsettings = self.settings.get_string("default-user-agent-title")
         logging.info(f"load_preferences: Fetched default-user-agent-title from GSettings: '{default_ua_title_gsettings}'")
         model = self.user_agent_combo_row.get_model()
@@ -618,6 +622,8 @@ class Preferences(Adw.PreferencesWindow):
             # Ensure GSetting reflects this default choice if it was implicitly empty
             self.settings.set_string("default-user-agent-title", "")
 
+        self.user_agent_combo_row.thaw_notify()
+        logging.debug("load_preferences: 'notify' thawed for user_agent_combo_row after setting selection from GSettings.")
 
         output_font_str = self.settings.get_string("output-font")
         if self.global_output_font_button:
@@ -640,12 +646,8 @@ class Preferences(Adw.PreferencesWindow):
             logging.warning("user_agent_combo_row not found, cannot populate.")
             return
 
-        current_selection_title = None
-        selected_item = self.user_agent_combo_row.get_selected_item()
-        if selected_item:
-            if isinstance(selected_item, Gtk.StringObject):
-                current_selection_title = selected_item.get_string()
-
+        # current_selection_title was previously read here but not used, so removed.
+        # The selection is now primarily driven by load_preferences after model population.
         all_ua_titles = []
 
         # 1. Add "None" option (System Default)
@@ -674,6 +676,8 @@ class Preferences(Adw.PreferencesWindow):
                 )
 
         model = Gtk.StringList.new(all_ua_titles)
+        self.user_agent_combo_row.freeze_notify()
+        logging.debug("_populate_user_agent_combo_row: 'notify' frozen for user_agent_combo_row.")
         self.user_agent_combo_row.set_model(model)
         # Removed detailed logging after each step of population and model setting.
 
@@ -688,6 +692,8 @@ class Preferences(Adw.PreferencesWindow):
         if model.get_n_items() > 0 and self.user_agent_combo_row.get_selected() == Gtk.INVALID_LIST_POSITION:
              self.user_agent_combo_row.set_selected(0) # Select NONE_OPTION_TITLE
              # logging.debug(f"_populate_user_agent_combo_row: Fallback - Selected first item '{all_ua_titles[0]}'.") # Optional: keep if needed
+        self.user_agent_combo_row.thaw_notify()
+        logging.debug("_populate_user_agent_combo_row: 'notify' thawed for user_agent_combo_row.")
 
 
     def _on_default_user_agent_changed(self, combo_row: Adw.ComboRow, _gparam: GObject.ParamSpec):
