@@ -12,6 +12,11 @@ from typing import Optional, Any
 import gi
 from gi.repository import Adw, Gdk, Gio, Gtk, GLib, GObject, Pango
 
+from .nmap_page import NmapPage
+from .http_page import HttpPage
+from .dns_page import DNSPage
+from .webscan_page import WebScanPage
+
 from .constants import (
     APP_ID,
     RESOURCE_PREFIX,
@@ -20,7 +25,6 @@ from .constants import (
     TEXT_SCALING_FACTOR_KEY,
 )
 from .style_utils import apply_font_size, apply_theme
-from .http_page import HttpPage
 
 
 gi.require_version("Adw", "1")
