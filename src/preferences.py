@@ -18,7 +18,7 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import Adw, Gio, Gtk, GLib, GObject, Gdk
 
 # Local application imports
-from .constants import APP_ID, RESOURCE_PREFIX, USER_AGENTS
+from .constants import APP_ID, RESOURCE_PREFIX, USER_AGENTS, DEFAULT_HTTP_HEADERS
 
 # Conditional import for dnspython
 try:
@@ -66,6 +66,18 @@ class Preferences(Adw.PreferencesWindow):
     :vartype user_agent_combo_row: Adw.ComboRow
     :ivar global_output_font_button: :class:`Gtk.FontButton` for global output font.
     :vartype global_output_font_button: Gtk.FontButton
+    :ivar default_http_header_combo_row: :class:`Adw.ComboRow` for default HTTP header selection.
+    :vartype default_http_header_combo_row: Adw.ComboRow
+    :ivar new_custom_http_header_title_entry: :class:`Gtk.Entry` for new custom HTTP header display title.
+    :vartype new_custom_http_header_title_entry: Gtk.Entry
+    :ivar new_custom_http_header_name_entry: :class:`Gtk.Entry` for new custom HTTP header name.
+    :vartype new_custom_http_header_name_entry: Gtk.Entry
+    :ivar new_custom_http_header_value_entry: :class:`Gtk.Entry` for new custom HTTP header value.
+    :vartype new_custom_http_header_value_entry: Gtk.Entry
+    :ivar add_custom_http_header_button: :class:`Gtk.Button` to add a new custom HTTP header.
+    :vartype add_custom_http_header_button: Gtk.Button
+    :ivar custom_http_header_list_container: :class:`Gtk.Box` for displaying the list of custom HTTP headers.
+    :vartype custom_http_header_list_container: Gtk.Box
     """
 
     __gtype_name__ = "Preferences"
@@ -90,6 +102,14 @@ class Preferences(Adw.PreferencesWindow):
 
     # Global Font Preference UI Element
     global_output_font_button: Gtk.FontButton = Gtk.Template.Child("global_output_font_button")  # type: ignore
+
+    # HTTP Header Preferences UI Elements
+    default_http_header_combo_row: Adw.ComboRow = Gtk.Template.Child("default_http_header_combo_row")  # type: ignore
+    new_custom_http_header_title_entry: Gtk.Entry = Gtk.Template.Child("new_custom_http_header_title_entry")  # type: ignore
+    new_custom_http_header_name_entry: Gtk.Entry = Gtk.Template.Child("new_custom_http_header_name_entry")  # type: ignore
+    new_custom_http_header_value_entry: Gtk.Entry = Gtk.Template.Child("new_custom_http_header_value_entry")  # type: ignore
+    add_custom_http_header_button: Gtk.Button = Gtk.Template.Child("add_custom_http_header_button")  # type: ignore
+    custom_http_header_list_container: Gtk.Box = Gtk.Template.Child("custom_http_header_list_container")  # type: ignore
 
     def __init__(self, main_window: Optional[Gtk.Window] = None):
         """
@@ -190,6 +210,21 @@ class Preferences(Adw.PreferencesWindow):
 
         if self.user_agent_combo_row:
             self.user_agent_combo_row.connect("notify::selected-item", self._on_default_user_agent_changed)
+
+        # Custom HTTP Header Signals
+        if self.add_custom_http_header_button:
+            self.add_custom_http_header_button.connect("clicked", self._on_add_custom_http_header_clicked)
+        if self.new_custom_http_header_title_entry:
+            self.new_custom_http_header_title_entry.connect("entry-activated", self._on_add_custom_http_header_clicked)
+        if self.new_custom_http_header_name_entry:
+            self.new_custom_http_header_name_entry.connect("entry-activated", self._on_add_custom_http_header_clicked)
+        if self.new_custom_http_header_value_entry:
+            self.new_custom_http_header_value_entry.connect("entry-activated", self._on_add_custom_http_header_clicked)
+
+        self.settings.connect("changed::custom-http-headers", lambda _s, _k: self._render_custom_http_header_list())
+        if self.default_http_header_combo_row:
+            self.default_http_header_combo_row.connect("notify::selected-item", self._on_default_http_header_changed)
+
 
     def on_global_font_setting_changed(self, font_button: Gtk.FontButton):
         """
@@ -619,6 +654,30 @@ class Preferences(Adw.PreferencesWindow):
                 self.settings.set_string("output-font", default_font)
                 logging.warning(f"GSettings 'output-font' was empty, set to default: {default_font}")
 
+        # HTTP Headers
+        self._render_custom_http_header_list() # This also calls _populate_default_http_header_combo_row
+
+        default_http_header_title_gsettings = self.settings.get_string("default-http-header-title")
+        if default_http_header_title_gsettings == "": # User explicitly wants no default header
+            if not self._select_combo_row_item(self.default_http_header_combo_row, NONE_OPTION_TITLE):
+                logging.error(f"'{NONE_OPTION_TITLE}' not found in default_http_header_combo_row.")
+                if self.default_http_header_combo_row.get_model() and self.default_http_header_combo_row.get_model().get_n_items() > 0:
+                     self.default_http_header_combo_row.set_selected(0)
+        elif default_http_header_title_gsettings: # A specific header title is saved
+            if not self._select_combo_row_item(self.default_http_header_combo_row, default_http_header_title_gsettings):
+                logging.warning(
+                    f"Saved default HTTP header title '{default_http_header_title_gsettings}' not found in combo. "
+                    f"Falling back to '{NONE_OPTION_TITLE}'."
+                )
+                self.settings.set_string("default-http-header-title", "") # Clear invalid GSetting
+                if not self._select_combo_row_item(self.default_http_header_combo_row, NONE_OPTION_TITLE):
+                    logging.error(f"Fallback '{NONE_OPTION_TITLE}' not found for HTTP headers. Critical error.")
+        else: # GSetting is empty, but not explicitly "" (initial state or cleared by other means)
+            if not self._select_combo_row_item(self.default_http_header_combo_row, NONE_OPTION_TITLE):
+                logging.error(f"'{NONE_OPTION_TITLE}' not found for HTTP headers during initial load. Critical error.")
+            self.settings.set_string("default-http-header-title", "")
+
+
     def _populate_user_agent_combo_row(self):
         """
         Populate the 'user_agent_combo_row' with standard and custom user agents.
@@ -720,3 +779,278 @@ class Preferences(Adw.PreferencesWindow):
                 if current_gsettings_val != "": # Only update if it's not already empty
                     self.settings.set_string("default-user-agent-title", "")
                     logging.debug("Default user agent selection cleared as list is empty or selection is invalid.")
+
+    # --- HTTP Header Management ---
+
+    def _render_custom_http_header_list(self):
+        """
+        Clear and repopulate the list of custom HTTP Headers in the UI.
+        Retrieves header triples (title, name, value) from GSettings,
+        creates an :class:`Adw.ActionRow` for each, and adds them to the
+        ``custom_http_header_list_container``. Each row includes a remove button.
+        This method also triggers a refresh of the default HTTP header combo box.
+        """
+        if not self.custom_http_header_list_container:
+            logging.warning("custom_http_header_list_container not found, cannot render list.")
+            return
+
+        child = self.custom_http_header_list_container.get_first_child()
+        while child:
+            self.custom_http_header_list_container.remove(child)
+            child = self.custom_http_header_list_container.get_first_child()
+
+        variant = self.settings.get_value("custom-http-headers")
+        custom_headers_triples: list[tuple[str, str, str]] = list(
+            variant.unpack() if variant and variant.get_type_string() == "a(sss)" else []
+        )
+
+        for title, name, value in custom_headers_triples:
+            row = Adw.ActionRow(title=title, subtitle=f"{name}: {value}")
+            row.set_activatable(False)
+            remove_button = Gtk.Button(icon_name="edit-delete-symbolic", valign=Gtk.Align.CENTER)
+            remove_button.add_css_class("flat")
+            remove_button.set_tooltip_text(f"Remove '{title}'")
+            remove_button.connect("clicked", lambda _btn, t=title: self._on_remove_custom_http_header_clicked(t))
+            row.add_suffix(remove_button)
+            row.set_activatable_widget(remove_button)
+            self.custom_http_header_list_container.append(row)
+
+        self._populate_default_http_header_combo_row() # Keep dropdown in sync
+
+    def _is_http_header_title_unique(self, title_text: str) -> bool:
+        """
+        Check if a given title is unique among default and custom HTTP headers.
+
+        Compares against titles in `constants.DEFAULT_HTTP_HEADERS` and
+        titles of existing custom HTTP headers stored in GSettings.
+
+        :param title_text: The title string to check for uniqueness.
+        :type title_text: str
+        :return: ``True`` if the title is unique, ``False`` otherwise.
+        :rtype: bool
+        """
+        # Check against default headers from constants.py
+        for header_dict in DEFAULT_HTTP_HEADERS:
+            if header_dict['title'] == title_text:
+                return False
+
+        # Check against custom headers from GSettings
+        variant = self.settings.get_value("custom-http-headers")
+        current_headers_triples: list[tuple[str, str, str]] = list(
+            variant.unpack() if variant and variant.get_type_string() == "a(sss)" else []
+        )
+        for triple in current_headers_triples:
+            if triple[0] == title_text:
+                return False
+        return True
+
+    def _on_add_custom_http_header_clicked(self, _widget: Gtk.Widget) -> None:
+        """
+        Handle the 'Add Custom HTTP Header' button click or :class:`Gtk.Entry` activation.
+
+        Retrieves text from the title, name, and value entry fields.
+        If all are non-empty and the title is unique (checked by
+        :meth:`._is_http_header_title_unique`), adds the new header triple
+        (title, name, value) to the ``custom-http-headers`` GSettings list.
+        Clears input fields on success. Provides visual error feedback on entries
+        if validation fails.
+
+        :param _widget: The :class:`Gtk.Widget` that triggered the signal (unused).
+        :type _widget: Gtk.Widget
+        """
+        if not self.new_custom_http_header_title_entry or \
+           not self.new_custom_http_header_name_entry or \
+           not self.new_custom_http_header_value_entry:
+            logging.error("One or more custom HTTP header entry fields are not available.")
+            return
+
+        title_text = self.new_custom_http_header_title_entry.get_text().strip()
+        name_text = self.new_custom_http_header_name_entry.get_text().strip()
+        value_text = self.new_custom_http_header_value_entry.get_text().strip()
+
+        # Basic validation for empty fields
+        has_error = False
+        if not title_text:
+            self.new_custom_http_header_title_entry.add_css_class("error")
+            has_error = True
+        else:
+            self.new_custom_http_header_title_entry.remove_css_class("error")
+
+        if not name_text:
+            self.new_custom_http_header_name_entry.add_css_class("error")
+            has_error = True
+        else:
+            self.new_custom_http_header_name_entry.remove_css_class("error")
+
+        if not value_text: # Value can technically be empty, but let's enforce for usability here.
+                           # User can create a header with empty value if they really want via other means or edit.
+            self.new_custom_http_header_value_entry.add_css_class("error")
+            has_error = True
+        else:
+            self.new_custom_http_header_value_entry.remove_css_class("error")
+
+        if has_error:
+            logging.info("Attempted to add custom HTTP header with one or more empty fields.")
+            return
+
+        # Check for duplicate titles
+        if not self._is_http_header_title_unique(title_text):
+            logging.info(f"Custom HTTP header title '{title_text}' already exists or conflicts with a default header.")
+            self.new_custom_http_header_title_entry.add_css_class("error")
+            # Optionally show a banner or toast here
+            return
+        else:
+            self.new_custom_http_header_title_entry.remove_css_class("error")
+
+        variant = self.settings.get_value("custom-http-headers")
+        current_headers_triples: list[tuple[str, str, str]] = list(
+            variant.unpack() if variant and variant.get_type_string() == "a(sss)" else []
+        )
+
+        current_headers_triples.append((title_text, name_text, value_text))
+        new_variant = GLib.Variant("a(sss)", current_headers_triples)
+
+        if self.settings.set_value("custom-http-headers", new_variant):
+            logging.info(f"Added custom HTTP Header: '{title_text}' -> '{name_text}: {value_text}'")
+            self.new_custom_http_header_title_entry.set_text("")
+            self.new_custom_http_header_name_entry.set_text("")
+            self.new_custom_http_header_value_entry.set_text("")
+            # _render_custom_http_header_list is called by GSettings "changed::custom-http-headers" signal
+        else:
+            logging.error(f"Failed to save custom HTTP header list to GSettings with new header: {title_text}")
+
+    def _on_remove_custom_http_header_clicked(self, title_to_remove: str) -> None:
+        """
+        Handle the click of a 'remove' button for a custom HTTP Header.
+
+        Removes the HTTP header triple identified by ``title_to_remove`` from
+        the ``custom-http-headers`` GSettings list. The UI list is updated
+        automatically via the GSettings "changed" signal connection to
+        :meth:`._render_custom_http_header_list`.
+
+        :param title_to_remove: The title of the custom HTTP header to remove.
+        :type title_to_remove: str
+        """
+        variant = self.settings.get_value("custom-http-headers")
+        current_headers_triples: list[tuple[str, str, str]] = list(
+            variant.unpack() if variant and variant.get_type_string() == "a(sss)" else []
+        )
+
+        original_length = len(current_headers_triples)
+        updated_headers_triples = [triple for triple in current_headers_triples if triple[0] != title_to_remove]
+
+        if len(updated_headers_triples) < original_length:
+            new_variant = GLib.Variant("a(sss)", updated_headers_triples)
+            if self.settings.set_value("custom-http-headers", new_variant):
+                logging.info(f"Removed custom HTTP Header with title: {title_to_remove}")
+                # _render_custom_http_header_list is called by GSettings "changed::custom-http-headers" signal
+            else:
+                logging.error(f"Failed to save custom HTTP header list after removing title: {title_to_remove}")
+        else:
+            logging.warning(f"Attempted to remove non-existent custom HTTP Header with title: {title_to_remove}")
+
+    def _populate_default_http_header_combo_row(self):
+        """
+        Populate the ``default_http_header_combo_row`` with available HTTP header choices.
+
+        The choices include a "None" option, predefined headers from
+        `constants.DEFAULT_HTTP_HEADERS`, and user-defined custom headers
+        from GSettings. It attempts to preserve the currently selected item.
+        """
+        if not self.default_http_header_combo_row:
+            logging.warning("default_http_header_combo_row not found, cannot populate.")
+            return
+
+        current_selection_title = None
+        selected_item = self.default_http_header_combo_row.get_selected_item()
+        if selected_item:
+            if isinstance(selected_item, Gtk.StringObject):
+                current_selection_title = selected_item.get_string()
+
+        all_header_titles = []
+
+        # 1. Add "None" option (No default header)
+        all_header_titles.append(NONE_OPTION_TITLE) # Re-use NONE_OPTION_TITLE for consistency
+
+        # 2. Add default headers from constants.py
+        for header_dict in DEFAULT_HTTP_HEADERS:
+            title = header_dict['title']
+            if title not in all_header_titles:
+                all_header_titles.append(title)
+            else:
+                logging.warning(f"Default HTTP Header title '{title}' conflicts with '{NONE_OPTION_TITLE}' or another default header. Skipping.")
+
+        # 3. Add custom HTTP headers from GSettings
+        variant = self.settings.get_value("custom-http-headers")
+        custom_headers_triples: list[tuple[str, str, str]] = list(
+            variant.unpack() if variant and variant.get_type_string() == "a(sss)" else []
+        )
+
+        for title, _name, _value in custom_headers_triples:
+            if title not in all_header_titles:
+                all_header_titles.append(title)
+            else:
+                logging.warning(
+                    f"Custom HTTP Header title '{title}' conflicts with a default or another custom header title. Skipping."
+                )
+
+        model = Gtk.StringList.new(all_header_titles)
+        self.default_http_header_combo_row.set_model(model)
+
+        if current_selection_title and current_selection_title in all_header_titles:
+            idx_to_select = all_header_titles.index(current_selection_title)
+            self.default_http_header_combo_row.set_selected(idx_to_select)
+        elif model.get_n_items() > 0:
+            self.default_http_header_combo_row.set_selected(0) # Select NONE_OPTION_TITLE
+        else:
+            self.default_http_header_combo_row.set_selected(Gtk.INVALID_LIST_POSITION)
+            logging.warning("Populate HTTP Header: No headers available to select, even NONE_OPTION_TITLE is missing.")
+
+        selected_idx = self.default_http_header_combo_row.get_selected()
+        if selected_idx != Gtk.INVALID_LIST_POSITION and self.default_http_header_combo_row.get_model():
+            selected_title_after_set = self.default_http_header_combo_row.get_model().get_string(selected_idx)
+            logging.debug(f"HTTP Header ComboBox selection after populate: Index {selected_idx}, Title '{selected_title_after_set}'")
+        else:
+            logging.debug(f"HTTP Header ComboBox no selection or invalid index after populate: {selected_idx}")
+
+
+    def _on_default_http_header_changed(self, combo_row: Adw.ComboRow, _gparam: GObject.ParamSpec):
+        """
+        Handle changes in the default HTTP header selection from the :class:`Adw.ComboRow`.
+
+        Saves the selected header's title to the ``default-http-header-title``
+        GSettings key. If "None" (represented by `NONE_OPTION_TITLE`) is selected,
+        an empty string is saved to GSettings, indicating no default header override.
+
+        :param combo_row: The :class:`Adw.ComboRow` whose selection changed.
+        :type combo_row: Adw.ComboRow
+        :param _gparam: The :class:`GObject.ParamSpec` of the property that changed (unused).
+        :type _gparam: GObject.ParamSpec
+        """
+        selected_item_obj = combo_row.get_selected_item()
+        if isinstance(selected_item_obj, Gtk.StringObject):
+            selected_header_title = selected_item_obj.get_string()
+            if selected_header_title:
+                current_gsettings_val = self.settings.get_string("default-http-header-title")
+                gsetting_to_save = "" # Assume NONE_OPTION_TITLE / No default
+                if selected_header_title != NONE_OPTION_TITLE:
+                    gsetting_to_save = selected_header_title
+
+                if gsetting_to_save != current_gsettings_val:
+                    self.settings.set_string("default-http-header-title", gsetting_to_save)
+                    logging.debug(
+                        f"Default HTTP header title selection '{selected_header_title}' saved to GSettings as '{gsetting_to_save}'."
+                    )
+            else: # Should not happen with valid titles
+                logging.warning("Selected HTTP Header title is None or empty, setting GSettings to empty (no default).")
+                self.settings.set_string("default-http-header-title", "")
+
+        elif selected_item_obj is None:
+            model = combo_row.get_model()
+            if model is None or model.get_n_items() == 0:
+                current_gsettings_val = self.settings.get_string("default-http-header-title")
+                if current_gsettings_val != "":
+                    self.settings.set_string("default-http-header-title", "")
+                    logging.debug("Default HTTP header selection cleared as list is empty or selection invalid.")
+
+    # --- End HTTP Header Management ---

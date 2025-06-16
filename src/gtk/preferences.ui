@@ -60,6 +60,74 @@
           </object>
         </child>
         <child>
+          <object class="AdwPreferencesGroup" id="default_http_header_group">
+            <property name="title">Default HTTP Header</property>
+            <child>
+              <object class="AdwComboRow" id="default_http_header_combo_row">
+                <property name="title" translatable="yes">Default HTTP Header</property>
+                <property name="subtitle" translatable="yes">Select a default HTTP header to send with requests in the HTTP Page</property>
+                <!-- Model will be populated from code -->
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="AdwPreferencesGroup" id="custom_http_headers_group">
+            <property name="title" translatable="yes">Custom HTTP Headers</property>
+            <property name="description" translatable="yes">Manage your list of custom HTTP headers for the HTTP Page.</property>
+            <child>
+              <object class="AdwEntryRow" id="new_custom_http_header_title_entry">
+                <property name="title" translatable="yes">Display Title</property>
+                <property name="placeholder-text" translatable="yes">e.g., My Custom Auth Header</property>
+                <property name="tooltip-text" translatable="yes">A short, user-friendly title for the custom header set (e.g., 'My API Key')</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwEntryRow" id="new_custom_http_header_name_entry">
+                <property name="title" translatable="yes">Header Name</property>
+                <property name="placeholder-text" translatable="yes">e.g., X-Auth-Token</property>
+                <property name="tooltip-text" translatable="yes">The name of the HTTP header (e.g., 'Authorization')</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwEntryRow" id="new_custom_http_header_value_entry">
+                <property name="title" translatable="yes">Header Value</property>
+                <property name="placeholder-text" translatable="yes">e.g., mysecretvalue</property>
+                <property name="tooltip-text" translatable="yes">The value of the HTTP header (e.g., 'Bearer yourtoken')</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkBox">
+                <property name="orientation">horizontal</property>
+                <property name="halign">end</property>
+                <property name="spacing">6</property>
+                <property name="margin-top">6</property>
+                <property name="margin-bottom">6</property>
+                <child>
+                  <object class="GtkButton" id="add_custom_http_header_button">
+                    <property name="label" translatable="yes">Add Custom HTTP Header</property>
+                    <property name="icon-name">list-add-symbolic</property>
+                    <property name="tooltip-text" translatable="yes">Add the new custom HTTP header to the list</property>
+                    <style>
+                      <class name="suggested-action"/>
+                    </style>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="GtkBox" id="custom_http_header_list_container">
+                <property name="orientation">vertical</property>
+                <property name="spacing">6</property>
+                <!-- Adw.ActionRows or similar representing custom HTTP headers will be added here from code -->
+                <style>
+                  <class name="boxed-list"/>
+                </style>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
           <object class="AdwPreferencesGroup" id="output_font_settings_group">
             <property name="title" translatable="yes">Output Font Settings</property>
             <property name="description" translatable="yes">Configure the global font for all tool output text areas.</property>
