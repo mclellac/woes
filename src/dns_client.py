@@ -10,6 +10,9 @@ import dns.rdatatype
 import dns.rdataclass
 import dns.exception
 
+from gi.repository import Gio # Added for GSettings
+from .constants import APP_ID # Added for GSettings
+
 logger = logging.getLogger(__name__)
 
 
@@ -56,8 +59,15 @@ class DnsResolverClient:
         self.resolver: dns.resolver.Resolver = dns.resolver.Resolver()
         if custom_dns_server:
             self.resolver.nameservers = [custom_dns_server]
-        self.resolver.timeout = 2.0
-        self.resolver.lifetime = 2.0
+
+        self.settings = Gio.Settings.new(APP_ID)
+        dns_timeout_seconds_float = self.settings.get_double("dns-resolver-timeout")
+        # Default is 2.0 if not in schema, but schema should define it.
+        # dns_timeout_seconds_float = self.settings.get_double_with_default("dns-resolver-timeout", 2.0)
+
+        self.resolver.timeout = dns_timeout_seconds_float
+        self.resolver.lifetime = dns_timeout_seconds_float
+        logger.info(f"DnsResolverClient initialized with timeout/lifetime: {dns_timeout_seconds_float} seconds.")
 
     def _lookup_record_internal(self, query_name_str: str, record_type_str: str) -> list[dict[str, Any]]:
         """

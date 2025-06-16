@@ -31,6 +31,7 @@ except ImportError:
     logging.warning("Could not import urllib3.exceptions. Connection refused detection might be limited.")
 
 from gi.repository import Gio
+from .constants import APP_ID # Added for GSettings
 
 from .custom_dns_adapter import CustomDNSAdapter
 
@@ -122,6 +123,12 @@ class HttpFetcher:
         self.custom_dns_server: Optional[str] = custom_dns_server
         self.cancellable: Optional[Gio.Cancellable] = cancellable
         self.session: requests.Session = requests.Session()
+        self.settings = Gio.Settings.new(APP_ID)
+        self.request_timeout_seconds = self.settings.get_int("http-request-timeout")
+        # Default is 10 if not in schema, but schema should define it.
+        # self.request_timeout_seconds = self.settings.get_int_with_default("http-request-timeout", 10)
+        logger.info(f"HttpFetcher initialized with request timeout: {self.request_timeout_seconds} seconds.")
+
 
     def _prepare_request_headers(self) -> tuple[dict[str, str], dict[str, str]]:
         """
@@ -197,7 +204,7 @@ class HttpFetcher:
                 self.url,
                 headers=(initial_request_headers if initial_request_headers else None),
                 allow_redirects=True,
-                timeout=5,
+                timeout=self.request_timeout_seconds, # Use GSettings value
             )
             return response
         except requests.exceptions.Timeout as e:
