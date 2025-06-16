@@ -16,7 +16,7 @@ import time
 from enum import Enum
 
 import gi
-from gi.repository import Gtk, Adw, Gio, GLib, GObject, Gdk
+from gi.repository import Gtk, Adw, Gio, GLib, GObject, Gdk, Pango
 
 from .constants import RESOURCE_PREFIX, APP_ID
 from .utils import show_global_error, show_global_toast, is_valid_url
@@ -85,6 +85,14 @@ class WebScanPage(Gtk.Box):
         self.settings: Gio.Settings = Gio.Settings.new(APP_ID)
         self.style_manager: Adw.StyleManager = Adw.StyleManager.get_default()
 
+        self._output_font_gsettings_key: str = "output-font"
+        output_font_str: str = self.settings.get_string(self._output_font_gsettings_key)
+        self._output_font_desc: Pango.FontDescription = Pango.FontDescription.from_string(
+            output_font_str if output_font_str else "Monospace 10"
+        )
+        if hasattr(self, "source_view") and self.source_view:
+            self.source_view.override_font(self._output_font_desc)
+
         if self.scan_button:
             self.scan_button.get_style_context().add_class("suggested-action")
         if self.webscan_cancel_button:
@@ -120,7 +128,21 @@ class WebScanPage(Gtk.Box):
         if self.nikto_output_file_button:
             self.nikto_output_file_button.connect("clicked", self._on_nikto_output_file_button_clicked)
 
+        self.settings.connect(f"changed::{self._output_font_gsettings_key}", self._on_global_output_font_changed)
         self._update_results_actions_sensitivity()
+
+    def _on_global_output_font_changed(self, settings: Gio.Settings, key: str) -> None:
+        """Handle changes to the global output font GSettings key."""
+        logger.debug("WebScanPage: Global output font setting changed for key: %s", key)
+        if key == self._output_font_gsettings_key:
+            output_font_str = settings.get_string(key)
+            self._output_font_desc = Pango.FontDescription.from_string(
+                output_font_str if output_font_str else "Monospace 10"
+            )
+            if hasattr(self, "source_view") and self.source_view:
+                self.source_view.override_font(self._output_font_desc)
+            else:
+                logger.warning("WebScanPage: source_view not available to apply font change.")
 
     def __del__(self):
         """Clean up when the WebScanPage is destroyed."""
@@ -900,7 +922,7 @@ class WebScanPage(Gtk.Box):
         """Programmatically trigger the WebScan 'Scan' action."""
         logger.debug("Webscan scan triggered by shortcut.")
         if self.scan_button and self.scan_button.get_sensitive():
-            self.scan_button.clicked()
+            self.scan_button.activate()
         elif self.current_web_scan_task and not self.current_web_scan_task.is_done():
             show_global_toast(self, "A scan is already in progress. Cancel it or wait.")
         else:

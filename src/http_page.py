@@ -1108,6 +1108,6 @@ class HttpPage(Gtk.Box):
         """
         logging.debug("HTTP fetch triggered by shortcut.")
         if self.http_apply_button and self.http_apply_button.get_sensitive():
-            self.http_apply_button.clicked()
+            self.http_apply_button.activate()
         else:
             logging.warning("HTTP fetch button not available or not sensitive, cannot trigger fetch.")

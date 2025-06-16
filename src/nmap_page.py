@@ -15,7 +15,7 @@ from typing import Optional, List, Dict, Any
 import yaml
 
 import gi
-from gi.repository import Adw, Gio, GLib, GObject, Gtk
+from gi.repository import Adw, Gio, GLib, GObject, Gtk, Pango
 
 import nmap
 
@@ -105,6 +105,27 @@ class NmapPage(Gtk.Box):
         self.scanner: NmapScanner = NmapScanner()
         self.settings: Gio.Settings = Gio.Settings.new(APP_ID)
 
+        self._output_font_gsettings_key: str = "output-font"
+        output_font_str: str = self.settings.get_string(self._output_font_gsettings_key)
+        self._output_font_desc: Pango.FontDescription = Pango.FontDescription.from_string(
+            output_font_str if output_font_str else "Monospace 10"
+        )
+
+        self.nmap_output_textview = Gtk.TextView()
+        self.nmap_output_textview.set_name("nmap-raw-output-textview")
+        self.nmap_output_textview.set_monospace(True)
+        self.nmap_output_textview.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        self.nmap_output_textview.set_editable(False)
+        self.nmap_output_textview.set_hexpand(True)
+        self.nmap_output_textview.set_vexpand(True)
+        self.nmap_output_textview.override_font(self._output_font_desc)
+
+        self.nmap_output_scrolled_window = Gtk.ScrolledWindow()
+        self.nmap_output_scrolled_window.set_child(self.nmap_output_textview)
+        self.nmap_output_scrolled_window.set_min_content_height(300)
+        self.nmap_output_scrolled_window.set_max_content_height(600)
+        self.nmap_output_scrolled_window.set_vexpand(True)
+
         self._current_selected_host_key: Optional[str] = None
         self._current_selected_host_data_dict: Optional[dict[str, Any]] = None
 
@@ -158,6 +179,20 @@ class NmapPage(Gtk.Box):
         self.nmap_host_listbox.connect("row-selected", self._on_target_selected)
         if self.nmap_cancel_scan_button:
             self.nmap_cancel_scan_button.connect("clicked", self._on_cancel_scan_clicked)
+        self.settings.connect(f"changed::{self._output_font_gsettings_key}", self._on_global_output_font_changed)
+
+    def _on_global_output_font_changed(self, settings: Gio.Settings, key: str) -> None:
+        """Handle changes to the global output font GSettings key."""
+        logger.debug("NmapPage: Global output font setting changed for key: %s", key)
+        if key == self._output_font_gsettings_key:
+            output_font_str = settings.get_string(key)
+            self._output_font_desc = Pango.FontDescription.from_string(
+                output_font_str if output_font_str else "Monospace 10"
+            )
+            if hasattr(self, "nmap_output_textview") and self.nmap_output_textview:
+                self.nmap_output_textview.override_font(self._output_font_desc)
+            else:
+                logger.warning("NmapPage: nmap_output_textview not available to apply font change.")
 
     def _on_cancel_scan_clicked(self, _button: Gtk.Button) -> None:
         """
@@ -530,26 +565,38 @@ class NmapPage(Gtk.Box):
         expander.set_expanded(True)
         human_readable_summary = self._generate_human_readable_host_summary(host_data_dict)
 
-        source_view = Gtk.TextView()
-        source_view.set_name("nmap-raw-output-textview")
-        source_buffer = Gtk.TextBuffer()
-        source_view.set_buffer(source_buffer)
+        # Ensure the textview's buffer is cleared and new text is set
+        source_buffer = self.nmap_output_textview.get_buffer()
+        if source_buffer:
+            source_buffer.set_text(human_readable_summary, -1)
+        else:
+            # Fallback if buffer is somehow None, though Gtk.TextView usually ensures one
+            new_buffer = Gtk.TextBuffer()
+            new_buffer.set_text(human_readable_summary, -1)
+            self.nmap_output_textview.set_buffer(new_buffer)
 
-        source_view.set_monospace(True)
-        source_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
-        source_view.set_editable(False)
+        # Remove self.nmap_output_scrolled_window from its parent if it has one,
+        # before adding it to the expander row.
+        current_parent = self.nmap_output_scrolled_window.get_parent()
+        if current_parent:
+            if isinstance(current_parent, Adw.ExpanderRow): # Check if parent is ExpanderRow
+                 # Adw.ExpanderRow does not have a direct 'remove' method for its rows.
+                 # Rows are added with add_row. If it's already in an expander,
+                 # it might be okay if it's the *same* expander and row.
+                 # However, to be safe, if it's a different expander or if we need to ensure
+                 # it's freshly added, we might need to manage expanders differently.
+                 # For now, assume we are adding to a new expander or re-adding is fine.
+                 # If issues arise, the logic for expander re-use or creation needs adjustment.
+                 pass # Potentially do nothing if parent is already the right expander
+            elif hasattr(current_parent, "remove"): # Generic remove for Gtk.Container
+                 current_parent.remove(self.nmap_output_scrolled_window) # type: ignore
+            elif hasattr(current_parent, "set_child") and hasattr(current_parent, "get_child") and current_parent.get_child() == self.nmap_output_scrolled_window:
+                 current_parent.set_child(None) # type: ignore
+            else:
+                 logger.warning("NmapPage: nmap_output_scrolled_window parent is of unhandled type or not the direct child.")
 
-        source_view.set_hexpand(True)
-        source_view.set_vexpand(True)
 
-        source_buffer.set_text(human_readable_summary, -1)
-
-        scrolled_window = Gtk.ScrolledWindow()
-        scrolled_window.set_child(source_view)
-        scrolled_window.set_min_content_height(300)
-        scrolled_window.set_max_content_height(600)
-        scrolled_window.set_vexpand(True)
-        expander.add_row(scrolled_window)
+        expander.add_row(self.nmap_output_scrolled_window)
 
         copy_summary_button = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
         copy_summary_button.set_tooltip_text("Copy Host Summary")
@@ -955,7 +1002,7 @@ class NmapPage(Gtk.Box):
     def trigger_scan(self) -> None:
         """Programmatically trigger the Nmap 'Scan' action."""
         if self.nmap_apply_button and self.nmap_apply_button.get_sensitive():
-            self.nmap_apply_button.clicked()
+            self.nmap_apply_button.activate()
         elif self.current_nmap_task and not self.current_nmap_task.is_done():
             show_global_toast(self, "A scan is already in progress. Cancel it or wait.")
         else:
