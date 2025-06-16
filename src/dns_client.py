@@ -1,7 +1,7 @@
 """Provides a client for performing DNS lookups."""
 
 import logging
-from typing import Optional, List, Dict, Any # Use list, dict
+from typing import Optional, Any # Use list, dict
 import ipaddress
 
 import dns.resolver
@@ -15,26 +15,31 @@ logger = logging.getLogger(__name__)
 
 class DnsClientError(Exception):
     """Base exception for :class:`DnsResolverClient` errors."""
+
     pass
 
 
 class DnsResolutionTimeoutError(DnsClientError):
     """DNS resolution timeout."""
+
     pass
 
 
 class DnsNxDomainError(DnsClientError):
     """NXDOMAIN error (non-existent domain)."""
+
     pass
 
 
 class DnsNoAnswerError(DnsClientError):
     """NoAnswer error (query name exists, but not for specified type)."""
+
     pass
 
 
 class DnsGenericError(DnsClientError):
     """Other DNS resolution error."""
+
     pass
 
 
@@ -42,7 +47,8 @@ class DnsResolverClient:
     """Encapsulates DNS lookup logic."""
 
     def __init__(self, custom_dns_server: Optional[str] = None):
-        """Initialize :class:`DnsResolverClient`.
+        """
+        Initialize :class:`DnsResolverClient`.
 
         :param custom_dns_server: Optional IP address of a custom DNS server.
         :type custom_dns_server: str, optional
@@ -54,7 +60,8 @@ class DnsResolverClient:
         self.resolver.lifetime = 2.0
 
     def _lookup_record_internal(self, query_name_str: str, record_type_str: str) -> list[dict[str, Any]]:
-        """Look up and parse DNS records.
+        """
+        Look up and parse DNS records.
 
         Internal method.
 
@@ -122,7 +129,8 @@ class DnsResolverClient:
             raise DnsGenericError(f"DNS error for {query_name_str}: {e}") from e
 
     def resolve(self, domain_or_ip: str, record_type: str) -> list[dict[str, Any]]:
-        """Resolve DNS records for a domain/IP and record type.
+        """
+        Resolve DNS records for a domain/IP and record type.
 
         :param domain_or_ip: Domain name or IP address to query.
         :type domain_or_ip: str

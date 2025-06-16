@@ -1,4 +1,5 @@
-"""Custom HTTPAdapter for requests with custom DNS and SNI.
+"""
+Custom HTTPAdapter for requests with custom DNS and SNI.
 
 Provides a :class:`requests.adapters.HTTPAdapter` for custom DNS resolution
 and Server Name Indication (SNI) for HTTPS connections.
@@ -26,7 +27,8 @@ logger = logging.getLogger(__name__)
 
 
 class CustomDNSAdapter(HTTPAdapter):
-    """Custom requests.adapters.HTTPAdapter for DNS and SNI.
+    """
+    Custom requests.adapters.HTTPAdapter for DNS and SNI.
 
     Enables custom DNS resolution and SNI handling. Resolves hostnames using
     a specified DNS server (if dnspython is available) and configures SNI
@@ -39,7 +41,8 @@ class CustomDNSAdapter(HTTPAdapter):
     def __init__(
         self, *args: Any, custom_dns_server: Optional[str] = None, default_sni: Optional[str] = None, **kwargs: Any
     ):
-        """Initialize the CustomDNSAdapter.
+        """
+        Initialize the CustomDNSAdapter.
 
         :param args: Positional arguments for :class:`requests.adapters.HTTPAdapter`.
         :type args: Any
@@ -57,7 +60,8 @@ class CustomDNSAdapter(HTTPAdapter):
         super().__init__(*args, **kwargs)
 
     def _resolve_hostname_to_ip(self, hostname: str) -> Optional[str]:
-        """Resolve a hostname using the custom DNS server.
+        """
+        Resolve a hostname using the custom DNS server.
 
         Attempts AAAA records first, then A.
 
@@ -130,7 +134,8 @@ class CustomDNSAdapter(HTTPAdapter):
         cert: Optional[Tuple[str, str] | str] = None,
         proxies: Optional[dict[str, str]] = None,
     ) -> requests.Response:  # type: ignore[override]
-        """Send a prepared request.
+        """
+        Send a prepared request.
 
         Handles sending a request, potentially using custom DNS to modify the
         destination IP and configuring SNI. Overrides
@@ -182,7 +187,8 @@ class CustomDNSAdapter(HTTPAdapter):
         return super().send(request, stream, timeout, verify, cert, proxies)  # type: ignore[return-value]
 
     def get_connection(self, url: str, proxies: Optional[dict[str, str]] = None) -> Any:  # type: ignore[override]
-        """Override :meth:`requests.adapters.HTTPAdapter.get_connection` for custom IP.
+        """
+        Override :meth:`requests.adapters.HTTPAdapter.get_connection` for custom IP.
 
         :param url: The URL to connect to.
         :type url: str
@@ -231,7 +237,8 @@ class CustomDNSAdapter(HTTPAdapter):
             return super().get_connection(url, proxies=proxies)  # type: ignore[no-any-return]
 
     def init_poolmanager(self, connections: int, maxsize: int, block: bool = False, **pool_kwargs: Any) -> None:  # type: ignore[override]
-        """Initialize `urllib3.PoolManager` with SNI and cert validation.
+        """
+        Initialize `urllib3.PoolManager` with SNI and cert validation.
 
         :param connections: Number of urllib3 connection pools to cache.
         :type connections: int

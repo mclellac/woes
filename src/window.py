@@ -25,10 +25,6 @@ from .style_utils import apply_font_size, apply_theme
 gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
 
-from .http_page import HttpPage
-from .nmap_page import NmapPage
-from .dns_page import DNSPage
-from .webscan_page import WebScanPage
 
 logging.debug("Custom page widgets (HttpPage, NmapPage, DNSPage, WebScanPage) imported into window.py")
 
