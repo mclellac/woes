@@ -78,21 +78,18 @@
             <child>
               <object class="AdwEntryRow" id="new_custom_http_header_title_entry">
                 <property name="title" translatable="yes">Display Title</property>
-                <property name="placeholder-text" translatable="yes">e.g., My Custom Auth Header</property>
                 <property name="tooltip-text" translatable="yes">A short, user-friendly title for the custom header set (e.g., 'My API Key')</property>
               </object>
             </child>
             <child>
               <object class="AdwEntryRow" id="new_custom_http_header_name_entry">
                 <property name="title" translatable="yes">Header Name</property>
-                <property name="placeholder-text" translatable="yes">e.g., X-Auth-Token</property>
                 <property name="tooltip-text" translatable="yes">The name of the HTTP header (e.g., 'Authorization')</property>
               </object>
             </child>
             <child>
               <object class="AdwEntryRow" id="new_custom_http_header_value_entry">
                 <property name="title" translatable="yes">Header Value</property>
-                <property name="placeholder-text" translatable="yes">e.g., mysecretvalue</property>
                 <property name="tooltip-text" translatable="yes">The value of the HTTP header (e.g., 'Bearer yourtoken')</property>
               </object>
             </child>
