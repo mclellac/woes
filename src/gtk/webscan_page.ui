@@ -6,6 +6,7 @@
   <requires lib="gtk" version="4.0"/>
   <requires lib="libadwaita" version="1.0"/>
   <template class="WebScanPage" parent="GtkBox">
+    <property name="orientation">vertical</property>
     <property name="hexpand">True</property>
     <child>
       <object class="AdwPreferencesGroup">
