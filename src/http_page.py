@@ -18,7 +18,7 @@ gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
 from gi.repository import Adw, Gio, GObject, Gtk, GLib, Gdk, Pango
 
-from .constants import RESOURCE_PREFIX, APP_ID, USER_AGENTS # NONE_OPTION_TITLE removed from here
+from .constants import RESOURCE_PREFIX, APP_ID, USER_AGENTS  # NONE_OPTION_TITLE removed from here
 from .utils import show_global_error, show_global_toast, is_valid_url
 from .helper import Helper
 from .http_client import (
@@ -184,10 +184,10 @@ class HttpPage(Gtk.Box):
         self.current_http_task: Optional[Gio.Task] = None
         self._current_header_items: list[HeaderItem] = []
         self._http_task_data_for_thread: dict[str, Any] = {}
-        self._ua_title_to_value_map: dict[str, Optional[str]] = {} # Maps display titles to actual UA strings
+        self._ua_title_to_value_map: dict[str, Optional[str]] = {}  # Maps display titles to actual UA strings
         self.settings: Gio.Settings = Gio.Settings(schema_id=APP_ID)
-        self._http_page_ua_is_following_gsettings_default = True # Default to following GSettings UA preference
-        self._gsettings_ua_changed_handler_id = 0 # Handler ID for GSettings 'default-user-agent-title'
+        self._http_page_ua_is_following_gsettings_default = True  # Default to following GSettings UA preference
+        self._gsettings_ua_changed_handler_id = 0  # Handler ID for GSettings 'default-user-agent-title'
         self._header_key_color: str = self.settings.get_string("http-output-header-key-color")
         self._header_value_color: str = self.settings.get_string("http-output-header-value-color")
         self._special_row_color: str = self.settings.get_string("http-output-special-row-color")
@@ -218,11 +218,9 @@ class HttpPage(Gtk.Box):
         self._update_user_agent_model()
         self.settings.connect("changed::custom-user-agents", lambda _s, _k: self._update_user_agent_model())
         self._gsettings_ua_changed_handler_id = self.settings.connect(
-            "changed::default-user-agent-title",
-            self._on_default_ua_gsetting_changed
+            "changed::default-user-agent-title", self._on_default_ua_gsetting_changed
         )
         # logging.debug(f"HttpPage: Connected GSettings listener for default-user-agent-title, handler ID: {self._gsettings_ua_changed_handler_id}") # Reduced verbosity
-
 
         if self.http_apply_button:
             self.http_apply_button.get_style_context().add_class("suggested-action")
@@ -260,7 +258,6 @@ class HttpPage(Gtk.Box):
             # For saving preference (now deprecated GSettings write) - now handled by _on_http_page_ua_selection_changed
             # self.http_user_agent_row.connect("notify::selected-item", self._save_selected_user_agent_preference)
             self.http_user_agent_row.connect("notify::selected-item", self._on_http_page_ua_selection_changed)
-
 
     def _on_host_header_changed(self, entry_row: Adw.EntryRow) -> None:
         """
@@ -347,14 +344,15 @@ class HttpPage(Gtk.Box):
         selected_item_obj = combo_row.get_selected_item()
         if isinstance(selected_item_obj, Gtk.StringObject):
             selected_title = selected_item_obj.get_string()
-            logger.info(f"HTTP Page User-Agent selection changed to: '{selected_title}'. This is a session-specific change.")
+            logger.info(
+                f"HTTP Page User-Agent selection changed to: '{selected_title}'. This is a session-specific change."
+            )
             # The line below is commented out to prevent HTTP page selection from changing global default.
             # self.settings.set_string("default-user-agent-title", selected_title if selected_title != "None" else "")
         elif selected_item_obj is None:
             logger.info("HTTP Page User-Agent selection cleared (None). This is a session-specific change.")
             # The line below is commented out
             # self.settings.set_string("default-user-agent-title", "")
-
 
     def _on_copy_results_clicked(self, _button: Gtk.Button) -> None:
         """
@@ -445,7 +443,7 @@ class HttpPage(Gtk.Box):
         self._set_loading_state(True, "Fetching headers...")
 
         host_header = self.http_host_header_row.get_text().strip()
-        user_agent_to_send: Optional[str] = None # Initialize
+        user_agent_to_send: Optional[str] = None  # Initialize
         selected_ua_title_in_http_page_dropdown: Optional[str] = None
 
         selected_item_obj = self.http_user_agent_row.get_selected_item()
@@ -456,27 +454,37 @@ class HttpPage(Gtk.Box):
 
         if selected_ua_title_in_http_page_dropdown and selected_ua_title_in_http_page_dropdown != "None":
             user_agent_to_send = self._ua_title_to_value_map.get(selected_ua_title_in_http_page_dropdown)
-            logging.info(f"HTTP Page: Using User-Agent from page dropdown selection: '{selected_ua_title_in_http_page_dropdown}'")
-            if user_agent_to_send is None and selected_ua_title_in_http_page_dropdown != "None": # Should not happen if map is correct
-                logging.warning(f"HTTP Page: UA title '{selected_ua_title_in_http_page_dropdown}' in dropdown but not in map. This is unexpected. Sending no specific UA (requests default).")
+            logging.info(
+                f"HTTP Page: Using User-Agent from page dropdown selection: '{selected_ua_title_in_http_page_dropdown}'"
+            )
+            if (
+                user_agent_to_send is None and selected_ua_title_in_http_page_dropdown != "None"
+            ):  # Should not happen if map is correct
+                logging.warning(
+                    f"HTTP Page: UA title '{selected_ua_title_in_http_page_dropdown}' in dropdown but not in map. This is unexpected. Sending no specific UA (requests default)."
+                )
         else:
             logging.info("HTTP Page: Page dropdown selection is 'None'. Using GSettings default User-Agent.")
             gsettings_default_title = self.settings.get_string("default-user-agent-title")
             # logging.debug(f"HTTP Page: GSettings default-user-agent-title is: '{gsettings_default_title}'") # Reduced verbosity
 
-            if gsettings_default_title: # An explicit default is set in GSettings
+            if gsettings_default_title:  # An explicit default is set in GSettings
                 ua_found_in_constants = False
                 for ua_dict in USER_AGENTS:
-                    if ua_dict['title'] == gsettings_default_title:
-                        user_agent_to_send = ua_dict['value']
+                    if ua_dict["title"] == gsettings_default_title:
+                        user_agent_to_send = ua_dict["value"]
                         ua_found_in_constants = True
                         break
                 if ua_found_in_constants:
-                    logging.info(f"HTTP Page: Resolved GSettings default '{gsettings_default_title}' from standard User-Agents.")
+                    logging.info(
+                        f"HTTP Page: Resolved GSettings default '{gsettings_default_title}' from standard User-Agents."
+                    )
                 else:
                     custom_uas_variant = self.settings.get_value("custom-user-agents")
                     custom_ua_pairs: list[tuple[str, str]] = list(
-                        custom_uas_variant.unpack() if custom_uas_variant and custom_uas_variant.get_type_string() == "a(ss)" else []
+                        custom_uas_variant.unpack()
+                        if custom_uas_variant and custom_uas_variant.get_type_string() == "a(ss)"
+                        else []
                     )
                     ua_found_in_custom = False
                     for cust_title, cust_value in custom_ua_pairs:
@@ -485,22 +493,30 @@ class HttpPage(Gtk.Box):
                             ua_found_in_custom = True
                             break
                     if ua_found_in_custom:
-                        logging.info(f"HTTP Page: Resolved GSettings default '{gsettings_default_title}' from custom User-Agents.")
+                        logging.info(
+                            f"HTTP Page: Resolved GSettings default '{gsettings_default_title}' from custom User-Agents."
+                        )
                     else:
-                        logging.warning(f"HTTP Page: GSettings default User-Agent title '{gsettings_default_title}' not found in constants or custom UAs. Sending no specific UA (requests default).")
+                        logging.warning(
+                            f"HTTP Page: GSettings default User-Agent title '{gsettings_default_title}' not found in constants or custom UAs. Sending no specific UA (requests default)."
+                        )
                         user_agent_to_send = None
-            else: # GSettings default is empty string, meaning "None" (use requests default)
-                logging.info("HTTP Page: GSettings default User-Agent is 'None' (empty string). Sending no specific UA (requests default).")
+            else:  # GSettings default is empty string, meaning "None" (use requests default)
+                logging.info(
+                    "HTTP Page: GSettings default User-Agent is 'None' (empty string). Sending no specific UA (requests default)."
+                )
                 user_agent_to_send = None
 
         custom_dns_server = self.settings.get_string("custom-dns-server")
-        logging.info(f"HttpPage: Final User-Agent for request task: {user_agent_to_send if user_agent_to_send else 'None (requests default will be used)'}")
+        logging.info(
+            f"HttpPage: Final User-Agent for request task: {user_agent_to_send if user_agent_to_send else 'None (requests default will be used)'}"
+        )
 
         self._http_task_data_for_thread = {
             "url": url,
             "use_akamai_pragma": self.http_pragma_switch_row.get_active(),
             "host_header": host_header if host_header else None,
-            "user_agent": user_agent_to_send, #This can be None
+            "user_agent": user_agent_to_send,  # This can be None
             "custom_dns_server": custom_dns_server if custom_dns_server else None,
         }
         logger.debug("HttpPage: Starting header fetch task with data: %s", self._http_task_data_for_thread)
@@ -970,27 +986,26 @@ class HttpPage(Gtk.Box):
         self._ua_title_to_value_map.clear()
 
         display_titles: list[str] = []
-        display_titles.append("None") # UI representation of system default / no override
-        self._ua_title_to_value_map["None"] = None # Explicitly map "None" display title to an actual None value
+        display_titles.append("None")  # UI representation of system default / no override
+        self._ua_title_to_value_map["None"] = None  # Explicitly map "None" display title to an actual None value
 
         # Populate with standard USER_AGENTS from constants.py
         for ua_dict in USER_AGENTS:  # Iterate list of dictionaries
-            title = ua_dict['title']
-            value = ua_dict['value']
-            if title not in self._ua_title_to_value_map: # Ensures "None" isn't overwritten if a UA is titled "None"
+            title = ua_dict["title"]
+            value = ua_dict["value"]
+            if title not in self._ua_title_to_value_map:  # Ensures "None" isn't overwritten if a UA is titled "None"
                 display_titles.append(title)
                 self._ua_title_to_value_map[title] = value
-            else: # This case implies title == "None" and was already added.
-                  # Or a duplicate title in USER_AGENTS.
-                if title == "None": # If a standard UA is literally named "None"
-                    logger.warning("A standard User-Agent is titled 'None'. This may cause confusion with the system default option.")
+            else:  # This case implies title == "None" and was already added.
+                # Or a duplicate title in USER_AGENTS.
+                if title == "None":  # If a standard UA is literally named "None"
+                    logger.warning(
+                        "A standard User-Agent is titled 'None'. This may cause confusion with the system default option."
+                    )
                     # Allow it, but it will override the placeholder map if it wasn't done carefully above.
                     # The current logic (checking `title not in self._ua_title_to_value_map`) handles this.
-                else: # True duplicate
-                    logger.warning(
-                        f"Standard User-Agent title '{title}' is a duplicate. Skipping."
-                    )
-                )
+                else:  # True duplicate
+                    logger.warning(f"Standard User-Agent title '{title}' is a duplicate. Skipping.")
 
         variant = self.settings.get_value("custom-user-agents")
         custom_ua_pairs: list[tuple[str, str]] = list(
@@ -1008,7 +1023,7 @@ class HttpPage(Gtk.Box):
         # self._select_ua_in_http_page_dropdown(default_ua_title_from_prefs if default_ua_title_from_prefs else "None")
         # Visual feedback is handled by _select_ua_in_http_page_dropdown calling _on_user_agent_changed_visual_feedback
 
-        self._http_page_ua_is_following_gsettings_default = True # Start by following
+        self._http_page_ua_is_following_gsettings_default = True  # Start by following
         default_ua_title_from_prefs = self.settings.get_string("default-user-agent-title")
         effective_default_title = default_ua_title_from_prefs if default_ua_title_from_prefs else "None"
         # logging.info(f"HttpPage._update_user_agent_model: Initial default UA from GSettings: '{default_ua_title_from_prefs}' (effective: '{effective_default_title}'). Setting dropdown.") # Reduced verbosity
@@ -1044,14 +1059,20 @@ class HttpPage(Gtk.Box):
 
         if selected_title_on_page == "None":
             self._http_page_ua_is_following_gsettings_default = True
-            logging.info(f"HttpPage: UA selection is 'None'. Now following GSettings. Current GSettings default: '{effective_gsettings_default}'.")
+            logging.info(
+                f"HttpPage: UA selection is 'None'. Now following GSettings. Current GSettings default: '{effective_gsettings_default}'."
+            )
             self._select_ua_in_http_page_dropdown(effective_gsettings_default)
         elif selected_title_on_page == effective_gsettings_default:
             self._http_page_ua_is_following_gsettings_default = True
-            logging.info(f"HttpPage: UA selection '{selected_title_on_page}' matches GSettings default. Now following GSettings.")
+            logging.info(
+                f"HttpPage: UA selection '{selected_title_on_page}' matches GSettings default. Now following GSettings."
+            )
         else:
             self._http_page_ua_is_following_gsettings_default = False
-            logging.info(f"HttpPage: UA selection is '{selected_title_on_page}'. This is a session override. Not following GSettings default ('{effective_gsettings_default}').")
+            logging.info(
+                f"HttpPage: UA selection is '{selected_title_on_page}'. This is a session override. Not following GSettings default ('{effective_gsettings_default}')."
+            )
 
         self._on_user_agent_changed_visual_feedback(combo_row, _gparam)
 
@@ -1072,18 +1093,24 @@ class HttpPage(Gtk.Box):
         """
         if key == "default-user-agent-title":
             new_gsettings_default_ua_title = settings.get_string(key)
-            effective_new_gsettings_default = new_gsettings_default_ua_title if new_gsettings_default_ua_title else "None"
+            effective_new_gsettings_default = (
+                new_gsettings_default_ua_title if new_gsettings_default_ua_title else "None"
+            )
             # logging.info(f"HttpPage: GSettings default-user-agent-title changed to: '{new_gsettings_default_ua_title}' (effective: '{effective_new_gsettings_default}').") # Can be verbose
 
             if self._http_page_ua_is_following_gsettings_default:
-                logging.info(f"HttpPage: Currently following GSettings default. Updating dropdown to new GSettings default: '{effective_new_gsettings_default}'.")
+                logging.info(
+                    f"HttpPage: Currently following GSettings default. Updating dropdown to new GSettings default: '{effective_new_gsettings_default}'."
+                )
                 self._select_ua_in_http_page_dropdown(effective_new_gsettings_default)
             else:
                 current_http_page_selection_obj = self.http_user_agent_row.get_selected_item()
                 current_http_page_selected_title = "Unknown"
                 if isinstance(current_http_page_selection_obj, Gtk.StringObject):
                     current_http_page_selected_title = current_http_page_selection_obj.get_string()
-                logging.info(f"HttpPage: Not following GSettings default (current page selection: '{current_http_page_selected_title}'). Ignoring GSettings change for dropdown update.")
+                logging.info(
+                    f"HttpPage: Not following GSettings default (current page selection: '{current_http_page_selected_title}'). Ignoring GSettings change for dropdown update."
+                )
 
     def _select_ua_in_http_page_dropdown(self, title_to_select: str) -> bool:
         """
@@ -1107,11 +1134,11 @@ class HttpPage(Gtk.Box):
         :rtype: bool
         """
         model = self.http_user_agent_row.get_model()
-        if not isinstance(model, Gtk.StringList): # type: ignore
+        if not isinstance(model, Gtk.StringList):  # type: ignore
             logging.error("HttpPage: http_user_agent_row model is not Gtk.StringList, cannot select UA.")
             return False
 
-        all_titles_in_dropdown = [model.get_string(i) for i in range(model.get_n_items())] # type: ignore
+        all_titles_in_dropdown = [model.get_string(i) for i in range(model.get_n_items())]  # type: ignore
 
         final_title_to_select = title_to_select
         if title_to_select not in all_titles_in_dropdown:
@@ -1126,15 +1153,21 @@ class HttpPage(Gtk.Box):
                 # logging.debug(f"HttpPage: Successfully selected '{final_title_to_select}' in dropdown.") # Reduced verbosity
                 return True
             except ValueError:
-                logging.error(f"HttpPage: Error selecting '{final_title_to_select}' (ValueError) despite it being in list. This is unexpected.")
+                logging.error(
+                    f"HttpPage: Error selecting '{final_title_to_select}' (ValueError) despite it being in list. This is unexpected."
+                )
                 return False
-        elif model.get_n_items() > 0 :
-             self.http_user_agent_row.set_selected(0)
-             logging.error("HttpPage: Critical - Could not find target UA nor fallback 'None' in dropdown. Selected first available item.")
-             self._on_user_agent_changed_visual_feedback(self.http_user_agent_row, None)
-             return False
+        elif model.get_n_items() > 0:
+            self.http_user_agent_row.set_selected(0)
+            logging.error(
+                "HttpPage: Critical - Could not find target UA nor fallback 'None' in dropdown. Selected first available item."
+            )
+            self._on_user_agent_changed_visual_feedback(self.http_user_agent_row, None)
+            return False
 
-        logging.warning("HttpPage: Could not select any UA in dropdown (model might be empty or 'None' option missing).")
+        logging.warning(
+            "HttpPage: Could not select any UA in dropdown (model might be empty or 'None' option missing)."
+        )
         return False
 
     def do_dispose(self):
@@ -1146,12 +1179,11 @@ class HttpPage(Gtk.Box):
         potential issues if the settings object outlives the page or if
         the handler attempts to operate on destroyed widgets.
         """
-        if self._gsettings_ua_changed_handler_id and self.settings.is_connected(self._gsettings_ua_changed_handler_id) :
+        if self._gsettings_ua_changed_handler_id and self.settings.is_connected(self._gsettings_ua_changed_handler_id):
             self.settings.disconnect(self._gsettings_ua_changed_handler_id)
             logging.debug("HttpPage: Disconnected GSettings listener for default-user-agent-title.")
-        self._gsettings_ua_changed_handler_id = 0 # Set to 0 or an invalid ID state after disconnect
+        self._gsettings_ua_changed_handler_id = 0  # Set to 0 or an invalid ID state after disconnect
         super().do_dispose()
-
 
     def _create_factory(self, attr_name: str, wrap_text: bool = False) -> Gtk.SignalListItemFactory:
         """
