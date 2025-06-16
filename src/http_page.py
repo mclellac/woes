@@ -87,10 +87,23 @@ class HttpPage(Gtk.Box):
     """
     Activity page for fetching and inspecting HTTP headers.
 
-    This class manages the UI and logic for the HTTP Headers inspection tool,
-    including handling user input, performing HTTP requests in a background thread,
-    and displaying the results in a :class:`Gtk.ColumnView`.
+    This class manages the UI and logic for the HTTP Headers inspection tool.
+    It handles user input for URL, Host header, and User-Agent selection.
+    HTTP requests are performed in a background thread, and results are displayed
+    in a :class:`Gtk.ColumnView`.
 
+    The User-Agent dropdown on this page (`http_user_agent_row`) is initialized
+    based on the global default User-Agent preference from GSettings
+    (`default-user-agent-title`). If this global default changes (e.g., via
+    the Preferences window) and the HTTP page's dropdown is currently set to
+    "None" (indicating it should follow the default), the dropdown automatically
+    updates to reflect the new global default. Selections made directly in this
+    page's dropdown are session-specific and do not alter the global preference.
+
+    :ivar _gsettings_ua_changed_handler_id: Stores the ID of the GSettings "changed"
+                                           signal handler for `default-user-agent-title`,
+                                           used for connecting/disconnecting the listener.
+    :vartype _gsettings_ua_changed_handler_id: int
     :ivar http_entry_row: Entry row for the URL.
     :vartype http_entry_row: Adw.EntryRow
     :ivar http_apply_button: Button to trigger fetching headers.
@@ -146,6 +159,7 @@ class HttpPage(Gtk.Box):
         self._http_task_data_for_thread: dict[str, Any] = {}
         self._ua_title_to_value_map: dict[str, Optional[str]] = {}
         self.settings: Gio.Settings = Gio.Settings(schema_id=APP_ID)
+        self._gsettings_ua_changed_handler_id = 0 # Initialize with a non-None value if Gio.Settings.connect returns 0 on error
         self._header_key_color: str = self.settings.get_string("http-output-header-key-color")
         self._header_value_color: str = self.settings.get_string("http-output-header-value-color")
         self._special_row_color: str = self.settings.get_string("http-output-special-row-color")
@@ -175,6 +189,12 @@ class HttpPage(Gtk.Box):
         self._connect_signals()
         self._update_user_agent_model()
         self.settings.connect("changed::custom-user-agents", lambda _s, _k: self._update_user_agent_model())
+        self._gsettings_ua_changed_handler_id = self.settings.connect(
+            "changed::default-user-agent-title",
+            self._on_default_ua_gsetting_changed
+        )
+        logging.debug(f"HttpPage: Connected GSettings listener for default-user-agent-title, handler ID: {self._gsettings_ua_changed_handler_id}")
+
 
         if self.http_apply_button:
             self.http_apply_button.get_style_context().add_class("suggested-action")
@@ -348,9 +368,28 @@ class HttpPage(Gtk.Box):
         """
         Handle activation of the URL entry row or click of the 'Fetch' button.
 
-        Validates the URL, gathers request parameters (including Host header,
-        User-Agent, custom DNS, and Akamai Pragma state), and starts the
-        background task to fetch HTTP headers.
+        Validates the URL and gathers request parameters for the HTTP request:
+        - URL: Taken from `http_entry_row`.
+        - Host header: Taken from `http_host_header_row` if provided.
+        - User-Agent: Determined by the following logic:
+            1. If a specific User-Agent is selected in the `http_user_agent_row`
+               (i.e., not "None"), that User-Agent string is used.
+            2. If `http_user_agent_row` is set to "None", the method fetches the
+               `default-user-agent-title` from GSettings. This title is then
+               resolved to an actual User-Agent string by first checking the
+               predefined `USER_AGENTS` list (from `constants.py`) and then
+               the custom User-Agents stored in GSettings.
+            3. If no GSettings default is set, or if the GSettings title cannot be
+               resolved to a User-Agent string, a final fallback is used: either
+               the first User-Agent in the `USER_AGENTS` list or a generic
+               "Woes/APP_ID" User-Agent. If `USER_AGENTS` is empty, `None` is
+               sent, letting the `requests` library use its own default.
+        - Custom DNS server: Read from GSettings.
+        - Akamai Pragma header state: Taken from `http_pragma_switch_row`.
+
+        After gathering parameters, it initiates a background task
+        (`_fetch_headers_task_thread_func`) to perform the HTTP request via
+        :class:`.http_client.HttpFetcher`.
 
         :param _widget: The :class:`Gtk.Widget` that triggered the activation (unused).
         :type _widget: Gtk.Widget
@@ -454,14 +493,51 @@ class HttpPage(Gtk.Box):
                     user_agent_to_send = f"Woes/{APP_ID} (Fallback)"
                     logger.info(f"Fell back to generic Woes User-Agent: {user_agent_to_send}")
 
-        logger.info(f"Final User-Agent string for request: {user_agent_to_send}")
+        # Determine the actual User-Agent string to send
+        if selected_ua_title_in_http_page_dropdown and selected_ua_title_in_http_page_dropdown != "None":
+            # A specific UA is selected in the HTTP page's dropdown, use it
+            user_agent_to_send = self._ua_title_to_value_map.get(selected_ua_title_in_http_page_dropdown)
+            if user_agent_to_send:
+                 logging.info(f"HttpPage: Using User-Agent from HTTP Page UI selection: '{selected_ua_title_in_http_page_dropdown}' -> '{user_agent_to_send[:30]}...'")
+            else: # Should not happen if map is correct
+                 logging.warning(f"HttpPage: Could not find value for selected title '{selected_ua_title_in_http_page_dropdown}'. Using fallback.")
+                 user_agent_to_send = USER_AGENTS[0]['value'] if USER_AGENTS else f"Woes/{APP_ID}"
+        else:
+            # HTTP page dropdown is "None", so use the global default from GSettings
+            gsettings_default_title = self.settings.get_string("default-user-agent-title")
+            logging.debug(f"HttpPage: UI selection is 'None', GSettings default-user-agent-title is '{gsettings_default_title}'.")
+            if gsettings_default_title:
+                # Try to find in standard USER_AGENTS
+                resolved_ua = next((ua['value'] for ua in USER_AGENTS if ua['title'] == gsettings_default_title), None)
+                if resolved_ua:
+                    user_agent_to_send = resolved_ua
+                    logging.debug(f"HttpPage: Resolved GSettings default '{gsettings_default_title}' from standard UAs.")
+                else:
+                    # Try to find in custom UAs (from GSettings directly, _ua_title_to_value_map might not be fully up-to-date here if prefs changed)
+                    custom_uas_variant = self.settings.get_value("custom-user-agents")
+                    custom_ua_pairs: list[tuple[str, str]] = list(
+                        custom_uas_variant.unpack() if custom_uas_variant and custom_uas_variant.get_type_string() == "a(ss)" else []
+                    )
+                    resolved_custom_ua = next((val for title, val in custom_ua_pairs if title == gsettings_default_title), None)
+                    if resolved_custom_ua:
+                        user_agent_to_send = resolved_custom_ua
+                        logging.debug(f"HttpPage: Resolved GSettings default '{gsettings_default_title}' from custom UAs.")
+                    else:
+                        logging.warning(f"HttpPage: GSettings default UA title '{gsettings_default_title}' not found in any list. Using ultimate fallback.")
+                        user_agent_to_send = USER_AGENTS[0]['value'] if USER_AGENTS else f"Woes/{APP_ID}"
+            else:
+                # GSettings default is also "None" (empty string)
+                logging.debug("HttpPage: UI selection is 'None' and GSettings default is also 'None'. Using system/requests default UA.")
+                user_agent_to_send = None # Let requests library handle default or use its own.
+
+        logging.info(f"HttpPage: Final User-Agent string for request: {user_agent_to_send if user_agent_to_send else 'System Default'}")
         custom_dns_server = self.settings.get_string("custom-dns-server")
 
         self._http_task_data_for_thread = {
             "url": url,
             "use_akamai_pragma": self.http_pragma_switch_row.get_active(),
             "host_header": host_header if host_header else None,
-            "user_agent": user_agent_to_send,
+            "user_agent": user_agent_to_send, #This can be None
             "custom_dns_server": custom_dns_server if custom_dns_server else None,
         }
         logger.debug("HttpPage: Starting header fetch task with data: %s", self._http_task_data_for_thread)
@@ -968,49 +1044,108 @@ class HttpPage(Gtk.Box):
         self.http_user_agent_row.set_model(Gtk.StringList.new(display_titles))
 
         default_ua_title_from_prefs = self.settings.get_string("default-user-agent-title")
-        title_to_select_in_http_page_dropdown = none_title # Default to "None"
+        # logging.info(f"HttpPage._update_user_agent_model: Initial default UA from GSettings: '{default_ua_title_from_prefs}'.") # Can be verbose
+        self._select_ua_in_http_page_dropdown(default_ua_title_from_prefs if default_ua_title_from_prefs else "None")
+        # Visual feedback is handled by _select_ua_in_http_page_dropdown calling _on_user_agent_changed_visual_feedback
 
-        if default_ua_title_from_prefs: # If there's a global default set
-            if default_ua_title_from_prefs in display_titles:
-                title_to_select_in_http_page_dropdown = default_ua_title_from_prefs
-                logger.info(f"HTTP Page: Setting User-Agent dropdown to global default: '{default_ua_title_from_prefs}'.")
+    def _on_default_ua_gsetting_changed(self, settings: Gio.Settings, key: str) -> None:
+        """
+        Handle changes to the 'default-user-agent-title' GSettings key.
+
+        This method is called when the global default User-Agent preference is changed
+        (e.g., from the Preferences window). If the User-Agent dropdown on this
+        HTTP page is currently set to "None" (meaning it should follow the default),
+        this method updates the dropdown to reflect the new global default by calling
+        :meth:`._select_ua_in_http_page_dropdown`.
+
+        If the dropdown has a specific User-Agent selected (i.e., not "None"),
+        it remains unchanged, preserving the user's session-specific choice for this page.
+
+        :param settings: The :class:`Gio.Settings` object that emitted the signal.
+        :type settings: Gio.Settings
+        :param key: The GSettings key that changed (expected to be "default-user-agent-title").
+        :type key: str
+        """
+        if key == "default-user-agent-title":
+            new_gsettings_default_ua_title = settings.get_string(key)
+            logging.info(f"HttpPage: Notified of GSettings default-user-agent-title change to: '{new_gsettings_default_ua_title}'.")
+
+            current_http_page_selection_obj = self.http_user_agent_row.get_selected_item()
+            current_http_page_selected_title = ""
+            if isinstance(current_http_page_selection_obj, Gtk.StringObject):
+                current_http_page_selected_title = current_http_page_selection_obj.get_string()
+
+            if current_http_page_selected_title == "None":
+                logging.info(f"HttpPage: Current UA selection is 'None'. Updating dropdown to new GSettings default: '{new_gsettings_default_ua_title if new_gsettings_default_ua_title else 'None'}'.")
+                self._select_ua_in_http_page_dropdown(new_gsettings_default_ua_title if new_gsettings_default_ua_title else "None")
             else:
-                logger.warning(
-                    f"HTTP Page: Global default User-Agent '{default_ua_title_from_prefs}' not in available titles. Falling back to 'None'."
-                )
-        else: # Global default is "System Default" (empty string in GSettings)
-            logger.info("HTTP Page: Global default User-Agent is 'System Default'. Setting dropdown to 'None'.")
-            # title_to_select_in_http_page_dropdown is already "None"
+                # This is an expected state if user has made a session-specific choice.
+                logging.debug(f"HttpPage: Current UA selection is '{current_http_page_selected_title}' (not 'None'). Ignoring GSettings change for this page instance.")
 
-        # Set the selection in the ComboBox
-        if title_to_select_in_http_page_dropdown in display_titles:
+    def _select_ua_in_http_page_dropdown(self, title_to_select: str) -> bool:
+        """
+        Safely select an item in the HTTP Page's User-Agent dropdown by its title.
+
+        If the exact title is not found in the dropdown's model, this method
+        falls back to selecting the "None" option. It ensures that the
+        `http_user_agent_row` always has a valid selection if possible.
+        After setting the selection, it calls
+        :meth:`._on_user_agent_changed_visual_feedback` to update any
+        associated UI styling (e.g., the 'active-override' CSS class).
+
+        :param title_to_select: The title of the User-Agent to select in the dropdown.
+        :type title_to_select: str
+        :return: ``True`` if an item (either the target or fallback "None") was
+                 successfully selected, ``False`` if the model is invalid or empty,
+                 or if "None" could not be selected as a fallback.
+        :rtype: bool
+        """
+        model = self.http_user_agent_row.get_model()
+        if not isinstance(model, Gtk.StringList): # type: ignore
+            logging.error("HttpPage: http_user_agent_row model is not Gtk.StringList.")
+            return False
+
+        all_titles_in_dropdown = [model.get_string(i) for i in range(model.get_n_items())] # type: ignore
+
+        final_title_to_select = title_to_select
+        if title_to_select not in all_titles_in_dropdown:
+            logging.warning(f"HttpPage: Title '{title_to_select}' not found in dropdown. Falling back to 'None'.")
+            final_title_to_select = "None" # Fallback
+
+        if final_title_to_select in all_titles_in_dropdown:
             try:
-                idx = display_titles.index(title_to_select_in_http_page_dropdown)
+                idx = all_titles_in_dropdown.index(final_title_to_select)
+                # TODO: Consider handler_block if set_selected itself causes unwanted signal runs, though
+                # _on_save_selected_user_agent_preference is now passive for GSettings.
                 self.http_user_agent_row.set_selected(idx)
-            except ValueError: # Should not happen if logic is correct
-                logger.error(f"HTTP Page: Title '{title_to_select_in_http_page_dropdown}' not found in display_titles for indexing, though it should be. Selecting first item as fallback.")
-                if display_titles:
-                    self.http_user_agent_row.set_selected(0)
-                else: # Should not happen
-                    self.http_user_agent_row.set_selected(Gtk.INVALID_LIST_POSITION)
-        else: # Should only happen if display_titles is empty, which means "None" wasn't added.
-            logger.error(f"HTTP Page: Critical - '{title_to_select_in_http_page_dropdown}' (or even 'None') not in display_titles. ListBox might be empty.")
-            if display_titles: # Should not be empty
-                 self.http_user_agent_row.set_selected(0)
-            else:
-                 self.http_user_agent_row.set_selected(Gtk.INVALID_LIST_POSITION)
+                # logging.info(f"HttpPage: Successfully selected '{final_title_to_select}' in its User-Agent dropdown.") # Can be verbose
+                self._on_user_agent_changed_visual_feedback(self.http_user_agent_row, None) # Ensure visual style updates
+                return True
+            except ValueError:
+                logging.error(f"HttpPage: Error selecting '{final_title_to_select}' (ValueError) despite it being in list.")
+                return False
+        elif model.get_n_items() > 0 : # Fallback if even "None" isn't there (highly unlikely)
+             self.http_user_agent_row.set_selected(0)
+             logging.error("HttpPage: Critical - could not find fallback 'None' or any items. Selected first available.")
+             self._on_user_agent_changed_visual_feedback(self.http_user_agent_row, None)
+             return False
+        return False # Model might be empty
 
+    def do_dispose(self):
+        """
+        Override GObject.Object.do_dispose to disconnect signal handlers.
 
-        # Update visual feedback based on the final selection
-        self._on_user_agent_changed_visual_feedback(self.http_user_agent_row, None)
+        Ensures that the GSettings listener for `default-user-agent-title`
+        is disconnected when the HttpPage object is disposed, preventing
+        potential issues if the settings object outlives the page or if
+        the handler attempts to operate on destroyed widgets.
+        """
+        if self._gsettings_ua_changed_handler_id and self.settings.is_connected(self._gsettings_ua_changed_handler_id) :
+            self.settings.disconnect(self._gsettings_ua_changed_handler_id)
+            logging.debug("HttpPage: Disconnected GSettings listener for default-user-agent-title.")
+        self._gsettings_ua_changed_handler_id = 0 # Set to 0 or an invalid ID state after disconnect
+        super().do_dispose()
 
-        selected_now_obj = self.http_user_agent_row.get_selected_item()
-
-        logging.info(
-            "User-Agent dropdown model updated. Titles: %d. Selected: %s",
-            len(display_titles),
-            selected_now_obj.get_string() if selected_now_obj else "None",
-        )
 
     def _create_factory(self, attr_name: str, wrap_text: bool = False) -> Gtk.SignalListItemFactory:
         """
