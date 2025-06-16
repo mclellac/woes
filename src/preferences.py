@@ -588,29 +588,32 @@ class Preferences(Adw.PreferencesWindow):
         # which handles loading and setting the default user agent.
         self._render_custom_ua_list() # This will call _populate_user_agent_combo_row
         default_ua_title_gsettings = self.settings.get_string("default-user-agent-title")
+        logging.info(f"load_preferences: Fetched default-user-agent-title from GSettings: '{default_ua_title_gsettings}'")
         model = self.user_agent_combo_row.get_model()
 
         if default_ua_title_gsettings == "": # User explicitly wants system default
-            selected_successfully = self._select_combo_row_item(self.user_agent_combo_row, NONE_OPTION_TITLE)
-            if not selected_successfully:
+            was_selected = self._select_combo_row_item(self.user_agent_combo_row, NONE_OPTION_TITLE)
+            logging.info(f"load_preferences: Attempted to select '{NONE_OPTION_TITLE}' in user_agent_combo_row. Success: {was_selected}")
+            if not was_selected: # Corrected variable name from selected_successfully to was_selected
                 logging.error(f"'{NONE_OPTION_TITLE}' not found in user_agent_combo_row. This should not happen.")
                 if model and model.get_n_items() > 0:
                     self.user_agent_combo_row.set_selected(0)
         elif default_ua_title_gsettings: # A specific UA title is saved
-            selected_successfully = self._select_combo_row_item(self.user_agent_combo_row, default_ua_title_gsettings)
-            if not selected_successfully:
-                logging.warning(
-                    f"Saved default UA title '{default_ua_title_gsettings}' not found in combo. "
-                    f"Falling back to '{NONE_OPTION_TITLE}'."
-                )
+            was_selected = self._select_combo_row_item(self.user_agent_combo_row, default_ua_title_gsettings)
+            logging.info(f"load_preferences: Attempted to select '{default_ua_title_gsettings}' in user_agent_combo_row. Success: {was_selected}")
+            if not was_selected: # Corrected variable name
+                logging.warning(f"load_preferences: Saved default UA title '{default_ua_title_gsettings}' not found in combo. Falling back to select '{NONE_OPTION_TITLE}'.")
                 self.settings.set_string("default-user-agent-title", "") # Clear invalid/stale GSetting
-                if not self._select_combo_row_item(self.user_agent_combo_row, NONE_OPTION_TITLE):
+                fallback_selected = self._select_combo_row_item(self.user_agent_combo_row, NONE_OPTION_TITLE)
+                logging.info(f"load_preferences: Attempted to select fallback '{NONE_OPTION_TITLE}'. Success: {fallback_selected}")
+                if not fallback_selected: # Corrected variable name
                      logging.error(f"Fallback '{NONE_OPTION_TITLE}' not found. Critical error in UA dropdown population.")
             # If found and selected, nothing more to do here for this case
         else: # GSetting is empty, but not explicitly "", could be initial state or cleared by other means
               # Select NONE_OPTION_TITLE by default if no specific UA is set
-            selected_successfully = self._select_combo_row_item(self.user_agent_combo_row, NONE_OPTION_TITLE)
-            if not selected_successfully:
+            was_selected = self._select_combo_row_item(self.user_agent_combo_row, NONE_OPTION_TITLE)
+            logging.info(f"load_preferences: Attempted to select '{NONE_OPTION_TITLE}' (GSettings was empty). Success: {was_selected}")
+            if not was_selected: # Corrected variable name
                 logging.error(f"'{NONE_OPTION_TITLE}' not found during initial load. Critical error.")
             # Ensure GSetting reflects this default choice if it was implicitly empty
             self.settings.set_string("default-user-agent-title", "")
@@ -696,16 +699,20 @@ class Preferences(Adw.PreferencesWindow):
         selected_item_obj = combo_row.get_selected_item()
         if isinstance(selected_item_obj, Gtk.StringObject):
             selected_ua_title = selected_item_obj.get_string()
-            # logging.debug(f"_on_default_user_agent_changed: Selected UA title in dropdown: '{selected_ua_title}'.") # Keep if useful
+            logging.debug(f"_on_default_user_agent_changed: Raw selected title from dropdown: '{selected_ua_title}'")
             if selected_ua_title:
                 current_gsettings_val = self.settings.get_string("default-user-agent-title")
                 gsetting_to_save = "" # Assume NONE_OPTION_TITLE
                 if selected_ua_title != NONE_OPTION_TITLE:
                     gsetting_to_save = selected_ua_title
 
+                logging.debug(f"_on_default_user_agent_changed: Current GSettings value for default-user-agent-title: '{current_gsettings_val}'")
+                logging.debug(f"_on_default_user_agent_changed: Intended gsetting_to_save: '{gsetting_to_save}' (based on selected_ua_title: '{selected_ua_title}', NONE_OPTION_TITLE: '{NONE_OPTION_TITLE}')")
+
                 if gsetting_to_save != current_gsettings_val:
-                    # logging.debug(f"_on_default_user_agent_changed: Saving '{gsetting_to_save}' to GSettings default-user-agent-title.") # Keep if useful
+                    logging.info(f"_on_default_user_agent_changed: Attempting to save to GSettings default-user-agent-title: '{gsetting_to_save}'")
                     self.settings.set_string("default-user-agent-title", gsetting_to_save)
+                    logging.info(f"_on_default_user_agent_changed: Value read back from GSettings default-user-agent-title immediately after set: '{self.settings.get_string('default-user-agent-title')}'")
             else: # selected_ua_title is None or empty string (should not happen with Gtk.StringList of valid titles)
                 logging.warning("Selected UA title is None or empty, which is unexpected. Setting GSettings to empty.")
                 self.settings.set_string("default-user-agent-title", "")
