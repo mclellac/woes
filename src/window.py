@@ -26,8 +26,6 @@ gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
 
 
-logging.debug("Custom page widgets (HttpPage, NmapPage, DNSPage, WebScanPage) imported into window.py")
-
 # Imports for custom page widgets
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/window.ui")
