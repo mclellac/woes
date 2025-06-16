@@ -103,6 +103,7 @@ class Preferences(Adw.PreferencesWindow):
         self.main_window: Optional[Gtk.Window] = main_window
         self.set_transient_for(main_window)
         self.settings = Gio.Settings(schema_id=APP_ID)
+        self._ua_combo_handler_id = None
         self.load_ui()
         self.load_preferences()
 
@@ -190,7 +191,11 @@ class Preferences(Adw.PreferencesWindow):
             self.global_output_font_button.connect("font-set", self.on_global_font_setting_changed)
 
         if self.user_agent_combo_row:
-            self.user_agent_combo_row.connect("notify::selected-item", self._on_default_user_agent_changed)
+            self._ua_combo_handler_id = self.user_agent_combo_row.connect("notify::selected-item", self._on_default_user_agent_changed)
+            logging.debug(f"Connected _on_default_user_agent_changed with handler ID: {self._ua_combo_handler_id}")
+        else:
+            self._ua_combo_handler_id = None # Ensure it's None if row doesn't exist
+            logging.error("user_agent_combo_row not found during load_ui, cannot connect signal.")
 
         # Custom HTTP Header Signals
 
@@ -588,8 +593,9 @@ class Preferences(Adw.PreferencesWindow):
         # which handles loading and setting the default user agent.
         self._render_custom_ua_list() # This will call _populate_user_agent_combo_row
 
-        self.user_agent_combo_row.freeze_notify()
-        logging.debug("load_preferences: 'notify' frozen for user_agent_combo_row before setting selection from GSettings.")
+        if self._ua_combo_handler_id and self.user_agent_combo_row:
+            self.user_agent_combo_row.handler_block(self._ua_combo_handler_id)
+            logging.debug(f"load_preferences: Blocked handler {self._ua_combo_handler_id} for user_agent_combo_row before setting selection.")
 
         default_ua_title_gsettings = self.settings.get_string("default-user-agent-title")
         logging.info(f"load_preferences: Fetched default-user-agent-title from GSettings: '{default_ua_title_gsettings}'")
@@ -622,8 +628,9 @@ class Preferences(Adw.PreferencesWindow):
             # Ensure GSetting reflects this default choice if it was implicitly empty
             self.settings.set_string("default-user-agent-title", "")
 
-        self.user_agent_combo_row.thaw_notify()
-        logging.debug("load_preferences: 'notify' thawed for user_agent_combo_row after setting selection from GSettings.")
+        if self._ua_combo_handler_id and self.user_agent_combo_row:
+            self.user_agent_combo_row.handler_unblock(self._ua_combo_handler_id)
+            logging.debug(f"load_preferences: Unblocked handler {self._ua_combo_handler_id} for user_agent_combo_row after setting selection.")
 
         output_font_str = self.settings.get_string("output-font")
         if self.global_output_font_button:
@@ -648,6 +655,11 @@ class Preferences(Adw.PreferencesWindow):
 
         # current_selection_title was previously read here but not used, so removed.
         # The selection is now primarily driven by load_preferences after model population.
+
+        if self._ua_combo_handler_id and self.user_agent_combo_row:
+            self.user_agent_combo_row.handler_block(self._ua_combo_handler_id)
+            logging.debug(f"_populate_user_agent_combo_row: Blocked handler {self._ua_combo_handler_id} for user_agent_combo_row.")
+
         all_ua_titles = []
 
         # 1. Add "None" option (System Default)
@@ -676,8 +688,7 @@ class Preferences(Adw.PreferencesWindow):
                 )
 
         model = Gtk.StringList.new(all_ua_titles)
-        self.user_agent_combo_row.freeze_notify()
-        logging.debug("_populate_user_agent_combo_row: 'notify' frozen for user_agent_combo_row.")
+        # freeze_notify was here, but handler_block is used at the start of the method.
         self.user_agent_combo_row.set_model(model)
         # Removed detailed logging after each step of population and model setting.
 
@@ -689,11 +700,16 @@ class Preferences(Adw.PreferencesWindow):
 
         # Fallback selection if nothing else gets selected by load_preferences
         # This ensures the combo box always has a valid selection if items exist.
-        if model.get_n_items() > 0 and self.user_agent_combo_row.get_selected() == Gtk.INVALID_LIST_POSITION:
-             self.user_agent_combo_row.set_selected(0) # Select NONE_OPTION_TITLE
-             # logging.debug(f"_populate_user_agent_combo_row: Fallback - Selected first item '{all_ua_titles[0]}'.") # Optional: keep if needed
-        self.user_agent_combo_row.thaw_notify()
-        logging.debug("_populate_user_agent_combo_row: 'notify' thawed for user_agent_combo_row.")
+        # REMOVED set_selected(0) from here as it should be handled by load_preferences or initial state.
+        # if model.get_n_items() > 0 and self.user_agent_combo_row.get_selected() == Gtk.INVALID_LIST_POSITION:
+        #      self.user_agent_combo_row.set_selected(0) # Select NONE_OPTION_TITLE
+        #      # logging.debug(f"_populate_user_agent_combo_row: Fallback - Selected first item '{all_ua_titles[0]}'.") # Optional: keep if needed
+
+        # thaw_notify was here, corresponding handler_unblock is at the end of the method.
+        # Ensure unblock is at the very end
+        if self._ua_combo_handler_id and self.user_agent_combo_row:
+            self.user_agent_combo_row.handler_unblock(self._ua_combo_handler_id)
+            logging.debug(f"_populate_user_agent_combo_row: Unblocked handler {self._ua_combo_handler_id} for user_agent_combo_row.")
 
 
     def _on_default_user_agent_changed(self, combo_row: Adw.ComboRow, _gparam: GObject.ParamSpec):
