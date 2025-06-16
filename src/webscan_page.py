@@ -90,8 +90,16 @@ class WebScanPage(Gtk.Box):
         self._output_font_desc: Pango.FontDescription = Pango.FontDescription.from_string(
             output_font_str if output_font_str else "Monospace 10"
         )
+        # if hasattr(self, "source_view") and self.source_view: # Replaced by CssProvider
+        #     self.source_view.override_font(self._output_font_desc)
+
+        self.font_css_provider = Gtk.CssProvider()
         if hasattr(self, "source_view") and self.source_view:
-            self.source_view.override_font(self._output_font_desc)
+            self.source_view.get_style_context().add_provider(
+                self.font_css_provider, Gtk.STYLE_PROVIDER_PRIORITY_USER
+            )
+        self._update_font_css() # Initial font application
+
 
         if self.scan_button:
             self.scan_button.get_style_context().add_class("suggested-action")
@@ -139,10 +147,27 @@ class WebScanPage(Gtk.Box):
             self._output_font_desc = Pango.FontDescription.from_string(
                 output_font_str if output_font_str else "Monospace 10"
             )
-            if hasattr(self, "source_view") and self.source_view:
-                self.source_view.override_font(self._output_font_desc)
-            else:
-                logger.warning("WebScanPage: source_view not available to apply font change.")
+            # if hasattr(self, "source_view") and self.source_view: # Replaced by CssProvider
+            #     self.source_view.override_font(self._output_font_desc)
+            # else:
+            #     logger.warning("WebScanPage: source_view not available to apply font change.")
+            self._update_font_css()
+
+    def _update_font_css(self) -> None:
+        """Update the CSS provider with the current font description."""
+        if not hasattr(self, "font_css_provider") or not self.font_css_provider:
+            logger.warning("WebScanPage: font_css_provider is not available to update CSS.")
+            return
+        if not hasattr(self, "_output_font_desc") or not self._output_font_desc:
+            logger.warning("WebScanPage: _output_font_desc is not available to update CSS.")
+            return
+
+        font_str = self._output_font_desc.to_string()
+        css = f"* {{ font: {font_str}; }}"
+        try:
+            self.font_css_provider.load_from_string(css)
+        except GLib.Error as e: # Catch potential errors from load_from_string
+            logger.error(f"WebScanPage: Error loading CSS string '{css}': {e}")
 
     def __del__(self):
         """Clean up when the WebScanPage is destroyed."""
