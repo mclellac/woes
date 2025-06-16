@@ -154,7 +154,14 @@ class WebScanPage(Gtk.Box):
             self._update_font_css()
 
     def _update_font_css(self) -> None:
-        """Update the CSS provider with the current font description."""
+        """
+        Update the CSS provider with the current font settings.
+
+        This method generates a CSS string to set the ``font-family`` and
+        ``font-size`` for the ``textview#webscan-output-textview`` widget.
+        The font size is converted from Pango units (obtained from
+        ``self._output_font_desc``) to points.
+        """
         if not hasattr(self, "font_css_provider") or not self.font_css_provider:
             logger.warning("WebScanPage: font_css_provider is not available to update CSS.")
             return
@@ -162,8 +169,19 @@ class WebScanPage(Gtk.Box):
             logger.warning("WebScanPage: _output_font_desc is not available to update CSS.")
             return
 
-        font_str = self._output_font_desc.to_string()
-        css = f"textview#webscan-output-textview {{ font: '{font_str}'; }}"
+        font_family = self._output_font_desc.get_family()
+        size_in_pango_units = self._output_font_desc.get_size()
+
+        size_in_points = 0.0
+        if size_in_pango_units > 0: # Pango.SCALE can be 0, avoid division by zero
+            size_in_points = size_in_pango_units / Pango.SCALE
+        else: # Default to a reasonable size if Pango size is 0 or invalid
+            size_in_points = 10.0
+            logger.warning(f"WebScanPage: Pango font size was {size_in_pango_units}, defaulting to {size_in_points}pt.")
+
+        effective_font_family = font_family if font_family else "Monospace"
+
+        css = f"textview#webscan-output-textview {{ font-family: '{effective_font_family}'; font-size: {size_in_points:.1f}pt; }}"
         try:
             self.font_css_provider.load_from_string(css)
         except GLib.Error as e: # Catch potential errors from load_from_string
