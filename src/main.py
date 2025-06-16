@@ -17,9 +17,10 @@ from gi.repository import Adw, Gio, GLib, Gtk
 
 from .constants import (
     APP_ID,
-    VERSION,
+    VERSION, # Used as default in main() and WoesApplication
     RESOURCE_PREFIX,
-    PKGDATADIR,
+    PKGDATADIR, # Now sourced from constants, which is config-aware
+    CONFIG_AVAILABLE, # To determine loading strategy
     APP_WEBSITE_URL,
     APP_LICENSE_TYPE,
     APP_DESCRIPTION,
@@ -37,23 +38,41 @@ def _load_gresources_early():
     either a development path or an installed path. Exits the application
     if the GResource file cannot be found or loaded.
     """
-    installed_resource_path = os.path.join(PKGDATADIR, "woes.gresource")
+    logger = logging.getLogger(__name__) # Ensure logger is defined
+    resource_file_path = None
     script_dir = os.path.dirname(os.path.abspath(__file__))
     dev_resource_path = os.path.normpath(os.path.join(script_dir, "..", "build", "src", "woes.gresource"))
+    # installed_resource_path uses PKGDATADIR from constants (which is config-aware)
+    installed_resource_path = os.path.join(PKGDATADIR, "woes.gresource")
 
-    resource_file_path = None
-    if os.path.exists(dev_resource_path):
-        logging.info("Development GResource path found: %s", dev_resource_path)
-        resource_file_path = dev_resource_path
-    elif os.path.exists(installed_resource_path):
-        logging.info("Installed GResource path found: %s", installed_resource_path)
-        resource_file_path = installed_resource_path
-    else:
-        logging.critical(
-            "GResource file not found at development path (%s) or installed path (%s). Application will now exit.",
-            dev_resource_path,
-            installed_resource_path,
-        )
+    # Priority:
+    # 1. If config is available (installed mode), expect it at installed_resource_path.
+    # 2. If config is not available (dev mode), expect it at dev_resource_path.
+    # 3. Fallbacks if the primary expectation isn't met.
+
+    if CONFIG_AVAILABLE:
+        if os.path.exists(installed_resource_path):
+            logger.info("Using installed GResource path from src.config: %s", installed_resource_path)
+            resource_file_path = installed_resource_path
+        elif os.path.exists(dev_resource_path): # Safety fallback if installed path missing despite config
+            logger.warning("src.config available, but GResource not at installed path. Using dev path: %s", dev_resource_path)
+            resource_file_path = dev_resource_path
+        else:
+            logger.critical("src.config available, but GResource not found at installed path (%s) or dev path (%s). App will exit.", installed_resource_path, dev_resource_path)
+            sys.exit(1)
+    else: # Not using src.config (likely development/uninstalled)
+        if os.path.exists(dev_resource_path):
+            logger.info("Using development GResource path (src.config not found): %s", dev_resource_path)
+            resource_file_path = dev_resource_path
+        elif os.path.exists(installed_resource_path): # Check fallback PKGDATADIR (e.g., build/data/woes.gresource)
+            logger.info("Dev GResource path not found. Using fallback PKGDATADIR path: %s", installed_resource_path)
+            resource_file_path = installed_resource_path
+        else:
+            logger.critical("GResource not found at dev path (%s) or fallback PKGDATADIR path (%s) (src.config not found). App will exit.", dev_resource_path, installed_resource_path)
+            sys.exit(1)
+
+    if not resource_file_path: # Should not be reached if logic above is correct
+        logger.critical("GResource file path could not be determined. Application will exit.")
         sys.exit(1)
 
     logging.info("Attempting to load GResource file from: %s", resource_file_path)
@@ -511,26 +530,31 @@ def main(version: str = VERSION) -> int:
     """
     logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
 
-    print("Attempting to directly access GSettings for test...")
-    try:
-        # Ensure GResources are loaded as they contain the schema (called at module level)
+    run_settings_test = os.environ.get("WOES_RUN_SETTINGS_TEST", "0") == "1"
+    if run_settings_test:
+        logging.info("WOES_RUN_SETTINGS_TEST is set. Running GSettings test in main().")
+        print("Attempting to directly access GSettings for test...")
+        try:
+            # Ensure GResources are loaded as they contain the schema (called at module level)
 
-        # Directly instantiate Gio.Settings with the application ID
-        settings = Gio.Settings(schema_id=APP_ID)
+            # Directly instantiate Gio.Settings with the application ID
+            settings = Gio.Settings(schema_id=APP_ID)
 
-        # Try to get the newly added setting
-        test_setting_value = settings.get_string("default-user-agent-title")
-        print(f"Successfully read 'default-user-agent-title': {test_setting_value}")
+            # Try to get the newly added setting
+            test_setting_value = settings.get_string("default-user-agent-title")
+            print(f"Successfully read 'default-user-agent-title': {test_setting_value}")
 
-        # Also try to get an existing setting to be sure
-        test_theme_value = settings.get_string("theme-preference")
-        print(f"Successfully read 'theme-preference': {test_theme_value}")
+            # Also try to get an existing setting to be sure
+            test_theme_value = settings.get_string("theme-preference")
+            print(f"Successfully read 'theme-preference': {test_theme_value}")
 
-        print("Settings test passed.")
+            print("Settings test passed.")
 
-    except Exception as e:
-        print(f"Error during settings test: {e}")
-        sys.exit(1)
+        except Exception as e:
+            print(f"Error during settings test: {e}")
+            sys.exit(1)
+    else:
+        logging.info("Skipping GSettings test in main() (WOES_RUN_SETTINGS_TEST not set to '1').")
 
     app = WoesApplication(version=version)
     exit_status: int = app.run(sys.argv)

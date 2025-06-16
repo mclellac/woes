@@ -7,23 +7,37 @@ URLs, and predefined User-Agent strings.
 """
 
 import os
+import logging # Added import
 
 from gi.repository import Gtk
+
+logger = logging.getLogger(__name__) # Added logger
 
 APP_ID = "com.github.mclellac.woes"
 RESOURCE_PREFIX = "/com/github/mclellac/woes/gtk"
 THEME_LIGHT = "style.css"
 THEME_DARK = "style-dark.css"
-VERSION = "0.2.0"
+# VERSION and PKGDATADIR are now defined below with fallbacks
 APP_WEBSITE_URL = "https://github.com/mclellac/woes"
 APP_LICENSE_TYPE = Gtk.License.MIT_X11
 APP_DESCRIPTION = "A simple toolkit for web, nmap, and DNS scans."
 APP_ISSUES_URL = "https://github.com/mclellac/woes/issues"
 
-# PKGDATADIR would typically be set by the build system (e.g., Meson, Autotools)
-_default_pkgdatadir = "/usr/local/share/woes"
-PKGDATADIR = os.environ.get("WOES_PKGDATADIR", _default_pkgdatadir)
-# This allows overriding with an environment variable for testing or different installations.
+CONFIG_AVAILABLE = False
+try:
+    from . import config  # Assuming Meson generates src/config.py
+    PKGDATADIR = config.PKGDATADIR
+    VERSION = config.VERSION
+    CONFIG_AVAILABLE = True
+    logger.info("Loaded PKGDATADIR and VERSION from src.config.")
+except ImportError:
+    logger.warning("src.config not found. Using fallback constants. This is expected if running uninstalled or if Meson's configure_file step hasn't run.")
+    _project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    # Fallback PKGDATADIR for data files when running uninstalled (e.g., from project_root/data or project_root/build/data)
+    PKGDATADIR = os.path.join(_project_root, "data")
+    if not os.path.isdir(PKGDATADIR):
+        PKGDATADIR = os.path.join(_project_root, "build", "data") # Common alternative
+    VERSION = "0.0.0-dev" # Fallback version
 
 GNOME_INTERFACE_SCHEMA = "org.gnome.desktop.interface"
 FONT_NAME_KEY = "font-name"

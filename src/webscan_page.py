@@ -19,7 +19,7 @@ import gi
 from gi.repository import Gtk, Adw, Gio, GLib, GObject, Gdk, Pango
 
 from .constants import RESOURCE_PREFIX, APP_ID
-from .utils import show_global_error, show_global_toast, is_valid_url
+from .utils import show_global_error, show_global_toast, is_valid_url, process_task_result # Import new utility
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
@@ -768,52 +768,52 @@ class WebScanPage(Gtk.Box):
 
         logger.info(f"Nikto scan task done for {target_url}.")
 
-        try:
-            returned_data = result.propagate_value()
+        task_being_processed = self.current_web_scan_task # Keep a reference
+        self.current_web_scan_task = None # Clear early
 
+        returned_data, error_msg = process_task_result(task_being_processed, result, logger)
+
+        if error_msg:
+            # Determine brief message for toast/subtitle (previously done by inspecting GLib.Error domain/code)
+            # For now, we use the error_msg directly or a shortened version.
+            # More specific error parsing could be re-added here if needed, by inspecting error_msg content.
+            brief_user_message = error_msg.splitlines()[0]
+            if "Nikto command not found" in error_msg: # Example of making it more specific
+                 brief_user_message = "Nikto command not found. Ensure Nikto is installed and in PATH."
+            elif "cancelled" in error_msg.lower():
+                 brief_user_message = f"Scan for {target_url} was cancelled."
+
+            if self.webscan_status_action_row:
+                self.webscan_status_action_row.set_subtitle(brief_user_message)
+            show_global_error(self, brief_user_message)
+            self._update_textview(None, f"Error: {error_msg}", is_error_message=True)
+
+        elif returned_data is not None:
             if isinstance(returned_data, tuple) and len(returned_data) == 2:
                 s_out, s_err = returned_data
-            elif (
-                hasattr(returned_data, "value")
-                and isinstance(returned_data.value, tuple)
-                and len(returned_data.value) == 2
-            ):
+            # This part handles if Gio.Task.return_value wraps the tuple in a GObject.Value or similar
+            elif hasattr(returned_data, "value") and isinstance(returned_data.value, tuple) and len(returned_data.value) == 2:
                 s_out, s_err = returned_data.value
             else:
                 s_out, s_err = None, None
-                logger.error(f"Nikto scan for {target_url} returned unexpected result format: {type(returned_data)}")
+                logger.error(f"Nikto scan for {target_url} returned unexpected data format from process_task_result: {type(returned_data)}")
                 show_global_error(self, "Scan returned unexpected data format.")
                 self._update_textview(None, "Error: Scan returned unexpected data format.", is_error_message=True)
 
-            final_stdout: Optional[str]
+            final_stdout: Optional[str] = None
             if s_out is None:
-                logger.info("_on_scan_task_done: s_out (main report) is None, defaulting to empty string.")
                 final_stdout = ""
             elif not isinstance(s_out, str):
-                logger.warning(
-                    f"_on_scan_task_done: s_out (main report) was type {type(s_out)}, expected str. Converting. Value (first 100 chars): {str(s_out)[:100]}"
-                )
                 final_stdout = str(s_out)
             else:
                 final_stdout = s_out
-
-            if final_stdout:
-                final_stdout = final_stdout.replace("\\n", "\n")
-                logger.debug("Applied .replace('\\\\n', '\\n') to final_stdout in _on_scan_task_done.")
+            if final_stdout: final_stdout = final_stdout.replace("\\n", "\n")
 
             final_stderr: Optional[str] = None
             if s_err is not None:
-                if not isinstance(s_err, str):
-                    logger.warning(
-                        f"_on_scan_task_done: s_err (auxiliary output) was type {type(s_err)}, expected str. Converting. Value (first 100 chars): {str(s_err)[:100]}"
-                    )
-                    final_stderr = str(s_err)
-                else:
-                    final_stderr = s_err
-
-                if final_stderr:
-                    final_stderr = final_stderr.replace("\\n", "\n")
-                    logger.debug("Applied .replace('\\\\n', '\\n') to final_stderr in _on_scan_task_done.")
+                if not isinstance(s_err, str): final_stderr = str(s_err)
+                else: final_stderr = s_err
+                if final_stderr: final_stderr = final_stderr.replace("\\n", "\n")
 
             self._update_textview(final_stdout, final_stderr, is_error_message=False)
 
@@ -822,72 +822,12 @@ class WebScanPage(Gtk.Box):
                     self.webscan_status_action_row.set_subtitle("Scan complete. See results below.")
                 else:
                     self.webscan_status_action_row.set_subtitle("Scan complete. No output received.")
-            elif s_out is None and s_err is None and not (isinstance(returned_data, tuple) and len(returned_data) == 2):
-                if self.webscan_status_action_row and self.webscan_status_action_row.get_subtitle() == "Scanning...":
-                    self.webscan_status_action_row.set_subtitle("Error: Unexpected scan result format.")
-            else:
-                if self.webscan_status_action_row:
-                    self.webscan_status_action_row.set_subtitle("Scan complete. No output received.")
-
-        except GLib.Error as e:
-            logger.warning(
-                f"Nikto scan task for {target_url} failed or was cancelled: {e.message} (Domain: {e.domain}, Code: {e.code})"
-            )
-
-            brief_user_message = e.message
-            detailed_output_for_textview = f"Error: {e.message}"
-
-            if e.matches(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.NIKTO_NOT_FOUND.value):
-                brief_user_message = "Nikto command not found. Ensure Nikto is installed and in PATH."
-                detailed_output_for_textview = f"Error: {brief_user_message}"
-            elif e.matches(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.TIMEOUT.value):
-                brief_user_message = f"Scan for {target_url} timed out."
-                detailed_output_for_textview = f"Error: {brief_user_message}"
-            elif e.matches(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.CANCELLED.value):
-                brief_user_message = f"Scan for {target_url} was cancelled."
-                detailed_output_for_textview = f"Error: {brief_user_message}"
-            elif e.matches(GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.GENERIC.value):
-                if "Missing scan parameters" in e.message:
-                    brief_user_message = "Internal error: Missing scan parameters."
-                    detailed_output_for_textview = f"Error: {brief_user_message}"
-                elif "Nikto execution error" in e.message:
-                    match = re.search(r"\(code (\d+)\)", e.message)
-                    code_str = f" (code {match.group(1)})" if match else ""
-                    brief_user_message = f"Nikto execution error{code_str}. See results for details."
-                    detailed_output_for_textview = f"Error: {e.message}"
-                else:
-                    brief_user_message = f"Scan failed: {e.message.splitlines()[0]}"
-                    detailed_output_for_textview = f"Error: {e.message}"
-
+        else: # No error, but data is None - should be caught by process_task_result
+            logger.error(f"Nikto scan for {target_url} resulted in no data and no error_msg from process_task_result.")
+            show_global_error(self, "Scan completed with no data and no error.")
+            self._update_textview(None, "Error: Scan completed with no data.", is_error_message=True)
             if self.webscan_status_action_row:
-                self.webscan_status_action_row.set_subtitle(brief_user_message)
-            show_global_error(self, brief_user_message)
-
-            if (
-                detailed_output_for_textview
-                and isinstance(detailed_output_for_textview, str)
-                and "\\n" in detailed_output_for_textview
-            ):
-                detailed_output_for_textview = detailed_output_for_textview.replace("\\n", "\n")
-                logger.debug("Applied .replace('\\\\n', '\\n') to GLib.Error message for textview.")
-            self._update_textview(None, detailed_output_for_textview, is_error_message=True)
-
-        except Exception as e_generic:
-            logger.exception(f"Unexpected Python error in _on_scan_task_done for {target_url}:")
-            user_message = "An unexpected error occurred."
-            detailed_error_msg_for_textview = f"Error: {user_message} ({str(e_generic)})"
-            if (
-                detailed_error_msg_for_textview
-                and isinstance(detailed_error_msg_for_textview, str)
-                and "\\n" in detailed_error_msg_for_textview
-            ):
-                detailed_error_msg_for_textview = detailed_error_msg_for_textview.replace("\\n", "\n")
-                logger.debug("Applied .replace('\\\\n', '\\n') to generic Exception message for textview.")
-
-            if self.webscan_status_action_row:
-                self.webscan_status_action_row.set_subtitle(user_message)
-            show_global_error(self, user_message + " Check logs for details.")
-            self._update_textview(None, detailed_error_msg_for_textview, is_error_message=True)
+                self.webscan_status_action_row.set_subtitle("Scan finished with no data.")
         finally:
             self.scan_button.set_sensitive(True)
             if self.webscan_cancel_button:
