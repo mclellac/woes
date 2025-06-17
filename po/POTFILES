@@ -1,6 +1,0 @@
-data/com.github.mclellac.woes.desktop.in
-data/com.github.mclellac.woes.metainfo.xml.in
-data/com.github.mclellac.woes.gschema.xml
-src/main.py
-src/window.py
-src/window.ui
