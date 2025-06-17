@@ -27,7 +27,7 @@ import nmap
 from nmap import PortScannerError
 import yaml
 
-from .utils import is_valid_ip, is_valid_domain
+from utils import is_valid_ip, is_valid_domain # Changed from relative to direct
 
 
 class ScanOptions(Enum):
