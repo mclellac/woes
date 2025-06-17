@@ -30,7 +30,7 @@ HIGH_CONTRAST_KEY = "high-contrast"
 
 def _get_linux_font_preferences(
     base_font_size_pt: float,
-) -> Tuple[Optional[str], float]:
+) -> tuple[Optional[str], float]:
     """
     Get font preferences from GNOME settings on Linux.
 

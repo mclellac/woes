@@ -150,6 +150,7 @@ class NmapPage(Gtk.Box):
     def __del__(self):
         """
         Clean up resources, specifically the NmapScanner's thread pool and cancel any ongoing scan.
+
         :rtype: None
         """
         if self.current_nmap_cancellable and not self.current_nmap_cancellable.is_cancelled():
@@ -162,6 +163,7 @@ class NmapPage(Gtk.Box):
     def _init_page_ui(self):
         """
         Initialize NmapPage UI components.
+
         :rtype: None
         """
         self.nmap_host_listbox.bind_model(self.nmap_target_listbox_store, self._create_target_listbox_row)
@@ -173,6 +175,7 @@ class NmapPage(Gtk.Box):
     def _clear_dynamic_details(self):
         """
         Clear dynamically added details from the detail box.
+
         :rtype: None
         """
         child = self.nmap_detail_box.get_first_child()
@@ -187,6 +190,7 @@ class NmapPage(Gtk.Box):
     def _connect_signals(self):
         """
         Connect NmapPage signals.
+
         :rtype: None
         """
         self.nmap_target_entryrow.connect("entry-activated", self._on_target_activate)
@@ -904,6 +908,7 @@ class NmapPage(Gtk.Box):
     def _clear_results(self):
         """
         Clear all Nmap scan results from the UI.
+
         :rtype: None
         """
         self.nmap_target_listbox_store.remove_all()
@@ -939,6 +944,7 @@ class NmapPage(Gtk.Box):
     def _clear_error(self):
         """
         Clear any displayed error message using the main window's banner.
+
         :rtype: None
         """
         main_window = self.get_native()
@@ -1074,6 +1080,7 @@ class NmapPage(Gtk.Box):
     def trigger_scan(self) -> None:
         """
         Programmatically trigger the Nmap 'Scan' action.
+
         :rtype: None
         """
         if self.nmap_apply_button and self.nmap_apply_button.get_sensitive():

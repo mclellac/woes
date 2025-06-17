@@ -10,7 +10,7 @@ and uses a background thread for network operations to keep the UI responsive.
 
 import logging
 from enum import Enum
-from typing import Any, Optional # Use lowercase for built-in types, e.g. list, dict
+from typing import Any, Optional  # Use lowercase for built-in types, e.g. list, dict
 
 import gi
 
@@ -244,8 +244,8 @@ class HttpPage(Gtk.Box):
         :return: None
         :rtype: None
         """
-        self.http_entry_row.connect("entry-activated", self._on_entry_row_activated) # type: ignore[no-untyped-call]
-        self.http_apply_button.connect("clicked", self._on_entry_row_activated) # type: ignore[no-untyped-call]
+        self.http_entry_row.connect("entry-activated", self._on_entry_row_activated)  # type: ignore[no-untyped-call]
+        self.http_apply_button.connect("clicked", self._on_entry_row_activated)  # type: ignore[no-untyped-call]
         self.http_pragma_switch_row.connect("notify::active", self._on_pragma_toggled)
         self.clear_results_button.connect("clicked", self._on_clear_results_clicked)
         if self.copy_results_button:
@@ -397,7 +397,7 @@ class HttpPage(Gtk.Box):
         else:
             logger.info("No headers to copy from the results view.")
 
-    def _on_entry_row_activated(self, _widget: Gtk.Widget) -> None: # type: ignore[type-arg]
+    def _on_entry_row_activated(self, _widget: Gtk.Widget) -> None:  # type: ignore[type-arg]
         """
         Handle activation of the URL entry row or click of the 'Fetch' button.
 
@@ -529,9 +529,9 @@ class HttpPage(Gtk.Box):
 
     def _fetch_headers_task_thread_func(
         self,
-        task: Gio.Task, # type: ignore
-        _source_object: GObject.Object, # type: ignore
-        _task_data_arg: dict[str, Any], # type: ignore
+        task: Gio.Task,  # type: ignore
+        _source_object: GObject.Object,  # type: ignore
+        _task_data_arg: dict[str, Any],  # type: ignore
         cancellable: Optional[Gio.Cancellable],
     ) -> None:
         """
@@ -616,14 +616,17 @@ class HttpPage(Gtk.Box):
                 )
         except Exception:
             logger.exception("HttpPage Task: Unexpected generic error for URL '%s':", url_to_fetch)
-            task.return_new_error_literal( # type: ignore
+            task.return_new_error_literal(  # type: ignore
                 GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
                 HttpErrorType.GENERIC_UNEXPECTED.value,
-                f"Unexpected internal error: {url_to_fetch}", # Don't leak raw exception message to Gio.Error
+                f"Unexpected internal error: {url_to_fetch}",  # Don't leak raw exception message to Gio.Error
             )
 
     def _fetch_headers_task_done_cb(
-        self, _source_object: GObject.Object, result: Gio.AsyncResult, _user_data: Optional[Any] = None # type: ignore
+        self,
+        _source_object: GObject.Object,
+        _result: Gio.AsyncResult,
+        _user_data: Optional[Any] = None,  # type: ignore
     ) -> None:
         """
         Handle completion of the HTTP headers fetch task.
@@ -760,14 +763,16 @@ class HttpPage(Gtk.Box):
             # Check if message is already markup, GError messages can sometimes be.
             # A more robust check would be to see if GLib.markup_escape_text is needed.
             # For now, assume if it contains tags, it's intentional markup from the error source.
-            if not ("<b>" in display_message or "<" in display_message and ">" in display_message) :
+            if not ("<b>" in display_message or "<" in display_message and ">" in display_message):
                 display_message = GLib.markup_escape_text(display_message)
 
             show_global_error(self, display_message)
             if self.http_entry_row:
                 self.http_entry_row.add_css_class("error")
             self._update_column_view_model(None)
-            self._set_loading_state(False, f"Error: {e.message.splitlines()[0]}") # Use original message for brief status
+            self._set_loading_state(
+                False, f"Error: {e.message.splitlines()[0]}"
+            )  # Use original message for brief status
         except Exception:
             logger.exception("HttpPage: Unexpected Python error in _fetch_headers_task_done_cb:")
             error_message = "An unexpected application error occurred processing results."
@@ -775,7 +780,7 @@ class HttpPage(Gtk.Box):
             if self.http_entry_row:
                 self.http_entry_row.add_css_class("error")
             self._update_column_view_model(None)
-                self._set_loading_state(False, "Error: Unexpected application error.")
+            self._set_loading_state(False, "Error: Unexpected application error.")
         finally:
             if self.current_http_task is None:
                 if self.http_status_row and self.http_status_row.get_subtitle() == "Fetching headers...":
@@ -881,7 +886,7 @@ class HttpPage(Gtk.Box):
         :rtype: None
         """
         if self.http_results_group:
-            self.http_results_group.set_visible(True) # type: ignore[no-untyped-call]
+            self.http_results_group.set_visible(True)  # type: ignore[no-untyped-call]
 
     def _hide_results(self) -> None:
         """
@@ -891,7 +896,7 @@ class HttpPage(Gtk.Box):
         :rtype: None
         """
         if self.http_results_group:
-            self.http_results_group.set_visible(False) # type: ignore[no-untyped-call]
+            self.http_results_group.set_visible(False)  # type: ignore[no-untyped-call]
 
     def _clear_error(self) -> None:
         """
@@ -905,7 +910,7 @@ class HttpPage(Gtk.Box):
         """
         main_window = self.get_native()
         if main_window and hasattr(main_window, "hide_error"):
-                main_window.hide_error() # type: ignore[attr-defined]
+            main_window.hide_error()  # type: ignore[attr-defined]
         else:
             logger.warning("Could not find main window or hide_error method to clear error.")
         if self.http_entry_row:
@@ -943,7 +948,7 @@ class HttpPage(Gtk.Box):
         :return: None
         :rtype: None
         """
-        logger.debug("Color setting changed for GSettings key: %s", key) # type: ignore[docstring-section-missing]
+        logger.debug("Color setting changed for GSettings key: %s", key)  # type: ignore[docstring-section-missing]
         if key == "http-output-header-key-color":
             self._header_key_color = settings.get_string(key)
         elif key == "http-output-header-value-color":
@@ -968,7 +973,7 @@ class HttpPage(Gtk.Box):
         :return: None
         :rtype: None
         """
-        logger.debug("HttpPage: Global output font setting changed for key: %s", key) # type: ignore[docstring-section-missing]
+        logger.debug("HttpPage: Global output font setting changed for key: %s", key)  # type: ignore[docstring-section-missing]
         if key == self._output_font_gsettings_key:
             output_font_str = settings.get_string(key)
             self._output_font_desc = Pango.FontDescription.from_string(
@@ -997,7 +1002,7 @@ class HttpPage(Gtk.Box):
         :return: None
         :rtype: None
         """
-        if not self.http_user_agent_row: # type: ignore[has-type]
+        if not self.http_user_agent_row:  # type: ignore[has-type]
             logger.error("HttpPage: _update_user_agent_model: http_user_agent_row is None, cannot update model.")
             return
         self._ua_title_to_value_map.clear()
@@ -1041,7 +1046,7 @@ class HttpPage(Gtk.Box):
         effective_default_title = default_ua_title_from_prefs if default_ua_title_from_prefs else "None"
         self._select_ua_in_http_page_dropdown(effective_default_title)
 
-    def _on_http_page_ua_selection_changed(self, combo_row: Adw.ComboRow, _gparam: GObject.ParamSpec) -> None: # type: ignore[type-arg]
+    def _on_http_page_ua_selection_changed(self, combo_row: Adw.ComboRow, _gparam: GObject.ParamSpec) -> None:  # type: ignore[type-arg]
         """
         Handle user selection changes in the HTTP Page's User-Agent dropdown.
 
@@ -1060,7 +1065,7 @@ class HttpPage(Gtk.Box):
         :type _gparam: GObject.ParamSpec
         :rtype: None
         """
-        selected_item_obj = combo_row.get_selected_item() # type: ignore[no-untyped-call]
+        selected_item_obj = combo_row.get_selected_item()  # type: ignore[no-untyped-call]
         if not isinstance(selected_item_obj, Gtk.StringObject):
             return
 
@@ -1103,7 +1108,7 @@ class HttpPage(Gtk.Box):
         :type key: str
         :rtype: None
         """
-        if key == "default-user-agent-title": # type: ignore[docstring-section-missing]
+        if key == "default-user-agent-title":  # type: ignore[docstring-section-missing]
             new_gsettings_default_ua_title = settings.get_string(key)
             effective_new_gsettings_default = (
                 new_gsettings_default_ua_title if new_gsettings_default_ua_title else "None"
@@ -1162,7 +1167,7 @@ class HttpPage(Gtk.Box):
                 self.http_user_agent_row.set_selected(idx)
                 self._on_user_agent_changed_visual_feedback(self.http_user_agent_row, None)
                 return True
-            except ValueError: # Should not happen if `in all_titles_in_dropdown` check passed
+            except ValueError:  # Should not happen if `in all_titles_in_dropdown` check passed
                 logger.error(
                     f"HttpPage: Error selecting '{final_title_to_select}' (ValueError) despite it being in list. This is unexpected."
                 )
@@ -1190,8 +1195,8 @@ class HttpPage(Gtk.Box):
         the handler attempts to operate on destroyed widgets.
         :rtype: None
         """
-        if self._gsettings_ua_changed_handler_id and self.settings.is_connected(self._gsettings_ua_changed_handler_id): # type: ignore[no-untyped-call]
-            self.settings.disconnect(self._gsettings_ua_changed_handler_id) # type: ignore[no-untyped-call]
+        if self._gsettings_ua_changed_handler_id and self.settings.is_connected(self._gsettings_ua_changed_handler_id):  # type: ignore[no-untyped-call]
+            self.settings.disconnect(self._gsettings_ua_changed_handler_id)  # type: ignore[no-untyped-call]
             logging.debug("HttpPage: Disconnected GSettings listener for default-user-agent-title.")
         self._gsettings_ua_changed_handler_id = 0  # Set to 0 or an invalid ID state after disconnect
         super().do_dispose()
@@ -1221,10 +1226,10 @@ class HttpPage(Gtk.Box):
             if wrap_text:
                 label.set_wrap(True)
                 label.set_wrap_mode(Pango.WrapMode.WORD_CHAR)
-                label.set_max_width_chars(80) # Consider making this configurable or dynamic
+                label.set_max_width_chars(80)  # Consider making this configurable or dynamic
             list_item.set_child(label)
 
-        def bind_func_internal(_factory: Gtk.SignalListItemFactory, list_item: Gtk.ListItem) -> None: # type: ignore[type-arg]
+        def bind_func_internal(_factory: Gtk.SignalListItemFactory, list_item: Gtk.ListItem) -> None:  # type: ignore[type-arg]
             """Bind function for the list item factory. Sets the label's text and style."""
             label = list_item.get_child()
             item = list_item.get_item()

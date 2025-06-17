@@ -160,6 +160,7 @@ class NmapScanner:
     def __init__(self):
         """
         Initialize the NmapScanner.
+
         :rtype: None
         """
         logger.debug("NmapScanner initialized.")
@@ -171,6 +172,7 @@ class NmapScanner:
     def __del__(self) -> None:
         """
         Ensure the ThreadPoolExecutor is shut down and any running Nmap process is terminated.
+
         :rtype: None
         """
         logger.debug("NmapScanner.__del__ called.")
@@ -515,7 +517,7 @@ class NmapScanner:
             all_results[host] = yaml_output
         return all_results
 
-    def to_plain_dict(self, data: Any) -> Union[Dict[str, Any], Any]:
+    def to_plain_dict(self, data: Any) -> Union[dict[str, Any], Any]:
         """
         Recursively convert Nmap data (potentially custom nmap types) to plain dicts/lists.
 
