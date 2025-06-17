@@ -384,7 +384,7 @@ class NmapPage(Gtk.Box):
                 self.nmap_cancel_scan_button.set_sensitive(False)
                 self.nmap_cancel_scan_button.set_visible(False)
 
-        # Existing logic for handling error_msg or data:
+        # logic for handling error_msg or data:
         if error_msg:
             if "cancel" in error_msg.lower():
                 self._set_scan_status(ScanStatus.IDLE, f"Scan for {original_target} cancelled.")
