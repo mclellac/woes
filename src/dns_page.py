@@ -9,7 +9,7 @@ DNS lookups are performed asynchronously to maintain UI responsiveness.
 """
 
 import logging
-from typing import Optional, Any, List, Dict, Final # Added Final
+from typing import Optional, Any, List, Dict, Final  # Added Final
 
 import gi
 
@@ -110,7 +110,9 @@ class DNSPage(Gtk.Box):
         if self.dns_apply_button:
             self.dns_apply_button.connect("clicked", self._on_entry_activated)
         if self.dns_record_type_dropdown:
-            self.dns_record_type_dropdown.connect("notify::selected-item", self._on_record_type_changed)
+            self.dns_record_type_dropdown.connect(
+                "notify::selected-item", self._on_record_type_changed
+            )
         if self.dns_clear_results_button:
             self.dns_clear_results_button.connect("clicked", self._on_clear_results_clicked)
         if self.dns_copy_all_results_button:
@@ -215,10 +217,13 @@ class DNSPage(Gtk.Box):
                 elif rtype in ("CNAME", "NS", "PTR"):
                     parts.append(f"Target: {record_data.get('target', 'N/A')}")
                 elif rtype == "MX":
-                    parts.append(f"Preference: {record_data.get('preference', 'N/A')}")
+                    parts.append(
+                        f"Preference: {record_data.get('preference', 'N/A')}"
+                    )
                     parts.append(f"Exchange: {record_data.get('exchange', 'N/A')}")
                 elif rtype == "TXT":
-                    texts_join = "; ".join([f'"{s}"' for s in record_data.get('texts', ['N/A'])])
+                    texts_val = record_data.get('texts', ['N/A'])
+                    texts_join = "; ".join([f'"{s}"' for s in texts_val])
                     parts.append(f"Texts: {texts_join}")
                 elif rtype == "SOA":
                     parts.append(f"MNAME: {record_data.get('mname', 'N/A')}")
@@ -555,12 +560,14 @@ class DNSPage(Gtk.Box):
         if is_valid_ip(user_input) and requested_record_type.upper() == "PTR":
             model = self.dns_record_type_dropdown.get_model()
             if model:
-                for i in range(model.get_n_items()): # type: ignore
-                    item_str = model.get_string(i) # type: ignore
+                for i in range(model.get_n_items()):  # type: ignore
+                    item_str = model.get_string(i)  # type: ignore
                     if item_str and item_str.upper() == "PTR":
                         if self.dns_record_type_dropdown.get_selected() != i:
                             self.dns_record_type_dropdown.set_selected(i)
-                            logger.debug("DNSPage: Switched dropdown to PTR for IP input.")
+                            logger.debug(
+                                "DNSPage: Switched dropdown to PTR for IP input."
+                            )
                         break
             actual_record_type_used = "PTR"
         return actual_record_type_used
@@ -584,15 +591,13 @@ class DNSPage(Gtk.Box):
 
         if self._current_dns_task and not self._current_dns_task.is_done():
             try:
-                if self._current_dns_task.get_cancellable(): # Check if cancellable exists
+                if self._current_dns_task.get_cancellable():  # Check if cancellable exists
                     self._current_dns_task.get_cancellable().cancel()
                 logger.info("DNSPage: Previous DNS lookup task cancelled.")
             except Exception as e_cancel:
                 logger.warning("DNSPage: Error trying to cancel previous DNS task: %s", e_cancel)
 
         cancellable = Gio.Cancellable()
-        self._current_dns_task = Gio.Task.new(self, cancellable, self._perform_lookup_done_cb, None)
-
         custom_dns_server = self.settings.get_string("custom-dns-server")
 
         task_data = {
@@ -600,15 +605,21 @@ class DNSPage(Gtk.Box):
             "requested_record_type": requested_record_type,
             "custom_dns_server": custom_dns_server if custom_dns_server else None
         }
-        self._current_dns_task.set_task_data(task_data)
+        self._current_dns_task = Gio.Task.new(self, cancellable, self._perform_lookup_done_cb, task_data)
+        self._current_dns_task.set_task_data(None)
 
         logger.debug(
             "DNSPage: Starting DNS lookup task with input: '%s', type: '%s', server: '%s'",
-            user_input, requested_record_type, custom_dns_server or "System Default"
+            user_input,
+            requested_record_type,
+            custom_dns_server or "System Default"
         )
         self._current_dns_task.run_in_thread(self._perform_lookup_thread_func)
 
-    def _perform_lookup_thread_func(self, task: Gio.Task, _source_object: Any, _task_data_param: Any, cancellable: Gio.Cancellable) -> None:
+    def _perform_lookup_thread_func(
+        self, task: Gio.Task, _source_object: Any,
+        _task_data_param: Any, cancellable: Gio.Cancellable
+    ) -> None:
         """
         Perform the DNS lookup in a background thread.
 
@@ -620,41 +631,61 @@ class DNSPage(Gtk.Box):
         :param _task_data_param: Data passed via `run_in_thread` (unused here).
         :param cancellable: The :class:`Gio.Cancellable` for this task.
         """
-        task_internal_data: Dict[str, Any] = task.get_task_data() # type: ignore
+        task_internal_data: Dict[str, Any] = task.get_task_data()  # type: ignore
         user_input: str = task_internal_data["user_input"]
         requested_record_type: str = task_internal_data["requested_record_type"]
         custom_dns_server: Optional[str] = task_internal_data["custom_dns_server"]
 
         if cancellable.is_cancelled():
-            task.return_error(GLib.Error.new_literal(Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED, "Lookup cancelled before starting."))
+            task.return_error(
+                GLib.Error.new_literal(
+                    Gio.io_error_quark(),
+                    Gio.IOErrorEnum.CANCELLED,
+                    "Lookup cancelled before starting."
+                )
+            )
             return
 
         try:
             dns_client = DnsResolverClient(custom_dns_server=custom_dns_server)
-            if cancellable.is_cancelled(): # Check again before potentially long operation
-                task.return_error(GLib.Error.new_literal(Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED, "Lookup cancelled before resolving."))
+            if cancellable.is_cancelled():  # Check again before potentially long operation
+                task.return_error(
+                    GLib.Error.new_literal(
+                        Gio.io_error_quark(),
+                        Gio.IOErrorEnum.CANCELLED,
+                        "Lookup cancelled before resolving."
+                    )
+                )
                 return
             result_data = dns_client.resolve(user_input, requested_record_type)
 
             if cancellable.is_cancelled():
-                task.return_error(GLib.Error.new_literal(Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED, "Lookup cancelled after resolving."))
+                task.return_error(
+                    GLib.Error.new_literal(
+                        Gio.io_error_quark(),
+                        Gio.IOErrorEnum.CANCELLED,
+                        "Lookup cancelled after resolving."
+                    )
+                )
                 return
 
             task_result_payload = {
                 "data": result_data,
                 "client_nameservers": dns_client.resolver.nameservers or []
             }
-            # GLib.Variant is more robust for complex types across threads with GObject Introspection
-            # For this simple dict, direct passing might work but GVariant is safer.
-            # However, directly returning dicts from run_in_thread and retrieving with propagate_value
-            # which returns 'gpointer' (Any in Python) is common in PyGObject if not using GVariant explicitly.
-            task.return_value(task_result_payload) # type: ignore
+            task.return_value(task_result_payload)  # type: ignore
         except Exception as e:
-            task.get_task_data()["original_exception"] = e
-            task.return_error(GLib.Error.new_literal(Gio.io_error_quark(), Gio.IOErrorEnum.FAILED, str(e)))
+            if task.get_task_data(): # Ensure task_data exists to store exception
+                task.get_task_data()["original_exception"] = e
+            task.return_error(
+                GLib.Error.new_literal(
+                    Gio.io_error_quark(), Gio.IOErrorEnum.FAILED, str(e)
+                )
+            )
 
-
-    def _perform_lookup_done_cb(self, _source_object: Any, result: Gio.AsyncResult, _user_data: Any) -> None:
+    def _perform_lookup_done_cb(
+        self, _source_object: Any, result: Gio.AsyncResult, _user_data: Any
+    ) -> None:
         """
         Process the result of the asynchronous DNS lookup.
 
@@ -666,44 +697,63 @@ class DNSPage(Gtk.Box):
         :param result: The :class:`Gio.AsyncResult` from the completed task.
         :param _user_data: User data passed with the callback (unused).
         """
-        if not self._current_dns_task or not self._current_dns_task.matches_async_result(result):
+        active_task = self._current_dns_task
+        if not active_task or not active_task.matches_async_result(result):
             logger.warning("DNSPage: Callback received for an outdated or mismatched DNS task.")
-            if not self._current_dns_task or self._current_dns_task.is_done(): # If no current task or it's done
+            if not active_task or active_task.is_done():  # If no current task or it's done
                  self._set_loading_state(False, "Idle.")
             return
 
-        task_internal_data: Dict[str, Any] = self._current_dns_task.get_task_data() # type: ignore
-        user_input: str = task_internal_data["user_input"]
-        requested_record_type: str = task_internal_data["requested_record_type"]
+        task_internal_data: Optional[Dict[str, Any]] = active_task.get_task_data()
+        user_input: str = "Unknown Input"
+        requested_record_type: str = "Unknown Type"
+        if task_internal_data:
+            user_input = task_internal_data.get("user_input", user_input)
+            requested_record_type = task_internal_data.get(
+                "requested_record_type", requested_record_type
+            )
 
         try:
-            task_return_value = self._current_dns_task.propagate_value(result)
+            task_return_value = active_task.propagate_value(result)
+
+            result_data: List[Dict[str, Any]] = []
+            nameservers_used: List[str] = ["System Default"]
 
             if isinstance(task_return_value, dict):
                 result_data = task_return_value.get("data", [])
                 nameservers_used = task_return_value.get("client_nameservers", [])
             else:
-                logger.warning("DNSPage: Task returned unexpected data type: %s", type(task_return_value))
-                result_data = []
+                logger.warning(
+                    "DNSPage: Task returned unexpected data type: %s", type(task_return_value)
+                )
                 # Attempt to get custom_dns_server from settings as a fallback for display
                 custom_dns_setting = self.settings.get_string("custom-dns-server")
-                nameservers_used = [custom_dns_setting] if custom_dns_setting else ["System Default"]
+                if custom_dns_setting:
+                    nameservers_used = [custom_dns_setting]
 
-            self._handle_dns_lookup_success_async(result_data, user_input, requested_record_type, nameservers_used)
+            self._handle_dns_lookup_success_async(
+                result_data, user_input, requested_record_type, nameservers_used
+            )
 
         except GLib.Error as e:
-            original_exception = task_internal_data.get("original_exception")
-            if original_exception:
-                self._handle_dns_lookup_exception_async(original_exception, user_input, requested_record_type)
-            else:
-                self._handle_dns_lookup_exception_async(e, user_input, requested_record_type)
+            original_exception = None
+            if task_internal_data:
+                original_exception = task_internal_data.get("original_exception")
+
+            error_to_handle = original_exception if original_exception else e
+            self._handle_dns_lookup_exception_async(
+                error_to_handle, user_input, requested_record_type
+            )
         except Exception as e_unexpected:
-            logger.exception("DNSPage: Unexpected error processing DNS task result for '%s':", user_input)
-            self._handle_dns_lookup_exception_async(e_unexpected, user_input, requested_record_type)
+            logger.exception(
+                "DNSPage: Unexpected error processing DNS task result for '%s':", user_input
+            )
+            self._handle_dns_lookup_exception_async(
+                e_unexpected, user_input, requested_record_type
+            )
         finally:
             self._set_loading_state(False)
             self._current_dns_task = None
-
 
     def _handle_dns_lookup_success_async(
         self,
@@ -768,47 +818,64 @@ class DNSPage(Gtk.Box):
         if isinstance(error, DnsNxDomainError):
             show_global_error(self, error_message)
             status_subtitle = f"NXDOMAIN: Domain '{user_input}' not found."
-            self._current_result_records = None
-            self._display_result([], user_input, requested_record_type, current_dns_for_display)
+            self._current_result_records = None # Clear previous results on NXDOMAIN
+            self._display_result(
+                [], user_input, requested_record_type, current_dns_for_display
+            )
         elif isinstance(error, DnsNoAnswerError):
-            logger.info("DNSPage: %s", error_message)
-            self._current_result_records = []
+            logger.info("DNSPage: %s", error_message) # Log full error
+            self._current_result_records = [] # No records found
             self._current_user_input = user_input
             self._current_requested_record_type = requested_record_type
             self._current_dns_servers = current_dns_for_display
-            self._display_result([], user_input, requested_record_type, current_dns_for_display)
-            status_subtitle = f"No {requested_record_type} records found for '{user_input}' (No Answer)."
+            self._display_result(
+                [], user_input, requested_record_type, current_dns_for_display
+            )
+            status_subtitle = (
+                f"No {requested_record_type} records found for '{user_input}' (No Answer)."
+            )
         elif isinstance(error, DnsResolutionTimeoutError):
-            show_global_error(self, error_message)
-            status_subtitle = f"Timeout resolving '{user_input}' for {requested_record_type} records."
-            self._current_result_records = None
-            self._display_result([], user_input, requested_record_type, current_dns_for_display)
-        elif isinstance(error, DnsGenericError) or isinstance(error, DnsClientError):
+            show_global_error(self, error_message) # Show full error to user
+            status_subtitle = (
+                f"Timeout resolving '{user_input}' for {requested_record_type} records."
+            )
+            self._current_result_records = None # Clear results on timeout
+            self._display_result(
+                [], user_input, requested_record_type, current_dns_for_display
+            )
+        elif isinstance(error, (DnsGenericError, DnsClientError)):
             logger.warning(
                 "DNSPage: DNS lookup failed for '%s', type '%s' (%s): %s",
                 user_input, requested_record_type, type(error).__name__, error_message
             )
-            show_global_error(self, error_message)
+            show_global_error(self, error_message) # Show full error
             status_subtitle = f"DNS Error: {error_message.splitlines()[0]}"
-            self._current_result_records = None
-            self._display_result([], user_input, requested_record_type, current_dns_for_display)
-        elif isinstance(error, GLib.Error) and error.matches(Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED):
+            self._current_result_records = None # Clear results on generic DNS error
+            self._display_result(
+                [], user_input, requested_record_type, current_dns_for_display
+            )
+        elif isinstance(error, GLib.Error) and \
+             error.matches(Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED):
             status_subtitle = "Lookup cancelled."
             show_global_toast(self, status_subtitle)
             # Do not clear results on user cancellation, previous results might still be relevant
-        else:
+        else: # Unexpected errors
             logger.exception(
-                "DNSPage: Unexpected error/task error during DNS lookup for '%s', type '%s':", user_input, requested_record_type
+                "DNSPage: Unexpected error during DNS lookup for '%s', type '%s':",
+                user_input, requested_record_type
             )
-            error_message_short = f"An unexpected error occurred: {error_message.splitlines()[0]}"
+            error_message_short = (
+                f"An unexpected error occurred: {error_message.splitlines()[0]}"
+            )
             show_global_error(self, error_message_short)
             status_subtitle = error_message_short
-            self._current_result_records = None
-            self._display_result([], user_input, requested_record_type, current_dns_for_display)
+            self._current_result_records = None # Clear results on unexpected error
+            self._display_result(
+                [], user_input, requested_record_type, current_dns_for_display
+            )
 
         if self.dns_status_row:
             self.dns_status_row.set_subtitle(status_subtitle)
-
 
     def _get_selected_record_type(self) -> str:
         """
@@ -819,14 +886,15 @@ class DNSPage(Gtk.Box):
         if self.dns_record_type_dropdown:
             model = self.dns_record_type_dropdown.get_model()
             selected_index = self.dns_record_type_dropdown.get_selected()
-            if model and selected_index < model.get_n_items(): # type: ignore[union-attr]
-                item_obj = model.get_item(selected_index) # Gtk.StringObject
+            # Ensure model and selected_index are valid before accessing item
+            if model and selected_index >= 0 and selected_index < model.get_n_items():  # type: ignore[union-attr]
+                item_obj = model.get_item(selected_index)  # Gtk.StringObject
                 if isinstance(item_obj, Gtk.StringObject):
                     return item_obj.get_string()
-                elif item_obj is not None: # Should be StringObject, but defensive
+                elif item_obj is not None:  # Should be StringObject, but defensive
                      return str(item_obj)
 
-        logger.warning("DNSPage: Could not get selected record type, defaulting to 'A'.")
+        logger.warning("DNSPage: Could not get selected record type from dropdown, defaulting to 'A'.")
         return "A"
 
     def _clear_error(self) -> None:
@@ -836,7 +904,7 @@ class DNSPage(Gtk.Box):
 
         main_window = self.get_native()
         if main_window and hasattr(main_window, "hide_error") and callable(main_window.hide_error):
-            main_window.hide_error() # type: ignore
+            main_window.hide_error()  # type: ignore
         else:
             logger.debug("DNSPage: Main window or hide_error method not found/callable.")
 
@@ -885,27 +953,39 @@ class DNSPage(Gtk.Box):
         servers_info_row.set_selectable(False)
         self.dns_results_box_container.append(servers_info_row)
 
-        self.dns_results_box_container.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL, margin_top=6, margin_bottom=6))
+        self.dns_results_box_container.append(
+            Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL, margin_top=6, margin_bottom=6)
+        )
 
-        if not result_records and not (isinstance(self._current_dns_task, Gio.Task) and self._current_dns_task.get_cancellable().is_cancelled()): # Only show "no records" if not cancelled
+        # Check if the task was cancelled before deciding to show "no records"
+        task_was_cancelled = False
+        if isinstance(self._current_dns_task, Gio.Task):
+            cancellable = self._current_dns_task.get_cancellable()
+            if cancellable and cancellable.is_cancelled():
+                task_was_cancelled = True
+
+        if not result_records and not task_was_cancelled:
             no_records_message = f"No {record_type.upper()} records found for '{domain_or_ip}'."
-            if record_type.upper() == "PTR" and is_valid_ip(domain_or_ip): # More specific for PTR
-                no_records_message = f"No PTR records found for IP address '{domain_or_ip}'."
-
+            # More specific for PTR
+            if record_type.upper() == "PTR" and is_valid_ip(domain_or_ip):
+                no_records_message = (
+                    f"No PTR records found for IP address '{domain_or_ip}'."
+                )
             no_records_row = Adw.ActionRow(title=no_records_message, selectable=False)
             self.dns_results_box_container.append(no_records_row)
-        else:
-            for record_data in result_records:
-                row = self._create_record_row(record_data)
+        elif result_records: # Only iterate if there are records
+            for record_data_item in result_records:
+                row = self._create_record_row(record_data_item)
                 if row:
                     self.dns_results_box_container.append(row)
+        # If task_was_cancelled and no results, we don't add a "no records" message.
 
-        has_content_to_manage = bool(domain_or_ip) # Enable clear/copy if a query was made, even if no results
+        # Enable clear/copy if a query was made, even if no results or cancelled
+        has_content_to_manage = bool(domain_or_ip)
         if self.dns_clear_results_button:
-            self.dns_clear_results_button.set_sensitive(True)
+            self.dns_clear_results_button.set_sensitive(True) # Always allow clear after a query
         if self.dns_copy_all_results_button:
             self.dns_copy_all_results_button.set_sensitive(has_content_to_manage)
-
 
     def _create_record_row(self, record_data: Dict[str, Any]) -> Optional[Gtk.Widget]:
         """
@@ -923,8 +1003,8 @@ class DNSPage(Gtk.Box):
         """
         record_type_val = record_data.get("type", "").upper()
         name = record_data.get("name", "N/A")
-        ttl = record_data.get("ttl", "N/A") # TTL can sometimes be missing or not applicable
-        rd_class_str = record_data.get("class", "N/A") # Class can sometimes be missing
+        ttl = record_data.get("ttl", "N/A")  # TTL can sometimes be missing or not applicable
+        rd_class_str = record_data.get("class", "N/A")  # Class can sometimes be missing
         base_subtitle = f"Class: {rd_class_str}, TTL: {ttl}"
 
         if record_type_val in ("A", "AAAA"):
@@ -945,8 +1025,12 @@ class DNSPage(Gtk.Box):
                 record_data,
                 record_type_val,
             )
-            unsupported_row = Adw.ActionRow(title=name, subtitle=f"Type: {record_type_val} (Unsupported detailed view)")
-            unsupported_row.set_tooltip_text(f"Raw data: {str(record_data)}") # Show raw data in tooltip
+            unsupported_row = Adw.ActionRow(
+                title=name,
+                subtitle=f"Type: {record_type_val} (Unsupported detailed view)"
+            )
+            # Show raw data in tooltip
+            unsupported_row.set_tooltip_text(f"Raw data: {str(record_data)}")
             return unsupported_row
 
     def trigger_lookup(self) -> None:

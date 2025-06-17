@@ -20,6 +20,8 @@ from gi.repository import Gtk, Adw, Gio, GLib, GObject, Gdk, Pango
 from .constants import RESOURCE_PREFIX, APP_ID
 from .utils import show_global_error, show_global_toast, is_valid_url, process_task_result
 
+WEB_SCAN_ERROR_DOMAIN_QUARK = GLib.quark_from_string("web-scan-error-domain")
+
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
@@ -127,7 +129,7 @@ class WebScanPage(Gtk.Box):
         self.current_web_scan_task: Optional[Gio.Task] = None
         self.current_web_scan_cancellable: Optional[Gio.Cancellable] = None
         self.current_nikto_process: Optional[subprocess.Popen[str]] = None
-        self._current_webscan_params: Optional[WebScanParameters] = None # Use TypedDict
+        self._current_webscan_params: Optional[WebScanParameters] = None  # Use TypedDict
         self.settings: Gio.Settings = Gio.Settings.new(APP_ID)
         self.style_manager: Adw.StyleManager = Adw.StyleManager.get_default()
 
@@ -214,11 +216,19 @@ class WebScanPage(Gtk.Box):
             size_in_points = size_in_pango_units / Pango.SCALE
         else:  # Default to a reasonable size if Pango size is 0 or invalid
             size_in_points = 10.0
-            logger.warning(f"WebScanPage: Pango font size was {size_in_pango_units}, defaulting to {size_in_points}pt.")
+            logger.warning(
+                f"WebScanPage: Pango font size was {size_in_pango_units}, "
+                f"defaulting to {size_in_points}pt."
+            )
 
         effective_font_family = font_family if font_family else "Monospace"
 
-        css = f"textview#webscan-output-textview {{ font-family: '{effective_font_family}'; font-size: {size_in_points:.1f}pt; }}"
+        css = (
+            f"textview#webscan-output-textview {{ "
+            f"font-family: '{effective_font_family}'; "
+            f"font-size: {size_in_points:.1f}pt; "
+            f"}}"
+        )
         try:
             self.font_css_provider.load_from_string(css)
         except GLib.Error as e:  # Catch potential errors from load_from_string
@@ -427,10 +437,12 @@ class WebScanPage(Gtk.Box):
                 self.current_web_scan_cancellable.cancel()
 
         self.current_web_scan_cancellable = Gio.Cancellable()
-        task = Gio.Task.new(self, self.current_web_scan_cancellable, self._on_scan_task_done, None)
+        task = Gio.Task.new(
+            self, self.current_web_scan_cancellable, self._on_scan_task_done, None
+        )
         self.current_web_scan_task = task
 
-        task_data_for_thread: WebScanParameters = { # Use TypedDict
+        task_data_for_thread: WebScanParameters = {  # Use TypedDict
             "target_url": target_url,
             "force_ssl": self.force_ssl_switch.get_state(),
             "cgi_vulns": self.cgi_vulns_switch.get_state(),
@@ -469,9 +481,11 @@ class WebScanPage(Gtk.Box):
         scan_params = page_instance._current_webscan_params
 
         if not scan_params:
-            logger.error("WebScanPage: _run_scan_task_thread_func: _current_webscan_params is None.")
+            logger.error(
+                "WebScanPage: _run_scan_task_thread_func: _current_webscan_params is None."
+            )
             task.return_new_error_literal(
-                GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN),
+                WEB_SCAN_ERROR_DOMAIN_QUARK,
                 WebScanErrorType.GENERIC.value,
                 "Missing scan parameters in thread.",
             )
@@ -517,9 +531,12 @@ class WebScanPage(Gtk.Box):
 
         if is_file_required:
             if not output_filename:
-                logger.error("A Nikto output format requiring a filename was selected, but no filename was provided.")
+                logger.error(
+                    "A Nikto output format requiring a filename was selected, "
+                    "but no filename was provided."
+                )
                 task.return_new_error_literal(
-                    GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN),
+                    WEB_SCAN_ERROR_DOMAIN_QUARK,
                     WebScanErrorType.GENERIC.value,
                     "Output format requires a filename, but none was provided.",
                 )
@@ -574,7 +591,7 @@ class WebScanPage(Gtk.Box):
         try:
             if cancellable.is_cancelled():
                 task.return_new_error_literal(
-                    GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN),
+                    WEB_SCAN_ERROR_DOMAIN_QUARK,
                     WebScanErrorType.CANCELLED.value,
                     "Scan cancelled before Nikto process start.",
                 )
@@ -600,7 +617,7 @@ class WebScanPage(Gtk.Box):
                         except Exception as e_term:
                             logger.error(f"Error terminating Nikto process: {e_term}")
                     task.return_new_error_literal(
-                        GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN),
+                        WEB_SCAN_ERROR_DOMAIN_QUARK,
                         WebScanErrorType.CANCELLED.value,
                         "Scan cancelled by user.",
                     )
@@ -729,12 +746,14 @@ class WebScanPage(Gtk.Box):
             if process.returncode not in [0, 1]:
                 error_output_detail = main_report_content if main_report_content else (aux_output or "")
                 logger.error(
-                    f"Nikto process finished with an unexpected error code {process.returncode}. Output/Stderr: {error_output_detail[:500]}..."
+                    f"Nikto process finished with an unexpected error code {process.returncode}. "
+                    f"Output/Stderr: {error_output_detail[:500]}..."
                 )
                 task.return_new_error_literal(
-                    GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN),
+                    WEB_SCAN_ERROR_DOMAIN_QUARK,
                     WebScanErrorType.GENERIC.value,
-                    f"Nikto execution error (code {process.returncode}). Output (if any):\n{error_output_detail}",
+                    f"Nikto execution error (code {process.returncode}). "
+                    f"Output (if any):\n{error_output_detail}",
                 )
                 return
 
@@ -770,23 +789,21 @@ class WebScanPage(Gtk.Box):
                     aux_output = instructional_message.strip()
                 logger.info("Appended RFIURL instructional message to aux_output.")
 
-            task.return_value(
-                (
-                    str(main_report_content) if main_report_content is not None else "",
-                    str(aux_output) if aux_output is not None else None,
-                )
-            )
+            task.return_value({
+                "stdout": str(main_report_content) if main_report_content is not None else "",
+                "stderr": str(aux_output) if aux_output is not None else None
+            })
         except FileNotFoundError:
             logger.error("Nikto command not found. Ensure it's in PATH.")
             task.return_new_error_literal(
-                GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN),
+                WEB_SCAN_ERROR_DOMAIN_QUARK,
                 WebScanErrorType.NIKTO_NOT_FOUND.value,
                 "Nikto command not found. Please ensure it is installed and in your system's PATH.",
             )
         except Exception as e:
             logger.exception(f"An unexpected error occurred during Nikto scan task: {e}")
             task.return_new_error_literal(
-                GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.GENERIC.value, str(e)
+                WEB_SCAN_ERROR_DOMAIN_QUARK, WebScanErrorType.GENERIC.value, str(e)
             )
         finally:
             self.current_nikto_process = None
@@ -829,58 +846,53 @@ class WebScanPage(Gtk.Box):
                 self._update_textview(None, f"Error: {error_msg}", is_error_message=True)
 
             elif returned_data is not None:
-                s_out, s_err = None, None # Initialize
-                if isinstance(returned_data, tuple) and len(returned_data) == 2:
-                    s_out, s_err = returned_data
-                elif (
-                    hasattr(returned_data, "value")
-                    and isinstance(returned_data.value, tuple)
-                    and len(returned_data.value) == 2
-                ):
-                    s_out, s_err = returned_data.value
+                final_stdout: Optional[str] = None
+                final_stderr: Optional[str] = None
+                if isinstance(returned_data, dict):
+                    s_out = returned_data.get("stdout")
+                    s_err = returned_data.get("stderr")
+
+                    final_stdout = str(s_out) if s_out is not None else ""
+                    # Newlines should already be actual \n from the thread function
+                    # final_stdout = final_stdout.replace("\\n", "\n") # Already done in thread if necessary
+
+                    final_stderr = str(s_err) if s_err is not None else None # Keep None if it was None
+                    # Newlines should already be actual \n from the thread function
+                    # if final_stderr:
+                    #    final_stderr = final_stderr.replace("\\n", "\n") # Already done in thread if necessary
                 else:
                     logger.error(
-                        f"Nikto scan for {target_url} returned unexpected data format from process_task_result: {type(returned_data)}"
+                        f"Nikto scan for {target_url} returned unexpected data format from process_task_result: {type(returned_data)}, expected dict."
                     )
                     show_global_error(self, "Scan returned unexpected data format.")
                     self._update_textview(None, "Error: Scan returned unexpected data format.", is_error_message=True)
-                    # s_out, s_err remain None
-
-                final_stdout: Optional[str] = None
-                if s_out is None:
-                    final_stdout = ""
-                elif not isinstance(s_out, str):
-                    final_stdout = str(s_out)
-                else:
-                    final_stdout = s_out
-                if final_stdout:
-                    final_stdout = final_stdout.replace("\\n", "\n")
-
-                final_stderr: Optional[str] = None
-                if s_err is not None:
-                    if not isinstance(s_err, str):
-                        final_stderr = str(s_err)
-                    else:
-                        final_stderr = s_err
-                    if final_stderr:
-                        final_stderr = final_stderr.replace("\\n", "\n")
+                    # final_stdout, final_stderr remain None
 
                 self._update_textview(final_stdout, final_stderr, is_error_message=False)
 
                 if self.webscan_status_action_row:
-                    if final_stdout or final_stderr:
-                        self.webscan_status_action_row.set_subtitle("Scan complete. See results below.")
-                    else:
-                        self.webscan_status_action_row.set_subtitle("Scan complete. No output received.")
-            else:  # Handles (no error_msg, no returned_data)
-                logger.error(f"Nikto scan for {target_url} resulted in no data and no error_msg from process_task_result.")
+                    if final_stdout or final_stderr:  # Check if there's any content at all
+                        self.webscan_status_action_row.set_subtitle(
+                            "Scan complete. See results below."
+                        )
+                    else:  # Both are None or empty string
+                        self.webscan_status_action_row.set_subtitle(
+                            "Scan complete. No output received."
+                        )
+            elif not error_msg:  # returned_data is None and no error_msg
+                logger.error(
+                    f"Nikto scan for {target_url} resulted in no data and no error_msg from "
+                    f"process_task_result."
+                )
                 show_global_error(self, "Scan completed with no data and no error.")
                 self._update_textview(None, "Error: Scan completed with no data.", is_error_message=True)
                 if self.webscan_status_action_row:
                     self.webscan_status_action_row.set_subtitle("Scan finished with no data.")
-        except Exception as e: # Catch-all for unexpected issues in result processing
+        except Exception as e:  # Catch-all for unexpected issues in result processing
             logger.exception(f"Unexpected error processing scan results for {target_url}: {e}")
-            show_global_error(self, f"Unexpected error processing results: {str(e).splitlines()[0]}")
+            show_global_error(
+                self, f"Unexpected error processing results: {str(e).splitlines()[0]}"
+            )
             if self.webscan_status_action_row:
                 self.webscan_status_action_row.set_subtitle("Error processing results.")
         finally:
@@ -894,7 +906,7 @@ class WebScanPage(Gtk.Box):
 
             if self.webscan_status_action_row:
                 current_subtitle = self.webscan_status_action_row.get_subtitle()
-                if current_subtitle == "Scanning...": # Only override if it was "Scanning..."
+                if current_subtitle == "Scanning...":  # Only override if it was "Scanning..."
                     self.webscan_status_action_row.set_subtitle("Scan finished.")
 
             self.current_web_scan_task = None
@@ -967,9 +979,8 @@ class WebScanPage(Gtk.Box):
         else:
             logger.warning("Webscan scan button not available or not sensitive, cannot trigger scan.")
 
-
-WEB_SCAN_ERROR_DOMAIN = "web-scan-error-domain"
-
+# WEB_SCAN_ERROR_DOMAIN is defined by its quark WEB_SCAN_ERROR_DOMAIN_QUARK
+# No separate string constant needed if only quark is used.
 
 class WebScanErrorType(int, Enum):
     """

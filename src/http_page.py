@@ -55,7 +55,7 @@ class HttpErrorType(int, Enum):
     TIMEOUT = 0
     HTTP_ERROR = 1  # Typically for 4xx/5xx status codes
     CONNECTION_ERROR = 2
-    REQUEST_EXCEPTION = 3 # Other requests.RequestException
+    REQUEST_EXCEPTION = 3  # Other requests.RequestException
     GENERIC_UNEXPECTED = 4
     CANCELLED = 5
 
@@ -202,7 +202,7 @@ class HttpPage(Gtk.Box):
         self.header_list_store = Gio.ListStore.new(item_type=HeaderItem)
         selection_model = Gtk.MultiSelection.new(self.header_list_store)
         self.http_column_view.set_model(selection_model)
-        if not self.http_column_view.get_columns(): # Ensure columns are added only once
+        if not self.http_column_view.get_columns():  # Ensure columns are added only once
             header_name_factory = self._create_factory("key")
             header_value_factory = self._create_factory("value", wrap_text=True)
             col_name = Gtk.ColumnViewColumn.new("Header", header_name_factory)
@@ -226,16 +226,18 @@ class HttpPage(Gtk.Box):
             self.clear_results_button.get_style_context().add_class("destructive-action")
         if self.copy_results_button:
             self.copy_results_button.get_style_context().add_class("flat")
-        if self.http_host_header_row: # Ensure it exists before connecting
-            self._on_host_header_changed(self.http_host_header_row) # Initial visual state
-        if self.http_user_agent_row: # Ensure it exists
-            self._on_user_agent_changed_visual_feedback(self.http_user_agent_row, None) # Initial visual state
+        if self.http_host_header_row:  # Ensure it exists before connecting
+            self._on_host_header_changed(self.http_host_header_row)  # Initial visual state
+        if self.http_user_agent_row:  # Ensure it exists
+            self._on_user_agent_changed_visual_feedback(self.http_user_agent_row, None)  # Initial visual state
 
         # Initialize the ColumnView context menu helper
-        if self.http_column_view and self.get_native(): # Ensure ColumnView and window exist
-            self.column_view_helper = Helper(widget=self.http_column_view, parent_window=self.get_native())
+        if self.http_column_view and self.get_native():  # Ensure ColumnView and window exist
+            self.column_view_helper = Helper(
+                widget=self.http_column_view, parent_window=self.get_native()
+            )
 
-        self._hide_results() # Initially no results to show
+        self._hide_results()  # Initially no results to show
 
     def _connect_signals(self) -> None:
         """Connect signals for UI elements to their respective handlers."""
@@ -287,7 +289,7 @@ class HttpPage(Gtk.Box):
                 combo_row.remove_css_class("active-override")
             else:
                 combo_row.add_css_class("active-override")
-        elif selected_item_obj is None and not self._ua_title_to_value_map: # Handle empty model case
+        elif selected_item_obj is None and not self._ua_title_to_value_map:  # Handle empty model case
             combo_row.remove_css_class("active-override")
 
     def _on_copy_results_clicked(self, _button: Gtk.Button) -> None:
@@ -320,7 +322,7 @@ class HttpPage(Gtk.Box):
                     if item.key:
                         lines.append(f"{item.key}: {item.value}")
                     else:
-                        lines.append(f"  {item.value}") # Indent continuation lines for readability
+                        lines.append(f"  {item.value}")  # Indent continuation lines for readability
 
         if not lines:
             show_global_toast(self, "No content formatted for copying.")
@@ -330,7 +332,7 @@ class HttpPage(Gtk.Box):
         try:
             clipboard = Gdk.Display.get_default().get_clipboard()
             if clipboard:
-                clipboard.set_text(text_to_copy) # Using set_text for simplicity
+                clipboard.set_text(text_to_copy)  # Using set_text for simplicity
                 logger.info("Headers copied to clipboard successfully.")
                 show_global_toast(self, "Headers copied to clipboard.")
             else:
@@ -358,12 +360,16 @@ class HttpPage(Gtk.Box):
         url_to_fetch = self._ensure_scheme(original_url)
 
         if not is_valid_url(url_to_fetch):
-            logger.warning("HTTP Page: Invalid URL provided: %s (processed as: %s)", original_url, url_to_fetch)
-            toast_message = "Invalid URL format. Please enter a valid URL (e.g., https://example.com)."
-            show_global_error(self, toast_message) # More prominent for invalid URL
+            logger.warning(
+                "HTTP Page: Invalid URL provided: %s (processed as: %s)", original_url, url_to_fetch
+            )
+            toast_message = (
+                "Invalid URL format. Please enter a valid URL (e.g., https://example.com)."
+            )
+            show_global_error(self, toast_message)  # More prominent for invalid URL
             if self.http_entry_row:
                 self.http_entry_row.add_css_class("error")
-            self._update_column_view_model(None) # Clear previous results
+            self._update_column_view_model(None)  # Clear previous results
             self._set_loading_state(False, "Idle - Invalid URL.")
             return
 
@@ -379,26 +385,31 @@ class HttpPage(Gtk.Box):
             if isinstance(selected_item_obj, Gtk.StringObject):
                 selected_ua_title_in_dropdown = selected_item_obj.get_string()
 
-        if selected_ua_title_in_dropdown and selected_ua_title_in_dropdown != self.SYSTEM_DEFAULT_UA_TITLE:
+        if selected_ua_title_in_dropdown and \
+           selected_ua_title_in_dropdown != self.SYSTEM_DEFAULT_UA_TITLE:
             user_agent_to_send = self._ua_title_to_value_map.get(selected_ua_title_in_dropdown)
             log_msg = f"HTTP Page: Using User-Agent from dropdown: '{selected_ua_title_in_dropdown}'"
-            if user_agent_to_send is None: # Should not happen if map is correct
+            if user_agent_to_send is None:  # Should not happen if map is correct
                  log_msg += " (Warning: value not found in map, sending None)."
             logger.info(log_msg)
         else:
             logger.info("HTTP Page: Using system default User-Agent (requests library default).")
-            user_agent_to_send = None # Explicitly None for requests default
+            user_agent_to_send = None  # Explicitly None for requests default
 
         custom_dns_server = self.settings.get_string("custom-dns-server")
 
         self._http_task_data_for_thread = {
             "url": url_to_fetch,
-            "use_akamai_pragma": self.http_pragma_switch_row.get_active() if self.http_pragma_switch_row else False,
+            "use_akamai_pragma": (
+                self.http_pragma_switch_row.get_active() if self.http_pragma_switch_row else False
+            ),
             "host_header": host_header if host_header else None,
             "user_agent": user_agent_to_send,
             "custom_dns_server": custom_dns_server if custom_dns_server else None,
         }
-        logger.debug("HttpPage: Starting header fetch task with data: %s", self._http_task_data_for_thread)
+        logger.debug(
+            "HttpPage: Starting header fetch task with data: %s", self._http_task_data_for_thread
+        )
 
         if self.current_http_task and not self.current_http_task.is_done():
             try:
@@ -409,8 +420,10 @@ class HttpPage(Gtk.Box):
                 logger.warning("HttpPage: Error cancelling previous HTTP task: %s", e_cancel)
 
         cancellable = Gio.Cancellable()
-        self.current_http_task = Gio.Task.new(self, cancellable, self._fetch_headers_task_done_cb, None)
-        self.current_http_task.set_task_data(self._http_task_data_for_thread) # Store data with the task
+        self.current_http_task = Gio.Task.new(
+            self, cancellable, self._fetch_headers_task_done_cb, self._http_task_data_for_thread
+        )
+        self.current_http_task.set_task_data(None)  # Store data with the task
         self.current_http_task.run_in_thread(self._fetch_headers_task_thread_func)
 
     def _fetch_headers_task_thread_func(
@@ -431,12 +444,18 @@ class HttpPage(Gtk.Box):
         :param cancellable: The :class:`Gio.Cancellable` for this task.
         :type cancellable: Gio.Cancellable
         """
-        # task_data is already set on the task object by the caller
+        # task_data is the data passed to Gio.Task.new(), retrieved by task.get_task_data()
         current_task_data: Dict[str, Any] = task.get_task_data()
         url_to_fetch: str = current_task_data["url"]
 
         if cancellable.is_cancelled():
-            task.return_error(GLib.Error.new_literal(WOES_HTTP_ERROR_DOMAIN, HttpErrorType.CANCELLED.value, "Task cancelled before fetching."))
+            task.return_error(
+                GLib.Error.new_literal(
+                    WOES_HTTP_ERROR_DOMAIN,
+                    HttpErrorType.CANCELLED.value,
+                    "Task cancelled before fetching."
+                )
+            )
             return
 
         fetcher = HttpFetcher(
@@ -445,17 +464,25 @@ class HttpPage(Gtk.Box):
             host_header=current_task_data.get("host_header"),
             user_agent=current_task_data.get("user_agent"),
             custom_dns_server=current_task_data.get("custom_dns_server"),
-            cancellable=cancellable, # Pass cancellable to HttpFetcher
+            cancellable=cancellable,  # Pass cancellable to HttpFetcher
         )
         try:
             processed_data: List[Dict[str, Any]] = fetcher.fetch_headers()
-            if cancellable.is_cancelled(): # Check again after fetch_headers returns
-                task.return_error(GLib.Error.new_literal(WOES_HTTP_ERROR_DOMAIN, HttpErrorType.CANCELLED.value, "Task cancelled after fetching."))
+            if cancellable.is_cancelled():  # Check again after fetch_headers returns
+                task.return_error(
+                    GLib.Error.new_literal(
+                        WOES_HTTP_ERROR_DOMAIN,
+                        HttpErrorType.CANCELLED.value,
+                        "Task cancelled after fetching."
+                    )
+                )
             else:
                 task.return_value(processed_data)
-        except HttpClientError as e: # Catch custom exceptions from HttpFetcher
-            task.get_task_data()["original_exception"] = e
-            task.get_task_data()["original_exception_type_name"] = type(e).__name__
+        except HttpClientError as e:  # Catch custom exceptions from HttpFetcher
+            # Store original exception info for more detailed error handling in the callback
+            if task.get_task_data(): # Ensure task_data exists
+                task.get_task_data()["original_exception"] = e
+                task.get_task_data()["original_exception_type_name"] = type(e).__name__
 
             error_type_map = {
                 HttpRequestTimeoutError: HttpErrorType.TIMEOUT,
@@ -464,17 +491,27 @@ class HttpPage(Gtk.Box):
                 HttpGenericRequestError: HttpErrorType.REQUEST_EXCEPTION,
             }
             glib_error_code = error_type_map.get(type(e), HttpErrorType.GENERIC_UNEXPECTED).value
-            if "cancelled" in str(e).lower(): # Override if cancellation specific message in HttpClientError
+            # Override if cancellation specific message in HttpClientError
+            if "cancelled" in str(e).lower():
                  glib_error_code = HttpErrorType.CANCELLED.value
             task.return_error(GLib.Error.new_literal(WOES_HTTP_ERROR_DOMAIN, glib_error_code, str(e)))
-        except Exception as e: # Catch any other unexpected errors from fetcher
-            logger.exception("HttpPage Task: Unexpected error from HttpFetcher for URL '%s':", url_to_fetch)
-            task.get_task_data()["original_exception"] = e
-            task.get_task_data()["original_exception_type_name"] = type(e).__name__
-            task.return_error(GLib.Error.new_literal(WOES_HTTP_ERROR_DOMAIN, HttpErrorType.GENERIC_UNEXPECTED.value, f"Unexpected internal error: {e}"))
+        except Exception as e:  # Catch any other unexpected errors from fetcher
+            logger.exception(
+                "HttpPage Task: Unexpected error from HttpFetcher for URL '%s':", url_to_fetch
+            )
+            if task.get_task_data(): # Ensure task_data exists
+                task.get_task_data()["original_exception"] = e
+                task.get_task_data()["original_exception_type_name"] = type(e).__name__
+            task.return_error(
+                GLib.Error.new_literal(
+                    WOES_HTTP_ERROR_DOMAIN,
+                    HttpErrorType.GENERIC_UNEXPECTED.value,
+                    f"Unexpected internal error: {e}"
+                )
+            )
 
     def _fetch_headers_task_done_cb(
-        self, source_object: GObject.Object, result: Gio.AsyncResult, user_data: Any = None
+        self, _source_object: GObject.Object, result: Gio.AsyncResult, _user_data: Any = None
     ) -> None:
         """
         Handle completion of the asynchronous HTTP header fetch task.
@@ -491,34 +528,37 @@ class HttpPage(Gtk.Box):
         :type user_data: Any
         """
         # Ensure this callback is for the current task.
-        if not self.current_http_task or not self.current_http_task.matches_async_result(result):
+        # Note: source_object and user_data are GObject/Gio convention, often unused if data is on task.
+        active_task = self.current_http_task
+        if not active_task or not active_task.matches_async_result(result):
             logger.warning("HttpPage: Callback received for an outdated or mismatched HTTP task.")
-            if not self.current_http_task or self.current_http_task.is_done():
+            # If there's no active task or the current one (if any) is done, ensure UI is idle.
+            if not active_task or active_task.is_done():
                 self._set_loading_state(False, "Idle.")
             return
 
-        task_data_from_task_obj: Dict[str, Any] = self.current_http_task.get_task_data()
-        original_url_for_log = task_data_from_task_obj.get("url", "unknown URL")
+        task_data_from_task_obj: Optional[Dict[str, Any]] = active_task.get_task_data()
+        original_url_for_log = "unknown URL"
+        if task_data_from_task_obj:
+            original_url_for_log = task_data_from_task_obj.get("url", original_url_for_log)
 
         try:
-            returned_value = self.current_http_task.propagate_value(result) # This will raise GLib.Error if task failed
+            # This will raise GLib.Error if task failed (e.g., task.return_error was called)
+            returned_value = active_task.propagate_value(result)
 
-            # If propagate_value didn't raise, task was successful.
-            # returned_value should be List[Dict] from thread_func
+            data: Optional[List[Dict[str, Any]]] = None
+            error_msg: Optional[str] = None
+
             if isinstance(returned_value, list):
-                data: List[Dict[str, Any]] = returned_value
-                error_msg = None
-            else: # Should not happen if thread_func returns correctly
+                data = returned_value
+            else:  # Should not happen if thread_func returns correctly (List[Dict])
                 logger.error(
-                    "HttpPage: Unexpected data type '%s' from successful task for URL '%s'.",
-                    type(returned_value),
-                    original_url_for_log
+                    "HttpPage: Unexpected data type '%s' from successful task for URL '%s'. Expected list.",
+                    type(returned_value), original_url_for_log
                 )
-                data = None
                 error_msg = "Received unexpected data format from background task."
 
-            if error_msg:
-                # This block would typically be hit if process_task_result was used and it returned an error string
+            if error_msg: # Error identified from type check
                 show_global_error(self, error_msg)
                 if self.http_entry_row:
                     self.http_entry_row.add_css_class("error")
@@ -534,16 +574,16 @@ class HttpPage(Gtk.Box):
                     if not isinstance(response_data_dict_item, dict):
                         continue
 
-                    url_display = f"URL: {response_data_dict_item.get('url', 'N/A')}" # pyright: ignore[reportUnknownMemberType]
-                    status_code = response_data_dict_item.get("status_code", "N/A") # pyright: ignore[reportUnknownMemberType]
-                    response_type = response_data_dict_item.get("type", "unknown") # pyright: ignore[reportUnknownMemberType] # 'redirect' or 'final'
+                    url_display = f"URL: {response_data_dict_item.get('url', 'N/A')}"
+                    status_code = response_data_dict_item.get('status_code', 'N/A')
+                    response_type = response_data_dict_item.get('type', 'unknown') # 'redirect' or 'final'
                     status_display = f"Status: {status_code} ({str(response_type).capitalize()})"
-                    # For special rows, key is main info, value is parenthesized status
+
                     processed_headers_for_store.append(
                         HeaderItem(key=url_display, value=status_display, is_special_row=True)
                     )
 
-                    headers_for_this_response = response_data_dict_item.get("headers", {}) # pyright: ignore[reportUnknownMemberType]
+                    headers_for_this_response = response_data_dict_item.get("headers", {})
                     if isinstance(headers_for_this_response, dict):
                         for key, value in headers_for_this_response.items():
                             original_value_str = str(value)
@@ -557,27 +597,33 @@ class HttpPage(Gtk.Box):
                                 while True:
                                     idx = current_value_segment.find(";")
                                     if idx != -1:
-                                        part = current_value_segment[:idx+1].strip()
+                                        part = current_value_segment[:idx + 1].strip()
                                         if part:
                                             display_parts.append(part)
-                                        current_value_segment = current_value_segment[idx+1:]
+                                        current_value_segment = current_value_segment[idx + 1:]
                                     else:
                                         part = current_value_segment.strip()
                                         if part:
                                             display_parts.append(part)
                                         break
                             first_part_processed = False
-                            if not display_parts: # If original_value_str was empty or only ";"
-                                processed_headers_for_store.append(HeaderItem(key=str(key), value="", is_special_row=False))
+                            if not display_parts:  # If original_value_str was empty or only ";"
+                                processed_headers_for_store.append(
+                                    HeaderItem(key=str(key), value="", is_special_row=False)
+                                )
                             else:
                                 for part_content in display_parts:
                                     if not first_part_processed:
-                                        processed_headers_for_store.append(HeaderItem(key=str(key), value=part_content, is_special_row=False))
+                                        processed_headers_for_store.append(
+                                            HeaderItem(key=str(key), value=part_content, is_special_row=False)
+                                        )
                                         first_part_processed = True
-                                    else: # Continuation line for a multi-part header
-                                        processed_headers_for_store.append(HeaderItem(key="", value=part_content, is_special_row=False))
+                                    else:  # Continuation line for a multi-part header
+                                        processed_headers_for_store.append(
+                                            HeaderItem(key="", value=part_content, is_special_row=False)
+                                        )
 
-                    if response_type == "redirect" and i < len(data) - 1 : # If redirect and not last item
+                    if response_type == "redirect" and i < len(data) - 1:  # If redirect and not last item
                         processed_headers_for_store.append(
                             HeaderItem(key="--- Redirected To ---", value="", is_special_row=True)
                         )
@@ -588,58 +634,72 @@ class HttpPage(Gtk.Box):
                     self.http_entry_row.remove_css_class("error")
                 self._set_loading_state(False, "Headers loaded successfully.")
             else:
-                # This case (data is None, error_msg is None) should ideally be handled by process_task_result returning an error_msg
-                show_global_error(self, "Failed to process data from background task (data is None).")
+            # This case (data is None, error_msg is None) implies successful task completion
+            # but the thread function returned None, which is unexpected for this specific task.
+            # Or, propagate_value itself returned None without raising GLib.Error.
+            show_global_error(self, "Failed to process data: background task returned None.")
                 if self.http_entry_row:
                     self.http_entry_row.add_css_class("error")
                 self._update_column_view_model(None)
-                self._set_loading_state(False, "Error: Failed to process data.")
+            self._set_loading_state(False, "Error: Failed to process data (task returned None).")
 
-        except GLib.Error as e: # Catch errors propagated by Gio.Task.propagate_value()
-            original_py_exception = task_data_from_task_obj.get("original_exception")
+        except GLib.Error as e:  # Catch errors propagated by Gio.Task.propagate_value()
+            original_py_exception = None
+            if task_data_from_task_obj: # Check if task_data_from_task_obj is not None
+                original_py_exception = task_data_from_task_obj.get("original_exception")
+
             error_to_handle = original_py_exception if original_py_exception else e
-
             error_message = str(error_to_handle)
-            user_facing_error_message = error_message # Default to full message
-            status_subtitle = f"Error: {error_message.splitlines()[0]}"
+            user_facing_error_message = error_message  # Default to full message
+            status_subtitle_main_part = error_message.splitlines()[0]
+            status_subtitle = f"Error: {status_subtitle_main_part}"
 
             if isinstance(error_to_handle, HttpRequestTimeoutError):
-                user_facing_error_message = f"Request timed out for {original_url_for_log}."
+                user_facing_error_message = (
+                    f"Request timed out for {original_url_for_log}."
+                )
                 status_subtitle = "Error: Request Timeout."
             elif isinstance(error_to_handle, HttpConnectionError):
-                # _get_detailed_connection_error_message was part of HttpFetcher,
-                # we use the message from the exception directly.
-                user_facing_error_message = error_message
-                status_subtitle = f"Error: Connection Failed for {original_url_for_log}."
+                user_facing_error_message = error_message  # Already detailed
+                status_subtitle = (
+                    f"Error: Connection Failed for {original_url_for_log}."
+                )
             elif isinstance(error_to_handle, HttpProcessingError):
-                user_facing_error_message = error_message # Already formatted by HttpFetcher
-                url_in_error = error_to_handle.url or original_url_for_log # pyright: ignore[reportUnknownMemberType]
-                status_subtitle = f"Error: HTTP {error_to_handle.status_code} for {url_in_error}" # pyright: ignore[reportUnknownMemberType]
+                user_facing_error_message = error_message  # Already formatted by HttpFetcher
+                url_in_error = getattr(error_to_handle, 'url', None) or original_url_for_log
+                status_code = getattr(error_to_handle, 'status_code', 'Unknown')
+                status_subtitle = f"Error: HTTP {status_code} for {url_in_error}"
             elif isinstance(error_to_handle, HttpGenericRequestError):
                 user_facing_error_message = (
                     f"Request failed for {original_url_for_log}: {error_message}"
                 )
-                status_subtitle = f"Error: Request Failed for {original_url_for_log}"
+                status_subtitle = (
+                    f"Error: Request Failed for {original_url_for_log}"
+                )
             elif isinstance(error_to_handle, HttpClientError) and \
-                 "cancelled" in error_message.lower(): # From HttpFetcher's own cancellation checks
-                 user_facing_error_message = f"Request cancelled for {original_url_for_log}."
+                 "cancelled" in error_message.lower():  # From HttpFetcher's cancellation
+                 user_facing_error_message = (
+                     f"Request cancelled for {original_url_for_log}."
+                 )
                  status_subtitle = "Request Cancelled."
-                 show_global_toast(self, status_subtitle) # Toast for cancellation
-            elif e.matches(Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED): # Gio cancellation
-                user_facing_error_message = f"Lookup for {original_url_for_log} was cancelled."
-                status_subtitle = "Lookup Cancelled."
-                show_global_toast(self, status_subtitle) # Toast for cancellation
-            else: # Other GLib.Error or unexpected Python exceptions from thread
+                 show_global_toast(self, status_subtitle)  # Toast for cancellation
+            elif e.matches(Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED):  # Gio cancellation
+                user_facing_error_message = (
+                    f"Operation for {original_url_for_log} was cancelled."
+                )
+                status_subtitle = "Operation Cancelled."
+                show_global_toast(self, status_subtitle)  # Toast for cancellation
+            else:  # Other GLib.Error or unexpected Python exceptions from thread
                 logger.exception(
                     "HttpPage: Error processing task result for URL '%s': %s",
                     original_url_for_log, e
                 )
                 user_facing_error_message = (
-                    f"An unexpected error occurred: {str(e).splitlines()[0]}"
+                    f"An unexpected error occurred: {status_subtitle_main_part}"
                 )
                 status_subtitle = "Error: Unexpected."
 
-            # Show error unless it's a cancellation type already handled by a toast
+            # Show error dialog unless it's a cancellation type already handled by a toast
             is_cancellation_by_http_client = (
                 isinstance(error_to_handle, HttpClientError) and
                 "cancelled" in str(error_to_handle).lower()
@@ -976,18 +1036,13 @@ class HttpPage(Gtk.Box):
             self.settings.disconnect(self._gsettings_ua_changed_handler_id)
             self._gsettings_ua_changed_handler_id = 0
 
-        # For other handlers connected with self.settings.connect("changed::key", self.callback_method)
-        # GObject's automatic signal disconnection on dispose should handle them,
-        # but explicit disconnection is safer if IDs were stored.
-        # Example for other direct connections (if they existed and were stored):
-        # self.settings.disconnect_by_func(self._on_color_setting_changed)
-        # self.settings.disconnect_by_func(self._on_global_output_font_changed)
-        # self.settings.disconnect_by_func(self._update_user_agent_model) # For the lambda
-        # Since we don't store all handler IDs, we rely on GObject's cleanup.
-        # Or, more robustly, use self.settings.disconnect_by_func for each.
-        # For now, only the stored ID is explicitly disconnected.
+            # For other handlers connected with self.settings.connect("changed::key", self.callback_method),
+            # GObject's automatic signal disconnection on dispose should handle them.
+            # Explicit disconnection by function (e.g., self.settings.disconnect_by_func(self._on_color_setting_changed))
+            # could be used if handler IDs were not stored, but typically not required if objects are disposed correctly.
+            # Relying on GObject's cleanup for these direct connections.
 
-        super().do_dispose() # Call parent class's dispose method
+        super().do_dispose()  # Call parent class's dispose method
 
     def _create_factory(self, attr_name: str, wrap_text: bool = False) -> Gtk.SignalListItemFactory:
         """
@@ -1011,7 +1066,7 @@ class HttpPage(Gtk.Box):
             if wrap_text:
                 label.set_wrap(True)
                 label.set_wrap_mode(Pango.WrapMode.WORD_CHAR)
-                label.set_max_width_chars(80) # Sensible default for wrapped value col
+                label.set_max_width_chars(80)  # Sensible default for wrapped value col
             list_item.set_child(label)
 
         def bind_func_internal(_factory: Gtk.SignalListItemFactory, list_item: Gtk.ListItem) -> None:
@@ -1019,15 +1074,20 @@ class HttpPage(Gtk.Box):
             label_widget = list_item.get_child()
             item_obj = list_item.get_item()
 
-            if not isinstance(label_widget, Gtk.Label): # Should always be a Gtk.Label from setup
-                logger.error("HttpPage _create_factory: Expected Gtk.Label, got %s", type(label_widget))
+            if not isinstance(label_widget, Gtk.Label):  # Should always be a Gtk.Label from setup
+                logger.error(
+                    "HttpPage _create_factory: Expected Gtk.Label, got %s", type(label_widget)
+                )
                 return
-            if not isinstance(item_obj, HeaderItem): # Item in store should be HeaderItem
-                logger.error("HttpPage _create_factory: Expected HeaderItem, got %s", type(item_obj))
-                label_widget.set_text("Error: Invalid item type in model.")
+            if not isinstance(item_obj, HeaderItem):  # Item in store should be HeaderItem
+                logger.error(
+                    "HttpPage _create_factory: Expected HeaderItem, got %s", type(item_obj)
+                )
+                if isinstance(label_widget, Gtk.Label): # Check again to satisfy type checker
+                    label_widget.set_text("Error: Invalid item type in model.")
                 return
 
-            text_to_display = getattr(item_obj, attr_name, "") # Get 'key' or 'value'
+            text_to_display = getattr(item_obj, attr_name, "")  # Get 'key' or 'value'
 
             # Font settings from Pango.FontDescription
             font_family_name = self._output_font_desc.get_family()
@@ -1041,22 +1101,22 @@ class HttpPage(Gtk.Box):
             is_bold: bool = False
             if item_obj.is_special_row:
                 color_to_use = self._special_row_color
-                is_bold = True # Make special rows bold
+                is_bold = True  # Make special rows bold
             elif attr_name == "key":
                 color_to_use = self._header_key_color
-            else: # attr_name == "value"
+            else:  # attr_name == "value"
                 color_to_use = self._header_value_color
 
             escaped_text = GLib.markup_escape_text(str(text_to_display))
 
             # Construct Pango markup string for styling
-            # Breaking down the f-string for readability and to avoid E501
+            # Breaking down the f-string for readability
             markup_font_family = f"font_family='{current_font_family}'"
             markup_size = f"size='{pango_font_size}'"
             markup_foreground = f"foreground='{color_to_use}'"
 
             markup_parts = [
-                f"<span {markup_font_family} {markup_size} {markup_foreground}>"
+                f"<span {markup_font_family} {markup_size} {markup_foreground}>",
             ]
             if is_bold:
                 markup_parts.append("<b>")
@@ -1080,6 +1140,6 @@ class HttpPage(Gtk.Box):
         """
         logger.debug("HTTP fetch triggered by shortcut.")
         if self.http_apply_button and self.http_apply_button.get_sensitive():
-            self.http_apply_button.activate() # This will call _on_entry_row_activated
+            self.http_apply_button.activate()  # This will call _on_entry_row_activated
         else:
             logger.warning("HTTP fetch button not available or not sensitive, cannot trigger fetch.")

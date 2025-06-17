@@ -24,6 +24,7 @@ from .nmap_scanner import NmapScanner, ScanStatus, ScanCancelledError
 from .utils import show_global_error, show_global_toast, process_task_result  # Import new utility
 from .gtk_utils import create_copy_button, create_detail_action_row, create_expander_row
 
+NMAP_SCAN_ERROR_DOMAIN_QUARK = GLib.quark_from_string("nmap-scan-error-domain")
 
 gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
@@ -159,9 +160,8 @@ class NmapPage(Gtk.Box):
             logger.info("NmapPage disposed, ongoing scan cancelled.")
         if hasattr(self, "scanner") and self.scanner:
             self.scanner.shutdown(wait=False)
-        # GObject.Object.do_dispose(self) # Call parent's dispose if it's a GObject, not needed for Gtk.Widget
+        # GObject.Object.do_dispose(self)  # Call parent's dispose if it's a GObject, not needed for Gtk.Widget
         super().do_dispose()
-
 
     def _init_page_ui(self):
         self.nmap_host_listbox.bind_model(self.nmap_target_listbox_store, self._create_target_listbox_row)
@@ -280,7 +280,7 @@ class NmapPage(Gtk.Box):
         if not params:
             logger.error("NmapPage: _run_nmap_scan_thread_func: _current_nmap_scan_params is None.")
             task.return_new_error_literal(
-                GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN),
+                NMAP_SCAN_ERROR_DOMAIN_QUARK,
                 NmapScanErrorType.UNEXPECTED.value,
                 "Internal error: Scan parameters not found.",
             )
@@ -288,7 +288,7 @@ class NmapPage(Gtk.Box):
         target = params["target"]
         if cancellable and cancellable.is_cancelled():
             task.return_new_error_literal(
-                GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN),
+                NMAP_SCAN_ERROR_DOMAIN_QUARK,
                 NmapScanErrorType.CANCELLED.value,
                 "Scan cancelled before start.",
             )
@@ -297,29 +297,36 @@ class NmapPage(Gtk.Box):
             nm = self.scanner.run_nmap_scan(params, cancellable=cancellable)
             if cancellable and cancellable.is_cancelled():
                 task.return_new_error_literal(
-                    GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN),
+                    NMAP_SCAN_ERROR_DOMAIN_QUARK,
                     NmapScanErrorType.CANCELLED.value,
                     "Scan cancelled during operation.",
                 )
             else:
-                task.return_value(nm)
+                # nm is nmap.PortScanner object
+                results_map = page_instance.scanner.convert_results_to_yaml(nm)
+                all_hosts_list = nm.all_hosts()
+                task.return_value({"results_map": results_map, "all_hosts": all_hosts_list})
         except ScanCancelledError as e:
             logger.info("Nmap scan for %s was cancelled: %s", target, e)
             task.return_new_error_literal(
-                GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN), NmapScanErrorType.CANCELLED.value, str(e)
+                NMAP_SCAN_ERROR_DOMAIN_QUARK, NmapScanErrorType.CANCELLED.value, str(e)
             )
         except nmap.PortScannerError as e:
             logger.exception("Nmap PortScannerError for %s:", target)
             task.return_new_error_literal(
-                GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN),
+                NMAP_SCAN_ERROR_DOMAIN_QUARK,
                 NmapScanErrorType.SCAN_FAILED.value,
                 f"Nmap scan error: {e}",
             )
         except Exception as e:
-            logger.exception("Unexpected exception in Nmap scan task for %s (%s):", target, type(e).__name__)
+            logger.exception(
+                "Unexpected exception in Nmap scan task for %s (%s):", target, type(e).__name__
+            )
             error_msg_details = f"Scan failed unexpectedly: {e}"
             task.return_new_error_literal(
-                GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN), NmapScanErrorType.UNEXPECTED.value, error_msg_details
+                NMAP_SCAN_ERROR_DOMAIN_QUARK,
+                NmapScanErrorType.UNEXPECTED.value,
+                error_msg_details
             )
         finally:
             logger.info("Nmap scan thread finished for %s.", target)
@@ -341,31 +348,38 @@ class NmapPage(Gtk.Box):
             if error_msg:
                 # Specific NmapPage handling for "cancelled" if desired for UI
                 if "cancel" in error_msg.lower():  # Basic check
-                    self._set_scan_status(ScanStatus.IDLE, f"Scan for {original_target} cancelled.")
+                    self._set_scan_status(
+                        ScanStatus.IDLE, f"Scan for {original_target} cancelled."
+                    )
                     self._clear_results()  # Clear results on cancel for NmapPage
                 else:
                     self._handle_scan_error(original_target, error_msg)
-            elif data is not None:
-                nm_results_final: Optional[nmap.PortScanner] = None
-                if isinstance(data, nmap.PortScanner):
-                    nm_results_final = data
-                elif hasattr(data, "value") and isinstance(
-                    data.value, nmap.PortScanner
-                ):  # Handle GObject.Value wrapping
-                    nm_results_final = data.value
+            elif data is not None:  # data is the result from propagate_value
+                if isinstance(data, dict) and "results_map" in data and "all_hosts" in data:
+                    results_map_final = data["results_map"]
+                    all_hosts_final = data["all_hosts"]
+                    GLib.idle_add(self._update_results_view, all_hosts_final, results_map_final)
+                    self._set_scan_status(
+                        ScanStatus.COMPLETE,
+                        f"Scan complete for {original_target}. {len(all_hosts_final)} host(s) found."
+                    )
                 else:
-                    logger.error(f"NmapPage: Unexpected data type from process_task_result: {type(data)}")
-                    self._handle_scan_error(original_target, "Scan returned an unexpected data type.")
-
-            if nm_results_final:
-                self._process_scan_results(nm_results_final, original_target)
-            # This else corresponds to 'elif data is not None', so it means data is None.
-            # The case where error_msg is None AND data is None.
-            else:  # No error, but data is None
-                logger.error(
-                    f"NmapPage: Scan for {original_target} resulted in no data and no error_msg from process_task_result."
+                    logger.error(
+                        f"NmapPage: Unexpected data type from process_task_result: {type(data)}, "
+                        f"expected dict with results_map and all_hosts."
+                    )
+                    self._handle_scan_error(
+                        original_target, "Scan returned an unexpected data type."
+                    )
+            elif not error_msg:  # data is None and no error_msg
+                 logger.error(
+                    f"NmapPage: Scan for {original_target} resulted in no data and "
+                    f"no error_msg from process_task_result."
                 )
-                self._handle_scan_error(original_target, "Scan completed with no data and no error.")
+                 self._handle_scan_error(
+                     original_target, "Scan completed with no data and no error."
+                 )
+            # error_msg case is already handled by the existing if/else after process_task_result
         finally:
             # Ensure task references are cleared and UI is reset regardless of success or failure.
             self.current_nmap_task = None  # Already cleared, but good for safety.
@@ -377,26 +391,6 @@ class NmapPage(Gtk.Box):
             if hasattr(self, "nmap_cancel_scan_button") and self.nmap_cancel_scan_button:
                 self.nmap_cancel_scan_button.set_sensitive(False)
                 self.nmap_cancel_scan_button.set_visible(False)
-
-    def _process_scan_results(self, nm: nmap.PortScanner, original_target: str) -> None:
-        hosts_found = nm.all_hosts()
-        if not hosts_found:
-            logger.warning("No hosts found in Nmap results for target %s.", original_target)
-            self._set_scan_status(
-                ScanStatus.COMPLETE, f"Scan complete for {original_target}. No hosts found or responsive."
-            )
-            self._clear_dynamic_details()
-            self.nmap_detail_placeholder.set_title("No Responsive Hosts")
-            self.nmap_detail_placeholder.set_description(
-                (f"The Nmap scan for '{original_target}' did not find any responsive hosts.")
-            )
-            self.nmap_detail_placeholder.set_visible(True)
-            return
-        results_yaml_map: dict[str, str] = self.scanner.convert_results_to_yaml(nm)
-        GLib.idle_add(self._update_results_view, hosts_found, results_yaml_map)
-        self._set_scan_status(
-            ScanStatus.COMPLETE, f"Scan complete for {original_target}. {len(hosts_found)} host(s) found."
-        )
 
     def _handle_scan_error(self, target: str, error_message: str) -> None:
         show_global_error(self, f"Error scanning {target}: {error_message}")
@@ -456,23 +450,26 @@ class NmapPage(Gtk.Box):
             if hasattr(current_parent, "remove"):
                 current_parent.remove(self.nmap_output_scrolled_window)
             elif (
-                hasattr(current_parent, "set_child") and current_parent.get_child() == self.nmap_output_scrolled_window
+                hasattr(current_parent, "set_child") and
+                current_parent.get_child() == self.nmap_output_scrolled_window
             ):
                 current_parent.set_child(None)
         expander.add_row(self.nmap_output_scrolled_window)
         self.nmap_detail_box.append(expander)
 
-    def _on_copy_host_summary_clicked(self, summary_text: str):  # This is now directly connected by create_copy_button
-        # The actual copy logic is handled by gtk_utils._copy_to_clipboard via create_copy_button
+    def _on_copy_host_summary_clicked(self, summary_text: str):  # This is now directly connected
+        # The actual copy logic is handled by gtk_utils._copy_to_clipboard via create_copy_button.
         # This method can be removed if no other logic is needed here.
-        # For now, keeping it to show it's acknowledged, but it's effectively bypassed.
         if not summary_text:
             show_global_toast(self, "No summary text available to copy.")
             return
-        show_global_toast(self, "Host summary copied to clipboard.")  # Feedback, actual copy done by util
+        # Feedback, actual copy done by util
+        show_global_toast(self, "Host summary copied to clipboard.")
 
     def _add_host_details_expander(self, host_data: Dict[str, Any], host_key: str):
-        expander = create_expander_row(title=f"Host Information - {host_key}", initially_expanded=True)
+        expander = create_expander_row(
+            title=f"Host Information - {host_key}", initially_expanded=True
+        )
         status_info = host_data.get("status", {})
         status_value = f"{status_info.get('state', 'N/A')} (Reason: {status_info.get('reason', 'N/A')})"
         expander.add_row(
@@ -627,7 +624,7 @@ class NmapPage(Gtk.Box):
             self.results_by_host[host_key] = yaml_data
         if self.nmap_target_listbox_store.get_n_items() > 0:
             self.nmap_host_listbox.select_row(self.nmap_host_listbox.get_row_at_index(0))
-        else:  # Should not happen if hosts list is not empty
+        else:  # Should not happen if hosts list is not empty / results_map has items
             self._clear_dynamic_details()
             self.nmap_detail_placeholder.set_title("No Hosts Available")
             self.nmap_detail_placeholder.set_description("No host data to display.")
@@ -821,8 +818,8 @@ class NmapPage(Gtk.Box):
             logger.warning("Nmap scan button not available or not sensitive, cannot trigger scan.")
 
 
-NMAP_SCAN_ERROR_DOMAIN = "nmap-scan-error-domain"
-
+# NMAP_SCAN_ERROR_DOMAIN is defined by its quark NMAP_SCAN_ERROR_DOMAIN_QUARK
+# No separate string constant needed if only quark is used.
 
 class NmapScanErrorType(int, Enum):
     """
