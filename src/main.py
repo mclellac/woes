@@ -144,8 +144,15 @@ def _load_gresources_early():
             )
             sys.exit(1)
 
-        Gio.Resource.register(resource) # Use public API
-        logging.info("Successfully loaded and registered GResource: %s", resource_file_path)
+        # Reverted from Gio.Resource.register(resource) as it caused an AttributeError
+        # in earlier stages of development with this project's specific GResource setup.
+        # Gio.Resource._register(resource) appears to be the necessary mechanism here,
+        # possibly due to direct loading of a .gresource file without certain
+        # C name generation flags typically used with glib-compile-resources that
+        # might be expected by the public .register() method in some PyGObject versions
+        # or environments. This ensures resources are actually available to Gtk.Builder.
+        Gio.Resource._register(resource)
+        logging.info("Successfully loaded and registered GResource (using _register): %s", resource_file_path)
 
         available_resources = resource.enumerate_children(RESOURCE_PREFIX, Gio.ResourceLookupFlags.NONE)
         if not available_resources:

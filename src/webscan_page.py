@@ -10,7 +10,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 import ast
-from typing import Optional, Dict, Any
+from typing import Optional, Any, TypedDict
 import time
 from enum import Enum
 
@@ -18,10 +18,54 @@ import gi
 from gi.repository import Gtk, Adw, Gio, GLib, GObject, Gdk, Pango
 
 from .constants import RESOURCE_PREFIX, APP_ID
-from .utils import show_global_error, show_global_toast, is_valid_url, process_task_result  # Import new utility
+from .utils import show_global_error, show_global_toast, is_valid_url, process_task_result
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
+
+
+class WebScanParameters(TypedDict, total=False):
+    """
+    TypedDict for WebScan (Nikto) parameters.
+
+    Defines the expected keys and their types for parameters passed
+    to the Nikto scan thread. Using `total=False` means keys are optional.
+
+    :param target_url: The target URL for the Nikto scan.
+    :type target_url: str
+    :param force_ssl: Whether to force SSL for the scan.
+    :type force_ssl: bool
+    :param cgi_vulns: Whether to check for CGI vulnerabilities.
+    :type cgi_vulns: bool
+    :param interesting_content: Whether to check for interesting content.
+    :type interesting_content: bool
+    :param evasion: Whether to use evasion techniques.
+    :type evasion: bool
+    :param mutate: Whether to use mutation techniques (legacy, maps to -Plugin).
+    :type mutate: bool
+    :param maxtime: Maximum scan time (e.g., "60s").
+    :type maxtime: str
+    :param nikto_format: Output format for Nikto (e.g., "txt", "xml", "csv").
+    :type nikto_format: str
+    :param nikto_output_filename: Filename for Nikto output if format requires it.
+    :type nikto_output_filename: Optional[str]
+    :param no404: Whether to disable 404 checking.
+    :type no404: bool
+    :param auth_bypass: Whether to check for authentication bypass vulnerabilities.
+    :type auth_bypass: bool
+    """
+
+    target_url: str
+    force_ssl: bool
+    cgi_vulns: bool
+    interesting_content: bool
+    evasion: bool
+    mutate: bool
+    maxtime: str
+    nikto_format: str
+    nikto_output_filename: Optional[str]
+    no404: bool
+    auth_bypass: bool
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/webscan_page.ui")
@@ -53,15 +97,17 @@ class WebScanPage(Gtk.Box):
     auth_bypass_switch: Adw.SwitchRow = Gtk.Template.Child()
 
     def __init__(self, **kwargs: Any):
-        """Initialize the WebScanPage."""
-        logging.debug("WebScanPage.__init__ called")
         """
         Initialize the WebScanPage.
 
-        :param kwargs: Keyword arguments passed to the :class:`Adw.PreferencesPage` constructor.
+        Sets up UI elements, connects signals, initializes GSettings,
+        and prepares for running Nikto scans.
+
+        :param kwargs: Keyword arguments passed to the :class:`Gtk.Box` constructor.
         :type kwargs: Any
         """
         super().__init__(**kwargs)
+        logging.debug("WebScanPage.__init__ called")
         self.source_view: Gtk.TextView = Gtk.TextView()
         self.source_view.set_name("webscan-output-textview")
         source_buffer = Gtk.TextBuffer()
@@ -80,8 +126,8 @@ class WebScanPage(Gtk.Box):
 
         self.current_web_scan_task: Optional[Gio.Task] = None
         self.current_web_scan_cancellable: Optional[Gio.Cancellable] = None
-        self.current_nikto_process: Optional[subprocess.Popen[str]] = None  # Added Popen type hint
-        self._current_webscan_params: Optional[dict[str, Any]] = None
+        self.current_nikto_process: Optional[subprocess.Popen[str]] = None
+        self._current_webscan_params: Optional[WebScanParameters] = None # Use TypedDict
         self.settings: Gio.Settings = Gio.Settings.new(APP_ID)
         self.style_manager: Adw.StyleManager = Adw.StyleManager.get_default()
 
@@ -90,8 +136,6 @@ class WebScanPage(Gtk.Box):
         self._output_font_desc: Pango.FontDescription = Pango.FontDescription.from_string(
             output_font_str if output_font_str else "Monospace 10"
         )
-        # if hasattr(self, "source_view") and self.source_view: # Replaced by CssProvider
-        #     self.source_view.override_font(self._output_font_desc)
 
         self.font_css_provider = Gtk.CssProvider()
         if hasattr(self, "source_view") and self.source_view:
@@ -144,10 +188,6 @@ class WebScanPage(Gtk.Box):
             self._output_font_desc = Pango.FontDescription.from_string(
                 output_font_str if output_font_str else "Monospace 10"
             )
-            # if hasattr(self, "source_view") and self.source_view: # Replaced by CssProvider
-            #     self.source_view.override_font(self._output_font_desc)
-            # else:
-            #     logger.warning("WebScanPage: source_view not available to apply font change.")
             self._update_font_css()
 
     def _update_font_css(self) -> None:
@@ -184,11 +224,17 @@ class WebScanPage(Gtk.Box):
         except GLib.Error as e:  # Catch potential errors from load_from_string
             logger.error(f"WebScanPage: Error loading CSS string '{css}': {e}")
 
-    def __del__(self):
-        """Clean up when the WebScanPage is destroyed."""
+    def do_dispose(self):
+        """
+        Clean up resources when the WebScanPage is disposed.
+
+        Ensures any ongoing Nikto scan is cancelled. This is part of the
+        GObject lifecycle.
+        """
         if self.current_web_scan_cancellable and not self.current_web_scan_cancellable.is_cancelled():
-            logger.info("WebScanPage being destroyed, cancelling ongoing Nikto scan.")
+            logger.info("WebScanPage disposed, cancelling ongoing Nikto scan.")
             self.current_web_scan_cancellable.cancel()
+        super().do_dispose()
 
     def _on_nikto_format_changed(self, combo_row: Adw.ComboRow, _param_spec: GObject.ParamSpec):
         """
@@ -384,7 +430,7 @@ class WebScanPage(Gtk.Box):
         task = Gio.Task.new(self, self.current_web_scan_cancellable, self._on_scan_task_done, None)
         self.current_web_scan_task = task
 
-        task_data_for_thread: Dict[str, Any] = {
+        task_data_for_thread: WebScanParameters = { # Use TypedDict
             "target_url": target_url,
             "force_ssl": self.force_ssl_switch.get_active(),
             "cgi_vulns": self.cgi_vulns_switch.get_active(),
@@ -745,7 +791,7 @@ class WebScanPage(Gtk.Box):
         finally:
             self.current_nikto_process = None
 
-    def _on_scan_task_done(self, _source_object: GObject.Object, result: Gio.AsyncResult, _user_data: object):
+    def _on_scan_task_done(self, _source_object: GObject.Object, result: Gio.AsyncResult, _user_data: Optional[Any]):
         """
         Handle completion of the Nikto scan task.
 
@@ -926,4 +972,13 @@ WEB_SCAN_ERROR_DOMAIN = "web-scan-error-domain"
 
 
 class WebScanErrorType(int, Enum):
-    """Enumeration of Web Scan error types for :class:`Gio.Task` error reporting."""
+    """
+    Enumeration of Web Scan error types for :class:`Gio.Task` error reporting.
+
+    These values are used as the error code when returning a :class:`GLib.Error`
+    from an asynchronous web scan task.
+    """
+
+    NIKTO_NOT_FOUND = 0
+    GENERIC = 1
+    CANCELLED = 2

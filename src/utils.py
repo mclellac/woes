@@ -4,10 +4,10 @@ import logging
 import ipaddress
 import re
 from urllib.parse import urlparse
-from typing import Optional, List
+from typing import Optional, List, Tuple, Any
 
 import gi
-from gi.repository import Gtk, Adw
+from gi.repository import Gtk, Adw, Gio, GLib
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
@@ -149,10 +149,6 @@ def is_valid_url(url: str, schemes: Optional[List[str]] = None) -> bool:
         return True
     except ValueError:  # urlparse can raise ValueError for some malformed URLs, though it's rare
         return False
-
-
-from typing import Tuple, Any  # Added for process_task_result
-from gi.repository import Gio, GLib  # Added for process_task_result
 
 
 def process_task_result(

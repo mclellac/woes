@@ -1,3 +1,9 @@
+"""
+A simple test script to ensure basic imports from the src package work.
+
+Particularly focusing on Gtk/Adw template-based classes like WoesWindow.
+It also includes basic Gtk/Adw initialization.
+"""
 import gi
 
 gi.require_version("Gtk", "4.0")
@@ -7,7 +13,7 @@ from gi.repository import GLib  # Added GLib
 try:
     # Ensure src directory is in path if running from root, or adjust import path
     # This assumes the script is run from the repository root.
-    from src.window import WoesWindow
+    from src.window import WoesWindow  # noqa: F401
 
     print("Successfully imported WoesWindow.")
     # Attempt to instantiate it to trigger template parsing more directly

@@ -56,9 +56,7 @@ class WoesWindow(Adw.ApplicationWindow):
     main_error_banner: Adw.Banner = Gtk.Template.Child("main_error_banner")
     toast_overlay: Adw.ToastOverlay = Gtk.Template.Child("toast_overlay")
 
-    def __init__(self, **kwargs: Any):  # GObject.GObject is too restrictive if no args passed
-        """Initialize the WoesWindow."""
-        logging.debug("WoesWindow.__init__ called")
+    def __init__(self, **kwargs: Any):
         """
         Initialize the WoesWindow.
 
@@ -67,7 +65,10 @@ class WoesWindow(Adw.ApplicationWindow):
         :type kwargs: Any
         """
         super().__init__(**kwargs)
+        logging.debug("WoesWindow.__init__ called")
         self.settings: Gio.Settings = Gio.Settings(schema_id=APP_ID)
+        self._settings_handlers = [] # To store (object, handler_id) tuples
+        self._gnome_settings_handlers = []
 
         self._output_font_gsettings_key = "output-font"
         self.textview_font_css_provider = Gtk.CssProvider()
@@ -77,9 +78,10 @@ class WoesWindow(Adw.ApplicationWindow):
         initial_font_str = self.settings.get_string(self._output_font_gsettings_key)
         self.update_textview_font_style(initial_font_str if initial_font_str else "Sans 10")
 
-        self.settings.connect(
+        handler_id = self.settings.connect(
             f"changed::{self._output_font_gsettings_key}", self._on_global_output_font_setting_changed_for_css
         )
+        self._settings_handlers.append((self.settings, handler_id))
 
         self.settings.bind("window-width", self, "default-width", Gio.SettingsBindFlags.DEFAULT)
         self.settings.bind("window-height", self, "default-height", Gio.SettingsBindFlags.DEFAULT)
@@ -91,20 +93,25 @@ class WoesWindow(Adw.ApplicationWindow):
         if platform.system() == "Linux":
             try:
                 self.gnome_interface_settings = Gio.Settings.new(GNOME_INTERFACE_SCHEMA)
-                self.gnome_interface_settings.connect(f"changed::{FONT_NAME_KEY}", self._on_gnome_font_setting_changed)
-                self.gnome_interface_settings.connect(
+                handler_id = self.gnome_interface_settings.connect(f"changed::{FONT_NAME_KEY}", self._on_gnome_font_setting_changed)
+                self._gnome_settings_handlers.append((self.gnome_interface_settings, handler_id))
+                handler_id = self.gnome_interface_settings.connect(
                     f"changed::{TEXT_SCALING_FACTOR_KEY}", self._on_gnome_font_setting_changed
                 )
+                self._gnome_settings_handlers.append((self.gnome_interface_settings, handler_id))
                 logging.debug("Successfully connected to GNOME interface settings schema: %s", GNOME_INTERFACE_SCHEMA)
             except GLib.Error as e:
+                self.gnome_interface_settings = None # Ensure it's None if connection failed
                 logging.warning(
                     "Could not connect to GNOME interface settings (%s): %s. System font integration will be limited.",
                     GNOME_INTERFACE_SCHEMA,
                     e,
                 )
 
-        self.settings.connect("changed::theme-preference", self._on_theme_preference_setting_changed)
-        self.settings.connect("changed::font-scaling-percentage", self._on_font_scaling_setting_changed)
+        handler_id = self.settings.connect("changed::theme-preference", self._on_theme_preference_setting_changed)
+        self._settings_handlers.append((self.settings, handler_id))
+        handler_id = self.settings.connect("changed::font-scaling-percentage", self._on_font_scaling_setting_changed)
+        self._settings_handlers.append((self.settings, handler_id))
 
         try:
             self.setup_ui()
@@ -395,3 +402,25 @@ class WoesWindow(Adw.ApplicationWindow):
         toast.set_timeout(timeout)
         self.toast_overlay.add_toast(toast)
         logging.info("Toast shown: %s (Priority: %s, Timeout: %s)", title, priority, timeout)
+
+    def do_dispose(self):
+        """
+        Clean up resources when the WoesWindow is disposed.
+
+        Disconnects all GSettings signal handlers to prevent memory leaks or
+        attempts to call methods on a disposed object. This is part of the
+        GObject lifecycle.
+        """
+        logging.debug("WoesWindow.do_dispose() called.")
+        for obj, handler_id in self._settings_handlers:
+            if obj and obj.is_connected(handler_id):
+                obj.disconnect(handler_id)
+        self._settings_handlers.clear()
+
+        for obj, handler_id in self._gnome_settings_handlers:
+            if obj and obj.is_connected(handler_id): # Check if gnome_interface_settings was successfully created
+                obj.disconnect(handler_id)
+        self._gnome_settings_handlers.clear()
+
+        # GObject.Object.do_dispose(self) # Not needed for Adw.ApplicationWindow
+        super().do_dispose()
