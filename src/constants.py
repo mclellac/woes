@@ -1,48 +1,89 @@
 """
 Global constants for the Woes application.
 
-This module defines various global constants used throughout the Woes application,
-including application identifiers, resource paths, theme names, version information,
-URLs, and predefined User-Agent strings.
+This module defines various global constants used throughout the Woes application.
+These include:
+
+- Application identifiers (e.g., ``APP_ID``).
+- Resource paths (e.g., ``RESOURCE_PREFIX``).
+- Theme names (e.g., ``THEME_LIGHT``, ``THEME_DARK``).
+- URLs for website, issues, etc.
+- Build-time configured values like ``VERSION`` and ``PKGDATADIR``,
+  with fallbacks for development/uninstalled scenarios.
+- Predefined User-Agent strings for HTTP requests.
+- Keys for GSettings.
+
+The ``VERSION`` and ``PKGDATADIR`` constants are loaded from a Meson-generated
+``_config.py`` file during runtime. If this file is not found (e.g., when
+running from source without a build or during tests), fallback values are used.
+The ``CONFIG_AVAILABLE`` flag indicates whether ``_config.py`` was successfully loaded.
 """
 
 import os
-import logging # Added import
+import logging
+from typing import List, Dict, Final # Added Final and Union for type hints
 
 from gi.repository import Gtk
 
-logger = logging.getLogger(__name__) # Added logger
+logger = logging.getLogger(__name__)
 
-APP_ID = "com.github.mclellac.woes"
-RESOURCE_PREFIX = "/com/github/mclellac/woes/gtk"
-THEME_LIGHT = "style.css"
-THEME_DARK = "style-dark.css"
-# VERSION and PKGDATADIR are now defined below with fallbacks
-APP_WEBSITE_URL = "https://github.com/mclellac/woes"
-APP_LICENSE_TYPE = Gtk.License.MIT_X11
-APP_DESCRIPTION = "A simple toolkit for web, nmap, and DNS scans."
-APP_ISSUES_URL = "https://github.com/mclellac/woes/issues"
+# --- Application Metadata ---
+APP_ID: Final[str] = "com.github.mclellac.woes"
+APP_WEBSITE_URL: Final[str] = "https://github.com/mclellac/woes"
+APP_LICENSE_TYPE: Final[Gtk.License] = Gtk.License.MIT_X11
+APP_DESCRIPTION: Final[str] = "A simple toolkit for web, nmap, and DNS scans."
+APP_ISSUES_URL: Final[str] = "https://github.com/mclellac/woes/issues"
 
-CONFIG_AVAILABLE = False
+# --- Resource Paths and Themes ---
+RESOURCE_PREFIX: Final[str] = "/com/github/mclellac/woes/gtk"
+THEME_LIGHT: Final[str] = "style.css"
+THEME_DARK: Final[str] = "style-dark.css"
+
+# --- Build-time Configuration with Fallbacks ---
+# These will be populated by the try-except block below.
+PKGDATADIR: str
+VERSION: str
+CONFIG_AVAILABLE: bool
+
 try:
-    from . import config  # Assuming Meson generates src/config.py
-    PKGDATADIR = config.PKGDATADIR
-    VERSION = config.VERSION
+    from . import _config  # Assuming Meson generates src/_config.py
+
+    PKGDATADIR = _config.PKGDATADIR
+    VERSION = _config.VERSION
     CONFIG_AVAILABLE = True
-    logger.info("Loaded PKGDATADIR and VERSION from src.config.")
+    logger.info("Loaded PKGDATADIR ('%s') and VERSION ('%s') from src._config.", PKGDATADIR, VERSION)
 except ImportError:
-    logger.warning("src.config not found. Using fallback constants. This is expected if running uninstalled or if Meson's configure_file step hasn't run.")
-    _project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    # Fallback PKGDATADIR for data files when running uninstalled (e.g., from project_root/data or project_root/build/data)
+    logger.warning(
+        "src._config not found. Using fallback constants. "
+        "This is expected if running uninstalled or if Meson's configure_file step hasn't run."
+    )
+    _project_root: str = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    # Fallback PKGDATADIR for data files when running uninstalled
+    # (e.g., from project_root/data or project_root/build/data)
     PKGDATADIR = os.path.join(_project_root, "data")
     if not os.path.isdir(PKGDATADIR):
-        PKGDATADIR = os.path.join(_project_root, "build", "data") # Common alternative
-    VERSION = "0.0.0-dev" # Fallback version
+        # Common alternative for Meson build directory when running from source tree root
+        PKGDATADIR = os.path.join(_project_root, "build", "data", "woes")
+        if not os.path.isdir(PKGDATADIR): # If build/data/woes also doesn't exist
+             PKGDATADIR = os.path.join(_project_root, "build", "data") # Try build/data
+             if not os.path.isdir(PKGDATADIR): # Final fallback if build/data also doesn't exist
+                  PKGDATADIR = os.path.join(_project_root, "data") # Revert to initial data path
 
-GNOME_INTERFACE_SCHEMA = "org.gnome.desktop.interface"
-FONT_NAME_KEY = "font-name"
-TEXT_SCALING_FACTOR_KEY = "text-scaling-factor"
-USER_AGENTS = [
+    VERSION = "0.0.0-dev"  # Fallback version for development
+    CONFIG_AVAILABLE = False
+    logger.info(
+        "Using fallback PKGDATADIR ('%s') and VERSION ('%s').", PKGDATADIR, VERSION
+    )
+
+
+# --- GSettings Keys ---
+GNOME_INTERFACE_SCHEMA: Final[str] = "org.gnome.desktop.interface"
+FONT_NAME_KEY: Final[str] = "font-name"
+TEXT_SCALING_FACTOR_KEY: Final[str] = "text-scaling-factor"
+
+# --- Predefined User-Agent Strings ---
+# List of dictionaries, where each dictionary has "title" and "value" keys.
+USER_AGENTS: Final[List[Dict[str, str]]] = [
     {
         "title": "Chrome (Linux)",
         "value": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",

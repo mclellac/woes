@@ -1,12 +1,14 @@
 import gi
-gi.require_version('Gtk', '4.0')
-gi.require_version('Adw', '1')
-from gi.repository import Gtk, Adw, GLib # Added GLib
+
+gi.require_version("Gtk", "4.0")
+gi.require_version("Adw", "1")
+from gi.repository import GLib  # Added GLib
 
 try:
     # Ensure src directory is in path if running from root, or adjust import path
     # This assumes the script is run from the repository root.
     from src.window import WoesWindow
+
     print("Successfully imported WoesWindow.")
     # Attempt to instantiate it to trigger template parsing more directly
     # app = Adw.Application(application_id="com.github.mclellac.woes.test")
@@ -16,7 +18,7 @@ try:
     # For now, just the import and class definition being processed by Python + GObject Introspection
     # should be enough to catch the Gtk.BuilderError if types are not registered.
 
-except GLib.Error as e: # Changed to GLib.Error
+except GLib.Error as e:  # Changed to GLib.Error
     print(f"A GLib.Error occurred (possibly Gtk.BuilderError related): {e}")
 except ImportError as e:
     print(f"ImportError occurred: {e}")

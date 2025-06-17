@@ -150,10 +150,14 @@ def is_valid_url(url: str, schemes: Optional[List[str]] = None) -> bool:
     except ValueError:  # urlparse can raise ValueError for some malformed URLs, though it's rare
         return False
 
-from typing import Tuple, Any # Added for process_task_result
-from gi.repository import Gio, GLib # Added for process_task_result
 
-def process_task_result(task: Gio.Task, result: Gio.AsyncResult, page_logger: logging.Logger) -> Tuple[Optional[Any], Optional[str]]:
+from typing import Tuple, Any  # Added for process_task_result
+from gi.repository import Gio, GLib  # Added for process_task_result
+
+
+def process_task_result(
+    task: Gio.Task, result: Gio.AsyncResult, page_logger: logging.Logger
+) -> Tuple[Optional[Any], Optional[str]]:
     """
     Process the result of a Gio.Task, handling common exceptions.
 
@@ -173,14 +177,13 @@ def process_task_result(task: Gio.Task, result: Gio.AsyncResult, page_logger: lo
         return propagated_value, None
     except GLib.Error as e:
         page_logger.warning(
-            "Task failed with GLib.Error (Domain: %s, Code: %d, Message: %s)",
-            e.domain, e.code, e.message
+            "Task failed with GLib.Error (Domain: %s, Code: %d, Message: %s)", e.domain, e.code, e.message
         )
         # Try to return a somewhat user-friendly message from GLib.Error
         error_message = e.message if e.message else "An operation failed or was cancelled."
         # Escape markup just in case, as this might be shown in UI
         if "<b>" in error_message or "<" in error_message:
-             error_message = GLib.markup_escape_text(error_message)
+            error_message = GLib.markup_escape_text(error_message)
         return None, error_message
     except Exception as e_generic:
         page_logger.exception("Task failed with an unexpected Python error:")
