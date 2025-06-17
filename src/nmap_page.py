@@ -323,9 +323,13 @@ class NmapPage(Gtk.Box):
                 "Unexpected exception in Nmap scan task for %s (%s):", target, type(e).__name__
             )
             error_msg_details = f"Scan failed unexpectedly: {e}"
-            task.return_new_error_literal(NMAP_SCAN_ERROR_DOMAIN_QUARK, NmapScanErrorType.UNEXPECTED.value, error_msg_details)
-        finally:
-            logger.info("Nmap scan thread finished for %s.", target)
+            task.return_new_error_literal(
+                NMAP_SCAN_ERROR_DOMAIN_QUARK,
+                NmapScanErrorType.UNEXPECTED.value,
+                error_msg_details
+            )
+        # finally:
+            # logger.info("Nmap scan thread finished for %s.", target)
 
     def _nmap_scan_task_done_cb(
         self, _source_object: GObject.Object, result: Gio.AsyncResult, _user_data: Optional[Any]
