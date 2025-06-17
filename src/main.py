@@ -38,41 +38,60 @@ def _load_gresources_early():
     either a development path or an installed path. Exits the application
     if the GResource file cannot be found or loaded.
     """
-    logger = logging.getLogger(__name__) # Ensure logger is defined
+    logger = logging.getLogger(__name__)
     resource_file_path = None
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    dev_resource_path = os.path.normpath(os.path.join(script_dir, "..", "build", "src", "woes.gresource"))
-    # installed_resource_path uses PKGDATADIR from constants (which is config-aware)
-    installed_resource_path = os.path.join(PKGDATADIR, "woes.gresource")
 
-    # Priority:
-    # 1. If config is available (installed mode), expect it at installed_resource_path.
-    # 2. If config is not available (dev mode), expect it at dev_resource_path.
-    # 3. Fallbacks if the primary expectation isn't met.
+    # Path for installed versions (uses PKGDATADIR from src.config via constants.py)
+    configured_install_path = os.path.join(PKGDATADIR, "woes.gresource")
 
-    if CONFIG_AVAILABLE:
-        if os.path.exists(installed_resource_path):
-            logger.info("Using installed GResource path from src.config: %s", installed_resource_path)
-            resource_file_path = installed_resource_path
-        elif os.path.exists(dev_resource_path): # Safety fallback if installed path missing despite config
-            logger.warning("src.config available, but GResource not at installed path. Using dev path: %s", dev_resource_path)
-            resource_file_path = dev_resource_path
+    # Development paths
+    dev_path_from_env = None
+    project_root_env = os.environ.get("WOES_PROJECT_ROOT")
+    if project_root_env:
+        dev_path_from_env = os.path.normpath(os.path.join(project_root_env, "build", "src", "woes.gresource"))
+
+    script_dir = os.path.dirname(os.path.abspath(__file__)) # directory of main.py
+    project_root_from_file_heuristic = os.path.abspath(os.path.join(script_dir, ".."))
+    dev_path_from_file_heuristic = os.path.normpath(os.path.join(project_root_from_file_heuristic, "build", "src", "woes.gresource"))
+
+    if CONFIG_AVAILABLE: # True if src.config was imported - indicates an "installed" setup
+        if os.path.exists(configured_install_path):
+            logger.info("Using GResource from configured PKGDATADIR (installed mode): %s", configured_install_path)
+            resource_file_path = configured_install_path
+        elif dev_path_from_env and os.path.exists(dev_path_from_env):
+            # Fallback for mixed environments: config exists, but resource is in WOES_PROJECT_ROOT
+            logger.warning("CONFIG_AVAILABLE is True, but GResource not in PKGDATADIR. Using WOES_PROJECT_ROOT dev path: %s", dev_path_from_env)
+            resource_file_path = dev_path_from_env
         else:
-            logger.critical("src.config available, but GResource not found at installed path (%s) or dev path (%s). App will exit.", installed_resource_path, dev_resource_path)
+            logger.critical("CONFIG_AVAILABLE is True (installed mode), but GResource not found at configured path '%s'. If WOES_PROJECT_ROOT is set, its path ('%s') was also invalid. App will exit.",
+                            configured_install_path, dev_path_from_env if dev_path_from_env else "N/A")
             sys.exit(1)
-    else: # Not using src.config (likely development/uninstalled)
-        if os.path.exists(dev_resource_path):
-            logger.info("Using development GResource path (src.config not found): %s", dev_resource_path)
-            resource_file_path = dev_resource_path
-        elif os.path.exists(installed_resource_path): # Check fallback PKGDATADIR (e.g., build/data/woes.gresource)
-            logger.info("Dev GResource path not found. Using fallback PKGDATADIR path: %s", installed_resource_path)
-            resource_file_path = installed_resource_path
+    else: # CONFIG_AVAILABLE is False (dev/uninstalled mode)
+        if dev_path_from_env and os.path.exists(dev_path_from_env):
+            logger.info("Using development GResource from WOES_PROJECT_ROOT (src.config not found): %s", dev_path_from_env)
+            resource_file_path = dev_path_from_env
+        elif ("site-packages" not in script_dir.lower() and "dist-packages" not in script_dir.lower()) and \
+             os.path.exists(dev_path_from_file_heuristic):
+            # Only trust __file__ heuristic if it's NOT pointing into common system library paths
+            logger.info("Using development GResource from __file__ heuristic (not in site-packages, src.config not found, WOES_PROJECT_ROOT not set or path invalid): %s", dev_path_from_file_heuristic)
+            resource_file_path = dev_path_from_file_heuristic
         else:
-            logger.critical("GResource not found at dev path (%s) or fallback PKGDATADIR path (%s) (src.config not found). App will exit.", dev_resource_path, installed_resource_path)
+            err_msg_parts = ["Development GResource path not found (src.config not found)."]
+            if project_root_env: # WOES_PROJECT_ROOT was set but path was invalid
+                err_msg_parts.append(f"WOES_PROJECT_ROOT ('{project_root_env}') did not yield a valid GResource path: '{dev_path_from_env if dev_path_from_env else 'N/A'}'.")
+            else: # WOES_PROJECT_ROOT was not set
+                err_msg_parts.append("WOES_PROJECT_ROOT environment variable is not set.")
+
+            if "site-packages" in script_dir.lower() or "dist-packages" in script_dir.lower():
+                err_msg_parts.append(f"The __file__ heuristic for GResource ('{dev_path_from_file_heuristic}') points into a system library path and was not used as primary.")
+                err_msg_parts.append("If running from a development tree, please set WOES_PROJECT_ROOT to your project's root directory.")
+            else: # __file__ heuristic was tried but failed
+                 err_msg_parts.append(f"The __file__ heuristic ('{dev_path_from_file_heuristic}') was also invalid.")
+            logger.critical(" ".join(err_msg_parts) + " App will exit.")
             sys.exit(1)
 
-    if not resource_file_path: # Should not be reached if logic above is correct
-        logger.critical("GResource file path could not be determined. Application will exit.")
+    if not resource_file_path: # Should ideally be caught by sys.exit above
+        logger.critical("Failed to determine a valid GResource path. App will exit.")
         sys.exit(1)
 
     logging.info("Attempting to load GResource file from: %s", resource_file_path)
