@@ -36,6 +36,9 @@ def _load_gresources_early():
     can be loaded correctly. It attempts to load ``woes.gresource`` from
     either a development path or an installed path. Exits the application
     if the GResource file cannot be found or loaded.
+
+    :raises SystemExit: if the GResource file cannot be found or loaded.
+    :rtype: None
     """
     installed_resource_path = os.path.join(PKGDATADIR, "woes.gresource")
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -43,10 +46,10 @@ def _load_gresources_early():
 
     resource_file_path = None
     if os.path.exists(dev_resource_path):
-        logging.info("Development GResource path found: %s", dev_resource_path)
+        logging.debug("Development GResource path found: %s", dev_resource_path)
         resource_file_path = dev_resource_path
     elif os.path.exists(installed_resource_path):
-        logging.info("Installed GResource path found: %s", installed_resource_path)
+        logging.debug("Installed GResource path found: %s", installed_resource_path)
         resource_file_path = installed_resource_path
     else:
         logging.critical(
@@ -99,7 +102,6 @@ def _load_gresources_early():
 
 
 _load_gresources_early()  # Call this as early as possible
-# Ensure Gtk.Template custom widgets defined in these modules are registered
 
 from .window import WoesWindow
 from .preferences import Preferences
@@ -120,6 +122,7 @@ class WoesApplication(Adw.Application):
         :type version: str
         :param kwargs: Additional keyword arguments for :class:`Adw.Application`.
         :type kwargs: Any
+        :rtype: None
         """
         self.version: str = version
         self.debug_enabled: bool = False
@@ -199,23 +202,37 @@ class WoesApplication(Adw.Application):
         This method is called when the application is activated.
         It ensures the main window (:class:`.window.WoesWindow`) is created and shown.
         If the window cannot be created or presented, the application may exit.
+
+        :raises SystemExit: if WoesWindow instance creation fails critically.
+        :rtype: None
         """
         win: Optional[WoesWindow] = self.props.active_window
         if not win:
             try:
                 win = WoesWindow(application=self)
-            except Exception:
-                logging.exception("WoesApplication.do_activate: Error creating WoesWindow instance")
+            except GLib.Error as e:
+                logging.exception(f"WoesApplication.do_activate: GLib.Error creating WoesWindow instance: {e}")
+                sys.exit(1)
+            except Exception as e:
+                logging.exception(f"WoesApplication.do_activate: Unexpected error creating WoesWindow instance: {e}")
                 sys.exit(1)
 
         if win:
             try:
                 win.present()
-            except Exception:
-                logging.exception("WoesApplication.do_activate: Error during win.present()")
+            except GLib.Error as e:
+                logging.exception(f"WoesApplication.do_activate: GLib.Error during win.present(): {e}")
+                # Not exiting here, as the window might handle its own presentation errors or be partially usable.
+            except Exception as e:
+                logging.exception(f"WoesApplication.do_activate: Unexpected error during win.present(): {e}")
             self.win = win
         else:
-            logging.error("WoesApplication.do_activate: Window object is None after creation attempt, cannot proceed.")
+            # This condition implies WoesWindow() returned None or an error occurred before assignment
+            # and sys.exit wasn't called, which should be rare given the above exception handling.
+            logging.critical("WoesApplication.do_activate: Window object is None after creation attempt. This indicates a critical issue.")
+            # If execution reaches here, it means window instantiation failed gravely without exiting.
+            # sys.exit(1) # Consider re-adding if this state is possible and not handled by constructor's exit.
+                         # For now, assuming constructor exceptions lead to exit.
 
     def _switch_to_page(self, page_name: str) -> None:
         """
@@ -223,11 +240,12 @@ class WoesApplication(Adw.Application):
 
         :param page_name: The name of the page to switch to (e.g., "http", "nmap").
         :type page_name: str
+        :rtype: None
         """
         if self.win and hasattr(self.win, "stack"):
             self.win.stack.set_visible_child_name(page_name)
         else:
-            logging.warning(f"Cannot switch to {page_name}_page: window or stack not available.")
+            logging.warning(f"Cannot switch to page '{page_name}': window or stack not available.")
 
     def switch_to_http(self, _action: Gio.SimpleAction, _param: Optional[GLib.Variant]) -> None:
         """
@@ -237,6 +255,7 @@ class WoesApplication(Adw.Application):
         :type _action: Gio.SimpleAction
         :param _param: Optional :class:`GLib.Variant` parameter for the action (unused).
         :type _param: Optional[GLib.Variant]
+        :rtype: None
         """
         self._switch_to_page("http")
 
@@ -248,6 +267,7 @@ class WoesApplication(Adw.Application):
         :type _action: Gio.SimpleAction
         :param _param: Optional :class:`GLib.Variant` parameter for the action (unused).
         :type _param: Optional[GLib.Variant]
+        :rtype: None
         """
         self._switch_to_page("nmap")
 
@@ -259,6 +279,7 @@ class WoesApplication(Adw.Application):
         :type _action: Gio.SimpleAction
         :param _param: Optional :class:`GLib.Variant` parameter for the action (unused).
         :type _param: Optional[GLib.Variant]
+        :rtype: None
         """
         self._switch_to_page("dns")
 
@@ -270,6 +291,7 @@ class WoesApplication(Adw.Application):
         :type _action: Gio.SimpleAction
         :param _param: Optional :class:`GLib.Variant` parameter for the action (unused).
         :type _param: Optional[GLib.Variant]
+        :rtype: None
         """
         self._switch_to_page("webscan")
 
@@ -283,6 +305,7 @@ class WoesApplication(Adw.Application):
         :type action_method_name: str
         :param action_description: A human-readable description of the action for logging.
         :type action_description: str
+        :rtype: None
         """
         if not self.win or not hasattr(self.win, "stack"):
             logging.warning(f"{action_description} action: Window or stack not available.")
@@ -292,18 +315,20 @@ class WoesApplication(Adw.Application):
         visible_stack_page: Optional[Adw.ViewStackPage] = self.win.stack.get_visible_child()
 
         if current_page_name == expected_page_name and visible_stack_page:
-            status_page: Optional[Adw.StatusPage] = visible_stack_page.get_child()
-            if not status_page:
-                logging.warning(f"{action_description} action: StatusPage not found for {current_page_name}.")
+            # Ensure the child of ViewStackPage is an Adw.StatusPage
+            status_page_candidate = visible_stack_page.get_child()
+            if not isinstance(status_page_candidate, Adw.StatusPage):
+                logging.warning(
+                    f"{action_description} action: Expected Adw.StatusPage as child of Adw.ViewStackPage for '{current_page_name}', but got {type(status_page_candidate)}."
+                )
                 return
+            status_page: Adw.StatusPage = status_page_candidate
 
-            # Child of AdwStatusPage. Based on the previous error, this is likely the GtkBox
-            # (e.g., the one with id="HttpPage" in the UI file) that directly contains
-            # the actual page class instance (e.g., an instance of your HttpPage class).
+            # Child of AdwStatusPage.
             page_container_widget: Optional[Gtk.Widget] = status_page.get_child()
             if not page_container_widget:
                 logging.warning(
-                    f"{action_description} action: Page container widget (child of StatusPage) not found for {current_page_name}."
+                    f"{action_description} action: Page container widget (child of Adw.StatusPage) not found for {current_page_name}."
                 )
                 return
 
@@ -383,6 +408,7 @@ class WoesApplication(Adw.Application):
         :type _action: Gio.SimpleAction
         :param _param: Optional :class:`GLib.Variant` parameter for the action (unused).
         :type _param: Optional[GLib.Variant]
+        :rtype: None
         """
         self._trigger_page_action("http", "trigger_fetch", "HTTP fetch")
 
@@ -396,6 +422,7 @@ class WoesApplication(Adw.Application):
         :type _action: Gio.SimpleAction
         :param _param: Optional :class:`GLib.Variant` parameter for the action (unused).
         :type _param: Optional[GLib.Variant]
+        :rtype: None
         """
         self._trigger_page_action("nmap", "trigger_scan", "Nmap scan")
 
@@ -409,6 +436,7 @@ class WoesApplication(Adw.Application):
         :type _action: Gio.SimpleAction
         :param _param: Optional :class:`GLib.Variant` parameter for the action (unused).
         :type _param: Optional[GLib.Variant]
+        :rtype: None
         """
         self._trigger_page_action("dns", "trigger_lookup", "DNS lookup")
 
@@ -422,6 +450,7 @@ class WoesApplication(Adw.Application):
         :type _action: Gio.SimpleAction
         :param _param: Optional :class:`GLib.Variant` parameter for the action (unused).
         :type _param: Optional[GLib.Variant]
+        :rtype: None
         """
         self._trigger_page_action("webscan", "trigger_scan", "Webscan scan")
 
@@ -435,6 +464,7 @@ class WoesApplication(Adw.Application):
         :type _widget: Gio.SimpleAction
         :param _param: Optional :class:`GLib.Variant` parameter (unused).
         :type _param: Optional[GLib.Variant]
+        :rtype: None
         """
         about = self._create_about_window()
         if self.props.active_window:
@@ -471,6 +501,7 @@ class WoesApplication(Adw.Application):
         :type _widget: Gio.SimpleAction
         :param _param: Optional :class:`GLib.Variant` parameter (unused).
         :type _param: Optional[GLib.Variant]
+        :rtype: None
         """
         if not self.win:
             logging.error("Main window not available for preferences.")
@@ -478,20 +509,24 @@ class WoesApplication(Adw.Application):
         preferences_dialog = Preferences(main_window=self.win)
         preferences_dialog.present()
 
-    def create_action(self, name: str, callback: Callable[..., Any], shortcuts: Optional[list[str]] = None) -> None:
+    def create_action(
+        self, name: str, callback: Callable[[Gio.SimpleAction, Optional[GLib.Variant]], None], shortcuts: Optional[list[str]] = None
+    ) -> None:
         """
         Create and add a :class:`Gio.SimpleAction` to the application.
 
         :param name: The name of the action (e.g., "quit", "about").
         :type name: str
         :param callback: The function to call when the action is activated.
-        :type callback: Callable[..., Any]
+                         It should accept :class:`Gio.SimpleAction` and an optional :class:`GLib.Variant`.
+        :type callback: Callable[[Gio.SimpleAction, Optional[GLib.Variant]], None]
         :param shortcuts: An optional list of keyboard shortcuts for the action
                           (e.g., ``["<primary>q"]``). Defaults to ``None``.
         :type shortcuts: Optional[list[str]]
+        :rtype: None
         """
         action = Gio.SimpleAction.new(name, None)
-        action.connect("activate", callback)
+        action.connect("activate", callback)  # type: ignore
         self.add_action(action)
         if shortcuts:
             self.set_accels_for_action(f"app.{name}", shortcuts)
@@ -509,30 +544,14 @@ def main(version: str = VERSION) -> int:
     :return: The exit status of the application.
     :rtype: int
     """
+    # Basic logging config, might be overridden by debug flag in WoesApplication
     logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
 
-    print("Attempting to directly access GSettings for test...")
-    try:
-        # Ensure GResources are loaded as they contain the schema (called at module level)
-
-        # Directly instantiate Gio.Settings with the application ID
-        settings = Gio.Settings(schema_id=APP_ID)
-
-        # Try to get the newly added setting
-        test_setting_value = settings.get_string("default-user-agent-title")
-        print(f"Successfully read 'default-user-agent-title': {test_setting_value}")
-
-        # Also try to get an existing setting to be sure
-        test_theme_value = settings.get_string("theme-preference")
-        print(f"Successfully read 'theme-preference': {test_theme_value}")
-
-        print("Settings test passed.")
-
-    except Exception as e:
-        print(f"Error during settings test: {e}")
-        sys.exit(1)
+    # The GSettings test code block has been removed.
+    # GResource loading (which includes schemas) is handled by _load_gresources_early().
+    # Application settings are accessed within the application logic.
 
     app = WoesApplication(version=version)
     exit_status: int = app.run(sys.argv)
-    logging.info("Application exited with status %s.", exit_status)
+    logging.info(f"Application exited with status {exit_status}.")
     return exit_status

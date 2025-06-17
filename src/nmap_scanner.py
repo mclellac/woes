@@ -16,7 +16,7 @@ import shutil
 import time
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
-from typing import Any, Dict, List, Optional, TypedDict, Union  # Use dict, list
+from typing import Any, Optional, TypedDict, Union # Use dict, list
 
 try:
     from gi.repository import Gio
@@ -102,7 +102,7 @@ def _is_scan_root_required(nmap_args_list: list[str]) -> bool:
     return is_required
 
 
-def get_escalated_command(command_parts: List[str]) -> List[str]:
+def get_escalated_command(command_parts: list[str]) -> list[str]:
     """
     Construct a command list for privilege escalation based on the OS.
 
@@ -158,7 +158,10 @@ class NmapScanner:
     """
 
     def __init__(self):
-        """Initialize the NmapScanner."""
+        """
+        Initialize the NmapScanner.
+        :rtype: None
+        """
         logger.debug("NmapScanner initialized.")
         self.executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=4)
         self.nm: Optional[nmap.PortScanner] = None
@@ -166,7 +169,10 @@ class NmapScanner:
         self.current_cancellable: Optional[Gio.Cancellable] = None
 
     def __del__(self) -> None:
-        """Ensure the ThreadPoolExecutor is shut down and any running Nmap process is terminated."""
+        """
+        Ensure the ThreadPoolExecutor is shut down and any running Nmap process is terminated.
+        :rtype: None
+        """
         logger.debug("NmapScanner.__del__ called.")
         if self.current_process and self.current_process.poll() is None:
             logger.info("Terminating active Nmap process during NmapScanner deletion.")
@@ -257,7 +263,7 @@ class NmapScanner:
         logger.debug("Nmap options constructed: %s", options)
         return options
 
-    def _build_nmap_arguments(self, params: NmapScanParameters) -> list[str]:
+    def _build_nmap_arguments(self, params: NmapScanParameters) -> list[str]: # type: ignore[type-arg]
         """
         Build the list of arguments for the Nmap command.
 
@@ -290,7 +296,7 @@ class NmapScanner:
             nmap_args_list.append(f"--dns-servers={custom_dns_server.strip()}")
             logger.info("Using custom DNS server for Nmap scan: %s", custom_dns_server.strip())
 
-        nmap_args_list.extend(["-oX", "-", params["target"]])
+        nmap_args_list.extend(["-oX", "-", params["target"]]) # type: ignore[literal-required]
         logger.debug("Built Nmap arguments: %s", nmap_args_list)
         return nmap_args_list
 
@@ -518,7 +524,7 @@ class NmapScanner:
         :param data: The Nmap data to convert.
         :type data: Any
         :return: The data converted to plain Python dicts, lists, and primitive types.
-        :rtype: Union[Dict[str, Any], Any]
+        :rtype: Union[dict[str, Any], Any]
         """
         if isinstance(data, nmap.PortScannerHostDict):
             return {k: self.to_plain_dict(v) for k, v in data.items()}

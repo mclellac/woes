@@ -1,7 +1,7 @@
 """Provides a client for performing DNS lookups."""
 
 import logging
-from typing import Optional, Any # Use list, dict
+from typing import Optional, Any
 import ipaddress
 
 import dns.resolver
@@ -52,6 +52,7 @@ class DnsResolverClient:
 
         :param custom_dns_server: Optional IP address of a custom DNS server.
         :type custom_dns_server: str, optional
+        :rtype: None
         """
         self.resolver: dns.resolver.Resolver = dns.resolver.Resolver()
         if custom_dns_server:
