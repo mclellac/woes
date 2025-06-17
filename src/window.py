@@ -8,7 +8,7 @@ window state and theme preferences, and integrates system font settings.
 
 import logging
 import platform
-from typing import Optional, Any
+from typing import Optional, Any, List, Tuple
 import gi
 from gi.repository import Adw, Gdk, Gio, Gtk, GLib, GObject, Pango
 
@@ -71,8 +71,8 @@ class WoesWindow(Adw.ApplicationWindow):
         super().__init__(**kwargs)
         logging.debug("WoesWindow.__init__ called")
         self.settings: Gio.Settings = Gio.Settings(schema_id=APP_ID)
-        self._settings_handlers: list[tuple[Gio.Settings, int]] = []
-        self._gnome_settings_handlers: list[tuple[Optional[Gio.Settings], int]] = []
+        self._settings_handlers: List[Tuple[Gio.Settings, int]] = []
+        self._gnome_settings_handlers: List[Tuple[Optional[Gio.Settings], int]] = []
 
         self._output_font_gsettings_key = "output-font"
         self.textview_font_css_provider = Gtk.CssProvider()

@@ -77,11 +77,11 @@ class WebScanPage(Gtk.Box):
     url_entry: Adw.EntryRow = Gtk.Template.Child()
     scan_button: Gtk.Button = Gtk.Template.Child()
     results_scrolled_window: Gtk.ScrolledWindow = Gtk.Template.Child()
-    force_ssl_switch: Adw.SwitchRow = Gtk.Template.Child()
-    cgi_vulns_switch: Adw.SwitchRow = Gtk.Template.Child()
-    interesting_content_switch: Adw.SwitchRow = Gtk.Template.Child()
-    evasion_switch: Adw.SwitchRow = Gtk.Template.Child()
-    mutate_switch: Adw.SwitchRow = Gtk.Template.Child()
+    force_ssl_switch: Gtk.Switch = Gtk.Template.Child()
+    cgi_vulns_switch: Gtk.Switch = Gtk.Template.Child()
+    interesting_content_switch: Gtk.Switch = Gtk.Template.Child()
+    evasion_switch: Gtk.Switch = Gtk.Template.Child()
+    mutate_switch: Gtk.Switch = Gtk.Template.Child()
     maxtime_entry_row: Adw.EntryRow = Gtk.Template.Child()
     clear_results_button: Gtk.Button = Gtk.Template.Child()
     copy_results_button: Gtk.Button = Gtk.Template.Child()
@@ -93,8 +93,8 @@ class WebScanPage(Gtk.Box):
     nikto_format_combo_row: Adw.ComboRow = Gtk.Template.Child()
     nikto_output_file_row: Adw.EntryRow = Gtk.Template.Child()
     nikto_output_file_button: Gtk.Button = Gtk.Template.Child()
-    no404_switch: Adw.SwitchRow = Gtk.Template.Child()
-    auth_bypass_switch: Adw.SwitchRow = Gtk.Template.Child()
+    no404_switch: Gtk.Switch = Gtk.Template.Child()
+    auth_bypass_switch: Gtk.Switch = Gtk.Template.Child()
 
     def __init__(self, **kwargs: Any):
         """
@@ -432,17 +432,17 @@ class WebScanPage(Gtk.Box):
 
         task_data_for_thread: WebScanParameters = { # Use TypedDict
             "target_url": target_url,
-            "force_ssl": self.force_ssl_switch.get_active(),
-            "cgi_vulns": self.cgi_vulns_switch.get_active(),
-            "interesting_content": self.interesting_content_switch.get_active(),
-            "evasion": self.evasion_switch.get_active(),
-            "mutate": self.mutate_switch.get_active(),
+            "force_ssl": self.force_ssl_switch.get_state(),
+            "cgi_vulns": self.cgi_vulns_switch.get_state(),
+            "interesting_content": self.interesting_content_switch.get_state(),
+            "evasion": self.evasion_switch.get_state(),
+            "mutate": self.mutate_switch.get_state(),
             "maxtime": self.maxtime_entry_row.get_text().strip(),
             "nikto_format": self.nikto_format_combo_row.get_selected_item().get_string()
             if self.nikto_format_combo_row.get_selected_item()
             else "default (text)",
-            "no404": self.no404_switch.get_active(),
-            "auth_bypass": self.auth_bypass_switch.get_active(),
+            "no404": self.no404_switch.get_state(),
+            "auth_bypass": self.auth_bypass_switch.get_state(),
         }
         task_data_for_thread["nikto_output_filename"] = (
             self.nikto_output_file_row.get_text().strip() if self.nikto_output_file_row else ""

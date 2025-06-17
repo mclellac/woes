@@ -163,8 +163,8 @@ class HttpPage(Gtk.Box):
         logger.debug("HttpPage initialized.")
         self.current_http_task: Optional[Gio.Task] = None
         self._current_header_items: List[HeaderItem] = []
-        self._http_task_data_for_thread: dict[str, Any] = {}
-        self._ua_title_to_value_map: dict[str, Optional[str]] = {}
+        self._http_task_data_for_thread: Dict[str, Any] = {}
+        self._ua_title_to_value_map: Dict[str, Optional[str]] = {}
         self.settings: Gio.Settings = Gio.Settings(schema_id=APP_ID)
 
         # Color and font settings for results display
@@ -432,7 +432,7 @@ class HttpPage(Gtk.Box):
         :type cancellable: Gio.Cancellable
         """
         # task_data is already set on the task object by the caller
-        current_task_data: dict[str, Any] = task.get_task_data()
+        current_task_data: Dict[str, Any] = task.get_task_data()
         url_to_fetch: str = current_task_data["url"]
 
         if cancellable.is_cancelled():
@@ -448,7 +448,7 @@ class HttpPage(Gtk.Box):
             cancellable=cancellable, # Pass cancellable to HttpFetcher
         )
         try:
-            processed_data: list[dict[str, Any]] = fetcher.fetch_headers()
+            processed_data: List[Dict[str, Any]] = fetcher.fetch_headers()
             if cancellable.is_cancelled(): # Check again after fetch_headers returns
                 task.return_error(GLib.Error.new_literal(WOES_HTTP_ERROR_DOMAIN, HttpErrorType.CANCELLED.value, "Task cancelled after fetching."))
             else:
@@ -497,7 +497,7 @@ class HttpPage(Gtk.Box):
                 self._set_loading_state(False, "Idle.")
             return
 
-        task_data_from_task_obj: dict[str, Any] = self.current_http_task.get_task_data()
+        task_data_from_task_obj: Dict[str, Any] = self.current_http_task.get_task_data()
         original_url_for_log = task_data_from_task_obj.get("url", "unknown URL")
 
         try:
@@ -506,7 +506,7 @@ class HttpPage(Gtk.Box):
             # If propagate_value didn't raise, task was successful.
             # returned_value should be List[Dict] from thread_func
             if isinstance(returned_value, list):
-                data: list[dict[str, Any]] = returned_value
+                data: List[Dict[str, Any]] = returned_value
                 error_msg = None
             else: # Should not happen if thread_func returns correctly
                 logger.error(

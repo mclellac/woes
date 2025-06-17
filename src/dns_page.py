@@ -48,8 +48,8 @@ class DNSPage(Gtk.Box):
     list. Users can specify a custom DNS server via application settings.
     DNS lookups are performed asynchronously to keep the UI responsive.
 
-    :ivar domain_entry: Entry row for domain/IP input.
-    :vartype domain_entry: Adw.EntryRow
+    :ivar domain_entry: Entry for domain/IP input.
+    :vartype domain_entry: Gtk.Entry
     :ivar dns_apply_button: Button to trigger DNS lookup.
     :vartype dns_apply_button: Gtk.Button
     :ivar dns_record_type_dropdown: Dropdown for selecting DNS record type.
@@ -68,7 +68,7 @@ class DNSPage(Gtk.Box):
 
     __gtype_name__: Final[str] = "DNSPage"
 
-    domain_entry: Adw.EntryRow = Gtk.Template.Child()
+    domain_entry: Gtk.Entry = Gtk.Template.Child()
     dns_apply_button: Gtk.Button = Gtk.Template.Child()
     dns_record_type_dropdown: Adw.ComboRow = Gtk.Template.Child()
     dns_results_box_container: Gtk.Box = Gtk.Template.Child()

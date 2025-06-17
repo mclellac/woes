@@ -1,7 +1,7 @@
 """Module for fetching HTTP headers and processing responses."""
 
 import logging
-from typing import Optional, Any, Dict # Retaining List, Dict for clarity with older type hint styles if any linger elsewhere
+from typing import Optional, Any, Dict, List, Tuple # Retaining List, Dict for clarity with older type hint styles if any linger elsewhere
                                          # but will use list and dict in annotations for Py3.9+ style.
 import requests
 import requests.utils  # For urlparse, urlunparse
@@ -157,7 +157,7 @@ class HttpFetcher:
 
         logger.info("HttpFetcher initialized with request timeout: %d seconds.", self.request_timeout_seconds)
 
-    def _prepare_request_headers(self) -> tuple[dict[str, str], dict[str, str]]:
+    def _prepare_request_headers(self) -> Tuple[Dict[str, str], Dict[str, str]]:
         """
         Prepare initial request-specific headers and session-wide headers.
 
@@ -171,8 +171,8 @@ class HttpFetcher:
                  - ``initial_request_specific_headers``: Headers for the first request (e.g., 'Host').
                  - ``session_headers``: Headers applied to the session for all subsequent requests.
         """
-        initial_request_specific_headers: dict[str, str] = {}
-        session_headers: dict[str, str] = {}
+        initial_request_specific_headers: Dict[str, str] = {}
+        session_headers: Dict[str, str] = {}
 
         if self.user_agent:
             session_headers["User-Agent"] = self.user_agent
@@ -241,7 +241,7 @@ class HttpFetcher:
             logger.warning("HttpFetcher: RequestException for '%s': %s", self.url, e, exc_info=True)
             raise HttpGenericRequestError(f"Request failed for {self.url}: {e}") from e
 
-    def _process_http_response(self, response: requests.Response) -> list[dict[str, Any]]:
+    def _process_http_response(self, response: requests.Response) -> List[Dict[str, Any]]:
         """
         Process the HTTP response, including its history (redirects).
 
@@ -256,10 +256,10 @@ class HttpFetcher:
                  response in the redirect chain (chronological order), with the
                  final response as the last item.
         """
-        all_responses_data: list[dict[str, Any]] = []
+        all_responses_data: List[Dict[str, Any]] = []
         # Process redirect history first
         for hist_resp in response.history:  # hist_resp is a Response object
-            hist_data: dict[str, Any] = {
+            hist_data: Dict[str, Any] = {
                 "type": "redirect",
                 "url": str(hist_resp.url),
                 "status_code": hist_resp.status_code,
@@ -280,7 +280,7 @@ class HttpFetcher:
                 error_message, status_code=response.status_code, url=error_url
             ) from http_err
 
-        final_data: dict[str, Any] = {
+        final_data: Dict[str, Any] = {
             "type": final_data_type,
             "url": str(response.url),
             "status_code": response.status_code,
@@ -383,7 +383,7 @@ class HttpFetcher:
             return f"Error {status_code} (Internal Server Error): The server encountered an error processing your request to {url}."
         return f"HTTP Error {status_code} ({reason}) for URL: {url}."
 
-    def fetch_headers(self) -> list[dict[str, Any]]:
+    def fetch_headers(self) -> List[Dict[str, Any]]:
         """
         Fetch and process HTTP headers for the configured URL.
 

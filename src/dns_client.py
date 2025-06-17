@@ -9,7 +9,7 @@ reverse DNS lookups for PTR records.
 
 import logging
 import ipaddress
-from typing import Optional, Any, list, dict # Standard library types can be used directly
+from typing import Optional, Any, List, Dict # Standard library types can be used directly
 
 import dns.resolver
 import dns.reversename
@@ -99,7 +99,7 @@ class DnsResolverClient:
             "DnsResolverClient initialized with resolver timeout/lifetime: %.1f seconds.", dns_timeout_seconds_float
         )
 
-    def _lookup_record_internal(self, query_name_str: str, record_type_str: str) -> list[dict[str, Any]]:
+    def _lookup_record_internal(self, query_name_str: str, record_type_str: str) -> List[Dict[str, Any]]:
         """
         Perform the actual DNS lookup and parse various record types.
 
@@ -129,7 +129,7 @@ class DnsResolverClient:
             common_ttl = answer.rrset.ttl if answer.rrset else 300 # Default TTL if not available in rrset
 
             for rdata in answer:
-                record: dict[str, Any] = {
+                record: Dict[str, Any] = {
                     "name": answer.qname.to_text(),
                     "ttl": rdata.ttl if hasattr(rdata, "ttl") else common_ttl, # Prefer rdata specific, fallback to common
                     "class": dns.rdataclass.to_text(rdata.rdclass),  # type: ignore[no-untyped-call]
@@ -185,7 +185,7 @@ class DnsResolverClient:
             raise DnsGenericError(f"An unexpected error occurred while resolving {query_name_str}: {e}") from e
 
 
-    def resolve(self, domain_or_ip: str, record_type: str) -> list[dict[str, Any]]:
+    def resolve(self, domain_or_ip: str, record_type: str) -> List[Dict[str, Any]]:
         """
         Resolve DNS records for a given domain/IP address and record type.
 
