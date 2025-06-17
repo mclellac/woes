@@ -710,8 +710,8 @@ class NmapPage(Gtk.Box):
         :type host_key: str
         :rtype: None
         """
-        expander = Adw.ExpanderRow(title=f"Text Scan Summary - {host_key}")
-        expander.set_expanded(True)
+        expander = Adw.ExpanderRow(title=f"Scripts & Host Summary - {host_key}")
+        expander.set_expanded(False)
         human_readable_summary = self._generate_human_readable_host_summary(host_data_dict)
 
         # Ensure the textview's buffer is cleared and new text is set
@@ -867,7 +867,7 @@ class NmapPage(Gtk.Box):
         if not osmatch_data:
             return
         expander = Adw.ExpanderRow(title=f"Operating System Detection - {host_key}")
-        expander.set_expanded(True)
+        expander.set_expanded(False)
         os_details_added = False
         for match in osmatch_data:
             name = match.get("name", "N/A")
@@ -957,7 +957,7 @@ class NmapPage(Gtk.Box):
         :rtype: None
         """
         self.status_row.set_subtitle(message)
-        status_css_classes = ["success-color", "warning-color", "error-color", "accent-color"]
+        status_css_classes = ["success", "warning", "error", "accent"]
         style_context = self.status_row.get_style_context()
         for css_class in status_css_classes:
             style_context.remove_class(css_class)
@@ -965,7 +965,7 @@ class NmapPage(Gtk.Box):
             self.scan_spinner.set_visible(True)
             self.scan_spinner.start()
             self.status_row.set_title("Scanning...")
-            style_context.add_class("accent-color")
+            style_context.add_class("accent")
             if self.nmap_apply_button:
                 self.nmap_apply_button.set_sensitive(False)
             if hasattr(self, "nmap_cancel_scan_button") and self.nmap_cancel_scan_button:
@@ -982,10 +982,10 @@ class NmapPage(Gtk.Box):
 
             if status_type == ScanStatus.COMPLETE:
                 self.status_row.set_title("Scan Complete")
-                style_context.add_class("success-color")
+                style_context.add_class("success")
             elif status_type == ScanStatus.FAILED:
                 self.status_row.set_title("Scan Failed")
-                style_context.add_class("error-color")
+                style_context.add_class("error")
             elif status_type == ScanStatus.IDLE:
                 self.status_row.set_title("Idle")
             else:
@@ -1110,57 +1110,9 @@ class NmapPage(Gtk.Box):
                     formatted_output = "\n".join([f"    {line.strip()}" for line in script_output.strip().split("\n")])
                     summary_lines.append(f"  Script: {script_id}\n{formatted_output}")
 
-        ports_data = []
-        for proto in ["tcp", "udp", "sctp", "ip"]:
-            if proto_data := host_data_dict.get(proto):
-                if isinstance(proto_data, dict):
-                    for port_id, port_info in proto_data.items():
-                        p_state = port_info.get("state", "N/A")
-                        if p_state not in ["closed", "filtered out"]:
-                            p_name, p_product, p_version, p_reason = (
-                                port_info.get(k, "") for k in ["name", "product", "version", "reason"]
-                            )
-                            port_str = f"{port_id}/{proto.upper():<4} {p_state:<10} {p_name}"
-                            if p_product:
-                                port_str += f" {p_product}"
-                            if p_version:
-                                port_str += f" {p_version}"
-                            if p_reason:
-                                port_str += f" (reason: {p_reason})"
-                            ports_data.append(port_str)
-                        if port_scripts := port_info.get("script"):
-                            if isinstance(port_scripts, dict):
-                                for script_id, script_output in port_scripts.items():
-                                    if script_output and isinstance(script_output, str):
-                                        formatted_script_output = "\n".join(
-                                            [
-                                                f"  |_{script_id}: {line.strip()}" if i == 0 else f"  | {line.strip()}"
-                                                for i, line in enumerate(script_output.strip().split("\n"))
-                                            ]
-                                        )
-                                        ports_data.append(formatted_script_output)
-        if ports_data:
-            summary_lines.append("\nPORT      STATE SERVICE      VERSION")
-            summary_lines.extend(ports_data)
-        else:
-            summary_lines.append("No open ports reported or port data available.")
+        summary_lines.append("\nDetailed port information is available in the 'Network Ports' section.")
+        summary_lines.append("Operating system details are available in the 'Operating System Detection' section (if OS scan was enabled).")
 
-        osmatch_data = host_data_dict.get("osmatch", [])
-        if osmatch_data:
-            summary_lines.append("\nOS details:")
-            for match in osmatch_data:
-                summary_lines.append(f"  Name: {match.get('name', 'N/A')}")
-                summary_lines.append(f"  Accuracy: {match.get('accuracy', 'N/A')}%")
-                if "osclass" in match:
-                    osclasses = match["osclass"] if isinstance(match["osclass"], list) else [match["osclass"]]
-                    for os_class in osclasses:
-                        if isinstance(os_class, dict):
-                            summary_lines.append("  OS Class:")
-                            summary_lines.append(
-                                f"    Type: {os_class.get('type', 'N/A')}, Vendor: {os_class.get('vendor', 'N/A')}, Family: {os_class.get('osfamily', 'N/A')}, Gen: {os_class.get('osgen', 'N/A')}"
-                            )
-        else:
-            summary_lines.append("No OS data available.")
         return "\n".join(summary_lines)
 
     def trigger_scan(self) -> None:
