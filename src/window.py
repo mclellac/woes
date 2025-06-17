@@ -31,8 +31,6 @@ gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
 
 
-# Imports for custom page widgets
-
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/window.ui")
 class WoesWindow(Adw.ApplicationWindow):
     """
@@ -59,9 +57,7 @@ class WoesWindow(Adw.ApplicationWindow):
     main_error_banner: Adw.Banner = Gtk.Template.Child("main_error_banner")
     toast_overlay: Adw.ToastOverlay = Gtk.Template.Child("toast_overlay")
 
-    def __init__(self, **kwargs: Any):  # GObject.GObject is too restrictive if no args passed
-        """Initialize the WoesWindow."""
-        logging.debug("WoesWindow.__init__ called")
+    def __init__(self, **kwargs: Any):
         """
         Initialize the WoesWindow.
 
@@ -70,6 +66,7 @@ class WoesWindow(Adw.ApplicationWindow):
         :type kwargs: Any
         """
         super().__init__(**kwargs)
+        logging.debug("WoesWindow.__init__ called")
         self.settings: Gio.Settings = Gio.Settings(schema_id=APP_ID)
 
         self._output_font_gsettings_key = "output-font"
@@ -129,6 +126,7 @@ class WoesWindow(Adw.ApplicationWindow):
         :type settings: Gio.Settings
         :param key: The GSettings key that changed (should be 'output-font').
         :type key: str
+        :rtype: None
         """
         if key == self._output_font_gsettings_key:
             new_font_str = settings.get_string(key)
@@ -143,6 +141,10 @@ class WoesWindow(Adw.ApplicationWindow):
         and Webscan results, and applies this CSS using the window's
         `textview_font_css_provider`. If the provided `font_desc_str` is
         invalid or empty, it defaults to "Sans 10".
+
+        :param font_desc_str: Pango font description string (e.g., "Sans Bold 12").
+        :type font_desc_str: str
+        :rtype: None
         """
         logger = logging.getLogger(__name__)  # Ensure logger is accessible
         font_desc = Pango.FontDescription.from_string(font_desc_str)
@@ -178,9 +180,9 @@ class WoesWindow(Adw.ApplicationWindow):
             self.textview_font_css_provider.load_from_data(css_string.encode("UTF-8"))
             logger.info(f"Applied CSS for TextViews with font: {font_desc_str}")
         except GLib.Error as e:
-            logger.error(f"Error loading CSS string for TextViews: {e}. CSS was: {css_string}")
+            logger.exception(f"GLib.Error loading CSS string for TextViews. CSS was: {css_string}", exc_info=e)
         except Exception as e_generic:
-            logger.error(f"Unexpected error loading CSS string: {e_generic}. CSS was: {css_string}")
+            logger.exception(f"Unexpected error loading CSS string. CSS was: {css_string}", exc_info=e_generic)
 
     def _on_main_error_banner_dismissed(self, _banner: Optional[Adw.Banner] = None, _data: Optional[Any] = None):
         """
@@ -193,6 +195,7 @@ class WoesWindow(Adw.ApplicationWindow):
         :type _banner: Optional[Adw.Banner]
         :param _data: Additional data passed with the signal (unused).
         :type _data: Optional[Any]
+        :rtype: None
         """
         self.hide_error()
 
@@ -205,6 +208,7 @@ class WoesWindow(Adw.ApplicationWindow):
 
         :param message: The error message to display.
         :type message: str
+        :rtype: None
         """
         if self.main_error_banner:
             self.main_error_banner.set_title(message)
@@ -219,6 +223,7 @@ class WoesWindow(Adw.ApplicationWindow):
 
         If the ``main_error_banner`` widget is available, its 'error' CSS class
         is removed, it's hidden, and its title is cleared.
+        :rtype: None
         """
         if self.main_error_banner:
             self.main_error_banner.remove_css_class("error")
@@ -235,12 +240,13 @@ class WoesWindow(Adw.ApplicationWindow):
         for ``font-name`` and ``text-scaling-factor``. It triggers re-application
         of font sizes based on application and system settings.
 
-        :param gnome_settings_obj: The :class:`Gio.Settings` object for
+        :param _gnome_settings_obj: The :class:`Gio.Settings` object for
                                    ``org.gnome.desktop.interface`` that changed.
-        :type gnome_settings_obj: Gio.Settings
+        :type _gnome_settings_obj: Gio.Settings
         :param key_name: The name of the GSettings key that changed
                          (e.g., 'font-name', 'text-scaling-factor').
         :type key_name: str
+        :rtype: None
         """
         logging.debug("GNOME font setting '%s' changed. Re-applying font preferences.", key_name)
         apply_font_size(self.settings)
@@ -251,22 +257,27 @@ class WoesWindow(Adw.ApplicationWindow):
 
         This includes loading CSS, applying initial preferences, and connecting
         signals for UI elements like the page switcher.
+        :rtype: None
         """
         try:
             self.load_css()
+        except GLib.Error as e: # More specific for resource loading
+            logging.exception(f"WoesWindow.setup_ui: GLib.Error during self.load_css(): {e}")
         except Exception as e:
-            logging.exception("WoesWindow.setup_ui: Error during self.load_css(): %s", e)
+            logging.exception(f"WoesWindow.setup_ui: Unexpected error during self.load_css(): {e}")
 
         try:
             self.apply_preferences()
+        except GLib.Error as e: # More specific for GSettings
+            logging.exception(f"WoesWindow.setup_ui: GLib.Error during self.apply_preferences(): {e}")
         except Exception as e:
-            logging.exception("WoesWindow.setup_ui: Error during self.apply_preferences(): %s", e)
+            logging.exception(f"WoesWindow.setup_ui: Unexpected error during self.apply_preferences(): {e}")
 
         if self.switcher_title and self.stack:
             try:
                 self.switcher_title.connect("notify::selected-page", self.on_page_switched)
-            except Exception as e:
-                logging.exception("WoesWindow.setup_ui: Error connecting switcher_title signal: %s", e)
+            except Exception as e: # Signal connection errors are often generic
+                logging.exception(f"WoesWindow.setup_ui: Error connecting switcher_title 'notify::selected-page' signal: {e}")
         else:
             logging.warning("switcher_title or stack not found during setup_ui.")
 
@@ -282,6 +293,7 @@ class WoesWindow(Adw.ApplicationWindow):
         :type settings: Gio.Settings
         :param key: The name of the GSettings key that changed (should be 'theme-preference').
         :type key: str
+        :rtype: None
         """
         theme_pref = settings.get_string(key)
         apply_theme(self.style_manager, theme_pref)
@@ -293,11 +305,12 @@ class WoesWindow(Adw.ApplicationWindow):
 
         Triggers re-application of font sizes based on the new scaling factor.
 
-        :param settings: The :class:`Gio.Settings` object for the application
+        :param _settings: The :class:`Gio.Settings` object for the application
                          (schema ID: :const:`.APP_ID`) that changed.
-        :type settings: Gio.Settings
+        :type _settings: Gio.Settings
         :param key: The name of the GSettings key that changed (should be 'font-scaling-percentage').
         :type key: str
+        :rtype: None
         """
         logging.debug("App font scaling setting '%s' changed. Re-applying font preferences.", key)
         apply_font_size(self.settings)
@@ -307,6 +320,7 @@ class WoesWindow(Adw.ApplicationWindow):
         Load the appropriate CSS file (style.css or style-dark.css) based on the current theme.
 
         The CSS is loaded from GResources and applied to the application.
+        :rtype: None
         """
         if self.style_manager.get_dark():
             css_file = "style-dark.css"
@@ -323,13 +337,11 @@ class WoesWindow(Adw.ApplicationWindow):
                 Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
             )
         except GLib.Error as e:
-            logging.error("Failed to load CSS resource from %s: %s", css_path, e)
+            logging.exception(f"Failed to load CSS resource from {css_path}", exc_info=e)
         except Exception as e:
-            logging.error(
-                "An unexpected error of type %s occurred while loading CSS from %s: %s",
-                type(e).__name__,
-                css_path,
-                e,
+            logging.exception(
+                f"An unexpected error occurred while loading CSS from {css_path}",
+                exc_info=e,
             )
 
     def reload_css(self):
@@ -337,6 +349,7 @@ class WoesWindow(Adw.ApplicationWindow):
         Reload CSS based on the current theme preference.
 
         This is a convenience method that calls :meth:`.load_css`.
+        :rtype: None
         """
         logging.debug("Reloading CSS based on theme preference.")
         self.load_css()
@@ -348,15 +361,16 @@ class WoesWindow(Adw.ApplicationWindow):
         This method reads 'theme-preference' from GSettings, applies the
         font size using :func:`.style_utils.apply_font_size`, and applies
         the theme using :func:`.style_utils.apply_theme`.
+        :rtype: None
         """
         try:
             theme_pref = self.settings.get_string("theme-preference")
-            apply_font_size(self.settings)
-            apply_theme(self.style_manager, theme_pref)
-        except GLib.Error as e:
-            logging.error("Error applying preferences (GSettings): %s", e)
+            apply_font_size(self.settings) # Assuming apply_font_size handles its own logging/exceptions
+            apply_theme(self.style_manager, theme_pref) # Assuming apply_theme handles its own logging/exceptions
+        except GLib.Error as e: # For self.settings.get_string
+            logging.exception("GLib.Error applying preferences (likely GSettings access)", exc_info=e)
         except Exception as e:
-            logging.error("An unexpected error of type %s occurred while applying preferences: %s", type(e).__name__, e)
+            logging.exception("An unexpected error occurred while applying preferences", exc_info=e)
 
     def on_page_switched(self, _widget: Adw.ViewSwitcherTitle, _gparam: GObject.ParamSpec):
         """
@@ -364,11 +378,12 @@ class WoesWindow(Adw.ApplicationWindow):
 
         Logs the name of the newly visible child page in the main stack.
 
-        :param widget: The :class:`Adw.ViewSwitcherTitle` that emitted the
+        :param _widget: The :class:`Adw.ViewSwitcherTitle` that emitted the
                        'notify::selected-page' signal.
-        :type widget: Adw.ViewSwitcherTitle
+        :type _widget: Adw.ViewSwitcherTitle
         :param _gparam: The :class:`GObject.ParamSpec` of the property that changed (unused).
         :type _gparam: GObject.ParamSpec
+        :rtype: None
         """
         if self.stack:
             logging.debug("Page switched, new visible page: %s", self.stack.get_visible_child_name())
@@ -388,6 +403,7 @@ class WoesWindow(Adw.ApplicationWindow):
                         Defaults to 2 seconds. A value of 0 means the toast
                         will remain until dismissed.
         :type timeout: int
+        :rtype: None
         """
         if not self.toast_overlay:
             logging.warning("ToastOverlay not found, cannot display toast: %s", title)

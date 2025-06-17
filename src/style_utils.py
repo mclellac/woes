@@ -9,7 +9,7 @@ system and application-specific style configurations.
 import logging
 import re
 import platform
-from typing import Optional, Tuple
+from typing import Optional # Tuple will be replaced by tuple
 
 import gi
 
@@ -113,6 +113,7 @@ def apply_system_font_preferences(app_settings: Gio.Settings):
 
     :param app_settings: The application's :class:`Gio.Settings` object.
     :type app_settings: Gio.Settings
+    :rtype: None
     """
     font_family_to_apply: Optional[str] = None
     font_size_to_apply_pt: float = BASE_FONT_SIZE_PT
@@ -154,6 +155,7 @@ def apply_font_size(settings: Gio.Settings):
 
     :param settings: The application's :class:`Gio.Settings` object.
     :type settings: Gio.Settings
+    :rtype: None
     """
     apply_system_font_preferences(settings)
 
@@ -166,6 +168,7 @@ def apply_theme(style_manager: Adw.StyleManager, theme_preference: str):
     :type style_manager: Adw.StyleManager
     :param theme_preference: The theme preference string ("Light", "Dark", or "System").
     :type theme_preference: str
+    :rtype: None
     """
     if theme_preference == "Light":
         style_manager.set_color_scheme(Adw.ColorScheme.FORCE_LIGHT)
@@ -191,6 +194,7 @@ def apply_source_style_scheme(
     :type buffer: GtkSource.Buffer
     :param source_style_scheme: The name of the style scheme to apply.
     :type source_style_scheme: str
+    :rtype: None
     """
     if source_style_scheme not in ["Adwaita", "Adwaita-dark"]:
         source_style_scheme = source_style_scheme.lower()
@@ -221,6 +225,7 @@ def set_widget_visibility(visible: bool, *widgets: Gtk.Widget):
     :type visible: bool
     :param widgets: The :class:`Gtk.Widget`(s) to modify. ``None`` values are logged and skipped.
     :type widgets: Gtk.Widget
+    :rtype: None
     """
     for widget in widgets:
         if widget:

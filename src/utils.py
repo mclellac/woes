@@ -4,7 +4,7 @@ import logging
 import ipaddress
 import re
 from urllib.parse import urlparse
-from typing import Optional, List
+from typing import Optional # List will be replaced by list
 
 import gi
 from gi.repository import Gtk, Adw
@@ -115,7 +115,7 @@ def is_valid_domain(domain: str) -> bool:
     return bool(domain_regex.fullmatch(domain))
 
 
-def is_valid_url(url: str, schemes: Optional[List[str]] = None) -> bool:
+def is_valid_url(url: str, schemes: Optional[list[str]] = None) -> bool:
     """
     Check if the given string is a syntactically valid URL with specific schemes.
 

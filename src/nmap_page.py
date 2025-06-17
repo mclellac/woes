@@ -11,7 +11,7 @@ import logging
 logger = logging.getLogger(__name__)
 import re
 from enum import Enum
-from typing import Optional, List, Dict, Any
+from typing import Optional, Any # list, dict used directly
 import yaml
 
 import gi
@@ -91,18 +91,17 @@ class NmapPage(Gtk.Box):
     nmap_detail_placeholder = Gtk.Template.Child("nmap_detail_placeholder")
 
     def __init__(self, **kwargs: Any):
-        """Initialize the NmapPage."""
-        logging.debug("NmapPage.__init__ called")
         """
         Initialize the NmapPage.
 
         :param kwargs: Keyword arguments passed to the :class:`Gtk.Box` constructor.
         :type kwargs: Any
+        :rtype: None
         """
         super().__init__(**kwargs)
         logger.info("Initializing NmapPage...")
         self.results_by_host: dict[str, str] = {}
-        self.nmap_target_listbox_store: Gio.ListStore = Gio.ListStore(item_type=NmapItem)
+        self.nmap_target_listbox_store: Gio.ListStore = Gio.ListStore.new(NmapItem) # type: ignore[no-any-return, var-annotated]
         self.scanner: NmapScanner = NmapScanner()
         self.settings: Gio.Settings = Gio.Settings.new(APP_ID)
 
@@ -119,13 +118,12 @@ class NmapPage(Gtk.Box):
         self.nmap_output_textview.set_editable(False)
         self.nmap_output_textview.set_hexpand(True)
         self.nmap_output_textview.set_vexpand(True)
-        # self.nmap_output_textview.override_font(self._output_font_desc) # Replaced by CssProvider
 
         self.font_css_provider = Gtk.CssProvider()
         self.nmap_output_textview.get_style_context().add_provider(
             self.font_css_provider, Gtk.STYLE_PROVIDER_PRIORITY_USER
         )
-        self._update_font_css() # Initial font application
+        self._update_font_css()
 
         self.nmap_output_scrolled_window = Gtk.ScrolledWindow()
         self.nmap_output_scrolled_window.set_child(self.nmap_output_textview)
@@ -150,7 +148,10 @@ class NmapPage(Gtk.Box):
         logger.info("NmapPage initialized.")
 
     def __del__(self):
-        """Clean up resources, specifically the NmapScanner's thread pool and cancel any ongoing scan."""
+        """
+        Clean up resources, specifically the NmapScanner's thread pool and cancel any ongoing scan.
+        :rtype: None
+        """
         if self.current_nmap_cancellable and not self.current_nmap_cancellable.is_cancelled():
             self.current_nmap_cancellable.cancel()
             logger.info("NmapPage finalized, ongoing scan cancelled.")
@@ -159,7 +160,10 @@ class NmapPage(Gtk.Box):
         super().__del__()
 
     def _init_page_ui(self):
-        """Initialize NmapPage UI components."""
+        """
+        Initialize NmapPage UI components.
+        :rtype: None
+        """
         self.nmap_host_listbox.bind_model(
             self.nmap_target_listbox_store, self._create_target_listbox_row
         )
@@ -169,7 +173,10 @@ class NmapPage(Gtk.Box):
             child = self.nmap_detail_box.get_first_child()
 
     def _clear_dynamic_details(self):
-        """Clear dynamically added details from the detail box."""
+        """
+        Clear dynamically added details from the detail box.
+        :rtype: None
+        """
         child = self.nmap_detail_box.get_first_child()
         while child:
             if child == self.nmap_detail_placeholder:
@@ -180,7 +187,10 @@ class NmapPage(Gtk.Box):
             self.nmap_detail_box.remove(current_child_to_remove)
 
     def _connect_signals(self):
-        """Connect NmapPage signals."""
+        """
+        Connect NmapPage signals.
+        :rtype: None
+        """
         self.nmap_target_entryrow.connect("entry-activated", self._on_target_activate)
         self.nmap_apply_button.connect("clicked", self._on_target_activate)
         self.nmap_host_listbox.connect("row-selected", self._on_target_selected)
@@ -189,17 +199,21 @@ class NmapPage(Gtk.Box):
         self.settings.connect(f"changed::{self._output_font_gsettings_key}", self._on_global_output_font_changed)
 
     def _on_global_output_font_changed(self, settings: Gio.Settings, key: str) -> None:
-        """Handle changes to the global output font GSettings key."""
+        """
+        Handle changes to the global output font GSettings key.
+
+        :param settings: The :class:`Gio.Settings` object that changed.
+        :type settings: Gio.Settings
+        :param key: The GSettings key that changed.
+        :type key: str
+        :rtype: None
+        """
         logger.debug("NmapPage: Global output font setting changed for key: %s", key)
         if key == self._output_font_gsettings_key:
             output_font_str = settings.get_string(key)
             self._output_font_desc = Pango.FontDescription.from_string(
                 output_font_str if output_font_str else "Monospace 10"
             )
-            # if hasattr(self, "nmap_output_textview") and self.nmap_output_textview: # Replaced by CssProvider
-            #     self.nmap_output_textview.override_font(self._output_font_desc)
-            # else:
-            #     logger.warning("NmapPage: nmap_output_textview not available to apply font change.")
             self._update_font_css()
 
     def _update_font_css(self) -> None:
@@ -210,6 +224,7 @@ class NmapPage(Gtk.Box):
         ``font-size`` for the ``textview#nmap-raw-output-textview`` widget.
         The font size is converted from Pango units (obtained from
         ``self._output_font_desc``) to points.
+        :rtype: None
         """
         if not hasattr(self, "font_css_provider") or not self.font_css_provider:
             logger.warning("NmapPage: font_css_provider is not available to update CSS.")
@@ -243,6 +258,7 @@ class NmapPage(Gtk.Box):
 
         :param _button: The :class:`Gtk.Button` that was clicked (unused).
         :type _button: Gtk.Button
+        :rtype: None
         """
         logger.info("Cancel scan button clicked.")
         if self.current_nmap_cancellable and not self.current_nmap_cancellable.is_cancelled():
@@ -252,6 +268,15 @@ class NmapPage(Gtk.Box):
             logger.warning("No active scan or cancellable to cancel.")
 
     def _on_target_activate(self, _widget: Adw.EntryRow) -> None:
+        """
+        Handle activation of the Nmap target entry row or click of the 'Scan' button.
+
+        Validates target, sets up parameters, and starts the Nmap scan task.
+
+        :param _widget: The :class:`Adw.EntryRow` that was activated.
+        :type _widget: Adw.EntryRow
+        :rtype: None
+        """
         target = self.nmap_target_entryrow.get_text().strip()
         self._clear_error()
 
@@ -315,10 +340,10 @@ class NmapPage(Gtk.Box):
         self._current_nmap_scan_params = scan_params
         self.current_nmap_task.run_in_thread(self._run_nmap_scan_thread_func)
 
-    def _run_nmap_scan_thread_func(
+    def _run_nmap_scan_thread_func( # type: ignore[type-arg]
         self,
-        task: Gio.Task,
-        _source_object: GObject.Object,
+        task: Gio.Task, # type: ignore[type-arg]
+        _source_object: "NmapPage", # More specific type
         _task_data: Optional[dict[str, Any]],
         cancellable: Optional[Gio.Cancellable],
     ) -> None:
@@ -333,9 +358,10 @@ class NmapPage(Gtk.Box):
         :type _task_data: Optional[dict[str, Any]]
         :param cancellable: A :class:`Gio.Cancellable` object to monitor for cancellation.
         :type cancellable: Optional[Gio.Cancellable]
+        :rtype: None
         """
-        page_instance: NmapPage = _source_object
-        params = page_instance._current_nmap_scan_params
+        # _source_object is self, so we can directly use self.
+        params = self._current_nmap_scan_params
 
         if not params:
             logger.error(
@@ -395,8 +421,8 @@ class NmapPage(Gtk.Box):
         finally:
             logger.info("Nmap scan thread finished for %s.", target)
 
-    def _nmap_scan_task_done_cb(
-        self, _source_object: GObject.Object, result: Gio.AsyncResult, _user_data: Optional[Any]
+    def _nmap_scan_task_done_cb( # type: ignore[type-arg]
+        self, _source_object: "NmapPage", result: Gio.AsyncResult, _user_data: Optional[Any] # More specific type
     ) -> None:
         """
         Handle completion of the Nmap scan :class:`Gio.Task`.
@@ -407,6 +433,7 @@ class NmapPage(Gtk.Box):
         :type result: Gio.AsyncResult
         :param _user_data: User data passed with the callback (unused).
         :type _user_data: Optional[Any]
+        :rtype: None
         """
         original_target = (
             self._current_nmap_scan_params["target"]
@@ -470,7 +497,14 @@ class NmapPage(Gtk.Box):
         finally:
             self.current_nmap_task = None
             self.current_nmap_cancellable = None
-            self._set_scan_status(ScanStatus.IDLE, "Idle")  # Default status after task completion
+            # Ensure status is appropriately set if not already handled by specific error/success paths
+            current_status_subtitle = self.status_row.get_subtitle()
+            current_status_title = self.status_row.get_title()
+            is_still_scanning = current_status_title == "Scanning..." or "Starting scan for" in current_status_subtitle
+
+            if is_still_scanning or not any(s_type.value[1].startswith(str(current_status_subtitle).split('.')[0]) for s_type in ScanStatus if s_type != ScanStatus.IN_PROGRESS):
+                 self._set_scan_status(ScanStatus.IDLE, "Idle - operation ended.")
+
             self.nmap_target_entryrow.set_sensitive(True)
             if self.nmap_apply_button:
                 self.nmap_apply_button.set_sensitive(True)
@@ -486,6 +520,7 @@ class NmapPage(Gtk.Box):
         :type nm: nmap.PortScanner
         :param original_target: The original target string for the scan.
         :type original_target: str
+        :rtype: None
         """
         hosts_found = nm.all_hosts()
         if not hosts_found:
@@ -521,6 +556,7 @@ class NmapPage(Gtk.Box):
         :type target: str
         :param error_message: The error message to display.
         :type error_message: str
+        :rtype: None
         """
         show_global_error(self, f"Error scanning {target}: {error_message}")
         self._set_scan_status(ScanStatus.FAILED, f"Scan failed for {target}")
@@ -533,6 +569,7 @@ class NmapPage(Gtk.Box):
         :type _listbox: Gtk.ListBox
         :param row: The selected :class:`Gtk.ListBoxRow`, or ``None`` if deselected.
         :type row: Optional[Gtk.ListBoxRow]
+        :rtype: None
         """
         self._clear_dynamic_details()
         self._current_selected_host_key = None
@@ -597,12 +634,15 @@ class NmapPage(Gtk.Box):
                 self.nmap_detail_box.append(self.nmap_detail_placeholder)
             self.nmap_detail_placeholder.set_visible(True)
 
-    def _add_raw_output_expander(self, host_data_dict: Dict[str, Any], host_key: str):
+    def _add_raw_output_expander(self, host_data_dict: dict[str, Any], host_key: str):
         """
         Add an Adw.ExpanderRow to display the human-readable text summary for a host.
 
         :param host_data_dict: The dictionary containing data for the host.
+        :type host_data_dict: dict[str, Any]
         :param host_key: The identifier for the host (e.g., IP address).
+        :type host_key: str
+        :rtype: None
         """
         expander = Adw.ExpanderRow(title=f"Text Scan Summary - {host_key}")
         expander.set_expanded(True)
@@ -632,9 +672,9 @@ class NmapPage(Gtk.Box):
                  # If issues arise, the logic for expander re-use or creation needs adjustment.
                  pass # Potentially do nothing if parent is already the right expander
             elif hasattr(current_parent, "remove"): # Generic remove for Gtk.Container
-                 current_parent.remove(self.nmap_output_scrolled_window) # type: ignore
+                 current_parent.remove(self.nmap_output_scrolled_window)
             elif hasattr(current_parent, "set_child") and hasattr(current_parent, "get_child") and current_parent.get_child() == self.nmap_output_scrolled_window:
-                 current_parent.set_child(None) # type: ignore
+                 current_parent.set_child(None)
             else:
                  logger.warning("NmapPage: nmap_output_scrolled_window parent is of unhandled type or not the direct child.")
 
@@ -657,6 +697,8 @@ class NmapPage(Gtk.Box):
         Handle the click of the 'Copy Host Summary' button.
 
         :param summary_text: The summary text to copy to the clipboard.
+        :type summary_text: str
+        :rtype: None
         """
         if not summary_text:
             show_global_toast(self, "No summary text available to copy.")
@@ -671,16 +713,19 @@ class NmapPage(Gtk.Box):
             else:
                 logger.warning("Could not get clipboard for NmapPage.")
                 show_global_toast(self, "Failed to access clipboard.")
-        except Exception as e:
-            logger.exception("Error copying Nmap host summary to clipboard:")
-            show_global_toast(self, f"Error copying: {e}")
+        except Exception:
+            logger.exception("Error copying Nmap host summary to clipboard.")
+            show_global_toast(self, "Error copying summary.")
 
-    def _add_host_details_expander(self, host_data: Dict[str, Any], host_key: str):
+    def _add_host_details_expander(self, host_data: dict[str, Any], host_key: str):
         """
         Add an Adw.ExpanderRow to display general host information.
 
         :param host_data: The dictionary containing data for the host.
+        :type host_data: dict[str, Any]
         :param host_key: The identifier for the host (e.g., IP address).
+        :type host_key: str
+        :rtype: None
         """
         expander = Adw.ExpanderRow(title=f"Host Information - {host_key}")
         expander.set_expanded(True)
@@ -707,12 +752,15 @@ class NmapPage(Gtk.Box):
             expander.add_row(Adw.ActionRow(title="Hostnames", subtitle="No hostnames reported"))
         self.nmap_detail_box.append(expander)
 
-    def _add_ports_expander(self, host_data: Dict[str, Any], host_key: str):
+    def _add_ports_expander(self, host_data: dict[str, Any], host_key: str):
         """
         Add an Adw.ExpanderRow to display detected network ports and their details.
 
         :param host_data: The dictionary containing data for the host.
+        :type host_data: dict[str, Any]
         :param host_key: The identifier for the host (e.g., IP address).
+        :type host_key: str
+        :rtype: None
         """
         expander = Adw.ExpanderRow(title=f"Network Ports - {host_key}")
         expander.set_expanded(True)
@@ -742,12 +790,15 @@ class NmapPage(Gtk.Box):
             )
         self.nmap_detail_box.append(expander)
 
-    def _add_os_expander(self, host_data: Dict[str, Any], host_key: str):
+    def _add_os_expander(self, host_data: dict[str, Any], host_key: str):
         """
         Add an Adw.ExpanderRow to display OS detection results.
 
         :param host_data: The dictionary containing data for the host.
+        :type host_data: dict[str, Any]
         :param host_key: The identifier for the host (e.g., IP address).
+        :type host_key: str
+        :rtype: None
         """
         osmatch_data = host_data.get("osmatch", [])
         if not osmatch_data:
@@ -788,12 +839,15 @@ class NmapPage(Gtk.Box):
             )
         self.nmap_detail_box.append(expander)
 
-    def _update_results_view(self, hosts: List[str], results_map: Dict[str, str]):
+    def _update_results_view(self, hosts: list[str], results_map: dict[str, str]):
         """
         Update the host ListBox with new scan results.
 
         :param hosts: A list of host identifiers (e.g., IP addresses).
+        :type hosts: list[str]
         :param results_map: A dictionary mapping host identifiers to their YAML scan data.
+        :type results_map: dict[str, str]
+        :rtype: None
         """
         self.nmap_target_listbox_store.remove_all()
         self.results_by_host.clear()
@@ -827,7 +881,10 @@ class NmapPage(Gtk.Box):
         Set the scan status and update the UI via GLib.idle_add.
 
         :param status_type: The ScanStatus enum member representing the current status.
+        :type status_type: ScanStatus
         :param message: The message to display in the status row.
+        :type message: str
+        :rtype: None
         """
         logger.info("Setting Nmap scan status: %s - %s", status_type.name, message)
         GLib.idle_add(self._update_status_ui, status_type, message)
@@ -837,7 +894,10 @@ class NmapPage(Gtk.Box):
         Update the status row and spinner in the UI.
 
         :param status_type: The ScanStatus enum member.
+        :type status_type: ScanStatus
         :param message: The message to display.
+        :type message: str
+        :rtype: None
         """
         self.status_row.set_subtitle(message)
         status_css_classes = ["success-color", "warning-color", "error-color", "accent-color"]
@@ -875,7 +935,10 @@ class NmapPage(Gtk.Box):
                 self.status_row.set_title("Scan Status")
 
     def _clear_results(self):
-        """Clear all Nmap scan results from the UI."""
+        """
+        Clear all Nmap scan results from the UI.
+        :rtype: None
+        """
         self.nmap_target_listbox_store.remove_all()
         self.results_by_host.clear()
         self._clear_dynamic_details()
@@ -895,15 +958,25 @@ class NmapPage(Gtk.Box):
             self.nmap_cancel_scan_button.set_visible(False)
         self._set_scan_status(ScanStatus.IDLE, "Idle")
 
-    def _on_error_banner_dismiss(self, _banner: Adw.Banner, *_args):
-        """Handle dismissal of the error banner by clearing the error state."""
+    def _on_error_banner_dismiss(self, _banner: Adw.Banner, *_args) -> None:
+        """
+        Handle dismissal of the error banner by clearing the error state.
+
+        :param _banner: The Adw.Banner that was dismissed.
+        :type _banner: Adw.Banner
+        :param _args: Additional arguments.
+        :rtype: None
+        """
         self._clear_error()
 
     def _clear_error(self):
-        """Clear any displayed error message using the main window's banner."""
+        """
+        Clear any displayed error message using the main window's banner.
+        :rtype: None
+        """
         main_window = self.get_native()
         if main_window and hasattr(main_window, "hide_error"):
-            main_window.hide_error()
+            main_window.hide_error() # type: ignore[attr-defined] # WoesWindow method
         else:
             logger.warning("Could not find main window or hide_error method to clear error.")
 
@@ -912,16 +985,20 @@ class NmapPage(Gtk.Box):
         Create an NmapTargetRow for the host ListBox.
 
         :param item: The NmapItem to create a row for.
+        :type item: NmapItem
         :return: A new NmapTargetRow.
+        :rtype: Gtk.ListBoxRow
         """
         return NmapTargetRow(nmap_item=item)
 
-    def _generate_human_readable_host_summary(self, host_data_dict: Dict[str, Any]) -> str:
+    def _generate_human_readable_host_summary(self, host_data_dict: dict[str, Any]) -> str:
         """
         Generate a human-readable summary of host scan data.
 
         :param host_data_dict: A dictionary containing the scan data for a host.
+        :type host_data_dict: dict[str, Any]
         :return: A string containing the human-readable summary.
+        :rtype: str
         """
         summary_lines = []
         status_info = host_data_dict.get("status", {})
@@ -1043,7 +1120,10 @@ class NmapPage(Gtk.Box):
         return "\n".join(summary_lines)
 
     def trigger_scan(self) -> None:
-        """Programmatically trigger the Nmap 'Scan' action."""
+        """
+        Programmatically trigger the Nmap 'Scan' action.
+        :rtype: None
+        """
         if self.nmap_apply_button and self.nmap_apply_button.get_sensitive():
             self.nmap_apply_button.activate()
         elif self.current_nmap_task and not self.current_nmap_task.is_done():

@@ -54,15 +54,14 @@ class WebScanPage(Gtk.Box):
     auth_bypass_switch: Adw.SwitchRow = Gtk.Template.Child()
 
     def __init__(self, **kwargs: Any):
-        """Initialize the WebScanPage."""
-        logging.debug("WebScanPage.__init__ called")
         """
         Initialize the WebScanPage.
 
-        :param kwargs: Keyword arguments passed to the :class:`Adw.PreferencesPage` constructor.
+        :param kwargs: Keyword arguments passed to the :class:`Gtk.Box` constructor.
         :type kwargs: Any
         """
         super().__init__(**kwargs)
+        logging.debug("WebScanPage.__init__ called")
         self.source_view: Gtk.TextView = Gtk.TextView()
         self.source_view.set_name("webscan-output-textview")
         source_buffer = Gtk.TextBuffer()
@@ -81,7 +80,7 @@ class WebScanPage(Gtk.Box):
 
         self.current_web_scan_task: Optional[Gio.Task] = None
         self.current_web_scan_cancellable: Optional[Gio.Cancellable] = None
-        self.current_nikto_process: Optional[subprocess.Popen[str]] = None  # Added Popen type hint
+        self.current_nikto_process: Optional[subprocess.Popen[str]] = None
         self._current_webscan_params: Optional[dict[str, Any]] = None
         self.settings: Gio.Settings = Gio.Settings.new(APP_ID)
         self.style_manager: Adw.StyleManager = Adw.StyleManager.get_default()
@@ -91,15 +90,13 @@ class WebScanPage(Gtk.Box):
         self._output_font_desc: Pango.FontDescription = Pango.FontDescription.from_string(
             output_font_str if output_font_str else "Monospace 10"
         )
-        # if hasattr(self, "source_view") and self.source_view: # Replaced by CssProvider
-        #     self.source_view.override_font(self._output_font_desc)
 
         self.font_css_provider = Gtk.CssProvider()
         if hasattr(self, "source_view") and self.source_view:
             self.source_view.get_style_context().add_provider(
                 self.font_css_provider, Gtk.STYLE_PROVIDER_PRIORITY_USER
             )
-        self._update_font_css() # Initial font application
+        self._update_font_css()
 
 
         if self.scan_button:
@@ -148,10 +145,6 @@ class WebScanPage(Gtk.Box):
             self._output_font_desc = Pango.FontDescription.from_string(
                 output_font_str if output_font_str else "Monospace 10"
             )
-            # if hasattr(self, "source_view") and self.source_view: # Replaced by CssProvider
-            #     self.source_view.override_font(self._output_font_desc)
-            # else:
-            #     logger.warning("WebScanPage: source_view not available to apply font change.")
             self._update_font_css()
 
     def _update_font_css(self) -> None:
@@ -320,12 +313,12 @@ class WebScanPage(Gtk.Box):
                 try:
                     clipboard = Gdk.Display.get_default().get_clipboard()
                     if clipboard:
-                        clipboard.set(text_content)
+                        clipboard.set_text(text_content, -1) # Use set_text for Gtk.Clipboard
                         logger.info("Webscan results copied to clipboard successfully.")
                     else:
                         logger.warning("Failed to get default clipboard for copying webscan results.")
-                except Exception as e:  # Clipboard operations can be unreliable
-                    logger.error(f"Error copying webscan results to clipboard: {e}", exc_info=True)
+                except Exception:
+                    logger.exception("Error copying webscan results to clipboard.") # Use logger.exception
             else:
                 logger.info("No webscan results to copy.")
 
@@ -409,7 +402,7 @@ class WebScanPage(Gtk.Box):
         task.run_in_thread(self._run_scan_task_thread_func)
 
     def _run_scan_task_thread_func(
-        self, task: Gio.Task, _source_object: GObject.Object, _task_data_unused: Any, cancellable: Gio.Cancellable
+        self, task: Gio.Task, _source_object: "WebScanPage", _task_data_unused: Optional[dict[str, Any]], cancellable: Gio.Cancellable
     ):
         """
         Execute the Nikto scan in a separate thread, with cancellation support.
@@ -423,8 +416,8 @@ class WebScanPage(Gtk.Box):
         :param cancellable: A :class:`Gio.Cancellable` object to monitor for cancellation.
         :type cancellable: Gio.Cancellable
         """
-        page_instance: WebScanPage = _source_object
-        scan_params = page_instance._current_webscan_params
+        # _source_object is self for tasks created with self as source
+        scan_params = self._current_webscan_params
 
         if not scan_params:
             logger.error("WebScanPage: _run_scan_task_thread_func: _current_webscan_params is None.")
@@ -435,7 +428,7 @@ class WebScanPage(Gtk.Box):
             )
             return
 
-        target_url = scan_params["target_url"]
+        target_url = scan_params.get("target_url", "") # Use .get for safety
         force_ssl = scan_params.get("force_ssl", False)
         cgi_vulns = scan_params.get("cgi_vulns", False)
         interesting_content = scan_params.get("interesting_content", False)
@@ -741,15 +734,15 @@ class WebScanPage(Gtk.Box):
                 WebScanErrorType.NIKTO_NOT_FOUND.value,
                 "Nikto command not found. Please ensure it is installed and in your system's PATH.",
             )
-        except Exception as e:
-            logger.exception(f"An unexpected error occurred during Nikto scan task: {e}")
+        except Exception: # Catch any other unexpected error
+            logger.exception("An unexpected error occurred during Nikto scan task.")
             task.return_new_error_literal(
-                GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.GENERIC.value, str(e)
+                GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.GENERIC.value, "An unexpected error occurred during the scan."
             )
         finally:
             self.current_nikto_process = None
 
-    def _on_scan_task_done(self, _source_object: GObject.Object, result: Gio.AsyncResult, _user_data: object):
+    def _on_scan_task_done(self, _source_object: "WebScanPage", result: Gio.AsyncResult, _user_data: Optional[Any]):
         """
         Handle completion of the Nikto scan task.
 

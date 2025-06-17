@@ -1,7 +1,7 @@
 """Module for fetching HTTP headers and processing responses."""
 
 import logging
-from typing import Optional, Dict, List, Any  # Use dict, list
+from typing import Optional, Any # dict, list used directly
 
 import requests
 import requests.utils  # For urlparse, urlunparse
@@ -114,6 +114,7 @@ class HttpFetcher:
         :type custom_dns_server: Optional[str]
         :param cancellable: Optional :class:`Gio.Cancellable` object for cancellation. Defaults to ``None``.
         :type cancellable: Optional[Gio.Cancellable]
+        :rtype: None
         """
         self.url: str = url
         self.use_akamai_pragma: bool = use_akamai_pragma
@@ -173,7 +174,7 @@ class HttpFetcher:
             logger.info("HttpFetcher: Akamai Pragma headers not included.")
         return initial_request_specific_headers, session_headers
 
-    def _execute_http_request(self, initial_request_headers: Dict[str, str]) -> requests.Response:
+    def _execute_http_request(self, initial_request_headers: dict[str, str]) -> requests.Response:
         """
         Execute the HTTP GET request using the configured session.
 
@@ -212,7 +213,7 @@ class HttpFetcher:
             logger.warning("HttpFetcher: RequestException for '%s': %s", self.url, e)
             raise HttpGenericRequestError(f"Request failed for {self.url}: {e}") from e
 
-    def _process_http_response(self, response: requests.Response) -> List[Dict[str, Any]]:
+    def _process_http_response(self, response: requests.Response) -> list[dict[str, Any]]:
         """
         Process the HTTP response, including redirects.
 
@@ -377,7 +378,11 @@ class HttpFetcher:
 
         adapter_sni_hint: Optional[str] = None
         if self.host_header:
-            requests.utils.urlparse(self.url)  # type: ignore[attr-defined]
+            # This line seems to be for parsing the URL to potentially extract hostname for SNI,
+            # but it doesn't assign the result. Assuming it's for a side effect or was part of
+            # an incomplete thought. If SNI is needed from host_header for IP URLs,
+            # it should be explicitly handled. For now, just ensuring correct attribute access.
+            _ = requests.utils.urlparse(self.url) # Correct attribute access
 
         effective_custom_dns_server: Optional[str] = self.custom_dns_server if dns else None
         if self.custom_dns_server and not dns:

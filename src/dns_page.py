@@ -9,10 +9,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# DNS library imports (dns.resolver, etc.) are now primarily in dns_client.py
 import gi
 from gi.repository import Adw, Gio, Gtk, Pango, GObject
-from typing import Optional, Sequence, Any, List, Dict
+from typing import Optional, Sequence, Any # list and dict will be used directly
 
 from .constants import APP_ID, RESOURCE_PREFIX
 from .utils import show_global_error, show_global_toast, is_valid_ip, is_valid_domain
@@ -52,16 +51,14 @@ class DNSPage(Gtk.Box):
     dns_status_row = Gtk.Template.Child()
     dns_status_spinner = Gtk.Template.Child()
 
-    def __init__(self, **kwargs: GObject.GObject):
-        """Initialize the DNSPage."""
-        logging.debug("DNSPage.__init__ called")
+    def __init__(self, **kwargs: Any):
         """
         Initialize the DNSPage.
 
         Sets up UI elements, connects signals, and initializes GSettings.
 
         :param kwargs: Keyword arguments passed to the :class:`Gtk.Box` constructor.
-        :type kwargs: GObject.GObject
+        :type kwargs: Any
         """
         super().__init__(**kwargs)
         logger.debug("DNSPage initialized.")
@@ -73,7 +70,7 @@ class DNSPage(Gtk.Box):
         self._output_font_desc = Pango.FontDescription.from_string(output_font_str if output_font_str else "Sans 10")
 
         # Stored results for refresh
-        self._current_result_records: Optional[List[Dict[str, Any]]] = None
+        self._current_result_records: Optional[list[dict[str, Any]]] = None
         self._current_user_input: Optional[str] = None
         self._current_requested_record_type: Optional[str] = None
         self._current_dns_servers: Optional[Sequence[Any]] = None
@@ -85,9 +82,9 @@ class DNSPage(Gtk.Box):
 
     def _connect_signals(self) -> None:
         """Connect signals for UI elements to their respective handlers."""
-        self.domain_entry.connect("activate", self._on_entry_activated)  # type: ignore
-        self.dns_apply_button.connect("clicked", self._on_entry_activated)  # type: ignore
-        self.dns_record_type_dropdown.connect("notify::selected", self._on_record_type_changed)  # type: ignore
+        self.domain_entry.connect("activate", self._on_entry_activated)
+        self.dns_apply_button.connect("clicked", self._on_entry_activated)
+        self.dns_record_type_dropdown.connect("notify::selected", self._on_record_type_changed)
         if self.dns_clear_results_button:
             self.dns_clear_results_button.connect("clicked", self._on_clear_results_clicked)
         if self.dns_copy_all_results_button:
@@ -125,8 +122,8 @@ class DNSPage(Gtk.Box):
         :type _button: Gtk.Button
         """
         logger.info("Clearing DNS results.")
-        while child := self.dns_results_box_container.get_first_child():  # type: ignore
-            self.dns_results_box_container.remove(child)  # type: ignore
+        while child := self.dns_results_box_container.get_first_child():
+            self.dns_results_box_container.remove(child)
 
         if self.dns_clear_results_button:
             self.dns_clear_results_button.set_sensitive(False)
@@ -150,7 +147,7 @@ class DNSPage(Gtk.Box):
         all_results_text = []
 
         # Iterate through children of dns_results_box_container
-        child = self.dns_results_box_container.get_first_child()  # type: ignore
+        child = self.dns_results_box_container.get_first_child()
         while child:
             text_parts_for_child = []
             if isinstance(child, Adw.ActionRow):
@@ -185,12 +182,12 @@ class DNSPage(Gtk.Box):
             child = child.get_next_sibling()
 
         if not all_results_text:
-            show_global_toast(self, "No results to copy.")  # type: ignore
+            show_global_toast(self, "No results to copy.")
             return
 
         final_text_to_copy = "\n".join(all_results_text)
         DNSPage._copy_to_clipboard(final_text_to_copy, self)
-        show_global_toast(self, "All results copied to clipboard.")  # type: ignore
+        show_global_toast(self, "All results copied to clipboard.")
 
     @staticmethod
     def _copy_to_clipboard(text: str, widget: Gtk.Widget) -> None:
@@ -203,12 +200,13 @@ class DNSPage(Gtk.Box):
         :type widget: Gtk.Widget
         """
         try:
-            clipboard = widget.get_clipboard()  # type: ignore
+            display = widget.get_display()
+            clipboard = Gtk.Clipboard.get_default(display)
             if clipboard:
-                clipboard.set(text)  # type: ignore
+                clipboard.set_text(text, -1)
                 logger.info("Copied to clipboard: %s", text)
             else:
-                logger.warning("Could not get clipboard from widget: %s", widget)
+                logger.warning("Could not get default clipboard from widget's display: %s", widget)
         except Exception:  # pylint: disable=broad-except
             logger.exception("Error copying to clipboard:")
 
@@ -449,17 +447,17 @@ class DNSPage(Gtk.Box):
         :rtype: bool
         """
         if not user_input:
-            show_global_toast(self, "Input cannot be empty.")  # type: ignore
+            show_global_toast(self, "Input cannot be empty.")
             main_window = self.get_native()  # type: ignore
-            if not (main_window and hasattr(main_window, "show_toast")):  # type: ignore
-                show_global_error(self, "Input cannot be empty.")  # type: ignore
+            if not (main_window and hasattr(main_window, "show_toast")):
+                show_global_error(self, "Input cannot be empty.")
             return False
 
         if not self._is_valid_ip_or_domain(user_input):
-            show_global_toast(self, "Invalid IP address or domain name.")  # type: ignore
+            show_global_toast(self, "Invalid IP address or domain name.")
             main_window = self.get_native()  # type: ignore
             if not (main_window and hasattr(main_window, "show_toast")):
-                show_global_error(self, "Invalid IP address or domain name.")  # type: ignore
+                show_global_error(self, "Invalid IP address or domain name.")
             return False
         return True
 
@@ -489,7 +487,7 @@ class DNSPage(Gtk.Box):
 
     def _handle_dns_lookup_success(
         self,
-        result_data: List[Dict[str, Any]],
+        result_data: list[dict[str, Any]],
         user_input: str,
         requested_record_type: str,  # The type initially selected by user
         dns_client: DnsResolverClient,
@@ -531,9 +529,9 @@ class DNSPage(Gtk.Box):
             else f"No {actual_record_type_displayed} records found for {user_input}."
         )
         if self.dns_status_row:
-            self.dns_status_row.set_subtitle(status_message)  # type: ignore
+            self.dns_status_row.set_subtitle(status_message)
         # show_global_toast is good for transient notifications, status row is persistent.
-        show_global_toast(self, status_message)  # type: ignore
+        show_global_toast(self, status_message)
 
     def _handle_dns_lookup_exception(
         self,
@@ -558,7 +556,7 @@ class DNSPage(Gtk.Box):
         status_subtitle = f"Error: {error_message.splitlines()[0]}"  # Default status: first line of error
 
         if isinstance(error, DnsNxDomainError):
-            show_global_error(self, error_message)  # type: ignore
+            show_global_error(self, error_message)
             status_subtitle = f"NXDOMAIN: Domain '{user_input}' not found."
             self._current_result_records = None  # No valid results to refresh
         elif isinstance(error, DnsNoAnswerError):
@@ -584,7 +582,7 @@ class DNSPage(Gtk.Box):
                 user_input,
                 requested_record_type,
             )
-            show_global_error(self, error_message)  # type: ignore
+            show_global_error(self, error_message)
             status_subtitle = f"DNS Error: {error_message.splitlines()[0]}"
         elif isinstance(error, DnsClientError):  # Base client error
             logger.exception(
@@ -592,7 +590,7 @@ class DNSPage(Gtk.Box):
                 user_input,
                 requested_record_type,
             )
-            show_global_error(self, f"DNS Client Error: {error_message}")  # type: ignore
+            show_global_error(self, f"DNS Client Error: {error_message}")
             status_subtitle = f"Client Error: {error_message.splitlines()[0]}"
             self._current_result_records = None
         else:  # Generic Exception
@@ -602,12 +600,12 @@ class DNSPage(Gtk.Box):
                 requested_record_type,
             )
             error_message_short = f"An unexpected error occurred: {error_message.splitlines()[0]}"
-            show_global_error(self, error_message_short)  # type: ignore
+            show_global_error(self, error_message_short)
             status_subtitle = error_message_short
             self._current_result_records = None
 
         if self.dns_status_row:
-            self.dns_status_row.set_subtitle(status_subtitle)  # type: ignore
+            self.dns_status_row.set_subtitle(status_subtitle)
 
     def _perform_lookup(self) -> None:
         """
@@ -669,10 +667,10 @@ class DNSPage(Gtk.Box):
 
     def _display_result(
         self,
-        result_records: List[Dict[str, Any]],
+        result_records: list[dict[str, Any]],
         domain_or_ip: str,
         record_type: str,
-        dns_servers: Sequence[Any],
+        dns_servers: Sequence[Any], # Using typing.Sequence
     ) -> None:
         """
         Display the DNS lookup results in the UI.
@@ -901,8 +899,8 @@ class DNSPage(Gtk.Box):
 
     # --- Modified _build_*_record_row methods ---
 
-    def _build_address_record_row(
-        self, record_data: Dict[str, Any], name: str, base_subtitle: str, record_type: str
+    def _build_address_record_row( # type: ignore[type-arg]
+        self, record_data: dict[str, Any], name: str, base_subtitle: str, record_type: str
     ) -> Adw.ActionRow:
         """
         Build a UI row for an A or AAAA DNS record.
@@ -926,8 +924,8 @@ class DNSPage(Gtk.Box):
         self._add_standard_suffix_box_to_row(row, address_value, "Copy Address", summary_text)
         return row
 
-    def _build_cname_ns_ptr_record_row(
-        self, record_data: Dict[str, Any], name: str, base_subtitle: str, record_type: str
+    def _build_cname_ns_ptr_record_row( # type: ignore[type-arg]
+        self, record_data: dict[str, Any], name: str, base_subtitle: str, record_type: str
     ) -> Adw.ActionRow:
         """
         Build a UI row for CNAME, NS, or PTR DNS records.
@@ -957,8 +955,8 @@ class DNSPage(Gtk.Box):
         self._add_standard_suffix_box_to_row(row, target_value, "Copy Target", summary_text)
         return row
 
-    def _build_generic_data_record_row(
-        self, record_data: Dict[str, Any], name: str, base_subtitle: str, record_type: str
+    def _build_generic_data_record_row( # type: ignore[type-arg]
+        self, record_data: dict[str, Any], name: str, base_subtitle: str, record_type: str
     ) -> Adw.ActionRow:
         """
         Build a UI row for generic DNS records that have a 'data' field.
@@ -980,8 +978,8 @@ class DNSPage(Gtk.Box):
         self._add_standard_suffix_box_to_row(row, data_value, "Copy Data", summary_text)
         return row
 
-    def _build_mx_record_row(
-        self, record_data: Dict[str, Any], name: str, base_subtitle: str
+    def _build_mx_record_row( # type: ignore[type-arg]
+        self, record_data: dict[str, Any], name: str, base_subtitle: str
     ) -> Adw.ExpanderRow:  # record_type is "MX"
         """
         Build a UI row for an MX DNS record.
@@ -1030,8 +1028,8 @@ class DNSPage(Gtk.Box):
         row.set_expanded(True)
         return row
 
-    def _build_txt_record_row(
-        self, record_data: Dict[str, Any], name: str, base_subtitle: str
+    def _build_txt_record_row( # type: ignore[type-arg]
+        self, record_data: dict[str, Any], name: str, base_subtitle: str
     ) -> Adw.ExpanderRow:  # record_type is "TXT"
         """
         Build a UI row for a TXT DNS record.
@@ -1066,8 +1064,8 @@ class DNSPage(Gtk.Box):
         row.set_expanded(bool(texts))
         return row
 
-    def _build_soa_record_row(
-        self, record_data: Dict[str, Any], name: str, base_subtitle: str
+    def _build_soa_record_row( # type: ignore[type-arg]
+        self, record_data: dict[str, Any], name: str, base_subtitle: str
     ) -> Adw.ExpanderRow:  # record_type is "SOA"
         """
         Build a UI row for an SOA DNS record.
@@ -1110,7 +1108,7 @@ class DNSPage(Gtk.Box):
         row.set_expanded(True)
         return row
 
-    def _create_record_row(self, record_data: Dict[str, Any]) -> Optional[Gtk.Widget]:
+    def _create_record_row(self, record_data: dict[str, Any]) -> Optional[Gtk.Widget]:
         """
         Create a UI row for a single DNS record dictionary.
 
