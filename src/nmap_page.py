@@ -260,6 +260,24 @@ class NmapPage(Gtk.Box):
         except GLib.Error as e:  # Catch potential errors from load_from_string
             logger.error(f"NmapPage: Error loading CSS string '{css}': {e}")
 
+    def _on_nmap_target_entry_changed(self, editable: Adw.EntryRow) -> None:
+        """
+        Handle the 'changed' signal for the Nmap target entry row.
+
+        Clears the 'error' CSS class from the entry row and hides any global error
+        banner specifically related to this input's validation.
+
+        :param editable: The Adw.EntryRow that emitted the signal.
+        :type editable: Adw.EntryRow
+        """
+        if editable.has_css_class("error"):
+            editable.remove_css_class("error")
+            main_window = self.get_native()
+            if main_window and hasattr(main_window, "hide_error_if_message_matches"):
+                main_window.hide_error_if_message_matches("Invalid Target. Please enter a valid IP address, domain, CIDR, or 'localhost'.") # type: ignore[attr-defined]
+            # If the specific hide method isn't there, the error banner might persist until the next successful validation
+            # or explicit _clear_error() call. This is acceptable.
+
     def _on_cancel_scan_clicked(self, _button: Gtk.Button) -> None:
         """
         Handle the 'Cancel Scan' button click.
@@ -1170,22 +1188,3 @@ class NmapScanErrorType(int, Enum):
     CANCELLED = 2
     PREREQUISITE_MISSING = 3  # New error type
     UNSUPPORTED_PLATFORM = 4 # New error type
-
-
-def _on_nmap_target_entry_changed(self, editable: Adw.EntryRow) -> None:
-    """
-    Handle the 'changed' signal for the Nmap target entry row.
-
-    Clears the 'error' CSS class from the entry row and hides any global error
-    banner specifically related to this input's validation.
-
-    :param editable: The Adw.EntryRow that emitted the signal.
-    :type editable: Adw.EntryRow
-    """
-    if editable.has_css_class("error"):
-        editable.remove_css_class("error")
-        main_window = self.get_native()
-        if main_window and hasattr(main_window, "hide_error_if_message_matches"):
-            main_window.hide_error_if_message_matches("Invalid Target. Please enter a valid IP address, domain, CIDR, or 'localhost'.") # type: ignore[attr-defined]
-        # If the specific hide method isn't there, the error banner might persist until the next successful validation
-        # or explicit _clear_error() call. This is acceptable.
