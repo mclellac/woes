@@ -1,0 +1,72 @@
+#!@PYTHON@
+
+# MIT License
+#
+# Copyright (c) 2024 Carey McLelland
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+# SPDX-License-Identifier: MIT
+import os
+import sys
+import signal
+import locale
+import gettext
+import requests
+import platform
+
+VERSION = "@VERSION@"
+DATA_DIR = "@DATADIR@"
+APP_ID = "@APPID@"
+PKG_DATA_DIR = "@PKGDATADIR@"
+PYTHON_SITE_PACKAGES_DIR = "@PYTHON_SITE_PACKAGES_DIR@"
+GSETTINGS_SCHEMA_DIR = "@GSETTINGSSCHEMADIR@"
+LOCALE_DIR = "@LOCALEDIR@"
+
+print("APP_ID: ", APP_ID)
+print("VERSION: ", VERSION)
+print("GSETTINGS_SCHEMA_DIR: ", GSETTINGS_SCHEMA_DIR)
+
+# sys.path.insert(1, PYTHON_SITE_PACKAGES_DIR) # This line is suspected to cause issues
+signal.signal(signal.SIGINT, signal.SIG_DFL)
+
+# Use gettext on macOS, otherwise bindtext
+if platform.system() == "Darwin":
+    gettext.bindtextdomain("woes", LOCALE_DIR)
+    gettext.textdomain("woes")
+else:
+    locale.bindtextdomain("woes", LOCALE_DIR)
+    locale.textdomain("woes")
+
+gettext.install("woes", LOCALE_DIR)
+
+if __name__ == "__main__":
+    print("--- sys.path before import gi ---")
+    print(sys.path)
+    print("---------------------------------")
+    import gi
+
+    from gi.repository import Gio
+
+    resource = Gio.Resource.load(os.path.join(PKG_DATA_DIR, "woes.gresource"))
+    resource._register()
+
+    from woes import main
+
+    sys.exit(main.main(VERSION))

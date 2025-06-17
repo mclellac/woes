@@ -1,0 +1,31 @@
+/* HTTP Page Specific Styles - Dark Theme */
+.header-key {
+    color: #78aeed; /* Lighter Adwaita Blue for dark theme */
+    /* font-weight: bold; */
+}
+.header-value {
+    color: @theme_fg_color;
+}
+
+/* Style for Adw.EntryRow and Adw.ComboRow when an override is active - Dark Theme */
+.active-override {
+    background-color: rgba(74, 144, 226, 0.1); /* Lighter blueish background for dark theme */
+    border-left: 3px solid rgba(74, 144, 226, 0.7); /* Lighter blueish border for dark theme */
+}
+
+/* Ensure accent colors on buttons are not overridden by text-button styling */
+button.suggested-action,
+button.suggested-action.text-button {
+    background-image: none;
+    background-color: var(--accent-bg-color);
+    color: var(--accent-fg-color);
+    border-color: var(--accent-bg-color); /* Or var(--accent-color) for more contrast */
+}
+
+button.destructive-action,
+button.destructive-action.text-button {
+    background-image: none;
+    background-color: var(--destructive-bg-color);
+    color: var(--destructive-fg-color);
+    border-color: var(--destructive-bg-color); /* Or var(--destructive-color) for more contrast */
+}

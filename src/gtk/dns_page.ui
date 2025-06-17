@@ -1,0 +1,116 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Created with Cambalache 0.96.1 -->
+<interface>
+  <!-- interface-name dns_page.ui -->
+  <requires lib="gtk" version="4.18"/>
+  <requires lib="libadwaita" version="1.7"/>
+  <template class="DNSPage" parent="GtkBox">
+    <property name="orientation">vertical</property>
+    <property name="width-request">1000</property>
+    <child>
+      <object class="AdwPreferencesGroup">
+        <property name="title" translatable="yes">Lookup Parameters</property>
+        <property name="width-request">800</property>
+        <child>
+          <object class="AdwActionRow" id="dns_ip_entryrow">
+            <property name="title" translatable="yes">Domain or IP Address</property>
+            <property name="tooltip-text" translatable="yes">Enter a domain name or an IP address for reverse lookup</property>
+            <child>
+              <object class="GtkEntry" id="domain_entry">
+                <property name="hexpand">True</property>
+                <property name="valign">center</property>
+              </object>
+            </child>
+            <child type="suffix">
+              <object class="GtkButton" id="dns_apply_button">
+                <property name="label" translatable="yes">_Lookup Record</property>
+                <property name="use-underline">True</property>
+                <property name="valign">center</property>
+                <style>
+                  <class name="suggested-action"/>
+                </style>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="AdwComboRow" id="dns_record_type_dropdown">
+            <property name="icon-name">preferences-system-network-symbolic</property>
+            <property name="model">
+              <object class="GtkStringList" id="dns_record_type_list">
+                <property name="strings">A</property>
+                <!-- Default selection -->
+                <items>
+                  <item>AAAA</item>
+                  <item>TXT</item>
+                  <item>CNAME</item>
+                  <item>MX</item>
+                  <item>NS</item>
+                  <item>PTR</item>
+                </items>
+              </object>
+            </property>
+            <property name="selected">0</property>
+            <property name="title" translatable="yes">Record Type</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwActionRow" id="dns_status_row">
+            <property name="subtitle" translatable="yes">Idle</property>
+            <property name="title" translatable="yes">Status</property>
+            <child type="suffix">
+              <object class="GtkSpinner" id="dns_status_spinner">
+                <property name="spinning">False</property>
+                <property name="valign">center</property>
+                <property name="visible">False</property>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="AdwPreferencesGroup">
+        <property name="description" translatable="yes">DNS lookup results will appear below.</property>
+        <property name="header-suffix">
+          <object class="GtkBox">
+            <property name="orientation">horizontal</property>
+            <property name="spacing">6</property>
+            <child>
+              <object class="GtkButton" id="dns_clear_results_button">
+                <property name="icon-name">edit-clear-all-symbolic</property>
+                <property name="sensitive">False</property>
+                <property name="tooltip-text" translatable="yes">Clear Results</property>
+                <property name="valign">center</property>
+                <style>
+                  <class name="destructive-action"/>
+                </style>
+              </object>
+            </child>
+            <child>
+              <object class="GtkButton" id="dns_copy_all_results_button">
+                <property name="icon-name">edit-copy-symbolic</property>
+                <property name="sensitive">False</property>
+                <property name="tooltip-text" translatable="yes">Copy All Results</property>
+                <property name="valign">center</property>
+                <style>
+                  <class name="flat"/>
+                </style>
+              </object>
+            </child>
+          </object>
+        </property>
+        <property name="title" translatable="yes">Results</property>
+        <property name="width-request">1000</property>
+        <child>
+          <object class="GtkBox" id="dns_results_box_container">
+            <property name="hexpand">True</property>
+            <property name="orientation">vertical</property>
+            <property name="spacing">6</property>
+            <property name="vexpand">True</property>
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+</interface>

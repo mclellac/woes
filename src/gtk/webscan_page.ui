@@ -1,0 +1,235 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Created with Cambalache 0.96.1 -->
+<interface>
+  <!-- interface-name webscan_page.ui -->
+  <requires lib="GtkSource" version="5.0"/>
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="libadwaita" version="1.0"/>
+  <template class="WebScanPage" parent="GtkBox">
+    <property name="orientation">vertical</property>
+    <property name="hexpand">True</property>
+    <child>
+      <object class="AdwPreferencesGroup">
+        <property name="description" translatable="yes">Enter a URL to scan for common web vulnerabilities using Nikto.</property>
+        <property name="hexpand">True</property>
+        <property name="title">Scan Target</property>
+        <property name="valign">baseline-fill</property>
+        <child>
+          <object class="AdwEntryRow" id="url_entry">
+            <property name="title">Target URL</property>
+            <child type="suffix">
+              <object class="GtkButton" id="scan_button">
+                <property name="halign">end</property>
+                <property name="label">_Website Scan</property>
+                <property name="use-underline">True</property>
+                <property name="valign">center</property>
+                <signal name="clicked" handler="on_scan_button_clicked"/>
+                <style>
+                  <class name="suggested-action"/>
+                </style>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="AdwExpanderRow" id="nikto_options_expander">
+            <property name="expanded">false</property>
+            <property name="title">Nikto Scan Options</property>
+            <child>
+              <object class="AdwActionRow">
+                <property name="activatable-widget">force_ssl_switch</property>
+                <property name="subtitle">Equivalent to Nikto's -ssl option</property>
+                <property name="title">Force SSL Scan</property>
+                <child>
+                  <object class="GtkSwitch" id="force_ssl_switch">
+                    <property name="valign">center</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="AdwActionRow">
+                <property name="activatable-widget">cgi_vulns_switch</property>
+                <property name="subtitle">Nikto Tuning Option: 2 (Misconfiguration/Default File)</property>
+                <property name="title">Check CGI Vulnerabilities</property>
+                <child>
+                  <object class="GtkSwitch" id="cgi_vulns_switch">
+                    <property name="active">true</property>
+                    <property name="valign">center</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="AdwActionRow">
+                <property name="activatable-widget">interesting_content_switch</property>
+                <property name="subtitle">Nikto Tuning Option: 1 (Interesting File / Seen in logs)</property>
+                <property name="title">Check Interesting Files/Directories</property>
+                <child>
+                  <object class="GtkSwitch" id="interesting_content_switch">
+                    <property name="active">true</property>
+                    <property name="valign">center</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="AdwActionRow" id="evasion_row">
+                <property name="activatable-widget">evasion_switch</property>
+                <property name="subtitle">Pass -evasion 1 to Nikto</property>
+                <property name="title">IDS Evasion (type 1)</property>
+                <child>
+                  <object class="GtkSwitch" id="evasion_switch">
+                    <property name="valign">center</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="AdwActionRow" id="mutate_row">
+                <property name="activatable-widget">mutate_switch</property>
+                <property name="subtitle">Pass -mutate 1 to Nikto</property>
+                <property name="title">Mutation (type 1)</property>
+                <child>
+                  <object class="GtkSwitch" id="mutate_switch">
+                    <property name="valign">center</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="AdwEntryRow" id="maxtime_entry_row">
+                <property name="input-purpose">number</property>
+                <property name="title">Max Scan Time (seconds)</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwComboRow" id="nikto_format_combo_row">
+                <property name="model">
+                  <object class="GtkStringList">
+                    <items>
+                      <item>default (text)</item>
+                      <item>txt (text)</item>
+                      <item>csv</item>
+                      <item>xml</item>
+                      <item>html</item>
+                    </items>
+                  </object>
+                </property>
+                <property name="selected">0</property>
+                <property name="subtitle">Select Nikto's output format</property>
+                <property name="title">Output Format</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwEntryRow" id="nikto_output_file_row">
+                <property name="sensitive">false</property>
+                <property name="title" translatable="yes">Output Filename</property>
+                <child type="suffix">
+                  <object class="GtkButton" id="nikto_output_file_button">
+                    <property name="icon-name">document-open-symbolic</property>
+                    <property name="tooltip-text" translatable="yes">Choose Output File</property>
+                    <property name="valign">center</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="AdwActionRow" id="no404_row">
+                <property name="activatable-widget">no404_switch</property>
+                <property name="subtitle">Pass -no404 to Nikto</property>
+                <property name="title">Disable 404 Checking</property>
+                <child>
+                  <object class="GtkSwitch" id="no404_switch">
+                    <property name="valign">center</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="AdwActionRow" id="auth_bypass_row">
+                <property name="activatable-widget">auth_bypass_switch</property>
+                <property name="subtitle">Nikto Tuning Option: 9 (Authentication Bypass)</property>
+                <property name="title">Authentication Bypass</property>
+                <child>
+                  <object class="GtkSwitch" id="auth_bypass_switch">
+                    <property name="valign">center</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="AdwActionRow" id="webscan_status_action_row">
+            <property name="title">Status</property>
+            <child type="suffix">
+              <object class="GtkBox">
+                <property name="orientation">horizontal</property>
+                <property name="spacing">6</property>
+                <child>
+                  <object class="GtkButton" id="webscan_cancel_button">
+                    <property name="icon-name">process-stop-symbolic</property>
+                    <property name="label" translatable="yes">Cancel Scan</property>
+                    <property name="sensitive">False</property>
+                    <property name="valign">center</property>
+                    <property name="visible">False</property>
+                    <style>
+                      <class name="destructive-action"/>
+                    </style>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkSpinner" id="webscan_status_spinner">
+                    <property name="spinning">False</property>
+                    <property name="valign">center</property>
+                    <property name="visible">False</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="AdwPreferencesGroup">
+        <property name="description">Output from the web vulnerability scan will appear here.</property>
+        <property name="header-suffix">
+          <object class="GtkBox">
+            <property name="orientation">horizontal</property>
+            <property name="spacing">6</property>
+            <child>
+              <object class="GtkButton" id="clear_results_button">
+                <property name="icon-name">edit-clear-all-symbolic</property>
+                <property name="tooltip-text" translatable="yes">Clear Results</property>
+                <property name="valign">center</property>
+                <style>
+                  <class name="destructive-action"/>
+                </style>
+              </object>
+            </child>
+            <child>
+              <object class="GtkButton" id="copy_results_button">
+                <property name="icon-name">edit-copy-symbolic</property>
+                <property name="tooltip-text" translatable="yes">Copy Results</property>
+                <property name="valign">center</property>
+                <style>
+                  <class name="flat"/>
+                </style>
+              </object>
+            </child>
+          </object>
+        </property>
+        <property name="title">Scan Results</property>
+        <child>
+          <object class="GtkScrolledWindow" id="results_scrolled_window">
+            <property name="hexpand">True</property>
+            <property name="min-content-height">200</property>
+            <property name="vexpand">True</property>
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+</interface>
