@@ -9,7 +9,7 @@ system and application-specific style configurations.
 import logging
 import re
 import platform
-from typing import Optional # Tuple will be replaced by tuple
+from typing import Optional  # Tuple will be replaced by tuple
 
 import gi
 

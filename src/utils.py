@@ -4,7 +4,7 @@ import logging
 import ipaddress
 import re
 from urllib.parse import urlparse
-from typing import Optional # List will be replaced by list
+from typing import Optional
 
 import gi
 from gi.repository import Gtk, Adw

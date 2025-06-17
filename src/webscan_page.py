@@ -93,11 +93,8 @@ class WebScanPage(Gtk.Box):
 
         self.font_css_provider = Gtk.CssProvider()
         if hasattr(self, "source_view") and self.source_view:
-            self.source_view.get_style_context().add_provider(
-                self.font_css_provider, Gtk.STYLE_PROVIDER_PRIORITY_USER
-            )
+            self.source_view.get_style_context().add_provider(self.font_css_provider, Gtk.STYLE_PROVIDER_PRIORITY_USER)
         self._update_font_css()
-
 
         if self.scan_button:
             self.scan_button.get_style_context().add_class("suggested-action")
@@ -167,9 +164,9 @@ class WebScanPage(Gtk.Box):
         size_in_pango_units = self._output_font_desc.get_size()
 
         size_in_points = 0.0
-        if size_in_pango_units > 0: # Pango.SCALE can be 0, avoid division by zero
+        if size_in_pango_units > 0:  # Pango.SCALE can be 0, avoid division by zero
             size_in_points = size_in_pango_units / Pango.SCALE
-        else: # Default to a reasonable size if Pango size is 0 or invalid
+        else:  # Default to a reasonable size if Pango size is 0 or invalid
             size_in_points = 10.0
             logger.warning(f"WebScanPage: Pango font size was {size_in_pango_units}, defaulting to {size_in_points}pt.")
 
@@ -178,7 +175,7 @@ class WebScanPage(Gtk.Box):
         css = f"textview#webscan-output-textview {{ font-family: '{effective_font_family}'; font-size: {size_in_points:.1f}pt; }}"
         try:
             self.font_css_provider.load_from_string(css)
-        except GLib.Error as e: # Catch potential errors from load_from_string
+        except GLib.Error as e:  # Catch potential errors from load_from_string
             logger.error(f"WebScanPage: Error loading CSS string '{css}': {e}")
 
     def __del__(self):
@@ -313,12 +310,12 @@ class WebScanPage(Gtk.Box):
                 try:
                     clipboard = Gdk.Display.get_default().get_clipboard()
                     if clipboard:
-                        clipboard.set_text(text_content, -1) # Use set_text for Gtk.Clipboard
+                        clipboard.set_text(text_content, -1)  # Use set_text for Gtk.Clipboard
                         logger.info("Webscan results copied to clipboard successfully.")
                     else:
                         logger.warning("Failed to get default clipboard for copying webscan results.")
                 except Exception:
-                    logger.exception("Error copying webscan results to clipboard.") # Use logger.exception
+                    logger.exception("Error copying webscan results to clipboard.")  # Use logger.exception
             else:
                 logger.info("No webscan results to copy.")
 
@@ -402,7 +399,11 @@ class WebScanPage(Gtk.Box):
         task.run_in_thread(self._run_scan_task_thread_func)
 
     def _run_scan_task_thread_func(
-        self, task: Gio.Task, _source_object: "WebScanPage", _task_data_unused: Optional[dict[str, Any]], cancellable: Gio.Cancellable
+        self,
+        task: Gio.Task,
+        _source_object: "WebScanPage",
+        _task_data_unused: Optional[dict[str, Any]],
+        cancellable: Gio.Cancellable,
     ):
         """
         Execute the Nikto scan in a separate thread, with cancellation support.
@@ -428,7 +429,7 @@ class WebScanPage(Gtk.Box):
             )
             return
 
-        target_url = scan_params.get("target_url", "") # Use .get for safety
+        target_url = scan_params.get("target_url", "")  # Use .get for safety
         force_ssl = scan_params.get("force_ssl", False)
         cgi_vulns = scan_params.get("cgi_vulns", False)
         interesting_content = scan_params.get("interesting_content", False)
@@ -734,10 +735,12 @@ class WebScanPage(Gtk.Box):
                 WebScanErrorType.NIKTO_NOT_FOUND.value,
                 "Nikto command not found. Please ensure it is installed and in your system's PATH.",
             )
-        except Exception: # Catch any other unexpected error
+        except Exception:  # Catch any other unexpected error
             logger.exception("An unexpected error occurred during Nikto scan task.")
             task.return_new_error_literal(
-                GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.GENERIC.value, "An unexpected error occurred during the scan."
+                GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN),
+                WebScanErrorType.GENERIC.value,
+                "An unexpected error occurred during the scan.",
             )
         finally:
             self.current_nikto_process = None

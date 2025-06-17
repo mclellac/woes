@@ -16,7 +16,7 @@ import shutil
 import time
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
-from typing import Any, Optional, TypedDict, Union # Use dict, list
+from typing import Any, Optional, TypedDict, Union
 
 try:
     from gi.repository import Gio
@@ -263,7 +263,7 @@ class NmapScanner:
         logger.debug("Nmap options constructed: %s", options)
         return options
 
-    def _build_nmap_arguments(self, params: NmapScanParameters) -> list[str]: # type: ignore[type-arg]
+    def _build_nmap_arguments(self, params: NmapScanParameters) -> list[str]:  # type: ignore[type-arg]
         """
         Build the list of arguments for the Nmap command.
 
@@ -296,7 +296,7 @@ class NmapScanner:
             nmap_args_list.append(f"--dns-servers={custom_dns_server.strip()}")
             logger.info("Using custom DNS server for Nmap scan: %s", custom_dns_server.strip())
 
-        nmap_args_list.extend(["-oX", "-", params["target"]]) # type: ignore[literal-required]
+        nmap_args_list.extend(["-oX", "-", params["target"]])  # type: ignore[literal-required]
         logger.debug("Built Nmap arguments: %s", nmap_args_list)
         return nmap_args_list
 

@@ -261,14 +261,14 @@ class WoesWindow(Adw.ApplicationWindow):
         """
         try:
             self.load_css()
-        except GLib.Error as e: # More specific for resource loading
+        except GLib.Error as e:  # More specific for resource loading
             logging.exception(f"WoesWindow.setup_ui: GLib.Error during self.load_css(): {e}")
         except Exception as e:
             logging.exception(f"WoesWindow.setup_ui: Unexpected error during self.load_css(): {e}")
 
         try:
             self.apply_preferences()
-        except GLib.Error as e: # More specific for GSettings
+        except GLib.Error as e:  # More specific for GSettings
             logging.exception(f"WoesWindow.setup_ui: GLib.Error during self.apply_preferences(): {e}")
         except Exception as e:
             logging.exception(f"WoesWindow.setup_ui: Unexpected error during self.apply_preferences(): {e}")
@@ -276,8 +276,10 @@ class WoesWindow(Adw.ApplicationWindow):
         if self.switcher_title and self.stack:
             try:
                 self.switcher_title.connect("notify::selected-page", self.on_page_switched)
-            except Exception as e: # Signal connection errors are often generic
-                logging.exception(f"WoesWindow.setup_ui: Error connecting switcher_title 'notify::selected-page' signal: {e}")
+            except Exception as e:  # Signal connection errors are often generic
+                logging.exception(
+                    f"WoesWindow.setup_ui: Error connecting switcher_title 'notify::selected-page' signal: {e}"
+                )
         else:
             logging.warning("switcher_title or stack not found during setup_ui.")
 
@@ -365,9 +367,9 @@ class WoesWindow(Adw.ApplicationWindow):
         """
         try:
             theme_pref = self.settings.get_string("theme-preference")
-            apply_font_size(self.settings) # Assuming apply_font_size handles its own logging/exceptions
-            apply_theme(self.style_manager, theme_pref) # Assuming apply_theme handles its own logging/exceptions
-        except GLib.Error as e: # For self.settings.get_string
+            apply_font_size(self.settings)  # Assuming apply_font_size handles its own logging/exceptions
+            apply_theme(self.style_manager, theme_pref)  # Assuming apply_theme handles its own logging/exceptions
+        except GLib.Error as e:  # For self.settings.get_string
             logging.exception("GLib.Error applying preferences (likely GSettings access)", exc_info=e)
         except Exception as e:
             logging.exception("An unexpected error occurred while applying preferences", exc_info=e)

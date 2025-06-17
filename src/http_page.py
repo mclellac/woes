@@ -244,8 +244,8 @@ class HttpPage(Gtk.Box):
         :return: None
         :rtype: None
         """
-        self.http_entry_row.connect("entry-activated", self._on_entry_row_activated)
-        self.http_apply_button.connect("clicked", self._on_entry_row_activated)
+        self.http_entry_row.connect("entry-activated", self._on_entry_row_activated) # type: ignore[no-untyped-call]
+        self.http_apply_button.connect("clicked", self._on_entry_row_activated) # type: ignore[no-untyped-call]
         self.http_pragma_switch_row.connect("notify::active", self._on_pragma_toggled)
         self.clear_results_button.connect("clicked", self._on_clear_results_clicked)
         if self.copy_results_button:
@@ -551,7 +551,7 @@ class HttpPage(Gtk.Box):
         :type _task_data_arg: dict[str, Any]
         :param cancellable: A :class:`Gio.Cancellable` object to monitor for cancellation.
         :type cancellable: Optional[Gio.Cancellable]
-        :return: None
+        :return: None # Explicitly document that this thread function itself doesn't return to its caller via Python return
         :rtype: None
         """
         current_task_data = self._http_task_data_for_thread
@@ -637,7 +637,7 @@ class HttpPage(Gtk.Box):
         :type result: Gio.AsyncResult
         :param _user_data: User data passed with the callback (unused).
         :type _user_data: Optional[Any]
-        :return: None
+        :return: None # Callback doesn't return a value
         :rtype: None
         """
         task_being_processed = self.current_http_task
@@ -881,7 +881,7 @@ class HttpPage(Gtk.Box):
         :rtype: None
         """
         if self.http_results_group:
-            self.http_results_group.set_visible(True)
+            self.http_results_group.set_visible(True) # type: ignore[no-untyped-call]
 
     def _hide_results(self) -> None:
         """
@@ -891,7 +891,7 @@ class HttpPage(Gtk.Box):
         :rtype: None
         """
         if self.http_results_group:
-            self.http_results_group.set_visible(False)
+            self.http_results_group.set_visible(False) # type: ignore[no-untyped-call]
 
     def _clear_error(self) -> None:
         """
@@ -905,7 +905,7 @@ class HttpPage(Gtk.Box):
         """
         main_window = self.get_native()
         if main_window and hasattr(main_window, "hide_error"):
-                main_window.hide_error()
+                main_window.hide_error() # type: ignore[attr-defined]
         else:
             logger.warning("Could not find main window or hide_error method to clear error.")
         if self.http_entry_row:
@@ -943,7 +943,7 @@ class HttpPage(Gtk.Box):
         :return: None
         :rtype: None
         """
-        logger.debug("Color setting changed for GSettings key: %s", key)
+        logger.debug("Color setting changed for GSettings key: %s", key) # type: ignore[docstring-section-missing]
         if key == "http-output-header-key-color":
             self._header_key_color = settings.get_string(key)
         elif key == "http-output-header-value-color":
@@ -968,7 +968,7 @@ class HttpPage(Gtk.Box):
         :return: None
         :rtype: None
         """
-        logger.debug("HttpPage: Global output font setting changed for key: %s", key)
+        logger.debug("HttpPage: Global output font setting changed for key: %s", key) # type: ignore[docstring-section-missing]
         if key == self._output_font_gsettings_key:
             output_font_str = settings.get_string(key)
             self._output_font_desc = Pango.FontDescription.from_string(
@@ -997,7 +997,7 @@ class HttpPage(Gtk.Box):
         :return: None
         :rtype: None
         """
-        if not self.http_user_agent_row:
+        if not self.http_user_agent_row: # type: ignore[has-type]
             logger.error("HttpPage: _update_user_agent_model: http_user_agent_row is None, cannot update model.")
             return
         self._ua_title_to_value_map.clear()
@@ -1060,7 +1060,7 @@ class HttpPage(Gtk.Box):
         :type _gparam: GObject.ParamSpec
         :rtype: None
         """
-        selected_item_obj = combo_row.get_selected_item()
+        selected_item_obj = combo_row.get_selected_item() # type: ignore[no-untyped-call]
         if not isinstance(selected_item_obj, Gtk.StringObject):
             return
 
@@ -1103,7 +1103,7 @@ class HttpPage(Gtk.Box):
         :type key: str
         :rtype: None
         """
-        if key == "default-user-agent-title":
+        if key == "default-user-agent-title": # type: ignore[docstring-section-missing]
             new_gsettings_default_ua_title = settings.get_string(key)
             effective_new_gsettings_default = (
                 new_gsettings_default_ua_title if new_gsettings_default_ua_title else "None"
@@ -1190,8 +1190,8 @@ class HttpPage(Gtk.Box):
         the handler attempts to operate on destroyed widgets.
         :rtype: None
         """
-        if self._gsettings_ua_changed_handler_id and self.settings.is_connected(self._gsettings_ua_changed_handler_id):
-            self.settings.disconnect(self._gsettings_ua_changed_handler_id)
+        if self._gsettings_ua_changed_handler_id and self.settings.is_connected(self._gsettings_ua_changed_handler_id): # type: ignore[no-untyped-call]
+            self.settings.disconnect(self._gsettings_ua_changed_handler_id) # type: ignore[no-untyped-call]
             logging.debug("HttpPage: Disconnected GSettings listener for default-user-agent-title.")
         self._gsettings_ua_changed_handler_id = 0  # Set to 0 or an invalid ID state after disconnect
         super().do_dispose()

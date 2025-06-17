@@ -1,7 +1,7 @@
 """Module for fetching HTTP headers and processing responses."""
 
 import logging
-from typing import Optional, Any # dict, list used directly
+from typing import Optional, Any  # dict, list used directly
 
 import requests
 import requests.utils  # For urlparse, urlunparse
@@ -153,7 +153,6 @@ class HttpFetcher:
         if self.host_header:
             initial_request_specific_headers["Host"] = self.host_header
             logger.info("HttpFetcher: Using user-provided Host header for initial request: '%s'", self.host_header)
-
 
         # Akamai Pragma headers
         if self.use_akamai_pragma:
@@ -382,7 +381,7 @@ class HttpFetcher:
             # but it doesn't assign the result. Assuming it's for a side effect or was part of
             # an incomplete thought. If SNI is needed from host_header for IP URLs,
             # it should be explicitly handled. For now, just ensuring correct attribute access.
-            _ = requests.utils.urlparse(self.url) # Correct attribute access
+            _ = requests.utils.urlparse(self.url)  # Correct attribute access
 
         effective_custom_dns_server: Optional[str] = self.custom_dns_server if dns else None
         if self.custom_dns_server and not dns:
