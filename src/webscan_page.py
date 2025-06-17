@@ -49,6 +49,8 @@ class WebScanPage(Gtk.Box):
     # New UI elements for Nikto options
     nikto_format_combo_row: Adw.ComboRow = Gtk.Template.Child()
     nikto_output_file_row: Adw.EntryRow = Gtk.Template.Child()
+
+    STATUS_STYLE_CLASSES = ["success", "warning", "error", "accent"]
     nikto_output_file_button: Gtk.Button = Gtk.Template.Child()
     no404_switch: Adw.SwitchRow = Gtk.Template.Child()
     auth_bypass_switch: Adw.SwitchRow = Gtk.Template.Child()
@@ -388,6 +390,10 @@ class WebScanPage(Gtk.Box):
         self.scan_button.set_sensitive(False)
 
         if self.webscan_status_action_row:
+            style_context = self.webscan_status_action_row.get_style_context()
+            for css_class in WebScanPage.STATUS_STYLE_CLASSES:
+                style_context.remove_class(css_class)
+            style_context.add_class("accent")
             self.webscan_status_action_row.set_subtitle("Scanning...")
         if self.webscan_status_spinner:
             self.webscan_status_spinner.set_visible(True)
@@ -797,6 +803,11 @@ class WebScanPage(Gtk.Box):
 
         logger.info(f"Nikto scan task done for {target_url}.")
 
+        if self.webscan_status_action_row:
+            style_context = self.webscan_status_action_row.get_style_context()
+            for css_class in WebScanPage.STATUS_STYLE_CLASSES:
+                style_context.remove_class(css_class)
+
         try:
             returned_data = result.propagate_value()
 
@@ -851,12 +862,17 @@ class WebScanPage(Gtk.Box):
                     self.webscan_status_action_row.set_subtitle("Scan complete. See results below.")
                 else:
                     self.webscan_status_action_row.set_subtitle("Scan complete. No output received.")
+                self.webscan_status_action_row.get_style_context().add_class("success")
             elif s_out is None and s_err is None and not (isinstance(returned_data, tuple) and len(returned_data) == 2):
-                if self.webscan_status_action_row and self.webscan_status_action_row.get_subtitle() == "Scanning...":
-                    self.webscan_status_action_row.set_subtitle("Error: Unexpected scan result format.")
-            else:
+                if self.webscan_status_action_row:
+                     if self.webscan_status_action_row.get_subtitle() == "Scanning...":
+                        self.webscan_status_action_row.set_subtitle("Error: Unexpected scan result format.")
+                     self.webscan_status_action_row.get_style_context().add_class("error") # Treat as error
+            else: # No output but propagation was fine
                 if self.webscan_status_action_row:
                     self.webscan_status_action_row.set_subtitle("Scan complete. No output received.")
+                    self.webscan_status_action_row.get_style_context().add_class("success")
+
 
         except GLib.Error as e:
             logger.error(
@@ -890,6 +906,7 @@ class WebScanPage(Gtk.Box):
 
             if self.webscan_status_action_row:
                 self.webscan_status_action_row.set_subtitle(brief_user_message)
+                self.webscan_status_action_row.get_style_context().add_class("error")
             show_global_error(self, brief_user_message)
 
             if (
@@ -915,6 +932,7 @@ class WebScanPage(Gtk.Box):
 
             if self.webscan_status_action_row:
                 self.webscan_status_action_row.set_subtitle(user_message)
+                self.webscan_status_action_row.get_style_context().add_class("error")
             show_global_error(self, user_message + " Check logs for details.")
             self._update_textview(None, detailed_error_msg_for_textview, is_error_message=True)
         finally:
