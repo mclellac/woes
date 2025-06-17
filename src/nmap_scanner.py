@@ -54,6 +54,16 @@ class ScanCancelledError(PortScannerError):
     pass
 
 
+class NmapPrerequisiteError(PortScannerError):
+    """Exception raised when a prerequisite for Nmap (like nmap itself or pkexec) is not found."""
+    pass
+
+
+class NmapUnsupportedPlatformError(PortScannerError):
+    """Exception raised when a feature (e.g., privilege escalation) is not supported on the current platform."""
+    pass
+
+
 class NmapScanParameters(TypedDict, total=False):
     """
     TypedDict for Nmap scan parameters.
@@ -123,7 +133,10 @@ def get_escalated_command(command_parts: list[str]) -> list[str]:
     logger.debug("Nmap path resolved to: %s", nmap_path)
 
     if not nmap_path:
-        raise FileNotFoundError(f"Nmap executable '{nmap_executable}' not found in PATH.")
+        # This case should ideally be caught before calling get_escalated_command,
+        # as nmap_path is specific to the nmap executable itself.
+        # However, if called directly with a non-existent nmap_executable:
+        raise NmapPrerequisiteError(f"Nmap executable '{nmap_executable}' not found in PATH.")
 
     resolved_command_parts = [nmap_path] + command_parts[1:]
 
@@ -131,18 +144,18 @@ def get_escalated_command(command_parts: list[str]) -> list[str]:
     if system == "Linux":
         if not shutil.which("pkexec"):
             logger.error("pkexec not found, but it is required for privilege escalation on Linux.")
-            raise FileNotFoundError("pkexec not found. Needed for privilege escalation.")
+            raise NmapPrerequisiteError("pkexec not found. Needed for privilege escalation.")
         escalated_cmd = ["pkexec"] + resolved_command_parts
     elif system == "Darwin":
         if not shutil.which("osascript"):
             logger.error("osascript not found, but it is required for privilege escalation on macOS.")
-            raise FileNotFoundError("osascript not found. Needed for privilege escalation.")
+            raise NmapPrerequisiteError("osascript not found. Needed for privilege escalation.")
         quoted_command = " ".join(shlex.quote(part) for part in resolved_command_parts)
         osascript_command = f'do shell script "{quoted_command}" with administrator privileges'
         escalated_cmd = ["osascript", "-e", osascript_command]
     else:
         logger.warning("Privilege escalation not configured for system: %s.", system)
-        raise NotImplementedError(f"Privilege escalation not supported on this platform: {system}")
+        raise NmapUnsupportedPlatformError(f"Privilege escalation not supported on this platform: {system}")
 
     logger.debug("Escalated command: %s", escalated_cmd)
     return escalated_cmd
@@ -310,23 +323,35 @@ class NmapScanner:
         :type nmap_args_list: list[str]
         :param needs_escalation: Whether privilege escalation is required.
         :type needs_escalation: bool
-        :raises PortScannerError: If escalation fails or ``nmap`` executable is not found.
-        :raises FileNotFoundError: If ``nmap`` executable is not found for non-escalated command.
+        :raises NmapPrerequisiteError: If nmap executable or an escalation tool (pkexec, osascript) is not found.
+        :raises NmapUnsupportedPlatformError: If privilege escalation is attempted on an unsupported platform.
+        :raises PortScannerError: For other errors during command preparation.
         :return: The final list of command parts for execution.
         :rtype: list[str]
         """
         final_command_parts: list[str] = []
-        if needs_escalation:
-            logger.info("Escalation required for Nmap scan execution.")
-            final_command_parts = get_escalated_command(nmap_args_list)
-            if not final_command_parts:
-                raise PortScannerError("Failed to prepare escalated command (empty result from get_escalated_command).")
-        else:
-            nmap_executable = nmap_args_list[0]
-            nmap_path = shutil.which(nmap_executable)
-            if not nmap_path:
-                raise FileNotFoundError(f"Nmap executable '{nmap_executable}' not found for non-escalated command.")
-            final_command_parts = [nmap_path] + nmap_args_list[1:]
+        try:
+            if needs_escalation:
+                logger.info("Escalation required for Nmap scan execution.")
+                # Ensure nmap itself is checked first, even if get_escalated_command also checks.
+                nmap_executable_check = nmap_args_list[0]
+                if not shutil.which(nmap_executable_check):
+                    raise NmapPrerequisiteError(f"Nmap executable '{nmap_executable_check}' not found in PATH before escalation attempt.")
+                final_command_parts = get_escalated_command(nmap_args_list)
+                if not final_command_parts: # Should not happen if get_escalated_command raises appropriately
+                    raise PortScannerError("Failed to prepare escalated command (empty result from get_escalated_command).")
+            else:
+                nmap_executable = nmap_args_list[0]
+                nmap_path = shutil.which(nmap_executable)
+                if not nmap_path:
+                    raise NmapPrerequisiteError(f"Nmap executable '{nmap_executable}' not found for non-escalated command.")
+                final_command_parts = [nmap_path] + nmap_args_list[1:]
+        except (FileNotFoundError, NotImplementedError) as e: # Catch legacy errors from a direct call to get_escalated_command if any
+            if isinstance(e, FileNotFoundError):
+                raise NmapPrerequisiteError(str(e)) from e
+            else: # NotImplementedError
+                raise NmapUnsupportedPlatformError(str(e)) from e
+
         return final_command_parts
 
     def _parse_nmap_error_message(
@@ -467,15 +492,19 @@ class NmapScanner:
 
             return self.nm
 
-        except FileNotFoundError as e_fnf:
-            logger.exception("Nmap execution prerequisite not found:")
-            raise PortScannerError(f"Nmap execution prerequisite not found: {e_fnf}") from e_fnf
-        except NotImplementedError as e_ni:
-            logger.exception("Privilege escalation not implemented for this platform:")
-            raise PortScannerError(f"Privilege escalation not implemented for this platform: {e_ni}") from e_ni
+        except NmapPrerequisiteError: # Specific errors should be caught first
+            raise
+        except NmapUnsupportedPlatformError:
+            raise
+        except FileNotFoundError as e_fnf: # Should now be NmapPrerequisiteError
+            logger.error("FileNotFoundError caught directly in run_nmap_scan, should be NmapPrerequisiteError: %s", e_fnf, exc_info=True)
+            raise NmapPrerequisiteError(f"Nmap execution prerequisite not found: {e_fnf}") from e_fnf
+        except NotImplementedError as e_ni: # Should now be NmapUnsupportedPlatformError
+            logger.error("NotImplementedError caught directly in run_nmap_scan, should be NmapUnsupportedPlatformError: %s", e_ni, exc_info=True)
+            raise NmapUnsupportedPlatformError(f"Privilege escalation not implemented for this platform: {e_ni}") from e_ni
         except ScanCancelledError:
             raise
-        except PortScannerError:
+        except PortScannerError: # Catch other PortScannerErrors that are not the specific ones above
             raise
         except TypeError as e_type:
             logger.exception("Type error during Nmap scan setup or execution:")

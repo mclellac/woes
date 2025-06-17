@@ -20,8 +20,14 @@ from gi.repository import Adw, Gio, GLib, GObject, Gtk, Pango
 import nmap
 
 from .constants import APP_ID, RESOURCE_PREFIX
-from .nmap_scanner import NmapScanner, ScanStatus, ScanCancelledError
-from .utils import show_global_error, show_global_toast
+from .nmap_scanner import (
+    NmapScanner,
+    ScanStatus,
+    ScanCancelledError,
+    NmapPrerequisiteError,
+    NmapUnsupportedPlatformError,
+)
+from .utils import show_global_error, show_global_toast, show_critical_error_dialog
 
 
 gi.require_version("Adw", "1")
@@ -194,6 +200,7 @@ class NmapPage(Gtk.Box):
         :rtype: None
         """
         self.nmap_target_entryrow.connect("entry-activated", self._on_target_activate)
+        self.nmap_target_entryrow.connect("changed", self._on_nmap_target_entry_changed) # Clear error on type
         self.nmap_apply_button.connect("clicked", self._on_target_activate)
         self.nmap_host_listbox.connect("row-selected", self._on_target_selected)
         if self.nmap_cancel_scan_button:
@@ -279,15 +286,30 @@ class NmapPage(Gtk.Box):
         :rtype: None
         """
         target = self.nmap_target_entryrow.get_text().strip()
-        self._clear_error()
+        # Clear previous global error related to this page's validation first
+        # if the current error message is the one we set for this validation.
+        main_window = self.get_native()
+        if main_window and hasattr(main_window, "hide_error_if_message_matches"):
+            main_window.hide_error_if_message_matches("Invalid Target. Please enter a valid IP address, domain, CIDR, or 'localhost'.") # type: ignore[attr-defined]
+        elif main_window and hasattr(main_window, "hide_error"):
+             # Fallback: if the more specific method isn't there, but we are about to validate,
+             # it's reasonable to clear any existing error from this page.
+             # However, _clear_error() is generic. For now, let validation add a new error or clear class.
+             pass
+
 
         if not self.scanner.validate_target_input(target):
-            message = "Invalid target format. Please enter a valid IP, CIDR, or hostname."
-            show_global_toast(self, message)
+            self.nmap_target_entryrow.add_css_class("error")
+            error_message = "Invalid Target. Please enter a valid IP address, domain, CIDR, or 'localhost'."
+            show_global_error(self, error_message)
+            # self._set_scan_status(ScanStatus.IDLE, "Idle - Invalid target.") # Optional: update status row
             return
-        self.nmap_target_entryrow.remove_css_class("error")
 
-        if not target:
+        # If valid, ensure error class is removed. _clear_error() below will handle banner.
+        self.nmap_target_entryrow.remove_css_class("error")
+        self._clear_error() # Clears any unrelated global error banner
+
+        if not target: # Should be caught by validate_target_input if empty, but as a safeguard
             self._clear_results()
             return
 
@@ -397,7 +419,23 @@ class NmapPage(Gtk.Box):
                 NmapScanErrorType.CANCELLED.value,
                 str(e),
             )
-        except nmap.PortScannerError as e:
+        except NmapPrerequisiteError as e_prereq:
+            logger.exception("Nmap prerequisite error for %s:", target)
+            # Special error type for dialog
+            task.return_new_error_literal(
+                GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN),
+                NmapScanErrorType.PREREQUISITE_MISSING.value, # Need to add this type
+                str(e_prereq),
+            )
+        except NmapUnsupportedPlatformError as e_platform:
+            logger.exception("Nmap unsupported platform error for %s:", target)
+            # Special error type for dialog
+            task.return_new_error_literal(
+                GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN),
+                NmapScanErrorType.UNSUPPORTED_PLATFORM.value, # Need to add this type
+                str(e_platform),
+            )
+        except nmap.PortScannerError as e: # General PortScannerError
             logger.exception("Nmap PortScannerError for %s:", target)
             task.return_new_error_literal(
                 GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN),
@@ -463,14 +501,44 @@ class NmapPage(Gtk.Box):
                 self._process_scan_results(nm_results_final, original_target)
 
         except GLib.Error as e:
-            logger.warning(
-                f"Nmap scan for {original_target} failed or was cancelled. Domain: {e.domain}, Code: {e.code}, Message: {e.message}"
+            logger.error(
+                f"Nmap scan for {original_target} failed or was cancelled. Domain: {e.domain}, Code: {e.code}, Message: {e.message}", exc_info=e
             )
             if e.matches(GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN), NmapScanErrorType.CANCELLED.value):
                 self._set_scan_status(ScanStatus.IDLE, f"Scan for {original_target} cancelled.")
                 self._clear_results()
+            elif e.matches(GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN), NmapScanErrorType.PREREQUISITE_MISSING.value):
+                self._set_scan_status(ScanStatus.FAILED, f"Failed for {original_target}")
+                show_critical_error_dialog(
+                    parent_window=self.get_native(),
+                    title="Nmap Prerequisite Error",
+                    message="A required component for Nmap is missing or not configured correctly.",
+                    details=e.message,
+                )
+            elif e.matches(GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN), NmapScanErrorType.UNSUPPORTED_PLATFORM.value):
+                self._set_scan_status(ScanStatus.FAILED, f"Failed for {original_target}")
+                show_critical_error_dialog(
+                    parent_window=self.get_native(),
+                    title="Nmap Platform Error",
+                    message="The requested Nmap operation or feature is not supported on your current operating system.",
+                    details=e.message,
+                )
             elif e.matches(GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN), NmapScanErrorType.SCAN_FAILED.value):
-                self._handle_scan_error(original_target, e.message)
+                original_error_message = e.message
+                enhanced_message = original_error_message
+
+                if "Failed to resolve" in original_error_message:
+                    enhanced_message += " Ensure the target is a valid hostname or IP address and your DNS is working."
+                elif "requires root privileges" in original_error_message.lower() or "permission denied" in original_error_message.lower():
+                    # This case might have been caught by NmapPrerequisiteError if pkexec/sudo was the issue.
+                    # However, Nmap might also return this if it tries an operation needing root internally
+                    # even if the main execution method (e.g. direct nmap path) didn't initially seem to require it.
+                    enhanced_message += " Try running Woes with administrator rights or configure sudo access for Nmap if needed for this scan type."
+                else:
+                    # Generic fallback for other SCAN_FAILED errors
+                    enhanced_message += " Check the Nmap arguments and target, and ensure Nmap can access the target network."
+
+                self._handle_scan_error(original_target, enhanced_message)
             else:  # UNEXPECTED or other GLib.Error
                 self._handle_scan_error(original_target, f"Scan error: {e.message}")
         except Exception as e:
@@ -1100,3 +1168,23 @@ class NmapScanErrorType(int, Enum):
     SCAN_FAILED = 0
     UNEXPECTED = 1
     CANCELLED = 2
+    PREREQUISITE_MISSING = 3  # New error type
+    UNSUPPORTED_PLATFORM = 4 # New error type
+
+    def _on_nmap_target_entry_changed(self, editable: Adw.EntryRow) -> None:
+        """
+        Handle the 'changed' signal for the Nmap target entry row.
+
+        Clears the 'error' CSS class from the entry row and hides any global error
+        banner specifically related to this input's validation.
+
+        :param editable: The Adw.EntryRow that emitted the signal.
+        :type editable: Adw.EntryRow
+        """
+        if editable.has_css_class("error"):
+            editable.remove_css_class("error")
+            main_window = self.get_native()
+            if main_window and hasattr(main_window, "hide_error_if_message_matches"):
+                main_window.hide_error_if_message_matches("Invalid Target. Please enter a valid IP address, domain, CIDR, or 'localhost'.") # type: ignore[attr-defined]
+            # If the specific hide method isn't there, the error banner might persist until the next successful validation
+            # or explicit _clear_error() call. This is acceptable.

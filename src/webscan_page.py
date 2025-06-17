@@ -113,6 +113,7 @@ class WebScanPage(Gtk.Box):
             self.copy_results_button.set_sensitive(False)
 
         self.url_entry.connect("entry-activated", self.on_scan_button_clicked)
+        self.url_entry.connect("changed", self._on_url_entry_changed) # Clear error on type
 
         if self.scan_button:
             self.scan_button.connect("clicked", self.on_scan_button_clicked)
@@ -339,20 +340,28 @@ class WebScanPage(Gtk.Box):
             target_url = "https://" + target_url
 
         if not target_url:
-            show_global_toast(self, "Target URL cannot be empty.")
-            main_window = self.get_native()
-            if not (main_window and hasattr(main_window, "show_toast")):
-                show_global_error(self, "Target URL cannot be empty.")
-            self.scan_button.set_sensitive(True)
+            self.url_entry.add_css_class("error")
+            error_message = "Invalid Target URL. Please enter a valid URL (e.g., http://example.com)."
+            show_global_error(self, error_message)
+            self.scan_button.set_sensitive(True) # Re-enable button if validation fails early
             return
 
         if not is_valid_url(target_url, schemes=["http", "https", "ftp"]):
-            show_global_toast(self, "Invalid URL format. Please enter a valid URL.")
-            main_window = self.get_native()
-            if not (main_window and hasattr(main_window, "show_toast")):
-                show_global_error(self, "Invalid URL format. Please enter a valid URL.")
-            self.scan_button.set_sensitive(True)
+            self.url_entry.add_css_class("error")
+            error_message = "Invalid Target URL. Please enter a valid URL (e.g., http://example.com)."
+            show_global_error(self, error_message)
+            self.scan_button.set_sensitive(True) # Re-enable button
             return
+
+        # If validation passes
+        self.url_entry.remove_css_class("error")
+        # Clear any existing global error banner that might have been shown by previous validation attempts
+        main_window = self.get_native()
+        if main_window and hasattr(main_window, "hide_error_if_message_matches"):
+            main_window.hide_error_if_message_matches("Invalid Target URL. Please enter a valid URL (e.g., http://example.com).") # type: ignore[attr-defined]
+        elif main_window and hasattr(main_window, "hide_error"): # Fallback
+             main_window.hide_error() # type: ignore[attr-defined]
+
 
         buffer = self.source_view.get_buffer()
         buffer.set_text(f"Scanning {target_url}...\n\n")
@@ -570,6 +579,8 @@ class WebScanPage(Gtk.Box):
             raw_original_stderr = stderr_str if isinstance(stderr_str, str) else ""
             raw_original_stdout = stdout_str if isinstance(stdout_str, str) else ""
             rfi_warning_detected_in_raw = False
+            # Nikto may output a warning about RFIURL directly to stdout/stderr,
+            # separate from its main report output (which can also sometimes go to stderr).
             rfi_warning_signature = "- ***** RFIURL is not defined in nikto.conf--no RFI tests will run *****"
 
             if rfi_warning_signature in raw_original_stderr or rfi_warning_signature in raw_original_stdout:
@@ -580,6 +591,10 @@ class WebScanPage(Gtk.Box):
             aux_output: Optional[str] = None
             report_extracted_from_tuple = False
 
+            # Nikto's output behavior can be inconsistent. Sometimes, the primary report
+            # (intended for stdout or a file) might be wrapped in a Python tuple string representation
+            # and sent to stderr, especially with certain formats or when errors occur.
+            # This section attempts to handle such cases by looking for this tuple string.
             tuple_end_marker = "', None))"
             tuple_end_marker_alt = "', '')"
 
@@ -728,8 +743,8 @@ class WebScanPage(Gtk.Box):
                     str(aux_output) if aux_output is not None else None,
                 )
             )
-        except FileNotFoundError:
-            logger.error("Nikto command not found. Ensure it's in PATH.")
+        except FileNotFoundError as e_fnf:
+            logger.error("Nikto command not found. Ensure it's in PATH.", exc_info=True)
             task.return_new_error_literal(
                 GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN),
                 WebScanErrorType.NIKTO_NOT_FOUND.value,
@@ -826,8 +841,8 @@ class WebScanPage(Gtk.Box):
                     self.webscan_status_action_row.set_subtitle("Scan complete. No output received.")
 
         except GLib.Error as e:
-            logger.warning(
-                f"Nikto scan task for {target_url} failed or was cancelled: {e.message} (Domain: {e.domain}, Code: {e.code})"
+            logger.error(
+                f"Nikto scan task for {target_url} failed or was cancelled: {e.message} (Domain: {e.domain}, Code: {e.code})", exc_info=e
             )
 
             brief_user_message = e.message

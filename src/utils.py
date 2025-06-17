@@ -149,3 +149,61 @@ def is_valid_url(url: str, schemes: Optional[list[str]] = None) -> bool:
         return True
     except ValueError:  # urlparse can raise ValueError for some malformed URLs, though it's rare
         return False
+
+
+def show_critical_error_dialog(parent_window: Gtk.Window, title: str, message: str, details: Optional[str] = None):
+    """
+    Displays a critical error message using an Adw.MessageDialog.
+
+    This dialog is modal to the parent window and is suitable for errors
+    that prevent a specific part of the application from continuing.
+
+    :param parent_window: The parent Gtk.Window for the dialog.
+    :type parent_window: Gtk.Window
+    :param title: The title for the dialog window.
+    :type title: str
+    :param message: The main message (heading) to display.
+    :type message: str
+    :param details: Optional detailed information to show in an expander.
+    :type details: Optional[str]
+    """
+    try:
+        dialog = Adw.MessageDialog(
+            transient_for=parent_window,
+            modal=True,
+        heading=title,
+        body=message,
+    )
+    dialog.add_response("close", "Close")
+    dialog.set_default_response("close")
+    dialog.set_close_response("close") # Ensure Escape key works
+
+    if details:
+        expander_row = Adw.ExpanderRow(
+            title="Details",
+            subtitle="More information about the error.",
+            show_enable_switch=False,
+        )
+        # Use a Gtk.Label for the details, enabling text selection and wrapping.
+        details_label = Gtk.Label(
+            label=details,
+            wrap=True,
+            wrap_mode=Gtk.WrapMode.WORD_CHAR,
+            selectable=True,
+            xalign=0.0, # Align left
+            margin_top=6,
+            margin_bottom=6,
+            margin_start=12,
+            margin_end=12,
+        )
+        expander_row.add_row(details_label)
+        dialog.set_extra_child(expander_row)
+
+    def on_response(_dialog, response_id):
+        _dialog.close()
+        _dialog.destroy()
+
+    dialog.connect("response", on_response)
+    dialog.present()
+    except Exception as e:
+        logger.exception(f"Failed to show critical error dialog (Title: '{title}'). Error: {e}")

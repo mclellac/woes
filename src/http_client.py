@@ -193,6 +193,13 @@ class HttpFetcher:
             raise HttpClientError("Request cancelled before sending.")
 
         try:
+            # Note: Gio.Cancellable is checked here, but it won't interrupt an ongoing
+            # requests.get() call. Cancellation primarily prevents starting new requests
+            # or processing results of already completed ones.
+            logger.debug(
+                "HttpFetcher: Executing requests.get(). Note: Gio.Cancellable does not abort in-flight 'requests' calls. "
+                "Cancellation is checked before this call and after it returns."
+            )
             response = self.session.get(
                 self.url,
                 headers=(initial_request_headers if initial_request_headers else None),
@@ -201,15 +208,15 @@ class HttpFetcher:
             )
             return response
         except requests.exceptions.Timeout as e:
-            logger.warning("HttpFetcher: Timeout for '%s': %s", self.url, e)
+            logger.warning("HttpFetcher: Timeout for '%s': %s", self.url, e, exc_info=True)
             raise HttpRequestTimeoutError(f"Request timed out for {self.url}.") from e
         except requests.exceptions.ConnectionError as e:
-            logger.warning("HttpFetcher: ConnectionError for '%s': %s", self.url, e)
+            logger.warning("HttpFetcher: ConnectionError for '%s': %s", self.url, e, exc_info=True)
             custom_msg = self._get_detailed_connection_error_message(e, self.url)
             msg = custom_msg or f"Network connection error for {self.url}."
             raise HttpConnectionError(msg) from e
         except requests.exceptions.RequestException as e:
-            logger.warning("HttpFetcher: RequestException for '%s': %s", self.url, e)
+            logger.warning("HttpFetcher: RequestException for '%s': %s", self.url, e, exc_info=True)
             raise HttpGenericRequestError(f"Request failed for {self.url}: {e}") from e
 
     def _process_http_response(self, response: requests.Response) -> list[dict[str, Any]]:
@@ -239,7 +246,7 @@ class HttpFetcher:
             final_data_type = "final"
         except requests.exceptions.HTTPError as http_err:
             error_url = str(http_err.request.url) if http_err.request else self.url
-            logger.warning("HttpFetcher: HTTPError for URL '%s' (final URL: '%s'): %s", self.url, error_url, http_err)
+            logger.warning("HttpFetcher: HTTPError for URL '%s' (final URL: '%s'): %s", self.url, error_url, http_err, exc_info=True)
             error_message = self._format_http_error(http_err)
             raise HttpProcessingError(
                 error_message, status_code=http_err.response.status_code, url=error_url
@@ -332,10 +339,10 @@ class HttpFetcher:
             logger.info("HttpFetcher: Connection refused condition identified for URL: %s", url)
             parsed_url_scheme = requests.utils.urlparse(url).scheme
             if parsed_url_scheme == "https":
-                return "Connection Refused: Server at HTTPS URL actively refused. Try 'http://'?"
+                return "Connection Refused: The server at the HTTPS URL actively refused the connection. Suggestions: Try the 'http://' version of the URL, or check if the server is down or a firewall is blocking the connection."
             if parsed_url_scheme == "http":
-                return "Connection Refused: Server at HTTP URL actively refused. Try 'https://' or check if server is down."
-            return "Connection Refused: The server at the specified URL actively refused the connection."
+                return "Connection Refused: The server at the HTTP URL actively refused the connection. Suggestions: Try the 'https://' version of the URL, or check if the server is down."
+            return "Connection Refused: The server at the specified URL actively refused the connection. Check if the server is operational and accessible."
         return None
 
     def _format_http_error(self, e: requests.exceptions.HTTPError) -> str:
@@ -352,13 +359,15 @@ class HttpFetcher:
         status_code = e.response.status_code  # type: ignore[union-attr]
         reason = e.response.reason if e.response.reason else "Unknown Error"  # type: ignore[union-attr]
         url = e.request.url if e.request else "N/A"  # type: ignore[union-attr]
+        base_message = f"HTTP Error {status_code} ({reason}) for URL: {url}."
+
         if status_code == 403:
-            return f"403 Forbidden: Access to {url} denied."
+            return f"{base_message} Access Denied. Check if you have permission to access this resource."
         if status_code == 404:
-            return f"404 Not Found: Resource at {url} not found."
+            return f"{base_message} Resource Not Found. Ensure the URL is correct and the resource exists."
         if status_code == 500:
-            return f"500 Internal Server Error for {url}."
-        return f"HTTP Error {status_code} ({reason}) for URL: {url}."
+            return f"{base_message} The server encountered an internal issue. Please try again later."
+        return base_message
 
     def fetch_headers(self) -> list[dict[str, Any]]:
         """
