@@ -193,7 +193,14 @@ class WoesApplication(Adw.Application):
     """
     The main application singleton class for Woes.
 
-        Manages the application lifecycle, actions, and the main window.
+    Manages the application lifecycle, actions, and the main window.
+
+    :ivar version: The application version.
+    :vartype version: str
+    :ivar debug_enabled: Whether debug logging is enabled.
+    :vartype debug_enabled: bool
+    :ivar win: The main application window instance.
+    :vartype win: Optional[WoesWindow]
     """
 
     def __init__(self, version: str = VERSION, **kwargs: Any):
@@ -309,47 +316,75 @@ class WoesApplication(Adw.Application):
         :type page_name: str
         """
         if self.win and hasattr(self.win, "stack"):
-            self.win.stack.set_visible_child_name(page_name)
+            self.win.stack.set_visible_child_name(page_name) # pyright: ignore[reportUnknownMemberType]
         else:
             logging.warning(f"Cannot switch to {page_name}_page: window or stack not available.")
 
-    def switch_to_http(self, _action: Gio.SimpleAction, _param: Optional[GLib.Variant]) -> None:
-        """Handle the 'switch-to-http' action to navigate to the HTTP page."""
+    def switch_to_http(self, action: Gio.SimpleAction, param: Optional[GLib.Variant]) -> None:
+        """
+        Handle the 'switch-to-http' action to navigate to the HTTP page.
+
+        :param action: The :class:`Gio.SimpleAction` that was activated.
+        :type action: Gio.SimpleAction
+        :param param: The parameter passed with the action (unused).
+        :type param: Optional[GLib.Variant]
+        """
         self._switch_to_page("http")
 
-    def switch_to_nmap(self, _action: Gio.SimpleAction, _param: Optional[GLib.Variant]) -> None:
-        """Handle the 'switch-to-nmap' action to navigate to the Nmap page."""
+    def switch_to_nmap(self, action: Gio.SimpleAction, param: Optional[GLib.Variant]) -> None:
+        """
+        Handle the 'switch-to-nmap' action to navigate to the Nmap page.
+
+        :param action: The :class:`Gio.SimpleAction` that was activated.
+        :type action: Gio.SimpleAction
+        :param param: The parameter passed with the action (unused).
+        :type param: Optional[GLib.Variant]
+        """
         self._switch_to_page("nmap")
 
-    def switch_to_dns(self, _action: Gio.SimpleAction, _param: Optional[GLib.Variant]) -> None:
-        """Handle the 'switch-to-dns' action to navigate to the DNS page."""
+    def switch_to_dns(self, action: Gio.SimpleAction, param: Optional[GLib.Variant]) -> None:
+        """
+        Handle the 'switch-to-dns' action to navigate to the DNS page.
+
+        :param action: The :class:`Gio.SimpleAction` that was activated.
+        :type action: Gio.SimpleAction
+        :param param: The parameter passed with the action (unused).
+        :type param: Optional[GLib.Variant]
+        """
         self._switch_to_page("dns")
 
-    def switch_to_webscan(self, _action: Gio.SimpleAction, _param: Optional[GLib.Variant]) -> None:
-        """Handle the 'switch-to-webscan' action to navigate to the Webscan page."""
+    def switch_to_webscan(self, action: Gio.SimpleAction, param: Optional[GLib.Variant]) -> None:
+        """
+        Handle the 'switch-to-webscan' action to navigate to the Webscan page.
+
+        :param action: The :class:`Gio.SimpleAction` that was activated.
+        :type action: Gio.SimpleAction
+        :param param: The parameter passed with the action (unused).
+        :type param: Optional[GLib.Variant]
+        """
         self._switch_to_page("webscan")
 
     def _trigger_page_action(self, expected_page_name: str, action_method_name: str, action_description: str) -> None:
         if not self.win or not hasattr(self.win, "stack"):
             logging.warning(f"{action_description} action: Window or stack not available.")
             return
-        current_page_name: str = self.win.stack.get_visible_child_name()
-        visible_stack_page: Optional[Adw.ViewStackPage] = self.win.stack.get_visible_child()
+        current_page_name: str = self.win.stack.get_visible_child_name() # pyright: ignore[reportUnknownMemberType]
+        visible_stack_page: Optional[Adw.ViewStackPage] = self.win.stack.get_visible_child() # pyright: ignore[reportUnknownMemberType]
         if current_page_name == expected_page_name and visible_stack_page:
-            status_page: Optional[Adw.StatusPage] = visible_stack_page.get_child()
+            status_page: Optional[Adw.StatusPage] = visible_stack_page.get_child() # pyright: ignore[reportUnknownMemberType]
             if not status_page:
                 logging.warning(f"{action_description} action: StatusPage not found for {current_page_name}.")
                 return
-            page_container_widget: Optional[Gtk.Widget] = status_page.get_child()
+            page_container_widget: Optional[Gtk.Widget] = status_page.get_child() # pyright: ignore[reportUnknownMemberType]
             if not page_container_widget:
                 logging.warning(
                     f"{action_description} action: Page container widget (child of StatusPage) not found for {current_page_name}."
                 )
                 return
             actual_page_object: Optional[Gtk.Widget] = None
-            if hasattr(page_container_widget, "get_first_child") and callable(page_container_widget.get_first_child):
-                candidate: Optional[Gtk.Widget] = page_container_widget.get_first_child()
-                if hasattr(candidate, action_method_name):
+            if hasattr(page_container_widget, "get_first_child") and callable(page_container_widget.get_first_child): # pyright: ignore[reportUnknownMemberType]
+                candidate: Optional[Gtk.Widget] = page_container_widget.get_first_child() # pyright: ignore[reportUnknownMemberType]
+                if hasattr(candidate, action_method_name): # pyright: ignore[reportUnknownMemberType]
                     actual_page_object = candidate
                 elif hasattr(page_container_widget, action_method_name):  # fallback if GtkBox itself is the page
                     actual_page_object = page_container_widget
@@ -364,24 +399,59 @@ class WoesApplication(Adw.Application):
         elif current_page_name == expected_page_name:
             logging.warning(f"{action_description} action: AdwViewStackPage for {current_page_name} is None.")
 
-    def on_page_action_http_fetch(self, _action: Gio.SimpleAction, _param: Optional[GLib.Variant]) -> None:
-        """Handle the 'page-action-http-fetch' action to trigger fetch on HTTP page."""
+    def on_page_action_http_fetch(self, action: Gio.SimpleAction, param: Optional[GLib.Variant]) -> None:
+        """
+        Handle the 'page-action-http-fetch' action to trigger fetch on HTTP page.
+
+        :param action: The :class:`Gio.SimpleAction` that was activated.
+        :type action: Gio.SimpleAction
+        :param param: The parameter passed with the action (unused).
+        :type param: Optional[GLib.Variant]
+        """
         self._trigger_page_action("http", "trigger_fetch", "HTTP fetch")
 
-    def on_page_action_nmap_scan(self, _action: Gio.SimpleAction, _param: Optional[GLib.Variant]) -> None:
-        """Handle the 'page-action-nmap-scan' action to trigger scan on Nmap page."""
+    def on_page_action_nmap_scan(self, action: Gio.SimpleAction, param: Optional[GLib.Variant]) -> None:
+        """
+        Handle the 'page-action-nmap-scan' action to trigger scan on Nmap page.
+
+        :param action: The :class:`Gio.SimpleAction` that was activated.
+        :type action: Gio.SimpleAction
+        :param param: The parameter passed with the action (unused).
+        :type param: Optional[GLib.Variant]
+        """
         self._trigger_page_action("nmap", "trigger_scan", "Nmap scan")
 
-    def on_page_action_dns_lookup(self, _action: Gio.SimpleAction, _param: Optional[GLib.Variant]) -> None:
-        """Handle the 'page-action-dns-lookup' action to trigger lookup on DNS page."""
+    def on_page_action_dns_lookup(self, action: Gio.SimpleAction, param: Optional[GLib.Variant]) -> None:
+        """
+        Handle the 'page-action-dns-lookup' action to trigger lookup on DNS page.
+
+        :param action: The :class:`Gio.SimpleAction` that was activated.
+        :type action: Gio.SimpleAction
+        :param param: The parameter passed with the action (unused).
+        :type param: Optional[GLib.Variant]
+        """
         self._trigger_page_action("dns", "trigger_lookup", "DNS lookup")
 
-    def on_page_action_webscan_scan(self, _action: Gio.SimpleAction, _param: Optional[GLib.Variant]) -> None:
-        """Handle the 'page-action-webscan-scan' action to trigger scan on Webscan page."""
+    def on_page_action_webscan_scan(self, action: Gio.SimpleAction, param: Optional[GLib.Variant]) -> None:
+        """
+        Handle the 'page-action-webscan-scan' action to trigger scan on Webscan page.
+
+        :param action: The :class:`Gio.SimpleAction` that was activated.
+        :type action: Gio.SimpleAction
+        :param param: The parameter passed with the action (unused).
+        :type param: Optional[GLib.Variant]
+        """
         self._trigger_page_action("webscan", "trigger_scan", "Webscan scan")
 
-    def on_about_action(self, _widget: Gio.SimpleAction, _param: Optional[GLib.Variant]) -> None:
-        """Handle the 'about' action to show the About dialog."""
+    def on_about_action(self, action: Gio.SimpleAction, param: Optional[GLib.Variant]) -> None:
+        """
+        Handle the 'about' action to show the About dialog.
+
+        :param action: The :class:`Gio.SimpleAction` that was activated.
+        :type action: Gio.SimpleAction
+        :param param: The parameter passed with the action (unused).
+        :type param: Optional[GLib.Variant]
+        """
         about = self._create_about_window()
         if self.props.active_window:
             about.set_transient_for(self.props.active_window)
@@ -401,8 +471,15 @@ class WoesApplication(Adw.Application):
             issue_url=APP_ISSUES_URL,
         )
 
-    def on_preferences_action(self, _widget: Gio.SimpleAction, _param: Optional[GLib.Variant]) -> None:
-        """Handle the 'preferences' action to show the Preferences dialog."""
+    def on_preferences_action(self, action: Gio.SimpleAction, param: Optional[GLib.Variant]) -> None:
+        """
+        Handle the 'preferences' action to show the Preferences dialog.
+
+        :param action: The :class:`Gio.SimpleAction` that was activated.
+        :type action: Gio.SimpleAction
+        :param param: The parameter passed with the action (unused).
+        :type param: Optional[GLib.Variant]
+        """
         if not self.win:
             logging.error("Main window not available for preferences.")
             return

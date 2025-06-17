@@ -108,7 +108,8 @@ class HttpPage(Gtk.Box):
 
     :ivar __gtype_name__: GObject type name.
     :vartype __gtype_name__: str
-
+    :ivar _current_header_items: Data for the ListStore.
+    :vartype _current_header_items: List[HeaderItem]
     :ivar http_entry_row: :class:`Adw.EntryRow` for URL input.
     :vartype http_entry_row: Adw.EntryRow
     :ivar http_apply_button: :class:`Gtk.Button` to initiate header fetching.
@@ -161,9 +162,9 @@ class HttpPage(Gtk.Box):
         super().__init__(**kwargs)
         logger.debug("HttpPage initialized.")
         self.current_http_task: Optional[Gio.Task] = None
-        self._current_header_items: List[HeaderItem] = [] # Data for the ListStore
-        self._http_task_data_for_thread: Dict[str, Any] = {} # Data passed to the async task
-        self._ua_title_to_value_map: Dict[str, Optional[str]] = {} # For UA dropdown
+        self._current_header_items: List[HeaderItem] = []
+        self._http_task_data_for_thread: dict[str, Any] = {}
+        self._ua_title_to_value_map: dict[str, Optional[str]] = {}
         self.settings: Gio.Settings = Gio.Settings(schema_id=APP_ID)
 
         # Color and font settings for results display
@@ -232,7 +233,7 @@ class HttpPage(Gtk.Box):
 
         # Initialize the ColumnView context menu helper
         if self.http_column_view and self.get_native(): # Ensure ColumnView and window exist
-            self.column_view_helper = Helper(widget=self.http_column_view, parent_window=self.get_native()) # type: ignore
+            self.column_view_helper = Helper(widget=self.http_column_view, parent_window=self.get_native())
 
         self._hide_results() # Initially no results to show
 
@@ -413,7 +414,7 @@ class HttpPage(Gtk.Box):
         self.current_http_task.run_in_thread(self._fetch_headers_task_thread_func)
 
     def _fetch_headers_task_thread_func(
-        self, task: Gio.Task, _s_obj: GObject.Object, _t_data: Any, cancellable: Gio.Cancellable
+        self, task: Gio.Task, source_object: GObject.Object, task_data: Any, cancellable: Gio.Cancellable
     ) -> None:
         """
         Perform HTTP header fetching in a background thread.
@@ -422,12 +423,16 @@ class HttpPage(Gtk.Box):
         Returns results or errors via the task.
 
         :param task: The :class:`Gio.Task` for this operation.
-        :param _s_obj: Source object (unused).
-        :param _t_data: Task data parameter (unused, data retrieved from `task.get_task_data()`).
+        :type task: Gio.Task
+        :param source_object: Source object (unused).
+        :type source_object: GObject.Object
+        :param task_data: Task data parameter (unused, data retrieved from `task.get_task_data()`).
+        :type task_data: Any
         :param cancellable: The :class:`Gio.Cancellable` for this task.
+        :type cancellable: Gio.Cancellable
         """
         # task_data is already set on the task object by the caller
-        current_task_data: Dict[str,Any] = task.get_task_data() # type: ignore
+        current_task_data: dict[str, Any] = task.get_task_data()
         url_to_fetch: str = current_task_data["url"]
 
         if cancellable.is_cancelled():
@@ -443,13 +448,12 @@ class HttpPage(Gtk.Box):
             cancellable=cancellable, # Pass cancellable to HttpFetcher
         )
         try:
-            processed_data: List[Dict[str,Any]] = fetcher.fetch_headers()
+            processed_data: list[dict[str, Any]] = fetcher.fetch_headers()
             if cancellable.is_cancelled(): # Check again after fetch_headers returns
                 task.return_error(GLib.Error.new_literal(WOES_HTTP_ERROR_DOMAIN, HttpErrorType.CANCELLED.value, "Task cancelled after fetching."))
             else:
-                task.return_value(processed_data) # type: ignore # GVariant preferred
+                task.return_value(processed_data)
         except HttpClientError as e: # Catch custom exceptions from HttpFetcher
-            # Store original exception type for more specific handling in done_cb
             task.get_task_data()["original_exception"] = e
             task.get_task_data()["original_exception_type_name"] = type(e).__name__
 
@@ -470,7 +474,7 @@ class HttpPage(Gtk.Box):
             task.return_error(GLib.Error.new_literal(WOES_HTTP_ERROR_DOMAIN, HttpErrorType.GENERIC_UNEXPECTED.value, f"Unexpected internal error: {e}"))
 
     def _fetch_headers_task_done_cb(
-        self, _source_object: GObject.Object, result: Gio.AsyncResult, _user_data: Any = None
+        self, source_object: GObject.Object, result: Gio.AsyncResult, user_data: Any = None
     ) -> None:
         """
         Handle completion of the asynchronous HTTP header fetch task.
@@ -479,9 +483,12 @@ class HttpPage(Gtk.Box):
         result from the background task (retrieved via `propagate_value`)
         and updates the UI accordingly with headers or error messages.
 
-        :param _source_object: The source object (HttpPage instance).
+        :param source_object: The source object (HttpPage instance).
+        :type source_object: GObject.Object
         :param result: The :class:`Gio.AsyncResult` from the completed task.
-        :param _user_data: User data passed with the callback (unused).
+        :type result: Gio.AsyncResult
+        :param user_data: User data passed with the callback (unused).
+        :type user_data: Any
         """
         # Ensure this callback is for the current task.
         if not self.current_http_task or not self.current_http_task.matches_async_result(result):
@@ -490,20 +497,16 @@ class HttpPage(Gtk.Box):
                 self._set_loading_state(False, "Idle.")
             return
 
-        task_data_from_task_obj: Dict[str,Any] = self.current_http_task.get_task_data() # type: ignore
+        task_data_from_task_obj: dict[str, Any] = self.current_http_task.get_task_data()
         original_url_for_log = task_data_from_task_obj.get("url", "unknown URL")
 
         try:
-            # process_task_result is a utility that can simplify GLib.Error handling.
-            # For this specific case, we might want more direct control over the original exception.
-            # data, error_msg = process_task_result(self.current_http_task, result, logger)
-
             returned_value = self.current_http_task.propagate_value(result) # This will raise GLib.Error if task failed
 
             # If propagate_value didn't raise, task was successful.
             # returned_value should be List[Dict] from thread_func
             if isinstance(returned_value, list):
-                data: List[Dict[str, Any]] = returned_value
+                data: list[dict[str, Any]] = returned_value
                 error_msg = None
             else: # Should not happen if thread_func returns correctly
                 logger.error(
@@ -531,16 +534,16 @@ class HttpPage(Gtk.Box):
                     if not isinstance(response_data_dict_item, dict):
                         continue
 
-                    url_display = f"URL: {response_data_dict_item.get('url', 'N/A')}"
-                    status_code = response_data_dict_item.get("status_code", "N/A")
-                    response_type = response_data_dict_item.get("type", "unknown") # 'redirect' or 'final'
+                    url_display = f"URL: {response_data_dict_item.get('url', 'N/A')}" # pyright: ignore[reportUnknownMemberType]
+                    status_code = response_data_dict_item.get("status_code", "N/A") # pyright: ignore[reportUnknownMemberType]
+                    response_type = response_data_dict_item.get("type", "unknown") # pyright: ignore[reportUnknownMemberType] # 'redirect' or 'final'
                     status_display = f"Status: {status_code} ({str(response_type).capitalize()})"
                     # For special rows, key is main info, value is parenthesized status
                     processed_headers_for_store.append(
                         HeaderItem(key=url_display, value=status_display, is_special_row=True)
                     )
 
-                    headers_for_this_response = response_data_dict_item.get("headers", {})
+                    headers_for_this_response = response_data_dict_item.get("headers", {}) # pyright: ignore[reportUnknownMemberType]
                     if isinstance(headers_for_this_response, dict):
                         for key, value in headers_for_this_response.items():
                             original_value_str = str(value)
@@ -610,8 +613,8 @@ class HttpPage(Gtk.Box):
                 status_subtitle = f"Error: Connection Failed for {original_url_for_log}."
             elif isinstance(error_to_handle, HttpProcessingError):
                 user_facing_error_message = error_message # Already formatted by HttpFetcher
-                url_in_error = error_to_handle.url or original_url_for_log
-                status_subtitle = f"Error: HTTP {error_to_handle.status_code} for {url_in_error}"
+                url_in_error = error_to_handle.url or original_url_for_log # pyright: ignore[reportUnknownMemberType]
+                status_subtitle = f"Error: HTTP {error_to_handle.status_code} for {url_in_error}" # pyright: ignore[reportUnknownMemberType]
             elif isinstance(error_to_handle, HttpGenericRequestError):
                 user_facing_error_message = (
                     f"Request failed for {original_url_for_log}: {error_message}"
@@ -720,7 +723,9 @@ class HttpPage(Gtk.Box):
         If there's a URL in the entry, re-fetches headers with the new Pragma setting.
 
         :param _widget: The :class:`Gtk.Switch` that was toggled (unused).
+        :type _widget: Gtk.Switch
         :param _gparam: The :class:`GObject.ParamSpec` of the property that changed (unused).
+        :type _gparam: GObject.ParamSpec
         """
         if self.http_entry_row and self.http_entry_row.get_text().strip():
             logger.debug("Pragma toggled, re-triggering fetch with current URL.")
@@ -761,8 +766,8 @@ class HttpPage(Gtk.Box):
             self.http_entry_row.remove_css_class("error")
 
         main_window = self.get_native()
-        if main_window and hasattr(main_window, "hide_error") and callable(main_window.hide_error): # type: ignore
-            main_window.hide_error() # type: ignore
+        if main_window and hasattr(main_window, "hide_error") and callable(main_window.hide_error):
+            main_window.hide_error()
         else:
             logger.debug("HttpPage: Main window or hide_error method not found/callable for _clear_error.")
 
