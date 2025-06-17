@@ -237,6 +237,29 @@ class HttpPage(Gtk.Box):
 
         self.column_view_helper = Helper(widget=self.http_column_view, parent_window=self.get_native())
 
+    @staticmethod
+    def _copy_to_clipboard(text: str, widget: Gtk.Widget) -> None:
+        """
+        Copy the given text to the clipboard.
+
+        :param text: The text to copy.
+        :type text: str
+        :param widget: The :class:`Gtk.Widget` from which to get the clipboard.
+        :type widget: Gtk.Widget
+        """
+        try:
+            display = widget.get_display()
+            clipboard = Gtk.Clipboard.get_default(display)
+            if clipboard:
+                clipboard.set_text(text, -1) # Use set_text for Gtk.Clipboard
+                logger.info("Text copied to clipboard: %s", text[:100] + "..." if len(text) > 100 else text)
+            else:
+                logger.warning("Could not get default clipboard from widget's display: %s", widget)
+                show_global_toast(widget.get_native(), "Failed to access clipboard.") # type: ignore
+        except Exception:  # pylint: disable=broad-except
+            logger.exception("Error copying to clipboard:")
+            show_global_toast(widget.get_native(), "Error copying to clipboard.") # type: ignore
+
     def _connect_signals(self) -> None:
         """
         Connect signals for UI elements to their respective handlers.
@@ -386,17 +409,14 @@ class HttpPage(Gtk.Box):
                         lines.append(f"{item.key}: {item.value}")
         if lines:
             text_to_copy = "\n".join(lines)
-            try:
-                clipboard = Gdk.Display.get_default().get_clipboard()
-                if clipboard:
-                    clipboard.set(text_to_copy)
-                    logger.info("Headers copied to clipboard successfully.")
-                else:
-                    logger.warning("Failed to get default clipboard for copying.")
-            except Exception:
-                logger.exception("Error copying headers to clipboard.")
+            HttpPage._copy_to_clipboard(text_to_copy, self)
+            # show_global_toast is called by _copy_to_clipboard on error,
+            # or we can add a success toast here if desired.
+            # For consistency with dns_page, success toast is good.
+            show_global_toast(self, "All headers copied to clipboard.")
         else:
             logger.info("No headers to copy from the results view.")
+            show_global_toast(self, "No results to copy.")
 
     def _on_entry_row_activated(self, _widget: Gtk.Widget) -> None:  # type: ignore[type-arg]
         """
