@@ -8,9 +8,10 @@ window state and theme preferences, and integrates system font settings.
 
 import logging
 import platform
-from typing import Optional, Any
+from typing import Optional, Any, List, Tuple
 import gi
 from gi.repository import Adw, Gdk, Gio, Gtk, GLib, GObject, Pango
+
 
 from .constants import (
     APP_ID,
@@ -25,11 +26,13 @@ from .style_utils import apply_font_size, apply_theme
 gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
 
+
 # Imports for custom page widgets
-from . import http_page
-from . import nmap_page
-from . import dns_page
-from . import webscan_page
+from .http_page import HttpPage
+from .nmap_page import NmapPage
+from .dns_page import DNSPage
+from .webscan_page import WebScanPage
+
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/window.ui")
 class WoesWindow(Adw.ApplicationWindow):
@@ -57,7 +60,7 @@ class WoesWindow(Adw.ApplicationWindow):
     main_error_banner: Adw.Banner = Gtk.Template.Child("main_error_banner")
     toast_overlay: Adw.ToastOverlay = Gtk.Template.Child("toast_overlay")
 
-    def __init__(self, **kwargs: Any):  # GObject.GObject is too restrictive if no args passed
+    def __init__(self, **kwargs: Any):
         """
         Initialize the WoesWindow.
 
@@ -66,7 +69,10 @@ class WoesWindow(Adw.ApplicationWindow):
         :type kwargs: Any
         """
         super().__init__(**kwargs)
+        logging.debug("WoesWindow.__init__ called")
         self.settings: Gio.Settings = Gio.Settings(schema_id=APP_ID)
+        self._settings_handlers: List[Tuple[Gio.Settings, int]] = []
+        self._gnome_settings_handlers: List[Tuple[Optional[Gio.Settings], int]] = []
 
         self._output_font_gsettings_key = "output-font"
         self.textview_font_css_provider = Gtk.CssProvider()
@@ -76,9 +82,10 @@ class WoesWindow(Adw.ApplicationWindow):
         initial_font_str = self.settings.get_string(self._output_font_gsettings_key)
         self.update_textview_font_style(initial_font_str if initial_font_str else "Sans 10")
 
-        self.settings.connect(
+        handler_id = self.settings.connect(
             f"changed::{self._output_font_gsettings_key}", self._on_global_output_font_setting_changed_for_css
         )
+        self._settings_handlers.append((self.settings, handler_id)) # pyright: ignore[reportUnknownMemberType]
 
         self.settings.bind("window-width", self, "default-width", Gio.SettingsBindFlags.DEFAULT)
         self.settings.bind("window-height", self, "default-height", Gio.SettingsBindFlags.DEFAULT)
@@ -90,20 +97,25 @@ class WoesWindow(Adw.ApplicationWindow):
         if platform.system() == "Linux":
             try:
                 self.gnome_interface_settings = Gio.Settings.new(GNOME_INTERFACE_SCHEMA)
-                self.gnome_interface_settings.connect(f"changed::{FONT_NAME_KEY}", self._on_gnome_font_setting_changed)
-                self.gnome_interface_settings.connect(
+                handler_id = self.gnome_interface_settings.connect(f"changed::{FONT_NAME_KEY}", self._on_gnome_font_setting_changed)
+                self._gnome_settings_handlers.append((self.gnome_interface_settings, handler_id)) # pyright: ignore[reportUnknownMemberType]
+                handler_id = self.gnome_interface_settings.connect(
                     f"changed::{TEXT_SCALING_FACTOR_KEY}", self._on_gnome_font_setting_changed
                 )
+                self._gnome_settings_handlers.append((self.gnome_interface_settings, handler_id)) # pyright: ignore[reportUnknownMemberType]
                 logging.debug("Successfully connected to GNOME interface settings schema: %s", GNOME_INTERFACE_SCHEMA)
             except GLib.Error as e:
+                self.gnome_interface_settings = None # Ensure it's None if connection failed
                 logging.warning(
                     "Could not connect to GNOME interface settings (%s): %s. System font integration will be limited.",
                     GNOME_INTERFACE_SCHEMA,
                     e,
                 )
 
-        self.settings.connect("changed::theme-preference", self._on_theme_preference_setting_changed)
-        self.settings.connect("changed::font-scaling-percentage", self._on_font_scaling_setting_changed)
+        handler_id = self.settings.connect("changed::theme-preference", self._on_theme_preference_setting_changed)
+        self._settings_handlers.append((self.settings, handler_id)) # pyright: ignore[reportUnknownMemberType]
+        handler_id = self.settings.connect("changed::font-scaling-percentage", self._on_font_scaling_setting_changed)
+        self._settings_handlers.append((self.settings, handler_id)) # pyright: ignore[reportUnknownMemberType]
 
         try:
             self.setup_ui()
@@ -139,56 +151,58 @@ class WoesWindow(Adw.ApplicationWindow):
         and Webscan results, and applies this CSS using the window's
         `textview_font_css_provider`. If the provided `font_desc_str` is
         invalid or empty, it defaults to "Sans 10".
+
+        :param font_desc_str: The Pango font description string.
+        :type font_desc_str: str
         """
-        logger = logging.getLogger(__name__)  # Ensure logger is accessible
+        logger = logging.getLogger(__name__)
         font_desc = Pango.FontDescription.from_string(font_desc_str)
 
-        if not font_desc_str or not font_desc.get_family():
+        if not font_desc_str or not font_desc.get_family(): # pyright: ignore[reportUnknownMemberType]
             logger.warning(f"Invalid or empty font string '{font_desc_str}' received. Using default 'Sans 10'.")
             font_desc = Pango.FontDescription.from_string("Sans 10")
 
-        family = font_desc.get_family()
-        safe_family = family.replace("'", "\\'") if family else "Sans"  # Escape single quotes for CSS
+        family = font_desc.get_family() # pyright: ignore[reportUnknownMemberType]
+        safe_family = family.replace("'", "\\'") if family else "Sans"
 
-        size_pt = font_desc.get_size() / Pango.SCALE
-        weight = font_desc.get_weight()  # Corrected: Direct value
-        style_enum_val = font_desc.get_style()  # Corrected: Direct enum member
+        size_pt = font_desc.get_size() / Pango.SCALE # pyright: ignore[reportUnknownMemberType]
+        weight = font_desc.get_weight() # pyright: ignore[reportUnknownMemberType]
+        style_enum_val = font_desc.get_style() # pyright: ignore[reportUnknownMemberType]
 
         css_style_map = {
-            Pango.Style.NORMAL: "normal",  # Corrected: Use enum member as key
+            Pango.Style.NORMAL: "normal",
             Pango.Style.OBLIQUE: "oblique",
             Pango.Style.ITALIC: "italic",
         }
 
-        # Construct CSS string using f-string (which is fine inside Python code)
         css_string = (
             f"#nmap-raw-output-textview text, #webscan-output-textview text {{"
             f"font-family: '{safe_family}'; "
-            f"font-size: {str(size_pt).replace(',', '.')}pt; "
-            f"font-weight: {int(weight)}; "
-            f"font-style: {css_style_map.get(style_enum_val, 'normal')};"
+            f"font-size: {str(size_pt).replace(',', '.')}pt; " # pyright: ignore[reportUnknownArgumentType]
+            f"font-weight: {int(weight)}; " # pyright: ignore[reportUnknownArgumentType]
+            f"font-style: {css_style_map.get(style_enum_val, 'normal')};" # pyright: ignore[reportUnknownArgumentType]
             f"}}"
         )
 
         try:
-            self.textview_font_css_provider.load_from_data(css_string.encode("UTF-8"))
+            self.textview_font_css_provider.load_from_data(css_string.encode("UTF-8")) # pyright: ignore[reportUnknownMemberType]
             logger.info(f"Applied CSS for TextViews with font: {font_desc_str}")
         except GLib.Error as e:
             logger.error(f"Error loading CSS string for TextViews: {e}. CSS was: {css_string}")
         except Exception as e_generic:
             logger.error(f"Unexpected error loading CSS string: {e_generic}. CSS was: {css_string}")
 
-    def _on_main_error_banner_dismissed(self, _banner: Optional[Adw.Banner] = None, _data: Optional[Any] = None):
+    def _on_main_error_banner_dismissed(self, banner: Optional[Adw.Banner] = None, data: Optional[Any] = None):
         """
         Handle dismissal of the main error banner.
 
         This callback is connected to the 'button-clicked' signal of the
         ``main_error_banner``.
 
-        :param _banner: The :class:`Adw.Banner` widget that emitted the signal (unused).
-        :type _banner: Optional[Adw.Banner]
-        :param _data: Additional data passed with the signal (unused).
-        :type _data: Optional[Any]
+        :param banner: The :class:`Adw.Banner` widget that emitted the signal (unused).
+        :type banner: Optional[Adw.Banner]
+        :param data: Additional data passed with the signal (unused).
+        :type data: Optional[Any]
         """
         self.hide_error()
 
@@ -231,9 +245,9 @@ class WoesWindow(Adw.ApplicationWindow):
         for ``font-name`` and ``text-scaling-factor``. It triggers re-application
         of font sizes based on application and system settings.
 
-        :param gnome_settings_obj: The :class:`Gio.Settings` object for
+        :param _gnome_settings_obj: The :class:`Gio.Settings` object for
                                    ``org.gnome.desktop.interface`` that changed.
-        :type gnome_settings_obj: Gio.Settings
+        :type _gnome_settings_obj: Gio.Settings
         :param key_name: The name of the GSettings key that changed
                          (e.g., 'font-name', 'text-scaling-factor').
         :type key_name: str
@@ -241,7 +255,7 @@ class WoesWindow(Adw.ApplicationWindow):
         logging.debug("GNOME font setting '%s' changed. Re-applying font preferences.", key_name)
         apply_font_size(self.settings)
 
-    def setup_ui(self):
+    def setup_ui(self) -> None:
         """
         Set up the main UI components.
 
@@ -289,16 +303,16 @@ class WoesWindow(Adw.ApplicationWindow):
 
         Triggers re-application of font sizes based on the new scaling factor.
 
-        :param settings: The :class:`Gio.Settings` object for the application
+        :param _settings: The :class:`Gio.Settings` object for the application
                          (schema ID: :const:`.APP_ID`) that changed.
-        :type settings: Gio.Settings
+        :type _settings: Gio.Settings
         :param key: The name of the GSettings key that changed (should be 'font-scaling-percentage').
         :type key: str
         """
         logging.debug("App font scaling setting '%s' changed. Re-applying font preferences.", key)
         apply_font_size(self.settings)
 
-    def load_css(self):
+    def load_css(self) -> None:
         """
         Load the appropriate CSS file (style.css or style-dark.css) based on the current theme.
 
@@ -347,14 +361,14 @@ class WoesWindow(Adw.ApplicationWindow):
         """
         try:
             theme_pref = self.settings.get_string("theme-preference")
-            apply_font_size(self.settings)
-            apply_theme(self.style_manager, theme_pref)
+            apply_font_size(self.settings) # pyright: ignore[reportUnknownArgumentType]
+            apply_theme(self.style_manager, theme_pref) # pyright: ignore[reportUnknownArgumentType]
         except GLib.Error as e:
             logging.error("Error applying preferences (GSettings): %s", e)
         except Exception as e:
             logging.error("An unexpected error of type %s occurred while applying preferences: %s", type(e).__name__, e)
 
-    def on_page_switched(self, _widget: Adw.ViewSwitcherTitle, _gparam: GObject.ParamSpec):
+    def on_page_switched(self, widget: Adw.ViewSwitcherTitle, gparam: GObject.ParamSpec):
         """
         Handle the page switch event from the :class:`Adw.ViewSwitcherTitle`.
 
@@ -363,8 +377,8 @@ class WoesWindow(Adw.ApplicationWindow):
         :param widget: The :class:`Adw.ViewSwitcherTitle` that emitted the
                        'notify::selected-page' signal.
         :type widget: Adw.ViewSwitcherTitle
-        :param _gparam: The :class:`GObject.ParamSpec` of the property that changed (unused).
-        :type _gparam: GObject.ParamSpec
+        :param gparam: The :class:`GObject.ParamSpec` of the property that changed (unused).
+        :type gparam: GObject.ParamSpec
         """
         if self.stack:
             logging.debug("Page switched, new visible page: %s", self.stack.get_visible_child_name())
@@ -394,3 +408,25 @@ class WoesWindow(Adw.ApplicationWindow):
         toast.set_timeout(timeout)
         self.toast_overlay.add_toast(toast)
         logging.info("Toast shown: %s (Priority: %s, Timeout: %s)", title, priority, timeout)
+
+    def do_dispose(self):
+        """
+        Clean up resources when the WoesWindow is disposed.
+
+        Disconnects all GSettings signal handlers to prevent memory leaks or
+        attempts to call methods on a disposed object. This is part of the
+        GObject lifecycle.
+        """
+        logging.debug("WoesWindow.do_dispose() called.")
+        for obj, handler_id in self._settings_handlers:
+            if obj and obj.is_connected(handler_id):
+                obj.disconnect(handler_id)
+        self._settings_handlers.clear()
+
+        for obj, handler_id in self._gnome_settings_handlers:
+            if obj and obj.is_connected(handler_id): # Check if gnome_interface_settings was successfully created
+                obj.disconnect(handler_id)
+        self._gnome_settings_handlers.clear()
+
+        # GObject.Object.do_dispose(self) # Not needed for Adw.ApplicationWindow
+        super().do_dispose()

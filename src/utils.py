@@ -4,10 +4,10 @@ import logging
 import ipaddress
 import re
 from urllib.parse import urlparse
-from typing import Optional, List
+from typing import Optional, List, Tuple, Any
 
 import gi
-from gi.repository import Gtk, Adw
+from gi.repository import Gtk, Adw, Gio, GLib
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
@@ -125,12 +125,12 @@ def is_valid_url(url: str, schemes: Optional[List[str]] = None) -> bool:
                     If ``None``, defaults to ``['http', 'https']``.
                     If an empty list is provided, any scheme is effectively allowed
                     as long as one is present in the URL.
-    :type schemes: Optional[list[str]]
+    :type schemes: Optional[List[str]]
     :return: ``True`` if the string is a valid URL with an allowed scheme
              (or any scheme if ``schemes`` is empty), ``False`` otherwise.
     :rtype: bool
     """
-    effective_schemes: list[str]
+    effective_schemes: List[str]
     if schemes is None:  # Default to http and https if not provided
         effective_schemes = ["http", "https"]
     else:
@@ -149,3 +149,39 @@ def is_valid_url(url: str, schemes: Optional[List[str]] = None) -> bool:
         return True
     except ValueError:  # urlparse can raise ValueError for some malformed URLs, though it's rare
         return False
+
+
+def process_task_result(
+    task: Gio.Task, result: Gio.AsyncResult, page_logger: logging.Logger
+) -> Tuple[Optional[Any], Optional[str]]:
+    """
+    Process the result of a Gio.Task, handling common exceptions.
+
+    :param task: The Gio.Task that was executed.
+    :type task: Gio.Task
+    :param result: The Gio.AsyncResult from the completed task.
+    :type result: Gio.AsyncResult
+    :param page_logger: The logger instance from the calling page/module to log errors.
+    :type page_logger: logging.Logger
+    :return: A tuple containing (propagated_value, error_message).
+             If successful, propagated_value is the task's result and error_message is None.
+             If an error occurs, propagated_value is None and error_message contains the error string.
+    :rtype: Tuple[Optional[Any], Optional[str]]
+    """
+    try:
+        propagated_value = task.propagate_value(result)
+        return propagated_value, None
+    except GLib.Error as e:
+        page_logger.warning(
+            "Task failed with GLib.Error (Domain: %s, Code: %d, Message: %s)", e.domain, e.code, e.message
+        )
+        # Try to return a somewhat user-friendly message from GLib.Error
+        error_message = e.message if e.message else "An operation failed or was cancelled."
+        # Escape markup just in case, as this might be shown in UI
+        if "<b>" in error_message or "<" in error_message:
+            error_message = GLib.markup_escape_text(error_message)
+        return None, error_message
+    except Exception as e_generic:
+        page_logger.exception("Task failed with an unexpected Python error:")
+        # Return the first line of the generic exception for brevity in UI
+        return None, f"An unexpected error occurred: {str(e_generic).splitlines()[0]}"

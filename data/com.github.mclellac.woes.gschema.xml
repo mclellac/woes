@@ -31,6 +31,22 @@
       <description>Specifies the custom DNS server IP address to be used for DNS lookups. Leave
         empty to use the system default.</description>
     </key>
+    <key name="dns-resolver-timeout" type="d">
+      <default>5.0</default>
+      <summary>DNS Resolver Timeout</summary>
+      <description>The timeout in seconds for DNS resolution attempts made by the DNS lookup tool. Default is 5.0 seconds. This does not affect Nmap's internal DNS resolution.</description>
+    </key>
+    <key name="nmap-host-timeout" type="i">
+      <default>60</default>
+      <range min="0" max="3600"/>
+      <summary>Nmap Host Timeout (seconds)</summary>
+      <description>The maximum time Nmap will spend on a single host during a scan, in seconds. A value of 0 means no host timeout (Nmap default). This can prevent scans from hanging indefinitely on unresponsive hosts, potentially due to very slow DNS or network issues. Default is 60 seconds.</description>
+    </key>
+    <key name="http-request-timeout" type="i">
+      <default>20</default>
+      <summary>HTTP Request Timeout</summary>
+      <description>The timeout in seconds for HTTP requests made by the HTTP tool. Default is 20 seconds.</description>
+    </key>
     <key name="window-width" type="i">
       <default>900</default>
       <summary>Window Width</summary>
