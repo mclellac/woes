@@ -342,47 +342,66 @@ class NmapPage(Gtk.Box):
         task_being_processed = self.current_nmap_task  # Keep a reference
         self.current_nmap_task = None  # Clear early
 
-        try:
-            data, error_msg = process_task_result(task_being_processed, result, logger)
+        logger.debug(f"NmapPage: _nmap_scan_task_done_cb: task_being_processed is {task_being_processed}, type: {type(task_being_processed)}")
+        if task_being_processed:
+            logger.debug(f"NmapPage: task_being_processed.is_done() before propagate: {task_being_processed.is_done()}")
+        logger.debug(f"NmapPage: _nmap_scan_task_done_cb: result is {result}, type: {type(result)}")
 
-            if error_msg:
-                # Specific NmapPage handling for "cancelled" if desired for UI
-                if "cancel" in error_msg.lower():  # Basic check
-                    self._set_scan_status(
-                        ScanStatus.IDLE, f"Scan for {original_target} cancelled."
-                    )
-                    self._clear_results()  # Clear results on cancel for NmapPage
-                else:
-                    self._handle_scan_error(original_target, error_msg)
-            elif data is not None:  # data is the result from propagate_value
-                if isinstance(data, dict) and "results_map" in data and "all_hosts" in data:
-                    results_map_final = data["results_map"]
-                    all_hosts_final = data["all_hosts"]
-                    GLib.idle_add(self._update_results_view, all_hosts_final, results_map_final)
-                    self._set_scan_status(
-                        ScanStatus.COMPLETE,
-                        f"Scan complete for {original_target}. {len(all_hosts_final)} host(s) found."
-                    )
-                else:
-                    logger.error(
-                        f"NmapPage: Unexpected data type from process_task_result: {type(data)}, "
-                        f"expected dict with results_map and all_hosts."
-                    )
-                    self._handle_scan_error(
-                        original_target, "Scan returned an unexpected data type."
-                    )
-            elif not error_msg:  # data is None and no error_msg
-                 logger.error(
-                    f"NmapPage: Scan for {original_target} resulted in no data and "
-                    f"no error_msg from process_task_result."
+        data = None
+        error_msg = None
+        try:
+            if task_being_processed: # Ensure task_being_processed is not None
+                logger.info("NmapPage: Attempting task_being_processed.propagate_value(result)")
+                data = task_being_processed.propagate_value(result)
+                logger.info(f"NmapPage: propagate_value returned: {type(data)}")
+            else:
+                logger.error("NmapPage: task_being_processed was None in _nmap_scan_task_done_cb.")
+                error_msg = "Internal error: Task object not found in callback."
+
+        except GLib.Error as e:
+            logger.warning(
+                f"NmapPage: Task failed with GLib.Error (Domain: {e.domain}, Code: {e.code}, Message: {e.message})"
+            )
+            error_msg = e.message if e.message else "An Nmap operation failed or was cancelled."
+            if "<b>" in error_msg or "<" in error_msg: # Basic markup check
+                error_msg = GLib.markup_escape_text(error_msg)
+        except TypeError as te:
+            logger.exception("NmapPage: TypeError during propagate_value call directly in callback!")
+            error_msg = f"TypeError directly in callback: {te}"
+        except Exception as e_generic:
+            logger.exception("NmapPage: Task failed with an unexpected Python error directly in callback:")
+            error_msg = f"An unexpected error occurred: {str(e_generic).splitlines()[0]}"
+
+        # Existing logic for handling error_msg or data:
+        if error_msg:
+            if "cancel" in error_msg.lower():
+                self._set_scan_status(ScanStatus.IDLE, f"Scan for {original_target} cancelled.")
+                self._clear_results()
+            else:
+                self._handle_scan_error(original_target, error_msg)
+        elif data is not None:
+            if isinstance(data, dict) and "results_map" in data and "all_hosts" in data:
+                results_map_final = data["results_map"]
+                all_hosts_final = data["all_hosts"]
+                GLib.idle_add(self._update_results_view, all_hosts_final, results_map_final)
+                self._set_scan_status(
+                    ScanStatus.COMPLETE,
+                    f"Scan complete for {original_target}. {len(all_hosts_final)} host(s) found."
                 )
-                 self._handle_scan_error(
-                     original_target, "Scan completed with no data and no error."
-                 )
-            # error_msg case is already handled by the existing if/else after process_task_result
+            else:
+                logger.error(
+                    f"NmapPage: Unexpected data type from propagate_value: {type(data)}, "
+                    f"expected dict with results_map and all_hosts."
+                )
+                self._handle_scan_error(original_target, "Scan returned an unexpected data type.")
+        elif not error_msg: # data is None and no error_msg from direct try-except
+            logger.error(
+                f"NmapPage: Scan for {original_target} resulted in no data and no error_msg from direct propagate_value handling."
+            )
+            self._handle_scan_error(original_target, "Scan completed with no data and no error from direct handling.")
         finally:
             # Ensure task references are cleared and UI is reset regardless of success or failure.
-            self.current_nmap_task = None  # Already cleared, but good for safety.
+            # self.current_nmap_task is already None here due to clearing it early.
             self.current_nmap_cancellable = None
             self._set_scan_status(ScanStatus.IDLE, "Idle")
             self.nmap_target_entryrow.set_sensitive(True)
