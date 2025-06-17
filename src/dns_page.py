@@ -721,7 +721,7 @@ class DNSPage(Gtk.Box):
         if not active_task or not active_task.matches_async_result(result):
             logger.warning("DNSPage: Callback received for an outdated or mismatched DNS task.")
             if not active_task or active_task.is_done():  # If no current task or it's done
-            self._set_loading_state(False, "Idle.")
+                self._set_loading_state(False, "Idle.")
             return
 
         # Retrieve operational data from instance variable
