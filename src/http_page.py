@@ -634,14 +634,14 @@ class HttpPage(Gtk.Box):
                     self.http_entry_row.remove_css_class("error")
                 self._set_loading_state(False, "Headers loaded successfully.")
             else:
-            # This case (data is None, error_msg is None) implies successful task completion
-            # but the thread function returned None, which is unexpected for this specific task.
-            # Or, propagate_value itself returned None without raising GLib.Error.
-            show_global_error(self, "Failed to process data: background task returned None.")
+                # This case (data is None, error_msg is None) implies successful task completion
+                # but the thread function returned None, which is unexpected for this specific task.
+                # Or, propagate_value itself returned None without raising GLib.Error.
+                show_global_error(self, "Failed to process data: background task returned None.")
                 if self.http_entry_row:
                     self.http_entry_row.add_css_class("error")
                 self._update_column_view_model(None)
-            self._set_loading_state(False, "Error: Failed to process data (task returned None).")
+                self._set_loading_state(False, "Error: Failed to process data (task returned None).")
 
         except GLib.Error as e:  # Catch errors propagated by Gio.Task.propagate_value()
             original_py_exception = None
