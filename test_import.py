@@ -1,3 +1,4 @@
+"""Test basic import of the main application window."""
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
@@ -9,16 +10,20 @@ try:
     from src.window import WoesWindow
     print("Successfully imported WoesWindow.")
     # Attempt to instantiate it to trigger template parsing more directly
-    # app = Adw.Application(application_id="com.github.mclellac.woes.test")
+    # app = Gtk.Application(application_id='com.example.WoesTest')
     # window = WoesWindow(application=app)
-    # print("Successfully instantiated WoesWindow (simulated).")
-    # Note: Full instantiation might require more setup (like a running Gtk.Application).
-    # For now, just the import and class definition being processed by Python + GObject Introspection
-    # should be enough to catch the Gtk.BuilderError if types are not registered.
+    # print("WoesWindow instantiated (simulated).")
+    # GLib.idle_add(app.quit) # Ensure app quits for headless test
+    # app.run(None)
 
-except GLib.Error as e: # Changed to GLib.Error
-    print(f"A GLib.Error occurred (possibly Gtk.BuilderError related): {e}")
+
 except ImportError as e:
-    print(f"ImportError occurred: {e}")
+    print(f"Failed to import WoesWindow: {e}")
+    print("Ensure that the script is run from the repository root,")
+    print("and that the necessary Gtk/Adw libraries are available.")
+    exit(1)
 except Exception as e:
-    print(f"An unexpected error occurred: {e}")
+    print(f"An error occurred during WoesWindow import or instantiation test: {e}")
+    exit(1)
+
+print("Test script completed.")
