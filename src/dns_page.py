@@ -9,6 +9,7 @@ DNS lookups are performed asynchronously to maintain UI responsiveness.
 """
 
 import logging
+from enum import Enum # Add missing import
 from typing import Optional, Any, List, Dict, Final  # Added Final
 
 import gi
