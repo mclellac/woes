@@ -12,10 +12,6 @@ from typing import Optional, Any
 import gi
 from gi.repository import Adw, Gdk, Gio, Gtk, GLib, GObject, Pango
 
-from .nmap_page import NmapPage
-from .http_page import HttpPage
-from .dns_page import DNSPage
-from .webscan_page import WebScanPage
 
 from .constants import (
     APP_ID,
@@ -32,6 +28,7 @@ gi.require_version("Gtk", "4.0")
 
 
 # Imports for custom page widgets
+
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/window.ui")
 class WoesWindow(Adw.ApplicationWindow):

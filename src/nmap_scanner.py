@@ -16,7 +16,7 @@ import shutil
 import time
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
-from typing import Any, Dict, List, Optional, TypedDict, Union  # Use dict, list
+from typing import Any, Dict, List, Optional, TypedDict, Union
 
 try:
     from gi.repository import Gio
@@ -165,26 +165,37 @@ class NmapScanner:
         self.current_process: Optional[subprocess.Popen[str]] = None
         self.current_cancellable: Optional[Gio.Cancellable] = None
 
-    def __del__(self) -> None:
-        """Ensure the ThreadPoolExecutor is shut down and any running Nmap process is terminated."""
-        logger.debug("NmapScanner.__del__ called.")
+    def shutdown(self, wait: bool = True) -> None:
+        """
+        Shut down the NmapScanner and clean up resources.
+
+        Terminates any running Nmap process and shuts down the internal
+        ThreadPoolExecutor.
+
+        :param wait: If ``True``, wait for the ThreadPoolExecutor to shut down.
+                     Defaults to ``True``.
+        :type wait: bool
+        """
+        logger.debug("NmapScanner.shutdown() called with wait=%s.", wait)
         if self.current_process and self.current_process.poll() is None:
-            logger.info("Terminating active Nmap process during NmapScanner deletion.")
+            logger.info("Terminating active Nmap process during NmapScanner shutdown.")
             try:
                 self.current_process.terminate()
-                self.current_process.wait(timeout=1)
+                self.current_process.wait(timeout=1) # Give it a moment to terminate
             except subprocess.TimeoutExpired:
-                logger.warning("Nmap process did not terminate gracefully, killing.")
+                logger.warning("Nmap process did not terminate gracefully after 1s, killing.")
                 self.current_process.kill()
             except OSError as e_os:
-                logger.exception(f"OS error terminating Nmap process during deletion: {e_os}")
-            except Exception as e:
-                logger.exception(f"Unexpected error terminating Nmap process during deletion: {e}")
+                logger.exception(f"OS error terminating Nmap process during shutdown: {e_os}")
+            except Exception as e: # pylint: disable=broad-except
+                logger.exception(f"Unexpected error terminating Nmap process during shutdown: {e}")
             self.current_process = None
 
         if hasattr(self, "executor") and self.executor is not None:
-            self.executor.shutdown(wait=True)
-        logger.debug("NmapScanner cleanup complete.")
+            logger.debug("Shutting down ThreadPoolExecutor.")
+            self.executor.shutdown(wait=wait)
+            logger.debug("ThreadPoolExecutor shut down.")
+        logger.debug("NmapScanner shutdown complete.")
 
     def validate_target_input(self, target: str) -> bool:
         """
@@ -274,8 +285,11 @@ class NmapScanner:
             nmap_args_list.append("-sV")
         if params.get("scan_all_ports"):
             nmap_args_list.append("-p-")
-        if params.get("selected_script") and params["selected_script"] != "None":  # type: ignore[comparison-overlap]
-            nmap_args_list.append(f"--script={params['selected_script']}")  # type: ignore[literal-required]
+
+        selected_script_val = params.get("selected_script")
+        if selected_script_val and selected_script_val != "None":
+            nmap_args_list.append(f"--script={selected_script_val}")
+
         if params.get("no_ping"):
             nmap_args_list.append("-Pn")
 

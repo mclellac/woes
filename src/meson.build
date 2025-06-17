@@ -31,6 +31,9 @@ conf.set('WOESDIR', site_packages_dir)
 conf.set('PYTHON_SITE_PACKAGES_DIR', python_site_packages_dir)
 conf.set('APPID', meson.project_name())
 conf.set('GSETTINGSSCHEMADIR', gsettings_schemadir) # Add this line
+# Add PKGDATADIR and VERSION to conf for _config.py.in
+conf.set('PKGDATADIR', pkgdatadir) # Ensure pkgdatadir is defined before this
+conf.set('VERSION', meson.project_version())
 
 # Set paths conditionally based on whether it is a Flatpak build
 if is_flatpak_build
@@ -47,6 +50,14 @@ else
 endif
 
 conf.set('RESOURCE_PATH', resource_path)
+
+# Configure _config.py
+configured_config_py = configure_file(
+  input: '_config.py.in',
+  output: '_config.py',
+  configuration: conf,
+  install_dir: false # We will install it with other sources
+)
 
 # Configure the woes script file
 configure_file(
@@ -89,6 +100,9 @@ woes_sources = files(
   'window.py',
   'webscan_page.py',
 )
+
+# Add configured_config_py to the list of sources to be installed
+woes_sources += configured_config_py
 
 # Install the Python source files
 python_bin.install_sources(woes_sources, subdir: conf.get('WOESDIR'))

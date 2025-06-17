@@ -9,7 +9,6 @@ import subprocess
 import logging
 
 logger = logging.getLogger(__name__)
-import re
 import ast
 from typing import Optional, Dict, Any
 import time
@@ -19,7 +18,7 @@ import gi
 from gi.repository import Gtk, Adw, Gio, GLib, GObject, Gdk, Pango
 
 from .constants import RESOURCE_PREFIX, APP_ID
-from .utils import show_global_error, show_global_toast, is_valid_url, process_task_result # Import new utility
+from .utils import show_global_error, show_global_toast, is_valid_url, process_task_result  # Import new utility
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
@@ -96,11 +95,8 @@ class WebScanPage(Gtk.Box):
 
         self.font_css_provider = Gtk.CssProvider()
         if hasattr(self, "source_view") and self.source_view:
-            self.source_view.get_style_context().add_provider(
-                self.font_css_provider, Gtk.STYLE_PROVIDER_PRIORITY_USER
-            )
-        self._update_font_css() # Initial font application
-
+            self.source_view.get_style_context().add_provider(self.font_css_provider, Gtk.STYLE_PROVIDER_PRIORITY_USER)
+        self._update_font_css()  # Initial font application
 
         if self.scan_button:
             self.scan_button.get_style_context().add_class("suggested-action")
@@ -174,9 +170,9 @@ class WebScanPage(Gtk.Box):
         size_in_pango_units = self._output_font_desc.get_size()
 
         size_in_points = 0.0
-        if size_in_pango_units > 0: # Pango.SCALE can be 0, avoid division by zero
+        if size_in_pango_units > 0:  # Pango.SCALE can be 0, avoid division by zero
             size_in_points = size_in_pango_units / Pango.SCALE
-        else: # Default to a reasonable size if Pango size is 0 or invalid
+        else:  # Default to a reasonable size if Pango size is 0 or invalid
             size_in_points = 10.0
             logger.warning(f"WebScanPage: Pango font size was {size_in_pango_units}, defaulting to {size_in_points}pt.")
 
@@ -185,7 +181,7 @@ class WebScanPage(Gtk.Box):
         css = f"textview#webscan-output-textview {{ font-family: '{effective_font_family}'; font-size: {size_in_points:.1f}pt; }}"
         try:
             self.font_css_provider.load_from_string(css)
-        except GLib.Error as e: # Catch potential errors from load_from_string
+        except GLib.Error as e:  # Catch potential errors from load_from_string
             logger.error(f"WebScanPage: Error loading CSS string '{css}': {e}")
 
     def __del__(self):
@@ -768,35 +764,42 @@ class WebScanPage(Gtk.Box):
 
         logger.info(f"Nikto scan task done for {target_url}.")
 
-        task_being_processed = self.current_web_scan_task # Keep a reference
-        self.current_web_scan_task = None # Clear early
+        task_being_processed = self.current_web_scan_task  # Keep a reference
+        self.current_web_scan_task = None  # Clear early
 
-        returned_data, error_msg = process_task_result(task_being_processed, result, logger)
+        try:
+            returned_data, error_msg = process_task_result(task_being_processed, result, logger)
 
-        if error_msg:
-            # Determine brief message for toast/subtitle (previously done by inspecting GLib.Error domain/code)
-            # For now, we use the error_msg directly or a shortened version.
-            # More specific error parsing could be re-added here if needed, by inspecting error_msg content.
-            brief_user_message = error_msg.splitlines()[0]
-            if "Nikto command not found" in error_msg: # Example of making it more specific
-                 brief_user_message = "Nikto command not found. Ensure Nikto is installed and in PATH."
-            elif "cancelled" in error_msg.lower():
-                 brief_user_message = f"Scan for {target_url} was cancelled."
+            if error_msg:
+                # Determine brief message for toast/subtitle (previously done by inspecting GLib.Error domain/code)
+                # For now, we use the error_msg directly or a shortened version.
+                # More specific error parsing could be re-added here if needed, by inspecting error_msg content.
+                brief_user_message = error_msg.splitlines()[0]
+                if "Nikto command not found" in error_msg:  # Example of making it more specific
+                    brief_user_message = "Nikto command not found. Ensure Nikto is installed and in PATH."
+                elif "cancelled" in error_msg.lower():
+                    brief_user_message = f"Scan for {target_url} was cancelled."
 
-            if self.webscan_status_action_row:
-                self.webscan_status_action_row.set_subtitle(brief_user_message)
-            show_global_error(self, brief_user_message)
-            self._update_textview(None, f"Error: {error_msg}", is_error_message=True)
+                if self.webscan_status_action_row:
+                    self.webscan_status_action_row.set_subtitle(brief_user_message)
+                show_global_error(self, brief_user_message)
+                self._update_textview(None, f"Error: {error_msg}", is_error_message=True)
 
-        elif returned_data is not None:
-            if isinstance(returned_data, tuple) and len(returned_data) == 2:
-                s_out, s_err = returned_data
+            elif returned_data is not None:
+                if isinstance(returned_data, tuple) and len(returned_data) == 2:
+                    s_out, s_err = returned_data
             # This part handles if Gio.Task.return_value wraps the tuple in a GObject.Value or similar
-            elif hasattr(returned_data, "value") and isinstance(returned_data.value, tuple) and len(returned_data.value) == 2:
+            elif (
+                hasattr(returned_data, "value")
+                and isinstance(returned_data.value, tuple)
+                and len(returned_data.value) == 2
+            ):
                 s_out, s_err = returned_data.value
             else:
                 s_out, s_err = None, None
-                logger.error(f"Nikto scan for {target_url} returned unexpected data format from process_task_result: {type(returned_data)}")
+                logger.error(
+                    f"Nikto scan for {target_url} returned unexpected data format from process_task_result: {type(returned_data)}"
+                )
                 show_global_error(self, "Scan returned unexpected data format.")
                 self._update_textview(None, "Error: Scan returned unexpected data format.", is_error_message=True)
 
@@ -807,13 +810,17 @@ class WebScanPage(Gtk.Box):
                 final_stdout = str(s_out)
             else:
                 final_stdout = s_out
-            if final_stdout: final_stdout = final_stdout.replace("\\n", "\n")
+            if final_stdout:
+                final_stdout = final_stdout.replace("\\n", "\n")
 
             final_stderr: Optional[str] = None
             if s_err is not None:
-                if not isinstance(s_err, str): final_stderr = str(s_err)
-                else: final_stderr = s_err
-                if final_stderr: final_stderr = final_stderr.replace("\\n", "\n")
+                if not isinstance(s_err, str):
+                    final_stderr = str(s_err)
+                else:
+                    final_stderr = s_err
+                if final_stderr:
+                    final_stderr = final_stderr.replace("\\n", "\n")
 
             self._update_textview(final_stdout, final_stderr, is_error_message=False)
 
@@ -822,13 +829,15 @@ class WebScanPage(Gtk.Box):
                     self.webscan_status_action_row.set_subtitle("Scan complete. See results below.")
                 else:
                     self.webscan_status_action_row.set_subtitle("Scan complete. No output received.")
-        else: # No error, but data is None - should be caught by process_task_result
+        else:  # No error, but data is None - should be caught by process_task_result
             logger.error(f"Nikto scan for {target_url} resulted in no data and no error_msg from process_task_result.")
             show_global_error(self, "Scan completed with no data and no error.")
             self._update_textview(None, "Error: Scan completed with no data.", is_error_message=True)
             if self.webscan_status_action_row:
                 self.webscan_status_action_row.set_subtitle("Scan finished with no data.")
         finally:
+            # This block ensures UI elements like buttons and spinners are reset correctly,
+            # and task references are cleared, regardless of how the try block exited.
             self.scan_button.set_sensitive(True)
             if self.webscan_cancel_button:
                 self.webscan_cancel_button.set_sensitive(False)
