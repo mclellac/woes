@@ -8,10 +8,10 @@ and Server Name Indication (SNI) for HTTPS connections.
 import logging
 import socket
 import ssl
-from typing import Optional, Tuple, Any # list and dict will be used directly
+from typing import Optional, Tuple, Any  # list and dict will be used directly
 
 import requests
-import requests.utils # For urlparse, urlunparse
+import requests.utils  # For urlparse, urlunparse
 from requests.adapters import HTTPAdapter
 
 try:

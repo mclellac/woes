@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 import gi
 from gi.repository import Adw, Gio, Gtk, Pango, GObject
-from typing import Optional, Sequence, Any # list and dict will be used directly
+from typing import Optional, Sequence, Any  # list and dict will be used directly
 
 from .constants import APP_ID, RESOURCE_PREFIX
 from .utils import show_global_error, show_global_toast, is_valid_ip, is_valid_domain
@@ -670,7 +670,7 @@ class DNSPage(Gtk.Box):
         result_records: list[dict[str, Any]],
         domain_or_ip: str,
         record_type: str,
-        dns_servers: Sequence[Any], # Using typing.Sequence
+        dns_servers: Sequence[Any],  # Using typing.Sequence
     ) -> None:
         """
         Display the DNS lookup results in the UI.
@@ -899,7 +899,7 @@ class DNSPage(Gtk.Box):
 
     # --- Modified _build_*_record_row methods ---
 
-    def _build_address_record_row( # type: ignore[type-arg]
+    def _build_address_record_row(  # type: ignore[type-arg]
         self, record_data: dict[str, Any], name: str, base_subtitle: str, record_type: str
     ) -> Adw.ActionRow:
         """
@@ -924,7 +924,7 @@ class DNSPage(Gtk.Box):
         self._add_standard_suffix_box_to_row(row, address_value, "Copy Address", summary_text)
         return row
 
-    def _build_cname_ns_ptr_record_row( # type: ignore[type-arg]
+    def _build_cname_ns_ptr_record_row(  # type: ignore[type-arg]
         self, record_data: dict[str, Any], name: str, base_subtitle: str, record_type: str
     ) -> Adw.ActionRow:
         """
@@ -955,7 +955,7 @@ class DNSPage(Gtk.Box):
         self._add_standard_suffix_box_to_row(row, target_value, "Copy Target", summary_text)
         return row
 
-    def _build_generic_data_record_row( # type: ignore[type-arg]
+    def _build_generic_data_record_row(  # type: ignore[type-arg]
         self, record_data: dict[str, Any], name: str, base_subtitle: str, record_type: str
     ) -> Adw.ActionRow:
         """
@@ -978,7 +978,7 @@ class DNSPage(Gtk.Box):
         self._add_standard_suffix_box_to_row(row, data_value, "Copy Data", summary_text)
         return row
 
-    def _build_mx_record_row( # type: ignore[type-arg]
+    def _build_mx_record_row(  # type: ignore[type-arg]
         self, record_data: dict[str, Any], name: str, base_subtitle: str
     ) -> Adw.ExpanderRow:  # record_type is "MX"
         """
@@ -1028,7 +1028,7 @@ class DNSPage(Gtk.Box):
         row.set_expanded(True)
         return row
 
-    def _build_txt_record_row( # type: ignore[type-arg]
+    def _build_txt_record_row(  # type: ignore[type-arg]
         self, record_data: dict[str, Any], name: str, base_subtitle: str
     ) -> Adw.ExpanderRow:  # record_type is "TXT"
         """
@@ -1064,7 +1064,7 @@ class DNSPage(Gtk.Box):
         row.set_expanded(bool(texts))
         return row
 
-    def _build_soa_record_row( # type: ignore[type-arg]
+    def _build_soa_record_row(  # type: ignore[type-arg]
         self, record_data: dict[str, Any], name: str, base_subtitle: str
     ) -> Adw.ExpanderRow:  # record_type is "SOA"
         """

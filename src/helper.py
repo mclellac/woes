@@ -186,10 +186,12 @@ class Helper:
 
             # Correct way to get clipboard
             display = self.widget.get_display()
-            clipboard = Gdk.Display.get_clipboard(display) # Use Gdk.Display.get_clipboard(display)
+            clipboard = Gdk.Display.get_clipboard(display)  # Use Gdk.Display.get_clipboard(display)
 
             if clipboard:
-                clipboard.set_text(text_to_copy, -1) # Use set_text for simplicity if Gdk.ContentProvider is complex here
+                clipboard.set_text(
+                    text_to_copy, -1
+                )  # Use set_text for simplicity if Gdk.ContentProvider is complex here
                 # content_provider = Gdk.ContentProvider.new_for_value(text_to_copy)
                 # clipboard.set_content(content_provider)  # type: ignore[no-untyped-call] # Keep if set_text not preferred
                 logger.debug("Successfully set clipboard content.")
@@ -290,8 +292,8 @@ class Helper:
         if selected_texts:
             clipboard_text = "\n".join(selected_texts)
             display = self.widget.get_display()
-            clipboard = Gdk.Display.get_clipboard(display) # Correct way to get clipboard
+            clipboard = Gdk.Display.get_clipboard(display)  # Correct way to get clipboard
             if clipboard:
-                clipboard.set_text(clipboard_text, -1) # Use set_text for simplicity
+                clipboard.set_text(clipboard_text, -1)  # Use set_text for simplicity
                 # content_provider = Gdk.ContentProvider.new_for_value(clipboard_text)
                 # clipboard.set_content(content_provider) # type: ignore[no-untyped-call] # Keep if set_text not preferred

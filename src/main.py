@@ -229,10 +229,12 @@ class WoesApplication(Adw.Application):
         else:
             # This condition implies WoesWindow() returned None or an error occurred before assignment
             # and sys.exit wasn't called, which should be rare given the above exception handling.
-            logging.critical("WoesApplication.do_activate: Window object is None after creation attempt. This indicates a critical issue.")
+            logging.critical(
+                "WoesApplication.do_activate: Window object is None after creation attempt. This indicates a critical issue."
+            )
             # If execution reaches here, it means window instantiation failed gravely without exiting.
             # sys.exit(1) # Consider re-adding if this state is possible and not handled by constructor's exit.
-                         # For now, assuming constructor exceptions lead to exit.
+            # For now, assuming constructor exceptions lead to exit.
 
     def _switch_to_page(self, page_name: str) -> None:
         """
@@ -510,7 +512,10 @@ class WoesApplication(Adw.Application):
         preferences_dialog.present()
 
     def create_action(
-        self, name: str, callback: Callable[[Gio.SimpleAction, Optional[GLib.Variant]], None], shortcuts: Optional[list[str]] = None
+        self,
+        name: str,
+        callback: Callable[[Gio.SimpleAction, Optional[GLib.Variant]], None],
+        shortcuts: Optional[list[str]] = None,
     ) -> None:
         """
         Create and add a :class:`Gio.SimpleAction` to the application.
