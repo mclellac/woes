@@ -31,6 +31,11 @@
       <description>Specifies the custom DNS server IP address to be used for DNS lookups. Leave
         empty to use the system default.</description>
     </key>
+    <key name="http-request-timeout" type="i">
+      <default>20</default>
+      <summary>HTTP Request Timeout</summary>
+      <description>The timeout in seconds for HTTP requests made by the HTTP tool. Default is 20 seconds.</description>
+    </key>
     <key name="window-width" type="i">
       <default>900</default>
       <summary>Window Width</summary>
