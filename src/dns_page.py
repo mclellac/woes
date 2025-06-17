@@ -365,15 +365,19 @@ class DNSPage(Gtk.Box):
         :type widget: Gtk.Widget
         """
         try:
-            display = widget.get_display()
-            clipboard = Gtk.Clipboard.get_default(display)
-            if clipboard:
-                clipboard.set_text(text, -1)
-                logger.info("Copied to clipboard: %s", text)
+            # display = widget.get_display() # No longer needed
+            # clipboard = Gtk.Clipboard.get_default(display) # Old failing line
+            clipboard = widget.get_clipboard() # New approach
+            if clipboard: # Gtk.Clipboard might be None if not available
+                clipboard.set_text(text) # set_text does not take a length argument in GTK4
+                logger.info("Copied to clipboard: %s", text[:100] + "..." if len(text) > 100 else text)
+                # show_global_toast(widget, "Text copied to clipboard.") # Caller handles success toast
             else:
-                logger.warning("Could not get default clipboard from widget's display: %s", widget)
+                logger.warning("Could not get clipboard from widget: %s", widget)
+                show_global_toast(widget.get_native(), "Failed to access clipboard.") # type: ignore
         except Exception:  # pylint: disable=broad-except
             logger.exception("Error copying to clipboard:")
+            show_global_toast(widget.get_native(), "Error copying to clipboard.") # type: ignore
 
     def _is_valid_ip_or_domain(self, input_str: str) -> bool:
         """
