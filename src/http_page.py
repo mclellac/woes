@@ -16,7 +16,7 @@ import gi
 
 gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
-from gi.repository import Adw, Gio, GObject, Gtk, GLib, Gdk, Pango
+from gi.repository import Adw, Gio, GObject, Gtk, GLib, Pango
 
 from .constants import RESOURCE_PREFIX, APP_ID, USER_AGENTS
 from .utils import show_global_error, show_global_toast, is_valid_url
@@ -584,9 +584,9 @@ class HttpPage(Gtk.Box):
         finally:
             if not self.current_http_task:
                 current_subtitle = self.http_status_row.get_subtitle() if self.http_status_row else "" # type: ignore
-                final_status_message = "Idle."
+                _final_status_message = "Idle."
                 if task_being_processed and task_being_processed.get_cancellable() and task_being_processed.get_cancellable().is_cancelled(): # type: ignore
-                    final_status_message = f"Fetch for {self._http_task_data_for_thread.get('url', 'operation')} cancelled."
+                    _final_status_message = f"Fetch for {self._http_task_data_for_thread.get('url', 'operation')} cancelled."
                 elif "Error:" not in current_subtitle and "loaded successfully" not in current_subtitle : # if not already set to a specific final state
                      pass # Keep the message from success/specific error
                 else: # If it was an error or still fetching/cancelling, reset to Idle or Cancelled.

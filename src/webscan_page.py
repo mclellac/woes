@@ -16,7 +16,7 @@ import time
 from enum import Enum
 
 import gi
-from gi.repository import Gtk, Adw, Gio, GLib, GObject, Gdk, Pango
+from gi.repository import Gtk, Adw, Gio, GLib, GObject, Pango
 
 from .constants import RESOURCE_PREFIX, APP_ID
 from .utils import show_global_error, show_global_toast, is_valid_url
@@ -785,7 +785,7 @@ class WebScanPage(Gtk.Box):
                     str(aux_output) if aux_output is not None else None,
                 )
             )
-        except FileNotFoundError as e_fnf:
+        except FileNotFoundError as _e_fnf:
             logger.error("Nikto command not found. Ensure it's in PATH.", exc_info=True)
             task.return_new_error_literal(
                 GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN),

@@ -56,11 +56,13 @@ class ScanCancelledError(PortScannerError):
 
 class NmapPrerequisiteError(PortScannerError):
     """Exception raised when a prerequisite for Nmap (like nmap itself or pkexec) is not found."""
+
     pass
 
 
 class NmapUnsupportedPlatformError(PortScannerError):
     """Exception raised when a feature (e.g., privilege escalation) is not supported on the current platform."""
+
     pass
 
 

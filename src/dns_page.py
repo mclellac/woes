@@ -10,8 +10,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 import gi
-from gi.repository import Adw, Gio, Gtk, Pango, GObject
+from gi.repository import Adw, Gio, Gtk, Pango, GObject, GLib
 from typing import Optional, Sequence, Any  # list and dict will be used directly
+from enum import Enum
 
 from .constants import APP_ID, RESOURCE_PREFIX
 from .utils import show_global_error, show_global_toast, is_valid_ip, is_valid_domain
@@ -29,6 +30,7 @@ DNS_LOOKUP_ERROR_DOMAIN = "dns-lookup-error-domain"
 
 class DnsLookupErrorType(int, Enum):
     """Enumeration of DNS Lookup error types for Gio.Task error reporting."""
+
     CANCELLED = 0
     # Other specific DNS errors could be added if needed for task error reporting,
     # but DnsClientError subtypes are usually handled directly.
@@ -184,8 +186,9 @@ class DNSPage(Gtk.Box):
             return None
 
         def extract_text_from_action_row_children(action_row: Adw.ActionRow, indent: str) -> list[str]:
-            """Extracts text from Gtk.Label children of an Adw.ActionRow,
-               including those potentially nested in Gtk.Box (common for prefixes/suffixes).
+            """
+            Extracts text from Gtk.Label children of an Adw.ActionRow,
+            including those potentially nested in Gtk.Box (common for prefixes/suffixes).
             """
             extracted_texts = []
             # Adw.ActionRow typically has a Gtk.Box as its first child (the "content area")
@@ -255,7 +258,7 @@ class DNSPage(Gtk.Box):
 
             # If it's an ExpanderRow, recurse for its children rows
             if isinstance(row, Adw.ExpanderRow) and row.get_expanded():
-                child_row = row.get_first_child() # This gets the header area of expander
+                _child_row = row.get_first_child() # This gets the header area of expander
                 # We need to iterate the actual added rows using add_row
                 # This requires a different approach, as get_first_child on ExpanderRow
                 # does not give the Gtk.ListBox that holds the rows.
@@ -264,7 +267,7 @@ class DNSPage(Gtk.Box):
 
                 # Let's find the Gtk.ListBox among children of Adw.ExpanderRow
                 expander_child = row.get_first_child()
-                list_box_container = None
+                _list_box_container = None
                 while expander_child:
                     # The list box is usually the last complex child before any internal actionables
                     # This is heuristic. A more robust way would be to know the exact structure.
@@ -852,7 +855,7 @@ class DNSPage(Gtk.Box):
             "requested_record_type": requested_record_type,
             "dns_client": dns_client # Pass the client instance
         }
-        task.run_in_thread(lambda t, _, td, c: self._dns_lookup_thread_func(t, td, c)) # type: ignore
+        task.run_in_thread((lambda t, _, td, c: self._dns_lookup_thread_func(t, td, c)), task_data=task_data) # type: ignore
 
     def _dns_lookup_thread_func(self, task: Gio.Task, task_data: dict, cancellable: Gio.Cancellable) -> None:
         """Background thread function for DNS lookup."""
@@ -895,7 +898,7 @@ class DNSPage(Gtk.Box):
             task.return_error(GLib.Error(f"Unexpected error: {e}", generic_error_quark, 0))
 
 
-    def _dns_lookup_done_cb(self, _source_object: GObject.Object, result: Gio.AsyncResult, _user_data: Any = None) -> None:
+    def _dns_lookup_done_cb(self, _source_object: GObject.Object, _result: Gio.AsyncResult, _user_data: Any = None) -> None:
         """Callback for when the DNS lookup task is done."""
         task_being_processed = self.current_dns_task
         self.current_dns_task = None # Clear current task reference

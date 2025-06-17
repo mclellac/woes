@@ -2,8 +2,11 @@
 
 import logging
 from typing import Optional
+
 from gi.repository import Gdk, Gtk, GObject
 import gi
+
+from .utils import show_global_toast
 
 gi.require_version("Gtk", "4.0")
 
