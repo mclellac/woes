@@ -85,6 +85,7 @@ woes_sources = files(
   'preferences.py',
   'style_utils.py',
   'utils.py',
+  'gtk_utils.py',
   'window.py',
   'webscan_page.py',
 )
