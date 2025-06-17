@@ -179,6 +179,24 @@ class WebScanPage(Gtk.Box):
         except GLib.Error as e:  # Catch potential errors from load_from_string
             logger.error(f"WebScanPage: Error loading CSS string '{css}': {e}")
 
+    def _on_url_entry_changed(self, editable: Adw.EntryRow) -> None:
+        """
+        Handle the 'changed' signal for the URL entry row.
+
+        Clears the 'error' CSS class from the entry row and hides any global error
+        banner specifically related to this input's validation.
+
+        :param editable: The Adw.EntryRow that emitted the signal.
+        :type editable: Adw.EntryRow
+        """
+        if editable.has_css_class("error"):
+            editable.remove_css_class("error")
+            main_window = self.get_native()
+            if main_window and hasattr(main_window, "hide_error_if_message_matches"):
+                main_window.hide_error_if_message_matches("Invalid Target URL. Please enter a valid URL (e.g., http://example.com).") # type: ignore[attr-defined]
+            # If the specific hide method isn't there, the error banner might persist until the next successful validation
+            # or explicit _clear_error() call. This is acceptable.
+
     def __del__(self):
         """Clean up when the WebScanPage is destroyed."""
         if self.current_web_scan_cancellable and not self.current_web_scan_cancellable.is_cancelled():
