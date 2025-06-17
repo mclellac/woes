@@ -1025,3 +1025,8 @@ WEB_SCAN_ERROR_DOMAIN = "web-scan-error-domain"
 
 class WebScanErrorType(int, Enum):
     """Enumeration of Web Scan error types for :class:`Gio.Task` error reporting."""
+
+    GENERIC = 0
+    TIMEOUT = 1 # Added based on usage in _on_scan_task_done
+    NIKTO_NOT_FOUND = 2
+    CANCELLED = 3

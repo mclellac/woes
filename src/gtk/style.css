@@ -24,16 +24,24 @@ textview#webscan-output-textview {
 /* Ensure accent colors on buttons are not overridden by text-button styling */
 button.suggested-action,
 button.suggested-action.text-button {
-    background-image: none;
-    background-color: var(--accent-bg-color);
-    color: var(--accent-fg-color);
-    border-color: var(--accent-bg-color); /* Or var(--accent-color) for more contrast */
+    background-image: none !important;
+    background-color: var(--accent-bg-color) !important;
+    color: var(--accent-fg-color) !important;
+    border-color: var(--accent-bg-color) !important; /* Or var(--accent-color) for more contrast */
+    border-style: solid !important;
+    border-width: 1px !important; /* Adjust as needed, ensures border is visible */
+    outline: none !important; /* Remove potential default outlines */
+    box-shadow: none !important; /* Remove potential default shadows */
 }
 
 button.destructive-action,
 button.destructive-action.text-button {
-    background-image: none;
-    background-color: var(--destructive-bg-color);
-    color: var(--destructive-fg-color);
-    border-color: var(--destructive-bg-color); /* Or var(--destructive-color) for more contrast */
+    background-image: none !important;
+    background-color: var(--destructive-bg-color) !important;
+    color: var(--destructive-fg-color) !important;
+    border-color: var(--destructive-bg-color) !important; /* Or var(--destructive-color) for more contrast */
+    border-style: solid !important;
+    border-width: 1px !important; /* Adjust as needed, ensures border is visible */
+    outline: none !important; /* Remove potential default outlines */
+    box-shadow: none !important; /* Remove potential default shadows */
 }
