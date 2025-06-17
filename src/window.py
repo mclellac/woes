@@ -12,10 +12,6 @@ from typing import Optional, Any
 import gi
 from gi.repository import Adw, Gdk, Gio, Gtk, GLib, GObject, Pango
 
-from .nmap_page import NmapPage
-from .http_page import HttpPage
-from .dns_page import DNSPage
-from .webscan_page import WebScanPage
 
 from .constants import (
     APP_ID,
