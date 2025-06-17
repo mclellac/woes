@@ -22,8 +22,16 @@ from .dns_client import (
     DnsNxDomainError,
     DnsNoAnswerError,
     DnsGenericError,
+    # DnsCancelledError, # This was speculative and not implemented in dns_client.py
 )
 
+DNS_LOOKUP_ERROR_DOMAIN = "dns-lookup-error-domain"
+
+class DnsLookupErrorType(int, Enum):
+    """Enumeration of DNS Lookup error types for Gio.Task error reporting."""
+    CANCELLED = 0
+    # Other specific DNS errors could be added if needed for task error reporting,
+    # but DnsClientError subtypes are usually handled directly.
 
 gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
@@ -50,6 +58,7 @@ class DNSPage(Gtk.Box):
     dns_copy_all_results_button = Gtk.Template.Child()
     dns_status_row = Gtk.Template.Child()
     dns_status_spinner = Gtk.Template.Child()
+    dns_cancel_button = Gtk.Template.Child() # Bind the button from UI
 
     def __init__(self, **kwargs: Any):
         """
@@ -75,10 +84,17 @@ class DNSPage(Gtk.Box):
         self._current_requested_record_type: Optional[str] = None
         self._current_dns_servers: Optional[Sequence[Any]] = None
 
+        self.current_dns_task: Optional[Gio.Task] = None
+        self.current_dns_cancellable: Optional[Gio.Cancellable] = None
+
         self._connect_signals()
 
         # Initialize new status row and spinner
         # Initially disable clear/copy buttons as there are no results
+        # Also ensure cancel button is initially in the correct state
+        if self.dns_cancel_button:
+            self.dns_cancel_button.set_visible(False)
+            self.dns_cancel_button.set_sensitive(False)
 
     def _connect_signals(self) -> None:
         """Connect signals for UI elements to their respective handlers."""
@@ -91,8 +107,16 @@ class DNSPage(Gtk.Box):
         if self.dns_copy_all_results_button:
             self.dns_copy_all_results_button.connect("clicked", self._on_copy_all_results_clicked)
 
+        if self.dns_cancel_button: # Now it should be bound by Gtk.Template
+            self.dns_cancel_button.connect("clicked", self._on_cancel_lookup_clicked)
+        else:
+            logger.warning("DNSPage: dns_cancel_button was not bound from UI file.")
+
+
         # Connect GSettings change for global font
         self.settings.connect(f"changed::{self._output_font_gsettings_key}", self._on_global_output_font_changed)
+
+    # Removed _find_cancel_button method
 
     def _on_global_output_font_changed(self, settings: Gio.Settings, key: str) -> None:
         logger.debug("DNSPage: Global output font setting changed for key: %s", key)
@@ -571,12 +595,30 @@ class DNSPage(Gtk.Box):
                 self.dns_status_row.set_subtitle("Idle")  # type: ignore
             # If not active and a message is present (e.g. error or success), it will be set by the caller.
 
+        sensitive = not active
         if self.domain_entry:
-            self.domain_entry.set_sensitive(not active)  # type: ignore
+            self.domain_entry.set_sensitive(sensitive)  # type: ignore
         if self.dns_apply_button:
-            self.dns_apply_button.set_sensitive(not active)  # type: ignore
+            self.dns_apply_button.set_sensitive(sensitive)  # type: ignore
         if self.dns_record_type_dropdown:
-            self.dns_record_type_dropdown.set_sensitive(not active)  # type: ignore
+            self.dns_record_type_dropdown.set_sensitive(sensitive)  # type: ignore
+
+        if self.dns_cancel_button:
+            self.dns_cancel_button.set_visible(active)
+            self.dns_cancel_button.set_sensitive(active)
+
+    def _on_cancel_lookup_clicked(self, _button: Gtk.Button) -> None:
+        """Handle click on the 'Cancel Lookup' button."""
+        logger.info("DNS lookup cancellation requested.")
+        if self.current_dns_cancellable and not self.current_dns_cancellable.is_cancelled():
+            self.current_dns_cancellable.cancel()
+            if self.dns_cancel_button:
+                self.dns_cancel_button.set_sensitive(False)
+            if self.dns_status_row:
+                self.dns_status_row.set_subtitle("Cancelling lookup...") # type: ignore
+        else:
+            logger.warning("No active DNS lookup cancellable to cancel.")
+
 
     def _on_domain_entry_changed(self, editable: Adw.EntryRow) -> None:
         """
@@ -745,6 +787,17 @@ class DNSPage(Gtk.Box):
 
         Orchestrates input validation, client interaction, and result/error display.
         """
+        if self.current_dns_task and not self.current_dns_task.is_done():
+            if self.current_dns_cancellable and not self.current_dns_cancellable.is_cancelled():
+                logger.info("Requesting cancellation of previous DNS lookup task.")
+                self.current_dns_cancellable.cancel()
+                # UI will be updated by the _dns_lookup_done_cb of the cancelled task
+            else: # Task is running but no cancellable, or already cancelled
+                logger.warning("Previous DNS lookup task is still running or finalizing cancellation.")
+                # Potentially show a toast if user tries to start multiple lookups rapidly
+                # For now, we let it proceed to create a new task.
+                # The old task, if it completes, might update UI, but new one will override.
+
         self._set_loading_state(True, "Looking up...")
         user_input = self.domain_entry.get_text().strip()  # type: ignore
         requested_record_type = self._get_selected_record_type()
@@ -774,29 +827,131 @@ class DNSPage(Gtk.Box):
 
         if not validation_passed:
             self.domain_entry.add_css_class("error") # type: ignore[attr-defined]
-            if error_message_to_show: # Should always be true if validation_passed is false and user_input wasn't empty initially
+            if error_message_to_show:
                  show_global_error(self, error_message_to_show)
             self._set_loading_state(False, f"Idle - {error_message_to_show.split('.')[0]}.")
             return
 
         self.domain_entry.remove_css_class("error") # type: ignore[attr-defined]
-        self._clear_error() # Clear any other non-validation global error
+        self._clear_error()
+
+        self.current_dns_cancellable = Gio.Cancellable()
+        task = Gio.Task.new(self, self.current_dns_cancellable, self._dns_lookup_done_cb, None)
+        self.current_dns_task = task
 
         custom_dns_server = self.settings.get_string("custom-dns-server")
+        # Create client here to pass to thread, or pass server string and let thread create it
         dns_client = DnsResolverClient(custom_dns_server=custom_dns_server or None)
 
+        task_data = {
+            "user_input": user_input,
+            "requested_record_type": requested_record_type,
+            "dns_client": dns_client # Pass the client instance
+        }
+        task.run_in_thread(lambda t, _, td, c: self._dns_lookup_thread_func(t, td, c)) # type: ignore
+
+    def _dns_lookup_thread_func(self, task: Gio.Task, task_data: dict, cancellable: Gio.Cancellable) -> None:
+        """Background thread function for DNS lookup."""
+        user_input = task_data["user_input"]
+        requested_record_type = task_data["requested_record_type"]
+        dns_client: DnsResolverClient = task_data["dns_client"]
+
         try:
+            if cancellable.is_cancelled():
+                task.return_new_error_literal(DNS_LOOKUP_ERROR_DOMAIN, DnsLookupErrorType.CANCELLED.value, "Lookup cancelled before execution.")
+                return
+
+            # The actual blocking call
             result_data = dns_client.resolve(user_input, requested_record_type)
+
+            if cancellable.is_cancelled():
+                task.return_new_error_literal(DNS_LOOKUP_ERROR_DOMAIN, DnsLookupErrorType.CANCELLED.value, "Lookup cancelled after execution.")
+                return
+
+            # Store data needed by _handle_dns_lookup_success in the task result
+            # along with the actual DNS records.
+            task.return_value(GLib.Variant.new_tuple(
+                GLib.Variant.new_python(result_data),
+                GLib.Variant.new_string(user_input),
+                GLib.Variant.new_string(requested_record_type),
+                GLib.Variant.new_python(dns_client) # To get nameservers later
+            ))
+
+        except DnsClientError as e: # Catch specific DNS client errors
+            # These errors are returned as DnsClientError objects directly.
+            # The main thread callback will handle them.
+            task.return_error(GLib.Error(str(e), DNS_LOOKUP_ERROR_DOMAIN, DnsClientError.quark().to_int())) # type: ignore
+            # Using a generic error code for DnsClientError, specific type handling is in _dns_lookup_done_cb
+        except Exception as e: # Catch any other unexpected errors
+            logger.exception("DNSPage: Unexpected error in _dns_lookup_thread_func")
+            # For other exceptions, return a generic GLib.Error
+            # It's better to use a specific domain and code if possible.
+            # For now, using a generic one.
+            generic_error_quark = GLib.quark_from_string("generic-task-error")
+            task.return_error(GLib.Error(f"Unexpected error: {e}", generic_error_quark, 0))
+
+
+    def _dns_lookup_done_cb(self, _source_object: GObject.Object, result: Gio.AsyncResult, _user_data: Any = None) -> None:
+        """Callback for when the DNS lookup task is done."""
+        task_being_processed = self.current_dns_task
+        self.current_dns_task = None # Clear current task reference
+
+        try:
+            propagated_result = task_being_processed.propagate_value() # type: ignore
+
+            # Unpack the GVariant tuple
+            result_data_py, user_input, requested_record_type, dns_client_py = propagated_result.unpack()
+
+            # Convert from GVariant back to Python types if necessary (GLib.Variant.new_python helps)
+            result_data = result_data_py # Already Python list[dict]
+            dns_client = dns_client_py # Already DnsResolverClient instance
+
             self._handle_dns_lookup_success(result_data, user_input, requested_record_type, dns_client)
-            # Status is set by _handle_dns_lookup_success
-        except Exception as e:  # Catch all exceptions here and delegate to the handler
-            self._handle_dns_lookup_exception(e, user_input, requested_record_type, dns_client)
-            # Status is set by _handle_dns_lookup_exception
+
+        except GLib.Error as e:
+            user_input = self._current_user_input or "unknown target" # Fallback if task_data wasn't set yet
+            requested_record_type = self._current_requested_record_type or "unknown type" # Fallback
+            custom_dns_server = self.settings.get_string("custom-dns-server") # For _handle_dns_lookup_exception
+            dns_client_for_error = DnsResolverClient(custom_dns_server=custom_dns_server or None)
+
+
+            if e.matches(GLib.quark_from_string(DNS_LOOKUP_ERROR_DOMAIN), DnsLookupErrorType.CANCELLED.value):
+                logger.info(f"DNS lookup for {user_input} was cancelled.")
+                self._set_loading_state(False, f"Lookup for {user_input} cancelled.")
+                # Optionally clear results or leave them as they were before cancellation
+                # self._clear_results() # If you want to clear on cancel
+                # Ensure UI is consistent:
+                if self.dns_status_row:
+                    self.dns_status_row.set_subtitle(f"Lookup for {user_input} cancelled.") # type: ignore
+            elif e.matches(GLib.quark_from_string(DNS_LOOKUP_ERROR_DOMAIN), DnsClientError.quark().to_int()): # type: ignore
+                # Reconstruct the original DnsClientError if possible, or handle based on message
+                # For simplicity, we pass the GLib.Error message to the handler
+                # A more robust way would be to pass serialized error details via the GTask.
+                logger.warning(f"DNS lookup failed with DnsClientError: {e.message}")
+                # Attempt to map GLib.Error message back to specific DnsClientError type for _handle_dns_lookup_exception
+                # This is a simplification. A proper way would involve serializing error types or using distinct error codes.
+                if "NXDOMAIN" in e.message:
+                    actual_error = DnsNxDomainError(e.message)
+                elif "No answer" in e.message:
+                    actual_error = DnsNoAnswerError(e.message)
+                elif "Timeout" in e.message:
+                     actual_error = DnsResolutionTimeoutError(e.message)
+                else: # Fallback
+                    actual_error = DnsGenericError(e.message)
+                self._handle_dns_lookup_exception(actual_error, user_input, requested_record_type, dns_client_for_error)
+            else:
+                logger.error(f"DNS lookup failed with an unexpected GLib.Error: {e.message}")
+                show_global_error(self, f"DNS lookup error: {e.message}")
+                self._set_loading_state(False, f"Error: {e.message.splitlines()[0]}")
+        except Exception as e_unhandled: # Catch any other Python exceptions from result handling
+            logger.exception("DNSPage: Unexpected Python error in _dns_lookup_done_cb")
+            show_global_error(self, f"An unexpected error occurred: {e_unhandled}")
+            self._set_loading_state(False, "Unexpected error processing results.")
         finally:
-            # Ensure loading state is always reset (spinner off, controls on),
-            # but preserve the status message set by success/error handlers.
-            # Call _set_loading_state without a message to achieve this.
+            # Final UI state update, ensuring loading is false
+            # The specific status message should have been set by success/error handlers
             self._set_loading_state(False)
+
 
     def _get_selected_record_type(self) -> str:
         """
