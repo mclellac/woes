@@ -9,7 +9,7 @@ tailored to the content of the ColumnView items.
 """
 
 import logging
-from typing import Optional, Any, tuple # tuple is used for type hint
+from typing import Optional, Any, Tuple, List
 
 import gi
 gi.require_version("Gtk", "4.0")
@@ -32,6 +32,15 @@ class Helper:
     The copy functionality assumes that the items in the :class:`Gtk.ColumnView`'s
     model are :class:`GObject.Object` instances that expose 'key', 'value', and
     optionally 'is_special_row' attributes (duck-typing).
+
+    :ivar widget: The widget this helper is attached to.
+    :vartype widget: Gtk.Widget
+    :ivar parent_window: The parent window of the widget.
+    :vartype parent_window: Gtk.Window
+    :ivar last_right_click_coords: Stores the (x, y) coordinates of the last right-click.
+    :vartype last_right_click_coords: Optional[Tuple[float, float]]
+    :ivar popover: The context menu popover.
+    :vartype popover: Optional[Gtk.Popover]
     """
 
     def __init__(self, widget: Gtk.Widget, parent_window: Gtk.Window):
@@ -44,13 +53,15 @@ class Helper:
         :param widget: The widget to attach helper functionalities to.
                        Expected to be a :class:`Gtk.ColumnView` or a widget
                        that can have controllers and a clipboard.
+        :type widget: Gtk.Widget
         :param parent_window: The parent :class:`Gtk.Window` of the widget.
                               (Currently unused but kept for potential future use,
                               e.g., for dialogs relative to the window).
+        :type parent_window: Gtk.Window
         """
         self.widget: Gtk.Widget = widget
         self.parent_window: Gtk.Window = parent_window # Retained, though not actively used by current methods
-        self.last_right_click_coords: Optional[tuple[float, float]] = None
+        self.last_right_click_coords: Optional[Tuple[float, float]] = None
         self.popover: Optional[Gtk.Popover] = None
 
         # Ensure the widget is capable of having controllers added.
@@ -101,9 +112,13 @@ class Helper:
         Stores the click coordinates and shows the context menu popover.
 
         :param gesture: The :class:`Gtk.GestureClick` that triggered the event.
+        :type gesture: Gtk.GestureClick
         :param n_press: The number of button presses (should be 1 for context menu).
+        :type n_press: int
         :param x: The x-coordinate of the click, relative to the widget.
+        :type x: float
         :param y: The y-coordinate of the click, relative to the widget.
+        :type y: float
         """
         if n_press == 1:  # Process only single clicks
             self.last_right_click_coords = (x, y)
@@ -113,7 +128,7 @@ class Helper:
                 rect.y = int(y)
                 rect.width = 1
                 rect.height = 1
-                self.popover.setpointing_to(rect) # Corrected method name
+                self.popover.setpointing_to(rect)
                 self.popover.set_has_arrow(False)
                 self.popover.popup()
 
@@ -148,15 +163,8 @@ class Helper:
         # Gtk.ColumnView.pick() returns the Gtk.Widget at the given coordinates (e.g., a Gtk.Label within a cell)
         # We need to find the Gtk.ListItem that contains this picked widget.
         list_item_widget: Optional[Gtk.ListItem] = None
-        # Try to get the list item directly if the picked widget is part of a cell.
-        # This requires knowing the structure or hoping pick returns something useful.
-        # A more robust way if pick() doesn't directly give ListItem:
-        # path = self.widget.get_path_at_pos(int(x_coord), int(y_coord))
-        # if path:
-        #    list_item_widget = self.widget.get_row_at_path(path) # This is for Gtk.TreeView/ListView
 
-        # For ColumnView, it's more about which item is at a certain position if it's a list model
-        # However, Gtk.ColumnView itself doesn't have get_path_at_pos.
+        # For ColumnView, it's more about which item is at a certain position if it's a list model.
         # The current traversal method is a reasonable fallback.
 
         picked_child_widget = self.widget.pick(x_coord, y_coord, Gtk.PickFlags.DEFAULT)
@@ -234,7 +242,8 @@ class Helper:
         Calls :meth:`.copy_context_item_to_clipboard` to perform the copy operation
         and then closes the popover menu.
 
-        :param _button: The :class:`Gtk.Button` from the popover that was clicked (unused).
+        :param button: The :class:`Gtk.Button` from the popover that was clicked (unused).
+        :type button: Gtk.Button
         """
         self.copy_context_item_to_clipboard()
         if self.popover:
@@ -248,11 +257,16 @@ class Helper:
 
         If ``Ctrl+C`` is detected, it triggers :meth:`.copy_to_clipboard`.
 
-        :param _controller: The :class:`Gtk.EventControllerKey` (unused).
+        :param controller: The :class:`Gtk.EventControllerKey` (unused).
+        :type controller: Gtk.EventControllerKey
         :param keyval: The GDK key value (e.g., :const:`Gdk.KEY_c`).
-        :param _keycode: The hardware keycode (unused).
+        :type keyval: int
+        :param keycode: The hardware keycode (unused).
+        :type keycode: int
         :param state: The GDK modifier state (e.g., :const:`Gdk.ModifierType.CONTROL_MASK`).
+        :type state: Gdk.ModifierType
         :return: ``True`` if the event was handled (``Ctrl+C`` pressed), ``False`` otherwise.
+        :rtype: bool
         """
         if state & Gdk.ModifierType.CONTROL_MASK and keyval == Gdk.KEY_c:
             logger.debug("Ctrl+C pressed, calling copy_to_clipboard.")
@@ -282,8 +296,8 @@ class Helper:
             logger.warning("Helper: No model found on ColumnView for copy_to_clipboard.")
             return
 
-        selected_texts: list[str] = []
-        items_to_copy: list[Any] = []
+        selected_texts: List[str] = []
+        items_to_copy: List[Any] = []
 
         if isinstance(selection_model, Gtk.MultiSelection):
             selection_bitset: Optional[Gtk.Bitset] = selection_model.get_selection()

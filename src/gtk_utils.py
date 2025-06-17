@@ -10,7 +10,7 @@ for displaying details.
 """
 
 import logging
-from typing import Optional, list # Using Python's built-in list for hinting
+from typing import Optional, List # Using Python's built-in list for hinting
 
 from gi.repository import Gtk, Pango, Adw, Gdk
 
@@ -155,7 +155,7 @@ def create_expander_row(
     title: str,
     subtitle: Optional[str] = None,
     icon_name: Optional[str] = None,
-    header_suffixes: Optional[list[Gtk.Widget]] = None, # Changed from List to list
+    header_suffixes: Optional[List[Gtk.Widget]] = None, # Changed from List to list
     initially_expanded: bool = True,
 ) -> Adw.ExpanderRow:
     """Create an Adw.ExpanderRow with title, subtitle, icon, and optional header suffixes."""

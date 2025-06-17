@@ -10,7 +10,7 @@ particularly when requests are made to IP addresses.
 import logging
 import socket
 import ssl
-from typing import Optional, Any # Using Any for *args, **kwargs as per base class
+from typing import Optional, Any, Dict, List, Tuple # Using Any for *args, **kwargs as per base class
 
 import requests
 import requests.utils  # For urlparse, urlunparse
@@ -67,7 +67,7 @@ class CustomDNSAdapter(HTTPAdapter):
         self.custom_dns_server: Optional[str] = custom_dns_server
         self.default_sni_for_ip_url: Optional[str] = default_sni
         self._resolved_sni: Optional[str] = None #: Stores the SNI to be used, derived from resolved hostname.
-        self.resolved_ip_cache: dict[str, str] = {} #: Cache for resolved hostnames to IP addresses.
+        self.resolved_ip_cache: Dict[str, str] = {} #: Cache for resolved hostnames to IP addresses.
         super().__init__(*args, **kwargs)
 
     def _resolve_hostname_to_ip(self, hostname: str) -> Optional[str]:
@@ -106,7 +106,7 @@ class CustomDNSAdapter(HTTPAdapter):
         resolver.timeout = 2.0
         resolver.lifetime = 2.0
 
-        ips: list[str] = []
+        ips: List[str] = []
         try:
             # Prefer AAAA (IPv6) if available
             for rdtype in ("AAAA", "A"):
@@ -162,10 +162,10 @@ class CustomDNSAdapter(HTTPAdapter):
         self,
         request: requests.models.PreparedRequest,
         stream: bool = False,
-        timeout: Optional[float | tuple[float, float]] = None,
+        timeout: Optional[float | Tuple[float, float]] = None,
         verify: bool | str = True, # More precise type for verify
-        cert: Optional[str | tuple[str, str]] = None, # More precise type for cert
-        proxies: Optional[dict[str, str]] = None,
+        cert: Optional[str | Tuple[str, str]] = None, # More precise type for cert
+        proxies: Optional[Dict[str, str]] = None,
     ) -> requests.Response:  # type: ignore[override]
         """
         Send a prepared request, potentially with custom DNS resolution and SNI.
@@ -236,7 +236,7 @@ class CustomDNSAdapter(HTTPAdapter):
 
         return super().send(request, stream, timeout, verify, cert, proxies)  # type: ignore[return-value]
 
-    def get_connection(self, url: str, proxies: Optional[dict[str, str]] = None) -> Any:  # type: ignore[override]
+    def get_connection(self, url: str, proxies: Optional[Dict[str, str]] = None) -> Any:  # type: ignore[override]
         """
         Get a connection from the connection pool for the given URL.
 

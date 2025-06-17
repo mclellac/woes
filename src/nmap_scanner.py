@@ -86,12 +86,12 @@ class NmapScanParameters(TypedDict, total=False):
     custom_dns_server: Optional[str]
 
 
-def _is_scan_root_required(nmap_args_list: list[str]) -> bool:
+def _is_scan_root_required(nmap_args_list: List[str]) -> bool:
     """
     Check if the given Nmap arguments require root privileges.
 
     :param nmap_args_list: A list of Nmap command arguments.
-    :type nmap_args_list: list[str]
+    :type nmap_args_list: List[str]
     :return: ``True`` if root privileges are required, ``False`` otherwise.
     :rtype: bool
     """
@@ -107,11 +107,11 @@ def get_escalated_command(command_parts: List[str]) -> List[str]:
     Construct a command list for privilege escalation based on the OS.
 
     :param command_parts: The command parts to escalate.
-    :type command_parts: list[str]
+    :type command_parts: List[str]
     :raises FileNotFoundError: If ``nmap`` or a required escalation tool (``pkexec``, ``osascript``) is not found.
     :raises NotImplementedError: If privilege escalation is not supported on the current platform.
     :return: The command list with privilege escalation.
-    :rtype: list[str]
+    :rtype: List[str]
     """
     system = platform.system()
     logger.debug("Getting escalated command for: %s on system: %s", command_parts, system)
@@ -268,16 +268,16 @@ class NmapScanner:
         logger.debug("Nmap options constructed: %s", options)
         return options
 
-    def _build_nmap_arguments(self, params: NmapScanParameters) -> list[str]:
+    def _build_nmap_arguments(self, params: NmapScanParameters) -> List[str]:
         """
         Build the list of arguments for the Nmap command.
 
         :param params: A dictionary of Nmap scan parameters, conforming to :class:`.NmapScanParameters`.
         :type params: .NmapScanParameters
         :return: A list of arguments for the Nmap command.
-        :rtype: list[str]
+        :rtype: List[str]
         """
-        nmap_args_list: list[str] = ["nmap", "-sS"]  # -sS (TCP SYN scan) requires root
+        nmap_args_list: List[str] = ["nmap", "-sS"]  # -sS (TCP SYN scan) requires root
 
         if params.get("os_fingerprinting"):
             nmap_args_list.append("-O")
@@ -308,20 +308,20 @@ class NmapScanner:
         logger.debug("Built Nmap arguments: %s", nmap_args_list)
         return nmap_args_list
 
-    def _prepare_final_nmap_command(self, nmap_args_list: list[str], needs_escalation: bool) -> list[str]:
+    def _prepare_final_nmap_command(self, nmap_args_list: List[str], needs_escalation: bool) -> List[str]:
         """
         Prepare the final Nmap command list, including path resolution and escalation.
 
         :param nmap_args_list: The base list of Nmap arguments.
-        :type nmap_args_list: list[str]
+        :type nmap_args_list: List[str]
         :param needs_escalation: Whether privilege escalation is required.
         :type needs_escalation: bool
         :raises PortScannerError: If escalation fails or ``nmap`` executable is not found.
         :raises FileNotFoundError: If ``nmap`` executable is not found for non-escalated command.
         :return: The final list of command parts for execution.
-        :rtype: list[str]
+        :rtype: List[str]
         """
-        final_command_parts: list[str] = []
+        final_command_parts: List[str] = []
         if needs_escalation:
             logger.info("Escalation required for Nmap scan execution.")
             final_command_parts = get_escalated_command(nmap_args_list)
@@ -408,10 +408,10 @@ class NmapScanner:
         self.nm = nmap.PortScanner()
         self.current_cancellable = cancellable
 
-        nmap_args_list: list[str] = self._build_nmap_arguments(params)
+        nmap_args_list: List[str] = self._build_nmap_arguments(params)
         needs_escalation: bool = _is_scan_root_required(nmap_args_list)
 
-        final_command_parts: list[str] = self._prepare_final_nmap_command(nmap_args_list, needs_escalation)
+        final_command_parts: List[str] = self._prepare_final_nmap_command(nmap_args_list, needs_escalation)
 
         logger.info(
             "Executing Nmap command (first few parts): %s...",
@@ -499,7 +499,7 @@ class NmapScanner:
             self.current_process = None
             self.current_cancellable = None
 
-    def convert_results_to_yaml(self, nm: nmap.PortScanner) -> dict[str, str]:
+    def convert_results_to_yaml(self, nm: nmap.PortScanner) -> Dict[str, str]:
         """
         Convert Nmap scan results to YAML for each host.
 
@@ -507,11 +507,11 @@ class NmapScanner:
         :type nm: nmap.PortScanner
         :return: A dictionary where keys are host IPs and values are YAML strings
                  representing the scan results for that host.
-        :rtype: dict[str, str]
+        :rtype: Dict[str, str]
         """
         logger.debug(f"Converting Nmap results to YAML for {len(nm.all_hosts())} hosts.")
-        all_results: dict[str, str] = {}
-        prescan_scripts_data: list[Any] = nm.scaninfo().get("prescript", [])  # type: ignore[no-untyped-call]
+        all_results: Dict[str, str] = {}
+        prescan_scripts_data: List[Any] = nm.scaninfo().get("prescript", [])  # type: ignore[no-untyped-call]
         logger.debug("Pre-scan script data: %s", prescan_scripts_data)
         for host in nm.all_hosts():
             logger.debug("Processing results for host: %s", host)

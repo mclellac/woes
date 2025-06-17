@@ -100,7 +100,7 @@ class NmapPage(Gtk.Box):
         """
         super().__init__(**kwargs)
         logger.info("Initializing NmapPage...")
-        self.results_by_host: dict[str, str] = {}
+        self.results_by_host: Dict[str, str] = {}
         self.nmap_target_listbox_store: Gio.ListStore = Gio.ListStore(item_type=NmapItem)
         self.scanner: NmapScanner = NmapScanner()
         self.settings: Gio.Settings = Gio.Settings.new(APP_ID)
@@ -132,7 +132,7 @@ class NmapPage(Gtk.Box):
         self.nmap_output_scrolled_window.set_vexpand(True)
 
         self._current_selected_host_key: Optional[str] = None
-        self._current_selected_host_data_dict: Optional[dict[str, Any]] = None
+        self._current_selected_host_data_dict: Optional[Dict[str, Any]] = None
 
         if self.nmap_apply_button:
             self.nmap_apply_button.get_style_context().add_class("suggested-action")
@@ -141,7 +141,7 @@ class NmapPage(Gtk.Box):
 
         self.current_nmap_task: Optional[Gio.Task] = None
         self.current_nmap_cancellable: Optional[Gio.Cancellable] = None
-        self._current_nmap_scan_params: Optional[dict[str, Any]] = None
+        self._current_nmap_scan_params: Optional[Dict[str, Any]] = None
 
         self._init_page_ui()
         self._connect_signals()
@@ -242,7 +242,7 @@ class NmapPage(Gtk.Box):
                 return
         self._set_scan_status(ScanStatus.IN_PROGRESS, f"Starting scan for {target}...")
         self.current_nmap_cancellable = Gio.Cancellable()
-        scan_params: dict[str, Any] = {
+        scan_params: Dict[str, Any] = {
             "target": target,
             "os_fingerprinting": self.nmap_fingerprint_switchrow.get_active(),
             "scan_all_ports": self.nmap_all_ports_switchrow.get_active(),
@@ -272,7 +272,7 @@ class NmapPage(Gtk.Box):
         self,
         task: Gio.Task,
         _source_object: GObject.Object,
-        _task_data: Optional[dict[str, Any]],
+        _task_data: Optional[Dict[str, Any]],
         cancellable: Optional[Gio.Cancellable],
     ) -> None:
         page_instance: NmapPage = _source_object
@@ -418,7 +418,7 @@ class NmapPage(Gtk.Box):
         if item_obj and isinstance(item_obj, NmapItem):
             selected_target_key = item_obj.key
             try:
-                host_data_dict: dict[str, Any] = yaml.safe_load(item_obj.value)
+                host_data_dict: Dict[str, Any] = yaml.safe_load(item_obj.value)
                 if not isinstance(host_data_dict, dict):
                     host_data_dict = {}
                 self._current_selected_host_key = selected_target_key
