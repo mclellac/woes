@@ -70,24 +70,21 @@ def _load_gresources_early():
         if dev_path_from_env and os.path.exists(dev_path_from_env):
             logger.info("Using development GResource from WOES_PROJECT_ROOT (src.config not found): %s", dev_path_from_env)
             resource_file_path = dev_path_from_env
-        elif ("site-packages" not in script_dir.lower() and "dist-packages" not in script_dir.lower()) and \
-             os.path.exists(dev_path_from_file_heuristic):
-            # Only trust __file__ heuristic if it's NOT pointing into common system library paths
-            logger.info("Using development GResource from __file__ heuristic (not in site-packages, src.config not found, WOES_PROJECT_ROOT not set or path invalid): %s", dev_path_from_file_heuristic)
+        elif os.path.exists(dev_path_from_file_heuristic):
+            # Use the __file__ heuristic path if WOES_PROJECT_ROOT didn't yield a result.
+            # This allows editable installs where __file__ is in site-packages but
+            # ../build/src/woes.gresource relative to it is correct.
+            logger.info("Using development GResource from __file__ heuristic (WOES_PROJECT_ROOT not set or path invalid, src.config not found): %s", dev_path_from_file_heuristic)
             resource_file_path = dev_path_from_file_heuristic
         else:
-            err_msg_parts = ["Development GResource path not found (src.config not found)."]
-            if project_root_env: # WOES_PROJECT_ROOT was set but path was invalid
-                err_msg_parts.append(f"WOES_PROJECT_ROOT ('{project_root_env}') did not yield a valid GResource path: '{dev_path_from_env if dev_path_from_env else 'N/A'}'.")
-            else: # WOES_PROJECT_ROOT was not set
-                err_msg_parts.append("WOES_PROJECT_ROOT environment variable is not set.")
-
-            if "site-packages" in script_dir.lower() or "dist-packages" in script_dir.lower():
-                err_msg_parts.append(f"The __file__ heuristic for GResource ('{dev_path_from_file_heuristic}') points into a system library path and was not used as primary.")
-                err_msg_parts.append("If running from a development tree, please set WOES_PROJECT_ROOT to your project's root directory.")
-            else: # __file__ heuristic was tried but failed
-                 err_msg_parts.append(f"The __file__ heuristic ('{dev_path_from_file_heuristic}') was also invalid.")
-            logger.critical(" ".join(err_msg_parts) + " App will exit.")
+            err_msg_parts = ["Critical: Development GResource path not found (src.config not found)."]
+            if project_root_env:
+                err_msg_parts.append(f"Checked WOES_PROJECT_ROOT ('{project_root_env}') which led to path: '{dev_path_from_env if dev_path_from_env else 'N/A'}'.")
+            else:
+                err_msg_parts.append("WOES_PROJECT_ROOT environment variable was not set.")
+            err_msg_parts.append(f"Also checked __file__ heuristic path: '{dev_path_from_file_heuristic}'.")
+            err_msg_parts.append("Ensure woes.gresource is at one of these locations (e.g., <project_root>/build/src/woes.gresource) or set WOES_PROJECT_ROOT to your project's root directory. App will exit.")
+            logger.critical(" ".join(err_msg_parts))
             sys.exit(1)
 
     if not resource_file_path: # Should ideally be caught by sys.exit above
@@ -335,9 +332,6 @@ class WoesApplication(Adw.Application):
                 logging.warning(f"{action_description} action: StatusPage not found for {current_page_name}.")
                 return
 
-            # Child of AdwStatusPage. Based on the previous error, this is likely the GtkBox
-            # (e.g., the one with id="HttpPage" in the UI file) that directly contains
-            # the actual page class instance (e.g., an instance of your HttpPage class).
             page_container_widget: Optional[Gtk.Widget] = status_page.get_child()
             if not page_container_widget:
                 logging.warning(
@@ -346,146 +340,58 @@ class WoesApplication(Adw.Application):
                 return
 
             actual_page_object: Optional[Gtk.Widget] = None
-            # Scenario 1: The page_container_widget is the GtkBox, and its first child is the page instance.
             if hasattr(page_container_widget, "get_first_child") and callable(page_container_widget.get_first_child):
-                # This assumes the GtkBox (like <object class="GtkBox" id="HttpPage">) is page_container_widget
-                # and its child (<object class="HttpPage">) is the actual page.
                 candidate: Optional[Gtk.Widget] = page_container_widget.get_first_child()
-                if hasattr(candidate, action_method_name):  # Check if this candidate has the method
+                if hasattr(candidate, action_method_name):
                     actual_page_object = candidate
-                elif hasattr(
-                    page_container_widget, action_method_name
-                ):  # Check if page_container_widget itself has the method
-                    # This could happen if AdwClampScrollable was the child of AdwStatusPage,
-                    # and page_container_widget is that AdwClampScrollable, and *its* child is the actual page object.
-                    # However, AdwClampScrollable itself does not have get_first_child.
-                    # This path is less likely given the error, but as a fallback.
-                    # More likely, if the first child didn't have the method, the structure is different or the page isn't the first child.
-                    # A more robust check here would be to verify type, e.g. isinstance(page_container_widget, Gtk.Box)
-                    # For now, we trust get_first_child if available on page_container_widget.
-                    # If that first child isn't our page, then we might be wrong about the structure.
-                    # Let's refine: if page_container_widget.get_first_child() exists and has the method, use it.
-                    # Else, check if page_container_widget itself has the method (e.g. if it IS the actual page object)
-                    actual_page_object = candidate  # Keep candidate from above for now.
+                elif hasattr(page_container_widget, action_method_name):
+                    actual_page_object = candidate
                     if not actual_page_object or not hasattr(actual_page_object, action_method_name):
-                        # If the first child doesn't have the method, check if page_container_widget itself is the page
                         if hasattr(page_container_widget, action_method_name):
                             actual_page_object = page_container_widget
-                            logging.debug(
-                                f"Child of StatusPage (type: {type(page_container_widget)}) appears to be the actual page object itself."
-                            )
                         else:
                             logging.warning(
                                 f"Neither page_container_widget (type: {type(page_container_widget)}) nor its first_child has method '{action_method_name}'."
                             )
                             return
-
-            # Scenario 2: The page_container_widget IS the actual page instance.
-            # This could happen if AdwStatusPage's child is set directly to the HttpPage/NmapPage instance.
             elif hasattr(page_container_widget, action_method_name):
                 actual_page_object = page_container_widget
-                logging.debug(
-                    f"Child of StatusPage (type: {type(page_container_widget)}) appears to be the actual page object itself (no get_first_child)."
-                )
             else:
                 logging.warning(
-                    f"Page container (type: {type(page_container_widget)}) does not have get_first_child and is not the page object. Structure: AdwViewStackPage -> AdwStatusPage -> ?"
+                    f"Page container (type: {type(page_container_widget)}) does not have get_first_child and is not the page object."
                 )
                 return
 
-            if actual_page_object:
-                if hasattr(actual_page_object, action_method_name):
-                    logging.debug(
-                        f"Attempting to call {action_method_name} on {type(actual_page_object)} for page {current_page_name}"
-                    )
-                    getattr(actual_page_object, action_method_name)()
-                else:
-                    # This should ideally not be reached if the above logic is correct
-                    logging.warning(
-                        f"Retrieved actual page object for {current_page_name} (type: {type(actual_page_object)}), but it does not have method '{action_method_name}'. This indicates an issue in widget retrieval or page class structure."
-                    )
+            if actual_page_object and hasattr(actual_page_object, action_method_name):
+                logging.debug(
+                    f"Attempting to call {action_method_name} on {type(actual_page_object)} for page {current_page_name}"
+                )
+                getattr(actual_page_object, action_method_name)()
             else:
-                logging.warning(f"Could not retrieve actual page object for {current_page_name} after checks.")
+                 logging.warning(f"Could not retrieve actual page object for {current_page_name} or method '{action_method_name}' not found.")
 
-        elif current_page_name == expected_page_name:  # visible_stack_page is None
+        elif current_page_name == expected_page_name:
             logging.warning(f"{action_description} action: AdwViewStackPage for {current_page_name} is None.")
-        # No warning if it's not the expected_page_name page, as the action is specific to that page.
 
     def on_page_action_http_fetch(self, _action: Gio.SimpleAction, _param: Optional[GLib.Variant]) -> None:
-        """
-        Handle the 'page-action-http-fetch' action.
-
-        This action triggers the fetch operation on the currently visible HTTP page.
-
-        :param _action: The :class:`Gio.SimpleAction` that triggered this handler.
-        :type _action: Gio.SimpleAction
-        :param _param: Optional :class:`GLib.Variant` parameter for the action (unused).
-        :type _param: Optional[GLib.Variant]
-        """
         self._trigger_page_action("http", "trigger_fetch", "HTTP fetch")
 
     def on_page_action_nmap_scan(self, _action: Gio.SimpleAction, _param: Optional[GLib.Variant]) -> None:
-        """
-        Handle the 'page-action-nmap-scan' action.
-
-        This action triggers the scan operation on the currently visible Nmap page.
-
-        :param _action: The :class:`Gio.SimpleAction` that triggered this handler.
-        :type _action: Gio.SimpleAction
-        :param _param: Optional :class:`GLib.Variant` parameter for the action (unused).
-        :type _param: Optional[GLib.Variant]
-        """
         self._trigger_page_action("nmap", "trigger_scan", "Nmap scan")
 
     def on_page_action_dns_lookup(self, _action: Gio.SimpleAction, _param: Optional[GLib.Variant]) -> None:
-        """
-        Handle the 'page-action-dns-lookup' action.
-
-        This action triggers the lookup operation on the currently visible DNS page.
-
-        :param _action: The :class:`Gio.SimpleAction` that triggered this handler.
-        :type _action: Gio.SimpleAction
-        :param _param: Optional :class:`GLib.Variant` parameter for the action (unused).
-        :type _param: Optional[GLib.Variant]
-        """
         self._trigger_page_action("dns", "trigger_lookup", "DNS lookup")
 
     def on_page_action_webscan_scan(self, _action: Gio.SimpleAction, _param: Optional[GLib.Variant]) -> None:
-        """
-        Handle the 'page-action-webscan-scan' action.
-
-        This action triggers the scan operation on the currently visible WebScan page.
-
-        :param _action: The :class:`Gio.SimpleAction` that triggered this handler.
-        :type _action: Gio.SimpleAction
-        :param _param: Optional :class:`GLib.Variant` parameter for the action (unused).
-        :type _param: Optional[GLib.Variant]
-        """
         self._trigger_page_action("webscan", "trigger_scan", "Webscan scan")
 
     def on_about_action(self, _widget: Gio.SimpleAction, _param: Optional[GLib.Variant]) -> None:
-        """
-        Handle the 'about' action activation.
-
-        Displays the application's About dialog.
-
-        :param _widget: The :class:`Gio.SimpleAction` that was activated.
-        :type _widget: Gio.SimpleAction
-        :param _param: Optional :class:`GLib.Variant` parameter (unused).
-        :type _param: Optional[GLib.Variant]
-        """
         about = self._create_about_window()
         if self.props.active_window:
             about.set_transient_for(self.props.active_window)
         about.present()
 
     def _create_about_window(self) -> Adw.AboutWindow:
-        """
-        Create and configure the :class:`Adw.AboutWindow`.
-
-        :return: The configured About Window.
-        :rtype: Adw.AboutWindow
-        """
         return Adw.AboutWindow(
             application_name="woes",
             application_icon=APP_ID,
@@ -500,16 +406,6 @@ class WoesApplication(Adw.Application):
         )
 
     def on_preferences_action(self, _widget: Gio.SimpleAction, _param: Optional[GLib.Variant]) -> None:
-        """
-        Handle the 'preferences' action activation.
-
-        Displays the application's Preferences dialog.
-
-        :param _widget: The :class:`Gio.SimpleAction` that was activated.
-        :type _widget: Gio.SimpleAction
-        :param _param: Optional :class:`GLib.Variant` parameter (unused).
-        :type _param: Optional[GLib.Variant]
-        """
         if not self.win:
             logging.error("Main window not available for preferences.")
             return
@@ -517,17 +413,6 @@ class WoesApplication(Adw.Application):
         preferences_dialog.present()
 
     def create_action(self, name: str, callback: Callable[..., Any], shortcuts: Optional[list[str]] = None) -> None:
-        """
-        Create and add a :class:`Gio.SimpleAction` to the application.
-
-        :param name: The name of the action (e.g., "quit", "about").
-        :type name: str
-        :param callback: The function to call when the action is activated.
-        :type callback: Callable[..., Any]
-        :param shortcuts: An optional list of keyboard shortcuts for the action
-                          (e.g., ``["<primary>q"]``). Defaults to ``None``.
-        :type shortcuts: Optional[list[str]]
-        """
         action = Gio.SimpleAction.new(name, None)
         action.connect("activate", callback)
         self.add_action(action)
@@ -536,17 +421,6 @@ class WoesApplication(Adw.Application):
 
 
 def main(version: str = VERSION) -> int:
-    """
-    Run the Woes application.
-
-    This is the main entry point for the application. It initializes
-    logging, creates the :class:`WoesApplication` instance, and runs it.
-
-    :param version: The version string of the application. Defaults to :const:`.VERSION`.
-    :type version: str
-    :return: The exit status of the application.
-    :rtype: int
-    """
     logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
 
     run_settings_test = os.environ.get("WOES_RUN_SETTINGS_TEST", "0") == "1"
@@ -554,21 +428,12 @@ def main(version: str = VERSION) -> int:
         logging.info("WOES_RUN_SETTINGS_TEST is set. Running GSettings test in main().")
         print("Attempting to directly access GSettings for test...")
         try:
-            # Ensure GResources are loaded as they contain the schema (called at module level)
-
-            # Directly instantiate Gio.Settings with the application ID
             settings = Gio.Settings(schema_id=APP_ID)
-
-            # Try to get the newly added setting
             test_setting_value = settings.get_string("default-user-agent-title")
             print(f"Successfully read 'default-user-agent-title': {test_setting_value}")
-
-            # Also try to get an existing setting to be sure
             test_theme_value = settings.get_string("theme-preference")
             print(f"Successfully read 'theme-preference': {test_theme_value}")
-
             print("Settings test passed.")
-
         except Exception as e:
             print(f"Error during settings test: {e}")
             sys.exit(1)
