@@ -167,43 +167,55 @@ def show_critical_error_dialog(parent_window: Gtk.Window, title: str, message: s
     :param details: Optional detailed information to show in an expander.
     :type details: Optional[str]
     """
+    # Ensure logger is defined if not already global in the module
+    # global logger # If logger is defined at module level, this is not needed here.
+    # import logging # If logger is not defined at module level
+    # logger = logging.getLogger(__name__) # If logger is not defined at module level
+
     try:
+        # Ensure all arguments for Adw.MessageDialog are clearly formatted.
+        # Using a more standard indentation for arguments.
         dialog = Adw.MessageDialog(
             transient_for=parent_window,
             modal=True,
-        heading=title,
-        body=message,
-    )
-    dialog.add_response("close", "Close")
-    dialog.set_default_response("close")
-    dialog.set_close_response("close") # Ensure Escape key works
-
-    if details:
-        expander_row = Adw.ExpanderRow(
-            title="Details",
-            subtitle="More information about the error.",
-            show_enable_switch=False,
+            heading=title,
+            body=message
         )
-        # Use a Gtk.Label for the details, enabling text selection and wrapping.
-        details_label = Gtk.Label(
-            label=details,
-            wrap=True,
-            wrap_mode=Gtk.WrapMode.WORD_CHAR,
-            selectable=True,
-            xalign=0.0, # Align left
-            margin_top=6,
-            margin_bottom=6,
-            margin_start=12,
-            margin_end=12,
-        )
-        expander_row.add_row(details_label)
-        dialog.set_extra_child(expander_row)
 
-    def on_response(_dialog, response_id):
-        _dialog.close()
-        _dialog.destroy()
+        # All subsequent dialog configuration and presentation calls
+        # MUST be indented to be part of this 'try' block.
+        dialog.add_response("close", "Close")
+        dialog.set_default_response("close")
+        dialog.set_close_response("close") # Ensure Escape key works
 
-    dialog.connect("response", on_response)
-    dialog.present()
+        if details:
+            expander_row = Adw.ExpanderRow(
+                title="Details",
+                # subtitle="More information about the error.", # Subtitle can be verbose
+                show_enable_switch=False
+            )
+            details_label = Gtk.Label(
+                label=details,
+                wrap=True,
+                wrap_mode=Gtk.WrapMode.WORD_CHAR,
+                selectable=True,
+                xalign=0.0, # Align left
+                margin_top=6,
+                margin_bottom=6,
+                margin_start=12,
+                margin_end=12
+            )
+            expander_row.add_row(details_label)
+            dialog.set_extra_child(expander_row)
+
+        def on_response(_dialog, response_id):
+            if response_id == "close":
+                _dialog.close()
+
+        dialog.connect("response", on_response)
+        dialog.present()
+
     except Exception as e:
+        # This except block must be at the same indentation level as the 'try'
+        # Assuming logger is defined at the module level as: logger = logging.getLogger(__name__)
         logger.exception(f"Failed to show critical error dialog (Title: '{title}'). Error: {e}")
