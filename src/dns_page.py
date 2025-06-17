@@ -37,6 +37,16 @@ from .dns_client import (
 
 logger = logging.getLogger(__name__)
 
+DNS_LOOKUP_ERROR_DOMAIN = "woes-dns-lookup-error-domain"
+
+class DnsLookupErrorType(int, Enum):
+    RESOLVE_FAILED = 0  # Generic failure in resolution
+    CLIENT_ERROR = 1    # Other DnsClientError
+    TIMEOUT = 2
+    NXDOMAIN = 3
+    NO_ANSWER = 4
+    CANCELLED = 5
+    UNEXPECTED = 6      # Truly unexpected exceptions
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/dns_page.ui")
 class DNSPage(Gtk.Box):
@@ -99,6 +109,7 @@ class DNSPage(Gtk.Box):
         self._current_user_input: Optional[str] = None
         self._current_requested_record_type: Optional[str] = None
         self._current_dns_servers: Optional[List[str]] = None
+        self._dns_task_data_for_thread: Dict[str, Any] = {}
 
         self._connect_signals()
         self._current_dns_task: Optional[Gio.Task] = None
@@ -605,8 +616,11 @@ class DNSPage(Gtk.Box):
             "requested_record_type": requested_record_type,
             "custom_dns_server": custom_dns_server if custom_dns_server else None
         }
-        self._current_dns_task = Gio.Task.new(self, cancellable, self._perform_lookup_done_cb, task_data)
-        self._current_dns_task.set_task_data(None)
+        self._dns_task_data_for_thread = task_data  # Store it on the instance
+        self._current_dns_task = Gio.Task.new(
+            self, cancellable, self._perform_lookup_done_cb, None  # Pass None for task_data
+        )
+        # self._current_dns_task.set_task_data(None) # This line is removed
 
         logger.debug(
             "DNSPage: Starting DNS lookup task with input: '%s', type: '%s', server: '%s'",
@@ -631,16 +645,18 @@ class DNSPage(Gtk.Box):
         :param _task_data_param: Data passed via `run_in_thread` (unused here).
         :param cancellable: The :class:`Gio.Cancellable` for this task.
         """
-        task_internal_data: Dict[str, Any] = task.get_task_data()  # type: ignore
-        user_input: str = task_internal_data["user_input"]
-        requested_record_type: str = task_internal_data["requested_record_type"]
-        custom_dns_server: Optional[str] = task_internal_data["custom_dns_server"]
+        page_instance: DNSPage = _source_object  # type: ignore
+        current_task_data: Dict[str, Any] = page_instance._dns_task_data_for_thread
+
+        user_input: str = current_task_data["user_input"]
+        requested_record_type: str = current_task_data["requested_record_type"]
+        custom_dns_server: Optional[str] = current_task_data["custom_dns_server"]
 
         if cancellable.is_cancelled():
             task.return_error(
                 GLib.Error.new_literal(
-                    Gio.io_error_quark(),
-                    Gio.IOErrorEnum.CANCELLED,
+                    DNS_LOOKUP_ERROR_DOMAIN,
+                    DnsLookupErrorType.CANCELLED.value,
                     "Lookup cancelled before starting."
                 )
             )
@@ -648,22 +664,23 @@ class DNSPage(Gtk.Box):
 
         try:
             dns_client = DnsResolverClient(custom_dns_server=custom_dns_server)
-            if cancellable.is_cancelled():  # Check again before potentially long operation
+            if cancellable.is_cancelled():
                 task.return_error(
                     GLib.Error.new_literal(
-                        Gio.io_error_quark(),
-                        Gio.IOErrorEnum.CANCELLED,
+                        DNS_LOOKUP_ERROR_DOMAIN,
+                        DnsLookupErrorType.CANCELLED.value,
                         "Lookup cancelled before resolving."
                     )
                 )
                 return
+
             result_data = dns_client.resolve(user_input, requested_record_type)
 
             if cancellable.is_cancelled():
                 task.return_error(
                     GLib.Error.new_literal(
-                        Gio.io_error_quark(),
-                        Gio.IOErrorEnum.CANCELLED,
+                        DNS_LOOKUP_ERROR_DOMAIN,
+                        DnsLookupErrorType.CANCELLED.value,
                         "Lookup cancelled after resolving."
                     )
                 )
@@ -673,15 +690,18 @@ class DNSPage(Gtk.Box):
                 "data": result_data,
                 "client_nameservers": dns_client.resolver.nameservers or []
             }
-            task.return_value(task_result_payload)  # type: ignore
-        except Exception as e:
-            if task.get_task_data(): # Ensure task_data exists to store exception
-                task.get_task_data()["original_exception"] = e
-            task.return_error(
-                GLib.Error.new_literal(
-                    Gio.io_error_quark(), Gio.IOErrorEnum.FAILED, str(e)
-                )
-            )
+            task.return_value(task_result_payload)
+        except DnsResolutionTimeoutError as e_timeout:
+            task.return_error(GLib.Error.new_literal(DNS_LOOKUP_ERROR_DOMAIN, DnsLookupErrorType.TIMEOUT.value, str(e_timeout)))
+        except DnsNxDomainError as e_nx:
+            task.return_error(GLib.Error.new_literal(DNS_LOOKUP_ERROR_DOMAIN, DnsLookupErrorType.NXDOMAIN.value, str(e_nx)))
+        except DnsNoAnswerError as e_no_answer:
+            task.return_error(GLib.Error.new_literal(DNS_LOOKUP_ERROR_DOMAIN, DnsLookupErrorType.NO_ANSWER.value, str(e_no_answer)))
+        except (DnsClientError, DnsGenericError) as e_client: # DnsGenericError is base for some others too
+            task.return_error(GLib.Error.new_literal(DNS_LOOKUP_ERROR_DOMAIN, DnsLookupErrorType.CLIENT_ERROR.value, str(e_client)))
+        except Exception as e_generic: # Catch-all for other unexpected errors
+            logger.exception("DNSPage Task: Unexpected error during DNS resolution for %s", user_input)
+            task.return_error(GLib.Error.new_literal(DNS_LOOKUP_ERROR_DOMAIN, DnsLookupErrorType.UNEXPECTED.value, f"Unexpected internal error: {e_generic}"))
 
     def _perform_lookup_done_cb(
         self, _source_object: Any, result: Gio.AsyncResult, _user_data: Any
@@ -701,17 +721,17 @@ class DNSPage(Gtk.Box):
         if not active_task or not active_task.matches_async_result(result):
             logger.warning("DNSPage: Callback received for an outdated or mismatched DNS task.")
             if not active_task or active_task.is_done():  # If no current task or it's done
-                 self._set_loading_state(False, "Idle.")
+            self._set_loading_state(False, "Idle.")
             return
 
-        task_internal_data: Optional[Dict[str, Any]] = active_task.get_task_data()
-        user_input: str = "Unknown Input"
-        requested_record_type: str = "Unknown Type"
-        if task_internal_data:
-            user_input = task_internal_data.get("user_input", user_input)
-            requested_record_type = task_internal_data.get(
-                "requested_record_type", requested_record_type
-            )
+        # Retrieve operational data from instance variable
+        user_input: str = self._dns_task_data_for_thread.get("user_input", "Unknown Input")
+        requested_record_type: str = self._dns_task_data_for_thread.get(
+            "requested_record_type", "Unknown Type"
+        )
+        # custom_dns_server for display in case of error can be fetched from self.settings or stored if needed.
+        # For now, _display_result will use self._current_dns_servers which is set on success,
+        # or use settings if error occurs before it's set.
 
         try:
             task_return_value = active_task.propagate_value(result)
@@ -736,21 +756,72 @@ class DNSPage(Gtk.Box):
             )
 
         except GLib.Error as e:
-            original_exception = None
-            if task_internal_data:
-                original_exception = task_internal_data.get("original_exception")
+            error_message = str(e)
+            status_subtitle = f"Error: {error_message.splitlines()[0]}"
+            current_dns_for_display = self._current_dns_servers or \
+                                      ([self.settings.get_string("custom-dns-server")]
+                                       if self.settings.get_string("custom-dns-server")
+                                       else ["System Default"])
 
-            error_to_handle = original_exception if original_exception else e
-            self._handle_dns_lookup_exception_async(
-                error_to_handle, user_input, requested_record_type
-            )
-        except Exception as e_unexpected:
+            if e.matches(DNS_LOOKUP_ERROR_DOMAIN, DnsLookupErrorType.NXDOMAIN.value):
+                show_global_error(self, error_message) # error_message is str(DnsNxDomainError)
+                status_subtitle = f"NXDOMAIN: Domain '{user_input}' not found."
+                self._current_result_records = None
+                self._display_result([], user_input, requested_record_type, current_dns_for_display)
+            elif e.matches(DNS_LOOKUP_ERROR_DOMAIN, DnsLookupErrorType.NO_ANSWER.value):
+                logger.info("DNSPage: %s", error_message) # str(DnsNoAnswerError)
+                self._current_result_records = []
+                self._current_user_input = user_input
+                self._current_requested_record_type = requested_record_type
+                self._current_dns_servers = current_dns_for_display # This might be None if not set before
+                self._display_result([], user_input, requested_record_type, current_dns_for_display)
+                status_subtitle = f"No {requested_record_type} records found for '{user_input}' (No Answer)."
+            elif e.matches(DNS_LOOKUP_ERROR_DOMAIN, DnsLookupErrorType.TIMEOUT.value):
+                show_global_error(self, error_message) # str(DnsResolutionTimeoutError)
+                status_subtitle = f"Timeout resolving '{user_input}' for {requested_record_type} records."
+                self._current_result_records = None
+                self._display_result([], user_input, requested_record_type, current_dns_for_display)
+            elif e.matches(DNS_LOOKUP_ERROR_DOMAIN, DnsLookupErrorType.CLIENT_ERROR.value) or \
+                 e.matches(DNS_LOOKUP_ERROR_DOMAIN, DnsLookupErrorType.RESOLVE_FAILED.value): # Covers DnsClientError, DnsGenericError
+                logger.warning(
+                    "DNSPage: DNS lookup failed for '%s', type '%s' (Code: %s): %s",
+                    user_input, requested_record_type, e.code, error_message
+                )
+                show_global_error(self, error_message)
+                status_subtitle = f"DNS Error: {error_message.splitlines()[0]}"
+                self._current_result_records = None
+                self._display_result([], user_input, requested_record_type, current_dns_for_display)
+            elif e.matches(DNS_LOOKUP_ERROR_DOMAIN, DnsLookupErrorType.CANCELLED.value) or \
+                 e.matches(Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED): # Gio cancellation or our custom
+                status_subtitle = "Lookup cancelled."
+                show_global_toast(self, status_subtitle)
+                # Do not clear results on user cancellation
+            else: # UNEXPECTED or other GLib errors
+                logger.exception(
+                    "DNSPage: Unexpected GLib.Error during DNS lookup for '%s', type '%s':",
+                    user_input, requested_record_type
+                )
+                error_message_short = f"An unexpected error occurred: {error_message.splitlines()[0]}"
+                show_global_error(self, error_message_short)
+                status_subtitle = error_message_short
+                self._current_result_records = None
+                self._display_result([], user_input, requested_record_type, current_dns_for_display)
+
+            if self.dns_status_row:
+                self.dns_status_row.set_subtitle(status_subtitle)
+
+        except Exception as e_unexpected: # Catch-all for non-GLib.Error issues in this callback
             logger.exception(
-                "DNSPage: Unexpected error processing DNS task result for '%s':", user_input
+                "DNSPage: Truly unexpected error processing DNS task result for '%s':", user_input
             )
-            self._handle_dns_lookup_exception_async(
-                e_unexpected, user_input, requested_record_type
+            show_global_error(self, f"A critical unexpected error occurred: {str(e_unexpected).splitlines()[0]}")
+            self._current_result_records = None # Clear results
+            self._display_result(
+                [], user_input, requested_record_type,
+                self._current_dns_servers or ["System Default"] # Fallback for servers
             )
+            if self.dns_status_row:
+                self.dns_status_row.set_subtitle("Critical Error.")
         finally:
             self._set_loading_state(False)
             self._current_dns_task = None
@@ -794,88 +865,42 @@ class DNSPage(Gtk.Box):
 
     def _handle_dns_lookup_exception_async(
         self,
-        error: Exception,
+        result_data: List[Dict[str, Any]],
         user_input: str,
         requested_record_type: str,
+        nameservers_used: List[str],
     ) -> None:
         """
-        Handle exceptions from the asynchronous DNS lookup task.
+        Handle successful DNS lookup results from the asynchronous task.
 
-        Updates UI elements with appropriate error messages and status.
+        Updates UI elements with the fetched records and status messages.
 
-        :param error: The exception object that occurred.
+        :param result_data: List of dictionaries representing parsed DNS records.
         :param user_input: The original domain/IP input by the user.
         :param requested_record_type: The DNS record type that was queried.
+        :param nameservers_used: List of DNS server IP addresses used for the query.
         """
-        error_message = str(error)
-        status_subtitle = f"Error: {error_message.splitlines()[0]}"
+        actual_record_type_displayed = requested_record_type
+        if is_valid_ip(user_input) and requested_record_type.upper() == "PTR":
+            actual_record_type_displayed = self._update_ptr_dropdown(user_input, requested_record_type)
 
-        # Attempt to get current DNS servers for display, even in error cases
-        current_dns_for_display = self._current_dns_servers or \
-                                  ([self.settings.get_string("custom-dns-server")] if self.settings.get_string("custom-dns-server") else ["System Default"])
+        self._current_result_records = result_data
+        self._current_user_input = user_input
+        self._current_requested_record_type = actual_record_type_displayed
+        self._current_dns_servers = nameservers_used
 
+        self._display_result(result_data, user_input, actual_record_type_displayed, nameservers_used)
 
-        if isinstance(error, DnsNxDomainError):
-            show_global_error(self, error_message)
-            status_subtitle = f"NXDOMAIN: Domain '{user_input}' not found."
-            self._current_result_records = None # Clear previous results on NXDOMAIN
-            self._display_result(
-                [], user_input, requested_record_type, current_dns_for_display
-            )
-        elif isinstance(error, DnsNoAnswerError):
-            logger.info("DNSPage: %s", error_message) # Log full error
-            self._current_result_records = [] # No records found
-            self._current_user_input = user_input
-            self._current_requested_record_type = requested_record_type
-            self._current_dns_servers = current_dns_for_display
-            self._display_result(
-                [], user_input, requested_record_type, current_dns_for_display
-            )
-            status_subtitle = (
-                f"No {requested_record_type} records found for '{user_input}' (No Answer)."
-            )
-        elif isinstance(error, DnsResolutionTimeoutError):
-            show_global_error(self, error_message) # Show full error to user
-            status_subtitle = (
-                f"Timeout resolving '{user_input}' for {requested_record_type} records."
-            )
-            self._current_result_records = None # Clear results on timeout
-            self._display_result(
-                [], user_input, requested_record_type, current_dns_for_display
-            )
-        elif isinstance(error, (DnsGenericError, DnsClientError)):
-            logger.warning(
-                "DNSPage: DNS lookup failed for '%s', type '%s' (%s): %s",
-                user_input, requested_record_type, type(error).__name__, error_message
-            )
-            show_global_error(self, error_message) # Show full error
-            status_subtitle = f"DNS Error: {error_message.splitlines()[0]}"
-            self._current_result_records = None # Clear results on generic DNS error
-            self._display_result(
-                [], user_input, requested_record_type, current_dns_for_display
-            )
-        elif isinstance(error, GLib.Error) and \
-             error.matches(Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED):
-            status_subtitle = "Lookup cancelled."
-            show_global_toast(self, status_subtitle)
-            # Do not clear results on user cancellation, previous results might still be relevant
-        else: # Unexpected errors
-            logger.exception(
-                "DNSPage: Unexpected error during DNS lookup for '%s', type '%s':",
-                user_input, requested_record_type
-            )
-            error_message_short = (
-                f"An unexpected error occurred: {error_message.splitlines()[0]}"
-            )
-            show_global_error(self, error_message_short)
-            status_subtitle = error_message_short
-            self._current_result_records = None # Clear results on unexpected error
-            self._display_result(
-                [], user_input, requested_record_type, current_dns_for_display
-            )
-
+        status_message = (
+            f"{len(result_data)} {actual_record_type_displayed} record(s) found for '{user_input}'."
+            if result_data
+            else f"No {actual_record_type_displayed} records found for '{user_input}'."
+        )
         if self.dns_status_row:
-            self.dns_status_row.set_subtitle(status_subtitle)
+            self.dns_status_row.set_subtitle(status_message)
+        show_global_toast(self, status_message)
+
+    # _handle_dns_lookup_exception_async is removed as its logic is now in _perform_lookup_done_cb.
 
     def _get_selected_record_type(self) -> str:
         """

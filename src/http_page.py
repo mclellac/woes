@@ -421,9 +421,9 @@ class HttpPage(Gtk.Box):
 
         cancellable = Gio.Cancellable()
         self.current_http_task = Gio.Task.new(
-            self, cancellable, self._fetch_headers_task_done_cb, self._http_task_data_for_thread
+            self, cancellable, self._fetch_headers_task_done_cb, None  # Pass None for task_data
         )
-        self.current_http_task.set_task_data(None)  # Store data with the task
+        # self.current_http_task.set_task_data(None) # This line is removed
         self.current_http_task.run_in_thread(self._fetch_headers_task_thread_func)
 
     def _fetch_headers_task_thread_func(
@@ -444,8 +444,9 @@ class HttpPage(Gtk.Box):
         :param cancellable: The :class:`Gio.Cancellable` for this task.
         :type cancellable: Gio.Cancellable
         """
-        # task_data is the data passed to Gio.Task.new(), retrieved by task.get_task_data()
-        current_task_data: Dict[str, Any] = task.get_task_data()
+        # Access operational data via source_object (HttpPage instance)
+        page_instance: HttpPage = source_object # type: ignore
+        current_task_data: Dict[str, Any] = page_instance._http_task_data_for_thread
         url_to_fetch: str = current_task_data["url"]
 
         if cancellable.is_cancelled():
@@ -479,11 +480,8 @@ class HttpPage(Gtk.Box):
             else:
                 task.return_value(processed_data)
         except HttpClientError as e:  # Catch custom exceptions from HttpFetcher
-            # Store original exception info for more detailed error handling in the callback
-            if task.get_task_data(): # Ensure task_data exists
-                task.get_task_data()["original_exception"] = e
-                task.get_task_data()["original_exception_type_name"] = type(e).__name__
-
+            # Original Python exception object is no longer passed via task_data.
+            # The GLib.Error message will contain str(e).
             error_type_map = {
                 HttpRequestTimeoutError: HttpErrorType.TIMEOUT,
                 HttpConnectionError: HttpErrorType.CONNECTION_ERROR,
@@ -499,9 +497,7 @@ class HttpPage(Gtk.Box):
             logger.exception(
                 "HttpPage Task: Unexpected error from HttpFetcher for URL '%s':", url_to_fetch
             )
-            if task.get_task_data(): # Ensure task_data exists
-                task.get_task_data()["original_exception"] = e
-                task.get_task_data()["original_exception_type_name"] = type(e).__name__
+            # Original Python exception object is no longer passed via task_data.
             task.return_error(
                 GLib.Error.new_literal(
                     WOES_HTTP_ERROR_DOMAIN,
@@ -537,10 +533,9 @@ class HttpPage(Gtk.Box):
                 self._set_loading_state(False, "Idle.")
             return
 
-        task_data_from_task_obj: Optional[Dict[str, Any]] = active_task.get_task_data()
-        original_url_for_log = "unknown URL"
-        if task_data_from_task_obj:
-            original_url_for_log = task_data_from_task_obj.get("url", original_url_for_log)
+        # task_data_from_task_obj will be None as per Gio.Task.new(..., None)
+        # Get operational data (like URL) from the instance variable
+        original_url_for_log = self._http_task_data_for_thread.get("url", "unknown URL")
 
         try:
             # This will raise GLib.Error if task failed (e.g., task.return_error was called)
@@ -644,47 +639,39 @@ class HttpPage(Gtk.Box):
                 self._set_loading_state(False, "Error: Failed to process data (task returned None).")
 
         except GLib.Error as e:  # Catch errors propagated by Gio.Task.propagate_value()
-            original_py_exception = None
-            if task_data_from_task_obj: # Check if task_data_from_task_obj is not None
-                original_py_exception = task_data_from_task_obj.get("original_exception")
-
-            error_to_handle = original_py_exception if original_py_exception else e
-            error_message = str(error_to_handle)
+            # original_py_exception is no longer available via task_data.
+            # error_to_handle is now always the GLib.Error 'e'.
+            error_message = str(e) # GLib.Error message comes from str(python_exception) in thread
             user_facing_error_message = error_message  # Default to full message
             status_subtitle_main_part = error_message.splitlines()[0]
-            status_subtitle = f"Error: {status_subtitle_main_part}"
+            status_subtitle = f"Error: {status_subtitle_main_part}" # Default status
 
-            if isinstance(error_to_handle, HttpRequestTimeoutError):
-                user_facing_error_message = (
-                    f"Request timed out for {original_url_for_log}."
-                )
+            if e.matches(WOES_HTTP_ERROR_DOMAIN, HttpErrorType.TIMEOUT.value):
+                user_facing_error_message = f"Request timed out for {original_url_for_log}."
                 status_subtitle = "Error: Request Timeout."
-            elif isinstance(error_to_handle, HttpConnectionError):
-                user_facing_error_message = error_message  # Already detailed
-                status_subtitle = (
-                    f"Error: Connection Failed for {original_url_for_log}."
-                )
-            elif isinstance(error_to_handle, HttpProcessingError):
-                user_facing_error_message = error_message  # Already formatted by HttpFetcher
-                url_in_error = getattr(error_to_handle, 'url', None) or original_url_for_log
-                status_code = getattr(error_to_handle, 'status_code', 'Unknown')
-                status_subtitle = f"Error: HTTP {status_code} for {url_in_error}"
-            elif isinstance(error_to_handle, HttpGenericRequestError):
+            elif e.matches(WOES_HTTP_ERROR_DOMAIN, HttpErrorType.CONNECTION_ERROR.value):
+                # The error_message from GLib.Error (which is str(HttpConnectionError from thread))
+                # is already detailed enough.
+                user_facing_error_message = error_message
+                status_subtitle = f"Error: Connection Failed for {original_url_for_log}."
+            elif e.matches(WOES_HTTP_ERROR_DOMAIN, HttpErrorType.HTTP_ERROR.value):
+                # The error_message from GLib.Error (str(HttpProcessingError)) contains the status.
+                user_facing_error_message = error_message
+                # Attempt to parse status code if needed, or rely on message.
+                # For simplicity, we use the message. A more robust way would be to ensure
+                # HttpProcessingError string includes the URL, or pass it via GLib.Error details.
+                status_subtitle = f"Error: HTTP Error for {original_url_for_log}"
+            elif e.matches(WOES_HTTP_ERROR_DOMAIN, HttpErrorType.REQUEST_EXCEPTION.value):
                 user_facing_error_message = (
                     f"Request failed for {original_url_for_log}: {error_message}"
                 )
-                status_subtitle = (
-                    f"Error: Request Failed for {original_url_for_log}"
-                )
-            elif isinstance(error_to_handle, HttpClientError) and \
-                 "cancelled" in error_message.lower():  # From HttpFetcher's cancellation
-                 user_facing_error_message = (
-                     f"Request cancelled for {original_url_for_log}."
-                 )
+                status_subtitle = f"Error: Request Failed for {original_url_for_log}"
+            elif e.matches(WOES_HTTP_ERROR_DOMAIN, HttpErrorType.CANCELLED.value):
+                 user_facing_error_message = f"Request cancelled for {original_url_for_log}."
                  status_subtitle = "Request Cancelled."
                  show_global_toast(self, status_subtitle)  # Toast for cancellation
-            elif e.matches(Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED):  # Gio cancellation
-                user_facing_error_message = (
+            elif e.matches(Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED): # Generic Gio cancellation
+                user_facing_error_message = ( # This might be redundant if WOES_HTTP_ERROR_DOMAIN/CANCELLED covers all
                     f"Operation for {original_url_for_log} was cancelled."
                 )
                 status_subtitle = "Operation Cancelled."
@@ -700,15 +687,10 @@ class HttpPage(Gtk.Box):
                 status_subtitle = "Error: Unexpected."
 
             # Show error dialog unless it's a cancellation type already handled by a toast
-            is_cancellation_by_http_client = (
-                isinstance(error_to_handle, HttpClientError) and
-                "cancelled" in str(error_to_handle).lower()
-            )
-            is_cancellation_by_gio = (
-                isinstance(e, GLib.Error) and
-                e.matches(Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED)
-            )
-            if not (is_cancellation_by_http_client or is_cancellation_by_gio):
+            is_woes_cancel = e.matches(WOES_HTTP_ERROR_DOMAIN, HttpErrorType.CANCELLED.value)
+            is_gio_cancel = e.matches(Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED)
+
+            if not (is_woes_cancel or is_gio_cancel):
                 show_global_error(self, user_facing_error_message)
 
             if self.http_entry_row:
