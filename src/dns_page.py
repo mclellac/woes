@@ -83,6 +83,7 @@ class DNSPage(Gtk.Box):
     def _connect_signals(self) -> None:
         """Connect signals for UI elements to their respective handlers."""
         self.domain_entry.connect("activate", self._on_entry_activated)
+        self.domain_entry.connect("changed", self._on_domain_entry_changed) # Clear error on type
         self.dns_apply_button.connect("clicked", self._on_entry_activated)
         self.dns_record_type_dropdown.connect("notify::selected", self._on_record_type_changed)
         if self.dns_clear_results_button:
@@ -437,29 +438,20 @@ class DNSPage(Gtk.Box):
         if self.dns_record_type_dropdown:
             self.dns_record_type_dropdown.set_sensitive(not active)  # type: ignore
 
-    def _validate_dns_input(self, user_input: str) -> bool:
+    def _on_domain_entry_changed(self, editable: Adw.EntryRow) -> None:
         """
-        Validate the DNS user input. Shows global error/toast if invalid.
-
-        :param user_input: The user input string to validate.
-        :type user_input: str
-        :return: ``True`` if valid, ``False`` otherwise.
-        :rtype: bool
+        Handle the 'changed' signal for the domain entry row.
+        Clears the 'error' CSS class and any specific global error message.
         """
-        if not user_input:
-            show_global_toast(self, "Input cannot be empty.")
-            main_window = self.get_native()  # type: ignore
-            if not (main_window and hasattr(main_window, "show_toast")):
-                show_global_error(self, "Input cannot be empty.")
-            return False
-
-        if not self._is_valid_ip_or_domain(user_input):
-            show_global_toast(self, "Invalid IP address or domain name.")
-            main_window = self.get_native()  # type: ignore
-            if not (main_window and hasattr(main_window, "show_toast")):
-                show_global_error(self, "Invalid IP address or domain name.")
-            return False
-        return True
+        if editable.has_css_class("error"):
+            editable.remove_css_class("error")
+            main_window = self.get_native()
+            if main_window and hasattr(main_window, "hide_error_if_message_matches"):
+                # Try to hide specific messages if that method exists
+                main_window.hide_error_if_message_matches("Invalid input for PTR record. Please enter a valid IP address.") # type: ignore[attr-defined]
+                main_window.hide_error_if_message_matches("Invalid input. Please enter a valid domain name or IP address.") # type: ignore[attr-defined]
+            # Fallback or if the specific message isn't the current one,
+            # the error banner might persist until next validation or _clear_error().
 
     def _update_ptr_dropdown(self, user_input: str, requested_record_type: str) -> str:
         """
@@ -618,11 +610,37 @@ class DNSPage(Gtk.Box):
         requested_record_type = self._get_selected_record_type()
         logger.debug(f"DNSPage: Performing DNS lookup for: {user_input}, type: {requested_record_type}")
 
-        if not self._validate_dns_input(user_input):
-            self._set_loading_state(False, "Idle - Invalid input.")  # Reset status to Idle with specific message
+        # Clear previous validation error message if any
+        main_window = self.get_native()
+        if main_window and hasattr(main_window, "hide_error_if_message_matches"):
+            main_window.hide_error_if_message_matches("Invalid input for PTR record. Please enter a valid IP address.") # type: ignore[attr-defined]
+            main_window.hide_error_if_message_matches("Invalid input. Please enter a valid domain name or IP address.") # type: ignore[attr-defined]
+
+        validation_passed = False
+        error_message_to_show = ""
+
+        if not user_input:
+            error_message_to_show = "Input cannot be empty."
+        elif requested_record_type.upper() == "PTR":
+            if not is_valid_ip(user_input):
+                error_message_to_show = "Invalid input for PTR record. Please enter a valid IP address."
+            else:
+                validation_passed = True
+        else: # For other record types
+            if not (is_valid_ip(user_input) or is_valid_domain(user_input)):
+                error_message_to_show = "Invalid input. Please enter a valid domain name or IP address."
+            else:
+                validation_passed = True
+
+        if not validation_passed:
+            self.domain_entry.add_css_class("error") # type: ignore[attr-defined]
+            if error_message_to_show: # Should always be true if validation_passed is false and user_input wasn't empty initially
+                 show_global_error(self, error_message_to_show)
+            self._set_loading_state(False, f"Idle - {error_message_to_show.split('.')[0]}.")
             return
 
-        self._clear_error()
+        self.domain_entry.remove_css_class("error") # type: ignore[attr-defined]
+        self._clear_error() # Clear any other non-validation global error
 
         custom_dns_server = self.settings.get_string("custom-dns-server")
         dns_client = DnsResolverClient(custom_dns_server=custom_dns_server or None)

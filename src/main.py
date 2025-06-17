@@ -132,6 +132,16 @@ class WoesApplication(Adw.Application):
 
         super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.DEFAULT_FLAGS, **kwargs)
 
+        # Import show_critical_error_dialog here to avoid circular dependency if utils imports main or window
+        # This is a bit of a workaround for utility placement.
+        try:
+            from .utils import show_critical_error_dialog as app_show_critical_error_dialog
+            self._show_critical_error_dialog = app_show_critical_error_dialog
+        except ImportError:
+            logging.error("Failed to import show_critical_error_dialog in WoesApplication init.")
+            self._show_critical_error_dialog = None
+
+
         self.add_main_option(
             "debug",
             ord("d"),
@@ -210,12 +220,24 @@ class WoesApplication(Adw.Application):
         if not win:
             try:
                 win = WoesWindow(application=self)
-            except GLib.Error as e:
-                logging.exception(f"WoesApplication.do_activate: GLib.Error creating WoesWindow instance: {e}")
-                sys.exit(1)
             except Exception as e:
-                logging.exception(f"WoesApplication.do_activate: Unexpected error creating WoesWindow instance: {e}")
-                sys.exit(1)
+                logging.exception(f"WoesApplication.do_activate: Critical error creating WoesWindow instance: {e}")
+                if self._show_critical_error_dialog:
+                    try:
+                        # Try to show a dialog, but don't let it crash the exit path if GTK is too broken
+                        self._show_critical_error_dialog(
+                            parent_window=None, # No parent window available
+                            title="Critical Application Error",
+                            message="Failed to create the main application window. The application cannot continue.",
+                            details=f"Error details:\n{str(e)}\n\nCheck logs for more information."
+                        )
+                        # Give GTK a moment to show the dialog if possible, then exit.
+                        # This is a best-effort attempt.
+                        GLib.timeout_add(100, lambda: sys.exit(1))
+                        return # Let the timeout handler do the exit
+                    except Exception as dialog_e:
+                        logging.error(f"Failed to show critical error dialog during window creation failure: {dialog_e}", exc_info=True)
+                sys.exit(1) # Fallback exit if dialog showing fails or is unavailable
 
         if win:
             try:

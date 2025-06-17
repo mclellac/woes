@@ -97,10 +97,11 @@ class WoesWindow(Adw.ApplicationWindow):
                 )
                 logging.debug("Successfully connected to GNOME interface settings schema: %s", GNOME_INTERFACE_SCHEMA)
             except GLib.Error as e:
-                logging.warning(
+                logging.error(
                     "Could not connect to GNOME interface settings (%s): %s. System font integration will be limited.",
                     GNOME_INTERFACE_SCHEMA,
                     e,
+                    exc_info=True
                 )
 
         self.settings.connect("changed::theme-preference", self._on_theme_preference_setting_changed)
