@@ -9,7 +9,7 @@ GSettings to persist these preferences.
 
 import logging
 import re
-from typing import Optional
+from typing import Optional, List, Tuple
 
 import gi
 
@@ -27,7 +27,7 @@ try:
 except ImportError:
     dnspython_available = False
 
-NONE_OPTION_TITLE = "None"  # Module-level constant for "None"
+# Removed module-level NONE_OPTION_TITLE, will use class attribute
 
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/preferences.ui")
@@ -460,13 +460,13 @@ class Preferences(Adw.PreferencesWindow):
 
         child = self.custom_ua_list_container.get_first_child()
         while child:
-            self.custom_ua_list_container.remove(child)  # type: ignore[union-attr]
-            child = self.custom_ua_list_container.get_first_child()  # type: ignore[union-attr]
+            self.custom_ua_list_container.remove(child) # type: ignore[union-attr]
+            child = self.custom_ua_list_container.get_first_child() # type: ignore[union-attr]
 
         variant = self.settings.get_value("custom-user-agents")
-        custom_ua_pairs: list[tuple[str, str]] = list(
-            variant.unpack() if variant and variant.get_type_string() == "a(ss)" else []
-        )  # type: ignore[union-attr]
+        custom_ua_pairs: List[Tuple[str, str]] = []
+        if variant and variant.get_type_string() == "a(ss)":
+            custom_ua_pairs = list(variant.unpack()) # type: ignore[union-attr]
 
         for title, value in custom_ua_pairs:
             row = Adw.ActionRow(title=title, subtitle=value)
@@ -520,9 +520,9 @@ class Preferences(Adw.PreferencesWindow):
             self.new_custom_ua_value_entry.remove_css_class("error")  # type: ignore[union-attr]
 
         variant = self.settings.get_value("custom-user-agents")
-        current_ua_pairs: list[tuple[str, str]] = list(
-            variant.unpack() if variant and variant.get_type_string() == "a(ss)" else []
-        )  # type: ignore[union-attr]
+        current_ua_pairs: List[Tuple[str, str]] = []
+        if variant and variant.get_type_string() == "a(ss)":
+            current_ua_pairs = list(variant.unpack()) # type: ignore[union-attr]
 
         # Check for duplicate titles (Default UAs + Custom UAs)
         all_existing_titles = [ua_dict["title"] for ua_dict in USER_AGENTS] + [pair[0] for pair in current_ua_pairs]
@@ -558,9 +558,9 @@ class Preferences(Adw.PreferencesWindow):
         :type title_to_remove: str
         """
         variant = self.settings.get_value("custom-user-agents")
-        current_ua_pairs: list[tuple[str, str]] = list(
-            variant.unpack() if variant and variant.get_type_string() == "a(ss)" else []
-        )  # type: ignore[union-attr]
+        current_ua_pairs: List[Tuple[str, str]] = []
+        if variant and variant.get_type_string() == "a(ss)":
+            current_ua_pairs = list(variant.unpack()) # type: ignore[union-attr]
 
         original_length = len(current_ua_pairs)
         updated_ua_pairs = [pair for pair in current_ua_pairs if pair[0] != title_to_remove]
@@ -733,9 +733,10 @@ class Preferences(Adw.PreferencesWindow):
 
         # 3. Add custom user agents from GSettings
         variant = self.settings.get_value("custom-user-agents")
-        custom_ua_pairs: list[tuple[str, str]] = list(
-            variant.unpack() if variant and variant.get_type_string() == "a(ss)" else []
-        )
+        custom_ua_pairs: List[Tuple[str, str]] = []
+        if variant and variant.get_type_string() == "a(ss)":
+            custom_ua_pairs = list(variant.unpack())
+
 
         for title, _value in custom_ua_pairs:
             if title not in all_ua_titles:
