@@ -84,8 +84,7 @@ class HttpPage(Gtk.Box):
     copy_results_button: Gtk.Button = Gtk.Template.Child()
     http_status_row: Adw.ActionRow = Gtk.Template.Child()
     http_status_spinner: Gtk.Spinner = Gtk.Template.Child()
-    http_cancel_button: Optional[Gtk.Button] = Gtk.Template.Child() # Added for cancel button
-
+    http_cancel_button: Optional[Gtk.Button] = Gtk.Template.Child() # Bound from UI
 
     def __init__(self, **kwargs: Any):
         super().__init__(**kwargs)
@@ -154,15 +153,17 @@ class HttpPage(Gtk.Box):
     @staticmethod
     def _copy_to_clipboard(text: str, widget: Gtk.Widget) -> None:
         try:
-            display = widget.get_display()
-            clipboard = Gtk.Clipboard.get_default(display)
-            if clipboard:
-                clipboard.set_text(text, -1)
+            # display = widget.get_display() # No longer needed
+            # clipboard = Gtk.Clipboard.get_default(display) # Old failing line
+            clipboard = widget.get_clipboard() # New approach
+            if clipboard: # Gtk.Clipboard might be None if not available
+                clipboard.set_text(text) # set_text does not take a length argument in GTK4
                 logger.info("Text copied to clipboard: %s", text[:100] + "..." if len(text) > 100 else text)
+                # show_global_toast(widget, "Text copied to clipboard.") # Caller handles success toast
             else:
-                logger.warning("Could not get default clipboard from widget's display: %s", widget)
+                logger.warning("Could not get clipboard from widget: %s", widget)
                 show_global_toast(widget.get_native(), "Failed to access clipboard.") # type: ignore
-        except Exception:
+        except Exception:  # pylint: disable=broad-except
             logger.exception("Error copying to clipboard:")
             show_global_toast(widget.get_native(), "Error copying to clipboard.") # type: ignore
 
@@ -181,8 +182,9 @@ class HttpPage(Gtk.Box):
 
         if self.http_cancel_button:
             self.http_cancel_button.connect("clicked", self._on_cancel_fetch_clicked)
-        else:
+        else: # This case should ideally not happen if UI file is correct and Gtk.Template.Child works
             logger.warning("HttpPage: http_cancel_button was not bound from UI file. Cancellation UI may not work.")
+
 
     def _on_cancel_fetch_clicked(self, _button: Gtk.Button) -> None:
         """Handle click of the Cancel Fetch button."""
@@ -190,11 +192,12 @@ class HttpPage(Gtk.Box):
         if self.current_http_cancellable and not self.current_http_cancellable.is_cancelled():
             self.current_http_cancellable.cancel()
             if self.http_cancel_button:
-                self.http_cancel_button.set_sensitive(False)
+                self.http_cancel_button.set_sensitive(False) # Disable immediately
             if self.http_status_row:
-                self.http_status_row.set_subtitle("Cancelling fetch...")
+                self.http_status_row.set_subtitle("Cancelling fetch...") # type: ignore
         else:
-            logger.warning("No active HTTP fetch cancellable to cancel.")
+            logger.warning("No active HTTP fetch cancellable to cancel, or already cancelled.")
+
 
     def _on_host_header_changed(self, entry_row: Adw.EntryRow) -> None:
         if not entry_row:
@@ -254,7 +257,7 @@ class HttpPage(Gtk.Box):
                         lines.append(f"{item.key}: {item.value}")
         if lines:
             text_to_copy = "\n".join(lines)
-            HttpPage._copy_to_clipboard(text_to_copy, self)
+            HttpPage._copy_to_clipboard(text_to_copy, self) # Use static method
             show_global_toast(self, "All headers copied to clipboard.")
         else:
             logger.info("No headers to copy from the results view.")
@@ -281,6 +284,13 @@ class HttpPage(Gtk.Box):
             if self.current_http_cancellable and not self.current_http_cancellable.is_cancelled():
                 logger.info("Requesting cancellation of previous HTTP fetch task.")
                 self.current_http_cancellable.cancel()
+                # Don't start a new task immediately; let the cancellation complete.
+                # The UI will be updated by the _fetch_headers_task_done_cb of the cancelled task.
+                # User can click "Fetch" again if needed after cancellation is processed.
+                # Or, we could queue the new request, but that adds complexity.
+                # For now, simply cancelling and requiring user to re-initiate is simpler.
+                # self._set_loading_state(False, "Previous task cancelled. Ready for new input.") # Optional feedback
+                # return # Optionally prevent starting a new task immediately
 
         self._set_loading_state(True, "Fetching headers...")
         self.current_http_cancellable = Gio.Cancellable()
@@ -359,8 +369,11 @@ class HttpPage(Gtk.Box):
         }
         logger.debug("HttpPage: Starting header fetch task with data: %s", self._http_task_data_for_thread)
 
+        # Pass the new cancellable to the task
         task = Gio.Task.new(self, self.current_http_cancellable, self._fetch_headers_task_done_cb, None)
         self.current_http_task = task
+        # Gio.Task.run_in_thread passes its own cancellable to the thread func,
+        # which is linked to the task's cancellable.
         task.run_in_thread(self._fetch_headers_task_thread_func)
 
 
@@ -393,20 +406,19 @@ class HttpPage(Gtk.Box):
 
         try:
             processed_data = fetcher.fetch_headers()
-            # Check cancellation *after* the blocking call, as HttpFetcher might not raise immediately
-            if cancellable and cancellable.is_cancelled():
+            if cancellable and cancellable.is_cancelled(): # Check again after the blocking call
                 task.return_new_error_literal(
                     GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN),
                     HttpErrorType.CANCELLED.value,
-                    "Task cancelled during/after fetching.", # Slightly different message
+                    "Task cancelled during/after fetching.",
                 )
             else:
                 task.return_value(GLib.Variant.new_python(processed_data))
         except HttpRequestTimeoutError as e:
-            if not (cancellable and cancellable.is_cancelled()): # Don't report timeout if it was due to cancellation
+            if not (cancellable and cancellable.is_cancelled()):
                 logger.warning("HttpPage Task: Timeout for '%s': %s", url_to_fetch, e)
                 task.return_new_error_literal(GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN), HttpErrorType.TIMEOUT.value, str(e))
-            else: # If cancelled during a timeout phase
+            else:
                 task.return_new_error_literal(GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN), HttpErrorType.CANCELLED.value, "Fetch cancelled during timeout.")
         except HttpConnectionError as e:
             if not (cancellable and cancellable.is_cancelled()):
@@ -414,20 +426,21 @@ class HttpPage(Gtk.Box):
                 task.return_new_error_literal(GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN), HttpErrorType.CONNECTION_ERROR.value, str(e))
             else:
                  task.return_new_error_literal(GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN), HttpErrorType.CANCELLED.value, "Fetch cancelled during connection attempt.")
-        except HttpProcessingError as e:
+        except HttpProcessingError as e: # For HTTP status codes >= 400
             if not (cancellable and cancellable.is_cancelled()):
                 logger.warning("HttpPage Task: HttpProcessingError for '%s': %s", url_to_fetch, e)
                 task.return_new_error_literal(GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN), HttpErrorType.HTTP_ERROR.value, str(e))
-        except HttpGenericRequestError as e:
+            # No specific cancel for this as it's usually a quick error response
+        except HttpGenericRequestError as e: # Other requests library exceptions
             if not (cancellable and cancellable.is_cancelled()):
                 logger.warning("HttpPage Task: HttpGenericRequestError for '%s': %s", url_to_fetch, e)
                 task.return_new_error_literal(GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN), HttpErrorType.REQUEST_EXCEPTION.value, str(e))
-        except HttpClientError as e:
+        except HttpClientError as e: # Custom base error, check if it's a cancellation
             if "cancelled" in str(e).lower() or (cancellable and cancellable.is_cancelled()):
                  task.return_new_error_literal(GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN), HttpErrorType.CANCELLED.value, str(e))
-            else:
+            else: # Other client errors
                  task.return_new_error_literal(GLib.quark_from_string(WOES_HTTP_ERROR_DOMAIN), HttpErrorType.GENERIC_UNEXPECTED.value, str(e))
-        except Exception as e_generic:
+        except Exception as e_generic: # Catch-all for truly unexpected issues
             if not (cancellable and cancellable.is_cancelled()):
                 logger.exception("HttpPage Task: Unexpected generic error for URL '%s':", url_to_fetch)
                 task.return_new_error_literal(
@@ -445,28 +458,18 @@ class HttpPage(Gtk.Box):
         result: Gio.AsyncResult,
         _user_data: Optional[Any] = None,
     ) -> None:
-        task_being_processed = _source_object # The task is the source object
+        task_being_processed = _source_object
 
-        # If this callback is for a task that is no longer the current one, ignore it,
-        # unless it's a cancellation, which might need UI cleanup.
-        if task_being_processed != self.current_http_task and self.current_http_task is not None:
-            logger.warning("_fetch_headers_task_done_cb: Callback for an outdated task. Current task is %s. Ignoring.", self.current_http_task)
-            # If the old task was cancelled, its specific cancellable would be marked.
-            # The new task would have a new cancellable.
-            return
+        if task_being_processed != self.current_http_task and self.current_http_task is not None :
+             logger.warning("_fetch_headers_task_done_cb: Callback for an outdated task %s. Current task is %s. Ignoring.", task_being_processed, self.current_http_task)
+             return
 
-        # This task is the one we are interested in, or no new task has started.
-        # We can now clear current_http_task.
-        # If a new task starts immediately after, it will set self.current_http_task again.
         if task_being_processed == self.current_http_task:
             self.current_http_task = None
-            # self.current_http_cancellable should be cleared only when a new task starts or here if truly done.
-            # If a new task started, current_http_cancellable would have been replaced.
-            # If this is the final state (error/success/cancel) of the current_http_cancellable, we can clear it.
-            # However, _set_loading_state(False) will handle UI, so clearing here might be premature if another action follows.
+            # self.current_http_cancellable = None # Reset when new task starts or in dispose
 
         logger.info("Processing task completion in _fetch_headers_task_done_cb for task: %s", task_being_processed)
-        user_url_for_messages = self._http_task_data_for_thread.get("url", "the operation")
+        user_url_for_messages = self._http_task_data_for_thread.get("url", "this URL")
 
 
         try:
@@ -497,9 +500,10 @@ class HttpPage(Gtk.Box):
 
             logger.info("HttpPage: Successfully processed task result: %d response stages.", len(actual_list_of_responses))
             processed_headers_for_store: list[HeaderItem] = []
+            status_message = "" # Initialize status message
             if not actual_list_of_responses:
                 logger.info("HttpPage: Received empty list of responses.")
-                self._update_column_view_model(None) # Shows "No results"
+                self._update_column_view_model(None)
                 status_message = f"No headers found for {user_url_for_messages}."
             else:
                 for i, response_data_dict_item in enumerate(actual_list_of_responses):
@@ -578,18 +582,29 @@ class HttpPage(Gtk.Box):
             if not self.current_http_task:
                 self._set_loading_state(False, "Error: Unexpected application error.")
         finally:
-            # If this callback was for a task that has since been replaced by a new one,
-            # current_http_task will be non-None. In that case, don't revert to Idle.
             if not self.current_http_task:
-                # If current_http_task is None, it means this was the last known task or no new one has started.
-                # Reset UI to idle or appropriate final state.
                 current_subtitle = self.http_status_row.get_subtitle() if self.http_status_row else "" # type: ignore
-                if "Fetching headers..." in current_subtitle or \
-                   "Cancelling" in current_subtitle or \
-                   (task_being_processed and task_being_processed.get_cancellable() and task_being_processed.get_cancellable().is_cancelled()): # type: ignore
-                    self._set_loading_state(False, "Idle." if not (task_being_processed and task_being_processed.get_cancellable() and task_being_processed.get_cancellable().is_cancelled()) else f"Fetch for {self._http_task_data_for_thread.get('url', 'operation')} cancelled.")
-                # If already "Headers loaded successfully" or specific error message, it might be fine.
-                # The goal is to ensure we don't leave it in "Fetching..." or "Cancelling..." indefinitely.
+                final_status_message = "Idle."
+                if task_being_processed and task_being_processed.get_cancellable() and task_being_processed.get_cancellable().is_cancelled(): # type: ignore
+                    final_status_message = f"Fetch for {self._http_task_data_for_thread.get('url', 'operation')} cancelled."
+                elif "Error:" not in current_subtitle and "loaded successfully" not in current_subtitle : # if not already set to a specific final state
+                     pass # Keep the message from success/specific error
+                else: # If it was an error or still fetching/cancelling, reset to Idle or Cancelled.
+                    if "Error:" in current_subtitle: # If it was an error, just make it Idle
+                         pass # Error message is already set by _set_loading_state(False, f"Error: ...")
+                    # else, if it was "Fetching..." or "Cancelling...", it will become "Idle." or "Fetch ... cancelled."
+                    # This logic path seems a bit convoluted, simplifying:
+
+                # Simplified finally logic:
+                # If no new task is running, ensure the UI is in a final state.
+                if not self.current_http_task:
+                    final_ui_message = self.http_status_row.get_subtitle() # type: ignore
+                    if "Fetching headers..." in final_ui_message or "Cancelling fetch..." in final_ui_message:
+                        # If task was cancelled, specific message is set by CANCELLED block
+                        # If not cancelled, but still in progress somehow, set to Idle.
+                        if not (task_being_processed and task_being_processed.get_cancellable() and task_being_processed.get_cancellable().is_cancelled()): # type: ignore
+                           final_ui_message = "Idle."
+                    self._set_loading_state(False, final_ui_message)
 
 
     def _set_loading_state(self, active: bool, message: str = "Idle") -> None:
@@ -601,7 +616,7 @@ class HttpPage(Gtk.Box):
                 self.http_status_spinner.stop()
 
         if self.http_status_row:
-            self.http_status_row.set_subtitle(message)
+            self.http_status_row.set_subtitle(message) # type: ignore
 
         sensitive = not active
         if self.http_entry_row: self.http_entry_row.set_sensitive(sensitive)
@@ -610,7 +625,7 @@ class HttpPage(Gtk.Box):
         if self.http_user_agent_row: self.http_user_agent_row.set_sensitive(sensitive)
         if self.http_pragma_switch_row: self.http_pragma_switch_row.set_sensitive(sensitive)
 
-        if self.http_cancel_button: # Added: Manage cancel button state
+        if self.http_cancel_button:
             self.http_cancel_button.set_visible(active)
             self.http_cancel_button.set_sensitive(active)
 
@@ -627,26 +642,26 @@ class HttpPage(Gtk.Box):
             self._on_entry_row_activated(self.http_entry_row)
 
     def _update_column_view_model(self, header_items: Optional[list[HeaderItem]]) -> None:
-        self.header_list_store.remove_all()
+        self.header_list_store.remove_all() # type: ignore
         if header_items:
             for item in header_items:
-                self.header_list_store.append(item)
+                self.header_list_store.append(item) # type: ignore
             self._show_results()
         else:
             self._hide_results()
 
     def _show_results(self) -> None:
         if self.http_results_group:
-            self.http_results_group.set_visible(True)
+            self.http_results_group.set_visible(True) # type: ignore
 
     def _hide_results(self) -> None:
         if self.http_results_group:
-            self.http_results_group.set_visible(False)
+            self.http_results_group.set_visible(False) # type: ignore
 
     def _clear_error(self) -> None:
         main_window = self.get_native()
         if main_window and hasattr(main_window, "hide_error"):
-            main_window.hide_error()
+            main_window.hide_error() # type: ignore
         else:
             logger.warning("Could not find main window or hide_error method to clear error.")
         if self.http_entry_row:
@@ -811,7 +826,7 @@ class HttpPage(Gtk.Box):
             self.settings.disconnect(self._gsettings_ua_changed_handler_id)
         self._gsettings_ua_changed_handler_id = 0
         # Cancel any ongoing task
-        if self.current_http_cancellable and not self.current_http_cancellable.is_cancelled(): # Added
+        if self.current_http_cancellable and not self.current_http_cancellable.is_cancelled():
             self.current_http_cancellable.cancel()
             logger.info("HttpPage disposed, ongoing task cancelled.")
         self.current_http_task = None
