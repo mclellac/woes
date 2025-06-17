@@ -84,6 +84,7 @@ class NmapScanParameters(TypedDict, total=False):
     no_ping: bool
     timing_template: str
     custom_dns_server: Optional[str]
+    nmap_host_timeout: Optional[int]
 
 
 def _is_scan_root_required(nmap_args_list: List[str]) -> bool:
@@ -303,6 +304,11 @@ class NmapScanner:
         if custom_dns_server and custom_dns_server.strip():
             nmap_args_list.append(f"--dns-servers={custom_dns_server.strip()}")
             logger.info("Using custom DNS server for Nmap scan: %s", custom_dns_server.strip())
+
+        nmap_host_timeout_seconds = params.get("nmap_host_timeout")
+        if nmap_host_timeout_seconds is not None and nmap_host_timeout_seconds > 0:
+            nmap_args_list.append(f"--host-timeout={nmap_host_timeout_seconds}s")
+            logger.info("Applying Nmap host timeout: %ss", nmap_host_timeout_seconds)
 
         nmap_args_list.extend(["-oX", "-", params["target"]])
         logger.debug("Built Nmap arguments: %s", nmap_args_list)

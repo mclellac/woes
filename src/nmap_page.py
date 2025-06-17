@@ -262,6 +262,7 @@ class NmapPage(Gtk.Box):
                 else "T3"
             ),
             "custom_dns_server": self.settings.get_string("custom-dns-server"),
+            "nmap_host_timeout": self.settings.get_int("nmap-host-timeout"),
         }
         logger.info(f"NmapPage: Starting Nmap scan task with params: {scan_params}")
         self.current_nmap_task = Gio.Task.new(self, self.current_nmap_cancellable, self._nmap_scan_task_done_cb, None)
@@ -371,8 +372,19 @@ class NmapPage(Gtk.Box):
         except Exception as e_generic:
             logger.exception("NmapPage: Task failed with an unexpected Python error directly in callback:")
             error_msg = f"An unexpected error occurred: {str(e_generic).splitlines()[0]}"
+        finally:
+            # Ensure task references are cleared and UI is reset regardless of success or failure.
+            # self.current_nmap_task is already None here due to clearing it early.
+            self.current_nmap_cancellable = None
+            self._set_scan_status(ScanStatus.IDLE, "Idle")
+            self.nmap_target_entryrow.set_sensitive(True)
+            if self.nmap_apply_button:
+                self.nmap_apply_button.set_sensitive(True)
+            if hasattr(self, "nmap_cancel_scan_button") and self.nmap_cancel_scan_button:
+                self.nmap_cancel_scan_button.set_sensitive(False)
+                self.nmap_cancel_scan_button.set_visible(False)
 
-        # Existing logic for handling error_msg or data:
+        # logic for handling error_msg or data:
         if error_msg:
             if "cancel" in error_msg.lower():
                 self._set_scan_status(ScanStatus.IDLE, f"Scan for {original_target} cancelled.")
@@ -399,17 +411,6 @@ class NmapPage(Gtk.Box):
                 f"NmapPage: Scan for {original_target} resulted in no data and no error_msg from direct propagate_value handling."
             )
             self._handle_scan_error(original_target, "Scan completed with no data and no error from direct handling.")
-        finally:
-            # Ensure task references are cleared and UI is reset regardless of success or failure.
-            # self.current_nmap_task is already None here due to clearing it early.
-            self.current_nmap_cancellable = None
-            self._set_scan_status(ScanStatus.IDLE, "Idle")
-            self.nmap_target_entryrow.set_sensitive(True)
-            if self.nmap_apply_button:
-                self.nmap_apply_button.set_sensitive(True)
-            if hasattr(self, "nmap_cancel_scan_button") and self.nmap_cancel_scan_button:
-                self.nmap_cancel_scan_button.set_sensitive(False)
-                self.nmap_cancel_scan_button.set_visible(False)
 
     def _handle_scan_error(self, target: str, error_message: str) -> None:
         show_global_error(self, f"Error scanning {target}: {error_message}")
