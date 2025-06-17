@@ -42,23 +42,28 @@ def _load_gresources_early():
     resource_file_path = None
 
     # Path for true installed versions (PKGDATADIR comes from src.config via constants.py)
-    configured_install_path = os.path.join(PKGDATADIR, "woes.gresource")
+    configured_install_path = os.path.join(PKGDATADIR, "woes.gresource") # PKGDATADIR is from constants
 
     # --- Development / Fallback Paths ---
     dev_path_from_env = None
     project_root_env = os.environ.get("WOES_PROJECT_ROOT")
     if project_root_env:
         dev_path_from_env = os.path.normpath(os.path.join(project_root_env, "build", "src", "woes.gresource"))
+        logger.debug(f"WOES_PROJECT_ROOT is set to: {project_root_env}")
+        logger.debug(f"Derived dev_path_from_env: {dev_path_from_env}")
+    else:
+        logger.debug("WOES_PROJECT_ROOT environment variable is not set.")
 
     script_dir = os.path.dirname(os.path.abspath(__file__)) # directory of main.py
-
-    # Heuristic for typical local development (script_dir is project/src/)
+    logger.debug(f"script_dir (__file__ directory): {script_dir}")
     project_root_from_file_heuristic = os.path.abspath(os.path.join(script_dir, ".."))
     dev_path_from_file_heuristic = os.path.normpath(os.path.join(project_root_from_file_heuristic, "build", "src", "woes.gresource"))
+    logger.debug(f"dev_path_from_file_heuristic: {dev_path_from_file_heuristic}")
 
-    # Specific known install path for gresource (from user logs)
+    # Standard installed path for gresource (from user's logs for their prefix)
     # This is used as a targeted fix if running from site-packages without src.config
-    hardcoded_prefix_install_gresource_path = "/usr/local/share/woes/woes.gresource"
+    standard_install_gresource_path = "/usr/local/share/woes/woes.gresource"
+    logger.debug(f"Standard installed gresource path (hardcoded fallback check): {standard_install_gresource_path}")
 
 
     if CONFIG_AVAILABLE: # True if src.config was imported - indicates an "installed" setup
@@ -76,56 +81,36 @@ def _load_gresources_early():
     else: # CONFIG_AVAILABLE is False (dev/uninstalled mode or installed but missing src.config)
         is_running_from_site_packages = "site-packages" in script_dir.lower() or \
                                         "dist-packages" in script_dir.lower()
+        logger.debug(f"src.config not found. Is running from site-packages: {is_running_from_site_packages}")
 
         if dev_path_from_env and os.path.exists(dev_path_from_env):
             logger.info("Using development GResource from WOES_PROJECT_ROOT (src.config not found): %s", dev_path_from_env)
             resource_file_path = dev_path_from_env
-        elif os.path.exists(dev_path_from_file_heuristic):
-            # Use the __file__ heuristic path if WOES_PROJECT_ROOT didn't yield a result.
-            # This allows editable installs where __file__ is in site-packages but
-            # ../build/src/woes.gresource relative to it is correct.
-            logger.info("Using development GResource from __file__ heuristic (WOES_PROJECT_ROOT not set or path invalid, src.config not found): %s", dev_path_from_file_heuristic)
+        elif is_running_from_site_packages and os.path.exists(standard_install_gresource_path):
+            # PATCH: If running from site-packages and src.config is missing,
+            # and WOES_PROJECT_ROOT didn't work, explicitly check the known standard install path.
+            logger.info("Using GResource from standard install path (running from site-packages, src.config not found, WOES_PROJECT_ROOT not used/invalid): %s", standard_install_gresource_path)
+            resource_file_path = standard_install_gresource_path
+        elif not is_running_from_site_packages and os.path.exists(dev_path_from_file_heuristic):
+            # For true local dev (not in site-packages) if WOES_PROJECT_ROOT and standard install path didn't apply
+            logger.info("Using development GResource from __file__ heuristic (not in site-packages, src.config not found, WOES_PROJECT_ROOT not used/invalid): %s", dev_path_from_file_heuristic)
             resource_file_path = dev_path_from_file_heuristic
-        # The prompt included a check for hardcoded_prefix_install_gresource_path here.
-        # If it's an editable install (`pip install -e .`), `__file__` will be in `site-packages`,
-        # but `dev_path_from_file_heuristic` (pointing to `project_root/build/src`) is the correct one to check.
-        # The hardcoded path is more of a last resort if all other heuristics fail AND we detect site-packages.
-        # The logic from the prompt was:
-        # elif is_running_from_site_packages and os.path.exists(hardcoded_prefix_install_gresource_path):
-        #    ... resource_file_path = hardcoded_prefix_install_gresource_path
-        # elif not is_running_from_site_packages and os.path.exists(dev_path_from_file_heuristic):
-        #    ... resource_file_path = dev_path_from_file_heuristic
-        # This seems to make the __file__ heuristic conditional on NOT being in site-packages, which is
-        # contrary to the goal of supporting editable installs where __file__ IS in site-packages.
-        # The version implemented in the previous successful step (and present in the read_files output)
-        # already correctly prioritizes WOES_PROJECT_ROOT, then the __file__ heuristic (without site-packages restriction),
-        # then the PKGDATADIR fallback (which would be /usr/local/share/woes if constants.py also has that fallback).
-        # The key is that PKGDATADIR in constants.py has its own fallback.
-        # The refined logic in the prompt aims to make the dev mode more specific.
-        # The prompt's logic:
-        # 1. dev_path_from_env (WOES_PROJECT_ROOT)
-        # 2. dev_path_from_file_heuristic (unconditionally, this is the fix requested)
-        # 3. else (error)
-        # This means the `("site-packages" not in script_dir.lower() and "dist-packages" not in script_dir.lower())`
-        # check must be removed from the `elif` for `dev_path_from_file_heuristic`.
-        # The previous `read_files` output shows this check IS present. So the overwrite should apply the new logic.
-        # The provided replacement logic in the prompt correctly removes this site-packages check for the `dev_path_from_file_heuristic`.
-        else:
-            err_msg_parts = ["Critical: Development GResource path not found (src.config not found)."]
+        else: # All prioritized options failed
+            err_msg_parts = ["Critical: Could not find woes.gresource (src.config not found)."]
             if project_root_env:
-                err_msg_parts.append(f"Checked WOES_PROJECT_ROOT ('{project_root_env}') which led to path: '{dev_path_from_env if dev_path_from_env else 'N/A'}'.")
+                err_msg_parts.append(f"Checked WOES_PROJECT_ROOT ('{project_root_env}') -> path: '{dev_path_from_env if dev_path_from_env else 'N/A'}'.")
             else:
                 err_msg_parts.append("WOES_PROJECT_ROOT environment variable was not set.")
-            err_msg_parts.append(f"Also checked __file__ heuristic path: '{dev_path_from_file_heuristic}'.")
-            # The specific site-packages message is relevant if the heuristic was skipped due to it.
-            # Since we are now relaxing that, the error message needs to be more general if dev_path_from_file_heuristic also fails.
+
             if is_running_from_site_packages:
-                 err_msg_parts.append(f"Note: Running from site-packages ('{script_dir}').")
-            err_msg_parts.append("Ensure woes.gresource is at one of these locations (e.g., <project_root>/build/src/woes.gresource) or set WOES_PROJECT_ROOT to your project's root directory. App will exit.")
+                err_msg_parts.append(f"As running from site-packages, also checked standard install path: '{standard_install_gresource_path}'.")
+
+            err_msg_parts.append(f"Also checked __file__ heuristic path: '{dev_path_from_file_heuristic}'.")
+            err_msg_parts.append("Ensure woes.gresource is at one of these locations. For development, setting WOES_PROJECT_ROOT is recommended. For installed versions, ensure 'src/config.py' is generated by Meson and 'woes.gresource' is in the correct share directory (e.g., /usr/local/share/woes/). App will exit.")
             logger.critical(" ".join(err_msg_parts))
             sys.exit(1)
 
-    if not resource_file_path: # Should ideally be caught by sys.exit above
+    if not resource_file_path: # Should be caught by sys.exit above
         logger.critical("Failed to determine a valid GResource path. This state should not be reached. App will exit.")
         sys.exit(1)
 
@@ -342,6 +327,9 @@ class WoesApplication(Adw.Application):
                 getattr(actual_page_object, action_method_name)()
             else:
                 logging.warning(f"Could not trigger page action '{action_method_name}' on page '{current_page_name}'.")
+
+        elif current_page_name == expected_page_name:
+            logging.warning(f"{action_description} action: AdwViewStackPage for {current_page_name} is None.")
 
     def on_page_action_http_fetch(self, _action: Gio.SimpleAction, _param: Optional[GLib.Variant]) -> None:
         self._trigger_page_action("http", "trigger_fetch", "HTTP fetch")
