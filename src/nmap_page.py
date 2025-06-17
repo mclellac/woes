@@ -258,7 +258,8 @@ class NmapPage(Gtk.Box):
             task.return_new_error_literal(GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN), NmapScanErrorType.SCAN_FAILED.value, f"Nmap scan error: {e}")
         except Exception as e:
             logger.exception("Unexpected exception in Nmap scan task for %s (%s):", target, type(e).__name__)
-            task.return_new_error_literal(GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN), NmapScanErrorType.UNEXPECTED.value, f"Scan failed unexpectedly: {e}")
+            error_msg_details = f"Scan failed unexpectedly: {e}"
+            task.return_new_error_literal(GLib.quark_from_string(NMAP_SCAN_ERROR_DOMAIN), NmapScanErrorType.UNEXPECTED.value, error_msg_details)
         finally:
             logger.info("Nmap scan thread finished for %s.", target)
 
