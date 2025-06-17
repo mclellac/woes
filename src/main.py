@@ -41,32 +41,42 @@ def _load_gresources_early():
     logger = logging.getLogger(__name__)
     resource_file_path = None
 
-    # Path for installed versions (uses PKGDATADIR from src.config via constants.py)
+    # Path for true installed versions (PKGDATADIR comes from src.config via constants.py)
     configured_install_path = os.path.join(PKGDATADIR, "woes.gresource")
 
-    # Development paths
+    # --- Development / Fallback Paths ---
     dev_path_from_env = None
     project_root_env = os.environ.get("WOES_PROJECT_ROOT")
     if project_root_env:
         dev_path_from_env = os.path.normpath(os.path.join(project_root_env, "build", "src", "woes.gresource"))
 
     script_dir = os.path.dirname(os.path.abspath(__file__)) # directory of main.py
+
+    # Heuristic for typical local development (script_dir is project/src/)
     project_root_from_file_heuristic = os.path.abspath(os.path.join(script_dir, ".."))
     dev_path_from_file_heuristic = os.path.normpath(os.path.join(project_root_from_file_heuristic, "build", "src", "woes.gresource"))
 
+    # Specific known install path for gresource (from user logs)
+    # This is used as a targeted fix if running from site-packages without src.config
+    hardcoded_prefix_install_gresource_path = "/usr/local/share/woes/woes.gresource"
+
+
     if CONFIG_AVAILABLE: # True if src.config was imported - indicates an "installed" setup
         if os.path.exists(configured_install_path):
-            logger.info("Using GResource from configured PKGDATADIR (installed mode): %s", configured_install_path)
+            logger.info("Using GResource from configured PKGDATADIR (src.config found): %s", configured_install_path)
             resource_file_path = configured_install_path
+        # Optional: Fallback to WOES_PROJECT_ROOT if config exists but path is wrong (for weird setups)
         elif dev_path_from_env and os.path.exists(dev_path_from_env):
-            # Fallback for mixed environments: config exists, but resource is in WOES_PROJECT_ROOT
-            logger.warning("CONFIG_AVAILABLE is True, but GResource not in PKGDATADIR. Using WOES_PROJECT_ROOT dev path: %s", dev_path_from_env)
+            logger.warning("src.config found, but GResource not in PKGDATADIR. Using WOES_PROJECT_ROOT dev path: %s", dev_path_from_env)
             resource_file_path = dev_path_from_env
         else:
-            logger.critical("CONFIG_AVAILABLE is True (installed mode), but GResource not found at configured path '%s'. If WOES_PROJECT_ROOT is set, its path ('%s') was also invalid. App will exit.",
+            logger.critical("src.config found (installed mode), but GResource not found at configured path '%s'. If WOES_PROJECT_ROOT is set, its path ('%s') was also invalid. App will exit.",
                             configured_install_path, dev_path_from_env if dev_path_from_env else "N/A")
             sys.exit(1)
-    else: # CONFIG_AVAILABLE is False (dev/uninstalled mode)
+    else: # CONFIG_AVAILABLE is False (dev/uninstalled mode or installed but missing src.config)
+        is_running_from_site_packages = "site-packages" in script_dir.lower() or \
+                                        "dist-packages" in script_dir.lower()
+
         if dev_path_from_env and os.path.exists(dev_path_from_env):
             logger.info("Using development GResource from WOES_PROJECT_ROOT (src.config not found): %s", dev_path_from_env)
             resource_file_path = dev_path_from_env
@@ -76,6 +86,30 @@ def _load_gresources_early():
             # ../build/src/woes.gresource relative to it is correct.
             logger.info("Using development GResource from __file__ heuristic (WOES_PROJECT_ROOT not set or path invalid, src.config not found): %s", dev_path_from_file_heuristic)
             resource_file_path = dev_path_from_file_heuristic
+        # The prompt included a check for hardcoded_prefix_install_gresource_path here.
+        # If it's an editable install (`pip install -e .`), `__file__` will be in `site-packages`,
+        # but `dev_path_from_file_heuristic` (pointing to `project_root/build/src`) is the correct one to check.
+        # The hardcoded path is more of a last resort if all other heuristics fail AND we detect site-packages.
+        # The logic from the prompt was:
+        # elif is_running_from_site_packages and os.path.exists(hardcoded_prefix_install_gresource_path):
+        #    ... resource_file_path = hardcoded_prefix_install_gresource_path
+        # elif not is_running_from_site_packages and os.path.exists(dev_path_from_file_heuristic):
+        #    ... resource_file_path = dev_path_from_file_heuristic
+        # This seems to make the __file__ heuristic conditional on NOT being in site-packages, which is
+        # contrary to the goal of supporting editable installs where __file__ IS in site-packages.
+        # The version implemented in the previous successful step (and present in the read_files output)
+        # already correctly prioritizes WOES_PROJECT_ROOT, then the __file__ heuristic (without site-packages restriction),
+        # then the PKGDATADIR fallback (which would be /usr/local/share/woes if constants.py also has that fallback).
+        # The key is that PKGDATADIR in constants.py has its own fallback.
+        # The refined logic in the prompt aims to make the dev mode more specific.
+        # The prompt's logic:
+        # 1. dev_path_from_env (WOES_PROJECT_ROOT)
+        # 2. dev_path_from_file_heuristic (unconditionally, this is the fix requested)
+        # 3. else (error)
+        # This means the `("site-packages" not in script_dir.lower() and "dist-packages" not in script_dir.lower())`
+        # check must be removed from the `elif` for `dev_path_from_file_heuristic`.
+        # The previous `read_files` output shows this check IS present. So the overwrite should apply the new logic.
+        # The provided replacement logic in the prompt correctly removes this site-packages check for the `dev_path_from_file_heuristic`.
         else:
             err_msg_parts = ["Critical: Development GResource path not found (src.config not found)."]
             if project_root_env:
@@ -83,16 +117,19 @@ def _load_gresources_early():
             else:
                 err_msg_parts.append("WOES_PROJECT_ROOT environment variable was not set.")
             err_msg_parts.append(f"Also checked __file__ heuristic path: '{dev_path_from_file_heuristic}'.")
+            # The specific site-packages message is relevant if the heuristic was skipped due to it.
+            # Since we are now relaxing that, the error message needs to be more general if dev_path_from_file_heuristic also fails.
+            if is_running_from_site_packages:
+                 err_msg_parts.append(f"Note: Running from site-packages ('{script_dir}').")
             err_msg_parts.append("Ensure woes.gresource is at one of these locations (e.g., <project_root>/build/src/woes.gresource) or set WOES_PROJECT_ROOT to your project's root directory. App will exit.")
             logger.critical(" ".join(err_msg_parts))
             sys.exit(1)
 
     if not resource_file_path: # Should ideally be caught by sys.exit above
-        logger.critical("Failed to determine a valid GResource path. App will exit.")
+        logger.critical("Failed to determine a valid GResource path. This state should not be reached. App will exit.")
         sys.exit(1)
 
     logging.info("Attempting to load GResource file from: %s", resource_file_path)
-
     try:
         resource = Gio.Resource.load(resource_file_path)
         if not resource:
@@ -265,113 +302,46 @@ class WoesApplication(Adw.Application):
             logging.warning(f"Cannot switch to {page_name}_page: window or stack not available.")
 
     def switch_to_http(self, _action: Gio.SimpleAction, _param: Optional[GLib.Variant]) -> None:
-        """
-        Switch the main window's view to the HTTP page.
-
-        :param _action: The :class:`Gio.SimpleAction` that triggered this handler.
-        :type _action: Gio.SimpleAction
-        :param _param: Optional :class:`GLib.Variant` parameter for the action (unused).
-        :type _param: Optional[GLib.Variant]
-        """
         self._switch_to_page("http")
 
     def switch_to_nmap(self, _action: Gio.SimpleAction, _param: Optional[GLib.Variant]) -> None:
-        """
-        Switch the main window's view to the Nmap page.
-
-        :param _action: The :class:`Gio.SimpleAction` that triggered this handler.
-        :type _action: Gio.SimpleAction
-        :param _param: Optional :class:`GLib.Variant` parameter for the action (unused).
-        :type _param: Optional[GLib.Variant]
-        """
         self._switch_to_page("nmap")
 
     def switch_to_dns(self, _action: Gio.SimpleAction, _param: Optional[GLib.Variant]) -> None:
-        """
-        Switch the main window's view to the DNS page.
-
-        :param _action: The :class:`Gio.SimpleAction` that triggered this handler.
-        :type _action: Gio.SimpleAction
-        :param _param: Optional :class:`GLib.Variant` parameter for the action (unused).
-        :type _param: Optional[GLib.Variant]
-        """
         self._switch_to_page("dns")
 
     def switch_to_webscan(self, _action: Gio.SimpleAction, _param: Optional[GLib.Variant]) -> None:
-        """
-        Switch the main window's view to the WebScan page.
-
-        :param _action: The :class:`Gio.SimpleAction` that triggered this handler.
-        :type _action: Gio.SimpleAction
-        :param _param: Optional :class:`GLib.Variant` parameter for the action (unused).
-        :type _param: Optional[GLib.Variant]
-        """
         self._switch_to_page("webscan")
 
     def _trigger_page_action(self, expected_page_name: str, action_method_name: str, action_description: str) -> None:
-        """
-        Trigger an action on the currently visible page if it matches the expected page.
-
-        :param expected_page_name: The name of the page on which the action is expected to occur.
-        :type expected_page_name: str
-        :param action_method_name: The name of the method to call on the page object.
-        :type action_method_name: str
-        :param action_description: A human-readable description of the action for logging.
-        :type action_description: str
-        """
         if not self.win or not hasattr(self.win, "stack"):
             logging.warning(f"{action_description} action: Window or stack not available.")
             return
-
         current_page_name: str = self.win.stack.get_visible_child_name()
         visible_stack_page: Optional[Adw.ViewStackPage] = self.win.stack.get_visible_child()
-
         if current_page_name == expected_page_name and visible_stack_page:
             status_page: Optional[Adw.StatusPage] = visible_stack_page.get_child()
             if not status_page:
                 logging.warning(f"{action_description} action: StatusPage not found for {current_page_name}.")
                 return
-
             page_container_widget: Optional[Gtk.Widget] = status_page.get_child()
             if not page_container_widget:
-                logging.warning(
-                    f"{action_description} action: Page container widget (child of StatusPage) not found for {current_page_name}."
-                )
+                logging.warning(f"{action_description} action: Page container widget (child of StatusPage) not found for {current_page_name}.")
                 return
-
             actual_page_object: Optional[Gtk.Widget] = None
             if hasattr(page_container_widget, "get_first_child") and callable(page_container_widget.get_first_child):
                 candidate: Optional[Gtk.Widget] = page_container_widget.get_first_child()
                 if hasattr(candidate, action_method_name):
                     actual_page_object = candidate
-                elif hasattr(page_container_widget, action_method_name):
-                    actual_page_object = candidate
-                    if not actual_page_object or not hasattr(actual_page_object, action_method_name):
-                        if hasattr(page_container_widget, action_method_name):
-                            actual_page_object = page_container_widget
-                        else:
-                            logging.warning(
-                                f"Neither page_container_widget (type: {type(page_container_widget)}) nor its first_child has method '{action_method_name}'."
-                            )
-                            return
-            elif hasattr(page_container_widget, action_method_name):
+                elif hasattr(page_container_widget, action_method_name): # fallback if GtkBox itself is the page
+                    actual_page_object = page_container_widget
+            elif hasattr(page_container_widget, action_method_name): # if AdwStatusPage child is directly the page
                 actual_page_object = page_container_widget
-            else:
-                logging.warning(
-                    f"Page container (type: {type(page_container_widget)}) does not have get_first_child and is not the page object."
-                )
-                return
 
             if actual_page_object and hasattr(actual_page_object, action_method_name):
-                logging.debug(
-                    f"Attempting to call {action_method_name} on {type(actual_page_object)} for page {current_page_name}"
-                )
                 getattr(actual_page_object, action_method_name)()
             else:
-                 logging.warning(f"Could not retrieve actual page object for {current_page_name} or method '{action_method_name}' not found.")
-
-        elif current_page_name == expected_page_name:
-            logging.warning(f"{action_description} action: AdwViewStackPage for {current_page_name} is None.")
+                logging.warning(f"Could not trigger page action '{action_method_name}' on page '{current_page_name}'.")
 
     def on_page_action_http_fetch(self, _action: Gio.SimpleAction, _param: Optional[GLib.Variant]) -> None:
         self._trigger_page_action("http", "trigger_fetch", "HTTP fetch")
