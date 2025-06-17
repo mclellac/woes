@@ -153,6 +153,30 @@ class NmapPage(Gtk.Box):
         self._connect_signals()
         logger.info("NmapPage initialized.")
 
+    @staticmethod
+    def _copy_to_clipboard(text: str, widget: Gtk.Widget) -> None:
+        """
+        Copy the given text to the clipboard.
+
+        :param text: The text to copy.
+        :type text: str
+        :param widget: The :class:`Gtk.Widget` from which to get the clipboard.
+        :type widget: Gtk.Widget
+        """
+        try:
+            display = widget.get_display() # type: ignore
+            clipboard = Gtk.Clipboard.get_default(display)
+            if clipboard:
+                clipboard.set_text(text, -1)
+                logger.info("Text copied to clipboard: %s", text[:100] + "..." if len(text) > 100 else text)
+            else:
+                logger.warning("Could not get default clipboard from widget's display: %s", widget)
+                show_global_toast(widget.get_native(), "Failed to access clipboard.") # type: ignore
+        except Exception:  # pylint: disable=broad-except
+            logger.exception("Error copying to clipboard:")
+            show_global_toast(widget.get_native(), "Error copying to clipboard.") # type: ignore
+
+
     def __del__(self):
         """
         Clean up resources, specifically the NmapScanner's thread pool and cancel any ongoing scan.
@@ -774,19 +798,10 @@ class NmapPage(Gtk.Box):
         if not summary_text:
             show_global_toast(self, "No summary text available to copy.")
             return
+        NmapPage._copy_to_clipboard(summary_text, self)
+        # Success toast for consistency
+        show_global_toast(self, "Host summary copied to clipboard.")
 
-        try:
-            clipboard = self.get_clipboard()
-            if clipboard:
-                clipboard.set(summary_text)
-                show_global_toast(self, "Host summary copied to clipboard.")
-                logger.info("Copied Nmap host summary to clipboard.")
-            else:
-                logger.warning("Could not get clipboard for NmapPage.")
-                show_global_toast(self, "Failed to access clipboard.")
-        except Exception:
-            logger.exception("Error copying Nmap host summary to clipboard.")
-            show_global_toast(self, "Error copying summary.")
 
     def _add_host_details_expander(self, host_data: dict[str, Any], host_key: str):
         """

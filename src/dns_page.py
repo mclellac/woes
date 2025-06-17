@@ -145,48 +145,188 @@ class DNSPage(Gtk.Box):
         :type _button: Gtk.Button
         """
         logger.info("Copying all DNS results to clipboard.")
-        all_results_text = []
+        all_results_text_parts = []
+
+        def get_widget_text(widget: Gtk.Widget) -> Optional[str]:
+            """Extracts text from known text-holding widgets."""
+            if isinstance(widget, Gtk.Label):
+                return widget.get_label()
+            if hasattr(widget, "get_title") and callable(widget.get_title):
+                title = widget.get_title()
+                if title: return title
+            if hasattr(widget, "get_subtitle") and callable(widget.get_subtitle):
+                subtitle = widget.get_subtitle()
+                if subtitle: return subtitle
+            return None
+
+        def extract_text_from_action_row_children(action_row: Adw.ActionRow, indent: str) -> list[str]:
+            """Extracts text from Gtk.Label children of an Adw.ActionRow,
+               including those potentially nested in Gtk.Box (common for prefixes/suffixes).
+            """
+            extracted_texts = []
+            # Adw.ActionRow typically has a Gtk.Box as its first child (the "content area")
+            # Prefixes are added before this box, suffixes after, or sometimes within complex structures.
+            # We need to iterate all children of the ActionRow itself.
+            child = action_row.get_first_child()
+            processed_labels_in_content = set() # To avoid double counting if label is title/subtitle
+
+            title = action_row.get_title()
+            subtitle = action_row.get_subtitle()
+
+            while child:
+                if isinstance(child, Gtk.Label):
+                    label_text = child.get_label()
+                    # Avoid duplicating title/subtitle if they are also direct label children
+                    if label_text and label_text != title and label_text != subtitle:
+                        extracted_texts.append(f"{indent}  Value: {label_text}")
+                        processed_labels_in_content.add(label_text)
+                elif isinstance(child, Gtk.Box): # Common for suffix/prefix containers
+                    box_child = child.get_first_child()
+                    while box_child:
+                        if isinstance(box_child, Gtk.Label):
+                            label_text = box_child.get_label()
+                            if label_text and label_text != title and label_text != subtitle:
+                                extracted_texts.append(f"{indent}  Value: {label_text}")
+                                processed_labels_in_content.add(label_text)
+                        box_child = box_child.get_next_sibling()
+                child = child.get_next_sibling()
+
+            # The _add_standard_suffix_box_to_row and _add_expander_detail_row
+            # add a Gtk.Label directly as a suffix.
+            # Adw.ActionRow stores suffixes in a way that they might not be simple children.
+            # However, Gtk.Widget.get_last_child() could point to the last suffix if it's simple.
+            # This part is still heuristic due to GTK's complex layout.
+            # Let's assume the iteration above catches most labels.
+            # If specific labels (like the main value_label) are missed, a more targeted approach
+            # for Adw.ActionRow's suffix area might be needed.
+
+            return extracted_texts
+
+        def extract_text_from_row(row: Gtk.Widget, level: int = 0) -> None:
+            """Recursively extracts text from a row and its children."""
+            indent = "  " * level
+            current_row_texts = []
+
+            title = getattr(row, "get_title", lambda: None)()
+            subtitle = getattr(row, "get_subtitle", lambda: None)()
+
+            if title:
+                current_row_texts.append(f"{indent}{title}")
+            if subtitle:
+                # If title was present, make subtitle clearly associated
+                prefix = f"{indent}  " if title else indent
+                current_row_texts.append(f"{prefix}└─ {subtitle}")
+
+
+            if isinstance(row, Adw.ActionRow):
+                # For ActionRows, try to get labels from its children (prefixes/suffixes)
+                # This is important for rows created by _add_expander_detail_row or _add_standard_suffix_box_to_row
+                # where the main data is in a Gtk.Label added as a prefix or suffix.
+                action_row_children_texts = extract_text_from_action_row_children(row, indent + ("  " if title or subtitle else ""))
+                current_row_texts.extend(action_row_children_texts)
+
+            # Add collected texts for the current row to the main list
+            if current_row_texts:
+                all_results_text_parts.extend(current_row_texts)
+
+            # If it's an ExpanderRow, recurse for its children rows
+            if isinstance(row, Adw.ExpanderRow) and row.get_expanded():
+                child_row = row.get_first_child() # This gets the header area of expander
+                # We need to iterate the actual added rows using add_row
+                # This requires a different approach, as get_first_child on ExpanderRow
+                # does not give the Gtk.ListBox that holds the rows.
+                # Instead, we assume children added with `add_row` are in a Gtk.ListBox
+                # which is a child of the ExpanderRow.
+
+                # Let's find the Gtk.ListBox among children of Adw.ExpanderRow
+                expander_child = row.get_first_child()
+                list_box_container = None
+                while expander_child:
+                    # The list box is usually the last complex child before any internal actionables
+                    # This is heuristic. A more robust way would be to know the exact structure.
+                    # Often, it's a Gtk.Box containing a Gtk.ListBox or directly a Gtk.ListBox.
+                    # For Adw.ExpanderRow, rows are added to an internal Gtk.ListBox.
+                    # We need to find this list box.
+                    # A common structure is ExpanderRow -> Gtk.Box -> Gtk.ListBox (for rows)
+                    # Or ExpanderRow -> Gtk.ListBox
+
+                    # Simplified: Iterate all children and if it is a ListBox, use it.
+                    # Or, if it's a row type we expect inside, process it.
+                    # This is still not perfect.
+                    # A better way: Adw.ExpanderRow has a `get_rows()` method in some GTK versions or
+                    # a known child structure. If not directly available, this remains heuristic.
+                    # For now, let's assume `add_row` adds to a child that can be iterated.
+                    # This part is complex due to Gtk/Adw internal structures.
+
+                    # Fallback: Iterate all children of the expander. If a child is an ActionRow, process it.
+                    # This is what the original code was missing.
+                    # The children of an Adw.ExpanderRow are complex.
+                    # The rows added via `add_row` are typically in a Gtk.ListBox.
+
+                    # Let's try to find the list box that holds the rows.
+                    # AdwExpanderRow -> GtkBox -> AdwPreferencesGroup (if rows are added) -> GtkListBox -> AdwActionRow
+                    # This structure can be deep.
+                    # A simpler assumption for now: look for Adw.ActionRow as direct children or children of children.
+
+                    # Let's refine the iteration for ExpanderRow children
+                    # The actual rows are added to a Gtk.ListBox which is a child of the Adw.ExpanderRow.
+                    # This ListBox is usually found as a child of a Gtk.Box, which itself is a child of Adw.ExpanderRow.
+                    # Or, in simpler cases, it might be a direct child.
+                    list_box_found = None
+
+                    # Common structure: ExpanderRow -> Gtk.Box (child) -> Gtk.ListBox (grandchild)
+                    # Or ExpanderRow -> Gtk.ListBox (child)
+
+                    iter_child = row.get_first_child()
+                    while iter_child:
+                        if isinstance(iter_child, Gtk.ListBox):
+                            list_box_found = iter_child
+                            break
+                        # Check if this child is a Gtk.Box that contains a Gtk.ListBox
+                        if hasattr(iter_child, "get_first_child"): # Check if it's a container
+                            potential_list_box = iter_child.get_first_child()
+                            if isinstance(potential_list_box, Gtk.ListBox):
+                                list_box_found = potential_list_box
+                                break
+                        iter_child = iter_child.get_next_sibling()
+
+                    if list_box_found:
+                        actual_row_child = list_box_found.get_first_child()
+                        while actual_row_child:
+                            # Ensure we are processing an actual row widget, not just any child of the ListBox
+                            if isinstance(actual_row_child, (Adw.ActionRow, Adw.ExpanderRow, Adw.PreferencesRow)):
+                                extract_text_from_row(actual_row_child, level + 1)
+                            actual_row_child = actual_row_child.get_next_sibling()
+                    else:
+                        # Fallback if the specific ListBox structure isn't found
+                        # This might grab more than just the 'rows' but is better than nothing
+                        logger.warning("Could not find Gtk.ListBox in Adw.ExpanderRow, using fallback child iteration.")
+                        expander_child_fallback = row.get_first_child()
+                        while expander_child_fallback:
+                            # Avoid processing the expander's own header/title widget or non-row widgets
+                            if expander_child_fallback != row.get_title_widget() and \
+                               isinstance(expander_child_fallback, (Adw.ActionRow, Adw.ExpanderRow, Adw.PreferencesRow)):
+                                extract_text_from_row(expander_child_fallback, level + 1)
+                            expander_child_fallback = expander_child_fallback.get_next_sibling()
+
 
         # Iterate through children of dns_results_box_container
         child = self.dns_results_box_container.get_first_child()
+        is_first_separator = True
         while child:
-            text_parts_for_child = []
-            if isinstance(child, Adw.ActionRow):
-                title = child.get_title()
-                subtitle = child.get_subtitle()
-                if title:
-                    text_parts_for_child.append(title)
-                if subtitle:
-                    text_parts_for_child.append(subtitle)
-
-                # Attempt to get text from suffixes if they are labels
-                # This is a simplified approach; real implementation might need to traverse deeper
-                # or access data from the model that generated the rows.
-                # For this example, we'll focus on title/subtitle of ActionRows.
-                # If the row has a Gtk.Label in a suffix, try to get its text.
-                # This part is heuristic as direct access to full record data isn't stored on rows.
-
-            elif isinstance(child, Adw.ExpanderRow):
-                title = child.get_title()
-                subtitle = child.get_subtitle()
-                if title:
-                    text_parts_for_child.append(title)
-                if subtitle:
-                    text_parts_for_child.append(subtitle)
-                # Could iterate expander's rows too, but keeping it simple for now.
-                # A more robust way would be to have the data that generated these rows
-                # stored in an instance variable and iterate that.
-
-            if text_parts_for_child:
-                all_results_text.append(" - ".join(text_parts_for_child))
-
+            if isinstance(child, Gtk.Separator):
+                if not is_first_separator: # Add a visual separator for multiple records
+                    all_results_text_parts.append("---")
+                is_first_separator = False # Skip adding "---" for the first separator after query info
+            elif isinstance(child, (Adw.ActionRow, Adw.ExpanderRow)):
+                extract_text_from_row(child)
             child = child.get_next_sibling()
 
-        if not all_results_text:
+        if not all_results_text_parts:
             show_global_toast(self, "No results to copy.")
             return
 
-        final_text_to_copy = "\n".join(all_results_text)
+        final_text_to_copy = "\n".join(all_results_text_parts)
         DNSPage._copy_to_clipboard(final_text_to_copy, self)
         show_global_toast(self, "All results copied to clipboard.")
 

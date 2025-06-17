@@ -137,6 +137,29 @@ class WebScanPage(Gtk.Box):
         self.settings.connect(f"changed::{self._output_font_gsettings_key}", self._on_global_output_font_changed)
         self._update_results_actions_sensitivity()
 
+    @staticmethod
+    def _copy_to_clipboard(text: str, widget: Gtk.Widget) -> None:
+        """
+        Copy the given text to the clipboard.
+
+        :param text: The text to copy.
+        :type text: str
+        :param widget: The :class:`Gtk.Widget` from which to get the clipboard.
+        :type widget: Gtk.Widget
+        """
+        try:
+            display = widget.get_display()
+            clipboard = Gtk.Clipboard.get_default(display)
+            if clipboard:
+                clipboard.set_text(text, -1)
+                logger.info("Text copied to clipboard: %s", text[:100] + "..." if len(text) > 100 else text)
+            else:
+                logger.warning("Could not get default clipboard from widget's display: %s", widget)
+                show_global_toast(widget.get_native(), "Failed to access clipboard.") # type: ignore
+        except Exception:  # pylint: disable=broad-except
+            logger.exception("Error copying to clipboard:")
+            show_global_toast(widget.get_native(), "Error copying to clipboard.") # type: ignore
+
     def _on_global_output_font_changed(self, settings: Gio.Settings, key: str) -> None:
         """Handle changes to the global output font GSettings key."""
         logger.debug("WebScanPage: Global output font setting changed for key: %s", key)
@@ -328,17 +351,12 @@ class WebScanPage(Gtk.Box):
             text_content = buffer.get_text(start_iter, end_iter, False)
 
             if text_content:
-                try:
-                    clipboard = Gdk.Display.get_default().get_clipboard()
-                    if clipboard:
-                        clipboard.set_text(text_content, -1)  # Use set_text for Gtk.Clipboard
-                        logger.info("Webscan results copied to clipboard successfully.")
-                    else:
-                        logger.warning("Failed to get default clipboard for copying webscan results.")
-                except Exception:
-                    logger.exception("Error copying webscan results to clipboard.")  # Use logger.exception
+                WebScanPage._copy_to_clipboard(text_content, self)
+                # For consistency with dns_page, success toast is good.
+                show_global_toast(self, "Webscan results copied to clipboard.")
             else:
                 logger.info("No webscan results to copy.")
+                show_global_toast(self, "No results to copy.")
 
     def on_scan_button_clicked(self, _widget: Gtk.Button):
         """
