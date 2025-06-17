@@ -136,30 +136,26 @@ class Helper:
             logger.debug("No widget picked at coordinates.")
             return
 
-        target_list_item_widget: Optional[Gtk.ListItem] = None
+        # target_list_item_widget: Optional[Gtk.ListItem] = None # Old variable
+        item_obj: Optional[GObject.Object] = None # Will hold the actual data item
         current_widget: Optional[Gtk.Widget] = picked_widget
-        # Traverse up to find the Gtk.ListItem.
+        # Traverse up to find the Gtk.ColumnViewRowWidget.
         while current_widget is not None:
             logger.debug(f"Widget traversal: current_widget is {type(current_widget)}")
-            if isinstance(current_widget, Gtk.ListItem):
-                target_list_item_widget = current_widget
+            if isinstance(current_widget, Gtk.ColumnViewRowWidget): # Check for ColumnViewRowWidget
+                item_obj = current_widget.get_item() # Get the item from the row widget
+                logger.debug(f"Found Gtk.ColumnViewRowWidget, item_obj: {item_obj}")
                 break
             if current_widget == self.widget:  # Stop if we've reached the ColumnView itself
-                logger.debug("Reached ColumnView widget while traversing up, Gtk.ListItem not found in path.")
+                logger.debug("Reached ColumnView widget while traversing up, Gtk.ColumnViewRowWidget not found in path.")
                 break
             current_widget = current_widget.get_parent()
 
-        if not target_list_item_widget:
-            logger.debug("Gtk.ListItem widget not found by traversing up from picked_widget.")
+        if item_obj is None: # Check if we successfully got the item_obj
+            logger.debug("item_obj not found by traversing up from picked_widget.")
             return
-        logger.debug(f"Found target_list_item_widget: {target_list_item_widget}")
-
-        item_obj: Optional[GObject.Object] = target_list_item_widget.get_item()
-
-        if item_obj is None:
-            logger.debug("item_obj is None from target_list_item_widget.get_item().")
-            return
-        logger.debug(f"Got item_obj: {item_obj}, type: {type(item_obj)}")
+        # No longer need target_list_item_widget.get_item() as item_obj is already the data item.
+        logger.debug(f"Using item_obj: {item_obj}, type: {type(item_obj)}")
 
         text_to_copy: str = ""
         try:
@@ -181,25 +177,28 @@ class Helper:
 
             if not text_to_copy:
                 logger.debug("text_to_copy is empty after attribute processing.")
+                show_global_toast(self.parent_window, "Nothing to copy for this item.")
+                return # Return early if nothing to copy
             else:
                 logger.debug(f"Constructed text_to_copy: '{text_to_copy}'")
 
-            # Correct way to get clipboard
-            display = self.widget.get_display()
-            clipboard = Gdk.Display.get_clipboard(display)  # Use Gdk.Display.get_clipboard(display)
+            clipboard = self.widget.get_clipboard() # New approach for Gtk.Widget
 
             if clipboard:
-                clipboard.set_text(
-                    text_to_copy, -1
-                )  # Use set_text for simplicity if Gdk.ContentProvider is complex here
-                # content_provider = Gdk.ContentProvider.new_for_value(text_to_copy)
-                # clipboard.set_content(content_provider)  # type: ignore[no-untyped-call] # Keep if set_text not preferred
+                clipboard.set_text(text_to_copy) # GTK4 set_text takes only one argument
                 logger.debug("Successfully set clipboard content.")
+                show_global_toast(self.parent_window, "Copied to clipboard.")
             else:
-                logger.warning("Failed to get clipboard object.")
+                logger.warning("Failed to get clipboard object from widget.")
+                show_global_toast(self.parent_window, "Failed to access clipboard.")
 
         except AttributeError as e:
-            logger.warning(f"AttributeError in copy_context_item_to_clipboard: {e}")
+            logger.warning(f"AttributeError in copy_context_item_to_clipboard: {e}. Item might not have expected attributes.")
+            show_global_toast(self.parent_window, "Cannot copy: item data not found.")
+        except Exception as e: # Catch other potential errors during clipboard operation
+            logger.exception(f"Error copying context item to clipboard: {e}")
+            show_global_toast(self.parent_window, "Error copying to clipboard.")
+
 
     def on_copy_menu_item_activated(self, _button: Gtk.Button) -> None:
         """
@@ -291,9 +290,14 @@ class Helper:
 
         if selected_texts:
             clipboard_text = "\n".join(selected_texts)
-            display = self.widget.get_display()
-            clipboard = Gdk.Display.get_clipboard(display)  # Correct way to get clipboard
+            clipboard = self.widget.get_clipboard() # New approach for Gtk.Widget
             if clipboard:
-                clipboard.set_text(clipboard_text, -1)  # Use set_text for simplicity
-                # content_provider = Gdk.ContentProvider.new_for_value(clipboard_text)
-                # clipboard.set_content(content_provider) # type: ignore[no-untyped-call] # Keep if set_text not preferred
+                clipboard.set_text(clipboard_text) # GTK4 set_text takes only one argument
+                logger.info("Selection copied to clipboard.")
+                show_global_toast(self.parent_window, "Selection copied to clipboard.")
+            else:
+                logger.warning("Failed to get clipboard object for selection copy.")
+                show_global_toast(self.parent_window, "Failed to access clipboard.")
+        else:
+            logger.info("No text selected or available to copy.")
+            show_global_toast(self.parent_window, "Nothing selected to copy.")
