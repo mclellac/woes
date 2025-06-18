@@ -9,10 +9,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# DNS library imports (dns.resolver, etc.) are now primarily in dns_client.py
 import gi
-from gi.repository import Adw, Gio, Gtk, Pango, GObject, GLib
-from typing import Optional, Sequence, Any  # list and dict will be used directly
-from enum import Enum
+from gi.repository import Adw, Gio, Gtk, Pango, GObject
+from typing import Optional, Sequence, Any, List, Dict
 
 from .constants import APP_ID, RESOURCE_PREFIX
 from .utils import show_global_error, show_global_toast, is_valid_ip, is_valid_domain
@@ -23,17 +23,8 @@ from .dns_client import (
     DnsNxDomainError,
     DnsNoAnswerError,
     DnsGenericError,
-    # DnsCancelledError, # This was speculative and not implemented in dns_client.py
 )
 
-DNS_LOOKUP_ERROR_DOMAIN = "dns-lookup-error-domain"
-
-class DnsLookupErrorType(int, Enum):
-    """Enumeration of DNS Lookup error types for Gio.Task error reporting."""
-
-    CANCELLED = 0
-    # Other specific DNS errors could be added if needed for task error reporting,
-    # but DnsClientError subtypes are usually handled directly.
 
 gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
@@ -60,16 +51,17 @@ class DNSPage(Gtk.Box):
     dns_copy_all_results_button = Gtk.Template.Child()
     dns_status_row = Gtk.Template.Child()
     dns_status_spinner = Gtk.Template.Child()
-    dns_cancel_button = Gtk.Template.Child() # Bind the button from UI
 
-    def __init__(self, **kwargs: Any):
+    def __init__(self, **kwargs: GObject.GObject):
+        """Initialize the DNSPage."""
+        logging.debug("DNSPage.__init__ called")
         """
         Initialize the DNSPage.
 
         Sets up UI elements, connects signals, and initializes GSettings.
 
         :param kwargs: Keyword arguments passed to the :class:`Gtk.Box` constructor.
-        :type kwargs: Any
+        :type kwargs: GObject.GObject
         """
         super().__init__(**kwargs)
         logger.debug("DNSPage initialized.")
@@ -81,44 +73,28 @@ class DNSPage(Gtk.Box):
         self._output_font_desc = Pango.FontDescription.from_string(output_font_str if output_font_str else "Sans 10")
 
         # Stored results for refresh
-        self._current_result_records: Optional[list[dict[str, Any]]] = None
+        self._current_result_records: Optional[List[Dict[str, Any]]] = None
         self._current_user_input: Optional[str] = None
         self._current_requested_record_type: Optional[str] = None
         self._current_dns_servers: Optional[Sequence[Any]] = None
-
-        self.current_dns_task: Optional[Gio.Task] = None
-        self.current_dns_cancellable: Optional[Gio.Cancellable] = None
 
         self._connect_signals()
 
         # Initialize new status row and spinner
         # Initially disable clear/copy buttons as there are no results
-        # Also ensure cancel button is initially in the correct state
-        if self.dns_cancel_button:
-            self.dns_cancel_button.set_visible(False)
-            self.dns_cancel_button.set_sensitive(False)
 
     def _connect_signals(self) -> None:
         """Connect signals for UI elements to their respective handlers."""
-        self.domain_entry.connect("activate", self._on_entry_activated)
-        self.domain_entry.connect("changed", self._on_domain_entry_changed) # Clear error on type
-        self.dns_apply_button.connect("clicked", self._on_entry_activated)
-        self.dns_record_type_dropdown.connect("notify::selected", self._on_record_type_changed)
+        self.domain_entry.connect("activate", self._on_entry_activated)  # type: ignore
+        self.dns_apply_button.connect("clicked", self._on_entry_activated)  # type: ignore
+        self.dns_record_type_dropdown.connect("notify::selected", self._on_record_type_changed)  # type: ignore
         if self.dns_clear_results_button:
             self.dns_clear_results_button.connect("clicked", self._on_clear_results_clicked)
         if self.dns_copy_all_results_button:
             self.dns_copy_all_results_button.connect("clicked", self._on_copy_all_results_clicked)
 
-        if self.dns_cancel_button: # Now it should be bound by Gtk.Template
-            self.dns_cancel_button.connect("clicked", self._on_cancel_lookup_clicked)
-        else:
-            logger.warning("DNSPage: dns_cancel_button was not bound from UI file.")
-
-
         # Connect GSettings change for global font
         self.settings.connect(f"changed::{self._output_font_gsettings_key}", self._on_global_output_font_changed)
-
-    # Removed _find_cancel_button method
 
     def _on_global_output_font_changed(self, settings: Gio.Settings, key: str) -> None:
         logger.debug("DNSPage: Global output font setting changed for key: %s", key)
@@ -149,8 +125,8 @@ class DNSPage(Gtk.Box):
         :type _button: Gtk.Button
         """
         logger.info("Clearing DNS results.")
-        while child := self.dns_results_box_container.get_first_child():
-            self.dns_results_box_container.remove(child)
+        while child := self.dns_results_box_container.get_first_child():  # type: ignore
+            self.dns_results_box_container.remove(child)  # type: ignore
 
         if self.dns_clear_results_button:
             self.dns_clear_results_button.set_sensitive(False)
@@ -171,191 +147,50 @@ class DNSPage(Gtk.Box):
         :type _button: Gtk.Button
         """
         logger.info("Copying all DNS results to clipboard.")
-        all_results_text_parts = []
-
-        def get_widget_text(widget: Gtk.Widget) -> Optional[str]:
-            """Extracts text from known text-holding widgets."""
-            if isinstance(widget, Gtk.Label):
-                return widget.get_label()
-            if hasattr(widget, "get_title") and callable(widget.get_title):
-                title = widget.get_title()
-                if title: return title
-            if hasattr(widget, "get_subtitle") and callable(widget.get_subtitle):
-                subtitle = widget.get_subtitle()
-                if subtitle: return subtitle
-            return None
-
-        def extract_text_from_action_row_children(action_row: Adw.ActionRow, indent: str) -> list[str]:
-            """
-            Extracts text from Gtk.Label children of an Adw.ActionRow,
-            including those potentially nested in Gtk.Box (common for prefixes/suffixes).
-            """
-            extracted_texts = []
-            # Adw.ActionRow typically has a Gtk.Box as its first child (the "content area")
-            # Prefixes are added before this box, suffixes after, or sometimes within complex structures.
-            # We need to iterate all children of the ActionRow itself.
-            child = action_row.get_first_child()
-            processed_labels_in_content = set() # To avoid double counting if label is title/subtitle
-
-            title = action_row.get_title()
-            subtitle = action_row.get_subtitle()
-
-            while child:
-                if isinstance(child, Gtk.Label):
-                    label_text = child.get_label()
-                    # Avoid duplicating title/subtitle if they are also direct label children
-                    if label_text and label_text != title and label_text != subtitle:
-                        extracted_texts.append(f"{indent}  Value: {label_text}")
-                        processed_labels_in_content.add(label_text)
-                elif isinstance(child, Gtk.Box): # Common for suffix/prefix containers
-                    box_child = child.get_first_child()
-                    while box_child:
-                        if isinstance(box_child, Gtk.Label):
-                            label_text = box_child.get_label()
-                            if label_text and label_text != title and label_text != subtitle:
-                                extracted_texts.append(f"{indent}  Value: {label_text}")
-                                processed_labels_in_content.add(label_text)
-                        box_child = box_child.get_next_sibling()
-                child = child.get_next_sibling()
-
-            # The _add_standard_suffix_box_to_row and _add_expander_detail_row
-            # add a Gtk.Label directly as a suffix.
-            # Adw.ActionRow stores suffixes in a way that they might not be simple children.
-            # However, Gtk.Widget.get_last_child() could point to the last suffix if it's simple.
-            # This part is still heuristic due to GTK's complex layout.
-            # Let's assume the iteration above catches most labels.
-            # If specific labels (like the main value_label) are missed, a more targeted approach
-            # for Adw.ActionRow's suffix area might be needed.
-
-            return extracted_texts
-
-        def extract_text_from_row(row: Gtk.Widget, level: int = 0) -> None:
-            """Recursively extracts text from a row and its children."""
-            indent = "  " * level
-            current_row_texts = []
-
-            title = getattr(row, "get_title", lambda: None)()
-            subtitle = getattr(row, "get_subtitle", lambda: None)()
-
-            if title:
-                current_row_texts.append(f"{indent}{title}")
-            if subtitle:
-                # If title was present, make subtitle clearly associated
-                prefix = f"{indent}  " if title else indent
-                current_row_texts.append(f"{prefix}└─ {subtitle}")
-
-
-            if isinstance(row, Adw.ActionRow):
-                # For ActionRows, try to get labels from its children (prefixes/suffixes)
-                # This is important for rows created by _add_expander_detail_row or _add_standard_suffix_box_to_row
-                # where the main data is in a Gtk.Label added as a prefix or suffix.
-                action_row_children_texts = extract_text_from_action_row_children(row, indent + ("  " if title or subtitle else ""))
-                current_row_texts.extend(action_row_children_texts)
-
-            # Add collected texts for the current row to the main list
-            if current_row_texts:
-                all_results_text_parts.extend(current_row_texts)
-
-            # If it's an ExpanderRow, recurse for its children rows
-            if isinstance(row, Adw.ExpanderRow) and row.get_expanded():
-                _child_row = row.get_first_child() # This gets the header area of expander
-                # We need to iterate the actual added rows using add_row
-                # This requires a different approach, as get_first_child on ExpanderRow
-                # does not give the Gtk.ListBox that holds the rows.
-                # Instead, we assume children added with `add_row` are in a Gtk.ListBox
-                # which is a child of the ExpanderRow.
-
-                # Let's find the Gtk.ListBox among children of Adw.ExpanderRow
-                expander_child = row.get_first_child()
-                _list_box_container = None
-                while expander_child:
-                    # The list box is usually the last complex child before any internal actionables
-                    # This is heuristic. A more robust way would be to know the exact structure.
-                    # Often, it's a Gtk.Box containing a Gtk.ListBox or directly a Gtk.ListBox.
-                    # For Adw.ExpanderRow, rows are added to an internal Gtk.ListBox.
-                    # We need to find this list box.
-                    # A common structure is ExpanderRow -> Gtk.Box -> Gtk.ListBox (for rows)
-                    # Or ExpanderRow -> Gtk.ListBox
-
-                    # Simplified: Iterate all children and if it is a ListBox, use it.
-                    # Or, if it's a row type we expect inside, process it.
-                    # This is still not perfect.
-                    # A better way: Adw.ExpanderRow has a `get_rows()` method in some GTK versions or
-                    # a known child structure. If not directly available, this remains heuristic.
-                    # For now, let's assume `add_row` adds to a child that can be iterated.
-                    # This part is complex due to Gtk/Adw internal structures.
-
-                    # Fallback: Iterate all children of the expander. If a child is an ActionRow, process it.
-                    # This is what the original code was missing.
-                    # The children of an Adw.ExpanderRow are complex.
-                    # The rows added via `add_row` are typically in a Gtk.ListBox.
-
-                    # Let's try to find the list box that holds the rows.
-                    # AdwExpanderRow -> GtkBox -> AdwPreferencesGroup (if rows are added) -> GtkListBox -> AdwActionRow
-                    # This structure can be deep.
-                    # A simpler assumption for now: look for Adw.ActionRow as direct children or children of children.
-
-                    # Let's refine the iteration for ExpanderRow children
-                    # The actual rows are added to a Gtk.ListBox which is a child of the Adw.ExpanderRow.
-                    # This ListBox is usually found as a child of a Gtk.Box, which itself is a child of Adw.ExpanderRow.
-                    # Or, in simpler cases, it might be a direct child.
-                    list_box_found = None
-
-                    # Common structure: ExpanderRow -> Gtk.Box (child) -> Gtk.ListBox (grandchild)
-                    # Or ExpanderRow -> Gtk.ListBox (child)
-
-                    iter_child = row.get_first_child()
-                    while iter_child:
-                        if isinstance(iter_child, Gtk.ListBox):
-                            list_box_found = iter_child
-                            break
-                        # Check if this child is a Gtk.Box that contains a Gtk.ListBox
-                        if hasattr(iter_child, "get_first_child"): # Check if it's a container
-                            potential_list_box = iter_child.get_first_child()
-                            if isinstance(potential_list_box, Gtk.ListBox):
-                                list_box_found = potential_list_box
-                                break
-                        iter_child = iter_child.get_next_sibling()
-
-                    if list_box_found:
-                        actual_row_child = list_box_found.get_first_child()
-                        while actual_row_child:
-                            # Ensure we are processing an actual row widget, not just any child of the ListBox
-                            if isinstance(actual_row_child, (Adw.ActionRow, Adw.ExpanderRow, Adw.PreferencesRow)):
-                                extract_text_from_row(actual_row_child, level + 1)
-                            actual_row_child = actual_row_child.get_next_sibling()
-                    else:
-                        # Fallback if the specific ListBox structure isn't found
-                        # This might grab more than just the 'rows' but is better than nothing
-                        logger.warning("Could not find Gtk.ListBox in Adw.ExpanderRow, using fallback child iteration.")
-                        expander_child_fallback = row.get_first_child()
-                        while expander_child_fallback:
-                            # Avoid processing the expander's own header/title widget or non-row widgets
-                            if expander_child_fallback != row.get_title_widget() and \
-                               isinstance(expander_child_fallback, (Adw.ActionRow, Adw.ExpanderRow, Adw.PreferencesRow)):
-                                extract_text_from_row(expander_child_fallback, level + 1)
-                            expander_child_fallback = expander_child_fallback.get_next_sibling()
-
+        all_results_text = []
 
         # Iterate through children of dns_results_box_container
-        child = self.dns_results_box_container.get_first_child()
-        is_first_separator = True
+        child = self.dns_results_box_container.get_first_child()  # type: ignore
         while child:
-            if isinstance(child, Gtk.Separator):
-                if not is_first_separator: # Add a visual separator for multiple records
-                    all_results_text_parts.append("---")
-                is_first_separator = False # Skip adding "---" for the first separator after query info
-            elif isinstance(child, (Adw.ActionRow, Adw.ExpanderRow)):
-                extract_text_from_row(child)
+            text_parts_for_child = []
+            if isinstance(child, Adw.ActionRow):
+                title = child.get_title()
+                subtitle = child.get_subtitle()
+                if title:
+                    text_parts_for_child.append(title)
+                if subtitle:
+                    text_parts_for_child.append(subtitle)
+
+                # Attempt to get text from suffixes if they are labels
+                # This is a simplified approach; real implementation might need to traverse deeper
+                # or access data from the model that generated the rows.
+                # For this example, we'll focus on title/subtitle of ActionRows.
+                # If the row has a Gtk.Label in a suffix, try to get its text.
+                # This part is heuristic as direct access to full record data isn't stored on rows.
+
+            elif isinstance(child, Adw.ExpanderRow):
+                title = child.get_title()
+                subtitle = child.get_subtitle()
+                if title:
+                    text_parts_for_child.append(title)
+                if subtitle:
+                    text_parts_for_child.append(subtitle)
+                # Could iterate expander's rows too, but keeping it simple for now.
+                # A more robust way would be to have the data that generated these rows
+                # stored in an instance variable and iterate that.
+
+            if text_parts_for_child:
+                all_results_text.append(" - ".join(text_parts_for_child))
+
             child = child.get_next_sibling()
 
-        if not all_results_text_parts:
-            show_global_toast(self, "No results to copy.")
+        if not all_results_text:
+            show_global_toast(self, "No results to copy.")  # type: ignore
             return
 
-        final_text_to_copy = "\n".join(all_results_text_parts)
+        final_text_to_copy = "\n".join(all_results_text)
         DNSPage._copy_to_clipboard(final_text_to_copy, self)
-        show_global_toast(self, "All results copied to clipboard.")
+        show_global_toast(self, "All results copied to clipboard.")  # type: ignore
 
     @staticmethod
     def _copy_to_clipboard(text: str, widget: Gtk.Widget) -> None:
@@ -368,19 +203,14 @@ class DNSPage(Gtk.Box):
         :type widget: Gtk.Widget
         """
         try:
-            # display = widget.get_display() # No longer needed
-            # clipboard = Gtk.Clipboard.get_default(display) # Old failing line
-            clipboard = widget.get_clipboard() # New approach
-            if clipboard: # Gtk.Clipboard might be None if not available
-                clipboard.set_text(text) # set_text does not take a length argument in GTK4
-                logger.info("Copied to clipboard: %s", text[:100] + "..." if len(text) > 100 else text)
-                # show_global_toast(widget, "Text copied to clipboard.") # Caller handles success toast
+            clipboard = widget.get_clipboard()  # type: ignore
+            if clipboard:
+                clipboard.set(text)  # type: ignore
+                logger.info("Copied to clipboard: %s", text)
             else:
                 logger.warning("Could not get clipboard from widget: %s", widget)
-                show_global_toast(widget.get_native(), "Failed to access clipboard.") # type: ignore
         except Exception:  # pylint: disable=broad-except
             logger.exception("Error copying to clipboard:")
-            show_global_toast(widget.get_native(), "Error copying to clipboard.") # type: ignore
 
     def _is_valid_ip_or_domain(self, input_str: str) -> bool:
         """
@@ -602,45 +432,36 @@ class DNSPage(Gtk.Box):
                 self.dns_status_row.set_subtitle("Idle")  # type: ignore
             # If not active and a message is present (e.g. error or success), it will be set by the caller.
 
-        sensitive = not active
         if self.domain_entry:
-            self.domain_entry.set_sensitive(sensitive)  # type: ignore
+            self.domain_entry.set_sensitive(not active)  # type: ignore
         if self.dns_apply_button:
-            self.dns_apply_button.set_sensitive(sensitive)  # type: ignore
+            self.dns_apply_button.set_sensitive(not active)  # type: ignore
         if self.dns_record_type_dropdown:
-            self.dns_record_type_dropdown.set_sensitive(sensitive)  # type: ignore
+            self.dns_record_type_dropdown.set_sensitive(not active)  # type: ignore
 
-        if self.dns_cancel_button:
-            self.dns_cancel_button.set_visible(active)
-            self.dns_cancel_button.set_sensitive(active)
-
-    def _on_cancel_lookup_clicked(self, _button: Gtk.Button) -> None:
-        """Handle click on the 'Cancel Lookup' button."""
-        logger.info("DNS lookup cancellation requested.")
-        if self.current_dns_cancellable and not self.current_dns_cancellable.is_cancelled():
-            self.current_dns_cancellable.cancel()
-            if self.dns_cancel_button:
-                self.dns_cancel_button.set_sensitive(False)
-            if self.dns_status_row:
-                self.dns_status_row.set_subtitle("Cancelling lookup...") # type: ignore
-        else:
-            logger.warning("No active DNS lookup cancellable to cancel.")
-
-
-    def _on_domain_entry_changed(self, editable: Adw.EntryRow) -> None:
+    def _validate_dns_input(self, user_input: str) -> bool:
         """
-        Handle the 'changed' signal for the domain entry row.
-        Clears the 'error' CSS class and any specific global error message.
+        Validate the DNS user input. Shows global error/toast if invalid.
+
+        :param user_input: The user input string to validate.
+        :type user_input: str
+        :return: ``True`` if valid, ``False`` otherwise.
+        :rtype: bool
         """
-        if editable.has_css_class("error"):
-            editable.remove_css_class("error")
-            main_window = self.get_native()
-            if main_window and hasattr(main_window, "hide_error_if_message_matches"):
-                # Try to hide specific messages if that method exists
-                main_window.hide_error_if_message_matches("Invalid input for PTR record. Please enter a valid IP address.") # type: ignore[attr-defined]
-                main_window.hide_error_if_message_matches("Invalid input. Please enter a valid domain name or IP address.") # type: ignore[attr-defined]
-            # Fallback or if the specific message isn't the current one,
-            # the error banner might persist until next validation or _clear_error().
+        if not user_input:
+            show_global_toast(self, "Input cannot be empty.")  # type: ignore
+            main_window = self.get_native()  # type: ignore
+            if not (main_window and hasattr(main_window, "show_toast")):  # type: ignore
+                show_global_error(self, "Input cannot be empty.")  # type: ignore
+            return False
+
+        if not self._is_valid_ip_or_domain(user_input):
+            show_global_toast(self, "Invalid IP address or domain name.")  # type: ignore
+            main_window = self.get_native()  # type: ignore
+            if not (main_window and hasattr(main_window, "show_toast")):
+                show_global_error(self, "Invalid IP address or domain name.")  # type: ignore
+            return False
+        return True
 
     def _update_ptr_dropdown(self, user_input: str, requested_record_type: str) -> str:
         """
@@ -668,7 +489,7 @@ class DNSPage(Gtk.Box):
 
     def _handle_dns_lookup_success(
         self,
-        result_data: list[dict[str, Any]],
+        result_data: List[Dict[str, Any]],
         user_input: str,
         requested_record_type: str,  # The type initially selected by user
         dns_client: DnsResolverClient,
@@ -710,9 +531,9 @@ class DNSPage(Gtk.Box):
             else f"No {actual_record_type_displayed} records found for {user_input}."
         )
         if self.dns_status_row:
-            self.dns_status_row.set_subtitle(status_message)
+            self.dns_status_row.set_subtitle(status_message)  # type: ignore
         # show_global_toast is good for transient notifications, status row is persistent.
-        show_global_toast(self, status_message)
+        show_global_toast(self, status_message)  # type: ignore
 
     def _handle_dns_lookup_exception(
         self,
@@ -737,7 +558,7 @@ class DNSPage(Gtk.Box):
         status_subtitle = f"Error: {error_message.splitlines()[0]}"  # Default status: first line of error
 
         if isinstance(error, DnsNxDomainError):
-            show_global_error(self, error_message)
+            show_global_error(self, error_message)  # type: ignore
             status_subtitle = f"NXDOMAIN: Domain '{user_input}' not found."
             self._current_result_records = None  # No valid results to refresh
         elif isinstance(error, DnsNoAnswerError):
@@ -763,7 +584,7 @@ class DNSPage(Gtk.Box):
                 user_input,
                 requested_record_type,
             )
-            show_global_error(self, error_message)
+            show_global_error(self, error_message)  # type: ignore
             status_subtitle = f"DNS Error: {error_message.splitlines()[0]}"
         elif isinstance(error, DnsClientError):  # Base client error
             logger.exception(
@@ -771,7 +592,7 @@ class DNSPage(Gtk.Box):
                 user_input,
                 requested_record_type,
             )
-            show_global_error(self, f"DNS Client Error: {error_message}")
+            show_global_error(self, f"DNS Client Error: {error_message}")  # type: ignore
             status_subtitle = f"Client Error: {error_message.splitlines()[0]}"
             self._current_result_records = None
         else:  # Generic Exception
@@ -781,12 +602,12 @@ class DNSPage(Gtk.Box):
                 requested_record_type,
             )
             error_message_short = f"An unexpected error occurred: {error_message.splitlines()[0]}"
-            show_global_error(self, error_message_short)
+            show_global_error(self, error_message_short)  # type: ignore
             status_subtitle = error_message_short
             self._current_result_records = None
 
         if self.dns_status_row:
-            self.dns_status_row.set_subtitle(status_subtitle)
+            self.dns_status_row.set_subtitle(status_subtitle)  # type: ignore
 
     def _perform_lookup(self) -> None:
         """
@@ -794,171 +615,32 @@ class DNSPage(Gtk.Box):
 
         Orchestrates input validation, client interaction, and result/error display.
         """
-        if self.current_dns_task and not self.current_dns_task.is_done():
-            if self.current_dns_cancellable and not self.current_dns_cancellable.is_cancelled():
-                logger.info("Requesting cancellation of previous DNS lookup task.")
-                self.current_dns_cancellable.cancel()
-                # UI will be updated by the _dns_lookup_done_cb of the cancelled task
-            else: # Task is running but no cancellable, or already cancelled
-                logger.warning("Previous DNS lookup task is still running or finalizing cancellation.")
-                # Potentially show a toast if user tries to start multiple lookups rapidly
-                # For now, we let it proceed to create a new task.
-                # The old task, if it completes, might update UI, but new one will override.
-
         self._set_loading_state(True, "Looking up...")
         user_input = self.domain_entry.get_text().strip()  # type: ignore
         requested_record_type = self._get_selected_record_type()
         logger.debug(f"DNSPage: Performing DNS lookup for: {user_input}, type: {requested_record_type}")
 
-        # Clear previous validation error message if any
-        main_window = self.get_native()
-        if main_window and hasattr(main_window, "hide_error_if_message_matches"):
-            main_window.hide_error_if_message_matches("Invalid input for PTR record. Please enter a valid IP address.") # type: ignore[attr-defined]
-            main_window.hide_error_if_message_matches("Invalid input. Please enter a valid domain name or IP address.") # type: ignore[attr-defined]
-
-        validation_passed = False
-        error_message_to_show = ""
-
-        if not user_input:
-            error_message_to_show = "Input cannot be empty."
-        elif requested_record_type.upper() == "PTR":
-            if not is_valid_ip(user_input):
-                error_message_to_show = "Invalid input for PTR record. Please enter a valid IP address."
-            else:
-                validation_passed = True
-        else: # For other record types
-            if not (is_valid_ip(user_input) or is_valid_domain(user_input)):
-                error_message_to_show = "Invalid input. Please enter a valid domain name or IP address."
-            else:
-                validation_passed = True
-
-        if not validation_passed:
-            self.domain_entry.add_css_class("error") # type: ignore[attr-defined]
-            if error_message_to_show:
-                 show_global_error(self, error_message_to_show)
-            self._set_loading_state(False, f"Idle - {error_message_to_show.split('.')[0]}.")
+        if not self._validate_dns_input(user_input):
+            self._set_loading_state(False, "Idle - Invalid input.")  # Reset status to Idle with specific message
             return
 
-        self.domain_entry.remove_css_class("error") # type: ignore[attr-defined]
         self._clear_error()
 
-        self.current_dns_cancellable = Gio.Cancellable()
-        task = Gio.Task.new(self, self.current_dns_cancellable, self._dns_lookup_done_cb, None)
-        self.current_dns_task = task
-
         custom_dns_server = self.settings.get_string("custom-dns-server")
-        # Create client here to pass to thread, or pass server string and let thread create it
         dns_client = DnsResolverClient(custom_dns_server=custom_dns_server or None)
 
-        task_data = {
-            "user_input": user_input,
-            "requested_record_type": requested_record_type,
-            "dns_client": dns_client # Pass the client instance
-        }
-        task.run_in_thread((lambda t, _, td, c: self._dns_lookup_thread_func(t, td, c)), task_data=task_data) # type: ignore
-
-    def _dns_lookup_thread_func(self, task: Gio.Task, task_data: dict, cancellable: Gio.Cancellable) -> None:
-        """Background thread function for DNS lookup."""
-        user_input = task_data["user_input"]
-        requested_record_type = task_data["requested_record_type"]
-        dns_client: DnsResolverClient = task_data["dns_client"]
-
         try:
-            if cancellable.is_cancelled():
-                task.return_new_error_literal(DNS_LOOKUP_ERROR_DOMAIN, DnsLookupErrorType.CANCELLED.value, "Lookup cancelled before execution.")
-                return
-
-            # The actual blocking call
             result_data = dns_client.resolve(user_input, requested_record_type)
-
-            if cancellable.is_cancelled():
-                task.return_new_error_literal(DNS_LOOKUP_ERROR_DOMAIN, DnsLookupErrorType.CANCELLED.value, "Lookup cancelled after execution.")
-                return
-
-            # Store data needed by _handle_dns_lookup_success in the task result
-            # along with the actual DNS records.
-            task.return_value(GLib.Variant.new_tuple(
-                GLib.Variant.new_python(result_data),
-                GLib.Variant.new_string(user_input),
-                GLib.Variant.new_string(requested_record_type),
-                GLib.Variant.new_python(dns_client) # To get nameservers later
-            ))
-
-        except DnsClientError as e: # Catch specific DNS client errors
-            # These errors are returned as DnsClientError objects directly.
-            # The main thread callback will handle them.
-            task.return_error(GLib.Error(str(e), DNS_LOOKUP_ERROR_DOMAIN, DnsClientError.quark().to_int())) # type: ignore
-            # Using a generic error code for DnsClientError, specific type handling is in _dns_lookup_done_cb
-        except Exception as e: # Catch any other unexpected errors
-            logger.exception("DNSPage: Unexpected error in _dns_lookup_thread_func")
-            # For other exceptions, return a generic GLib.Error
-            # It's better to use a specific domain and code if possible.
-            # For now, using a generic one.
-            generic_error_quark = GLib.quark_from_string("generic-task-error")
-            task.return_error(GLib.Error(f"Unexpected error: {e}", generic_error_quark, 0))
-
-
-    def _dns_lookup_done_cb(self, _source_object: GObject.Object, _result: Gio.AsyncResult, _user_data: Any = None) -> None:
-        """Callback for when the DNS lookup task is done."""
-        task_being_processed = self.current_dns_task
-        self.current_dns_task = None # Clear current task reference
-
-        try:
-            propagated_result = task_being_processed.propagate_value() # type: ignore
-
-            # Unpack the GVariant tuple
-            result_data_py, user_input, requested_record_type, dns_client_py = propagated_result.unpack()
-
-            # Convert from GVariant back to Python types if necessary (GLib.Variant.new_python helps)
-            result_data = result_data_py # Already Python list[dict]
-            dns_client = dns_client_py # Already DnsResolverClient instance
-
             self._handle_dns_lookup_success(result_data, user_input, requested_record_type, dns_client)
-
-        except GLib.Error as e:
-            user_input = self._current_user_input or "unknown target" # Fallback if task_data wasn't set yet
-            requested_record_type = self._current_requested_record_type or "unknown type" # Fallback
-            custom_dns_server = self.settings.get_string("custom-dns-server") # For _handle_dns_lookup_exception
-            dns_client_for_error = DnsResolverClient(custom_dns_server=custom_dns_server or None)
-
-
-            if e.matches(GLib.quark_from_string(DNS_LOOKUP_ERROR_DOMAIN), DnsLookupErrorType.CANCELLED.value):
-                logger.info(f"DNS lookup for {user_input} was cancelled.")
-                self._set_loading_state(False, f"Lookup for {user_input} cancelled.")
-                # Optionally clear results or leave them as they were before cancellation
-                # self._clear_results() # If you want to clear on cancel
-                # Ensure UI is consistent:
-                if self.dns_status_row:
-                    self.dns_status_row.set_subtitle(f"Lookup for {user_input} cancelled.") # type: ignore
-            elif e.matches(GLib.quark_from_string(DNS_LOOKUP_ERROR_DOMAIN), DnsClientError.quark().to_int()): # type: ignore
-                # Reconstruct the original DnsClientError if possible, or handle based on message
-                # For simplicity, we pass the GLib.Error message to the handler
-                # A more robust way would be to pass serialized error details via the GTask.
-                logger.warning(f"DNS lookup failed with DnsClientError: {e.message}")
-                # Attempt to map GLib.Error message back to specific DnsClientError type for _handle_dns_lookup_exception
-                # This is a simplification. A proper way would involve serializing error types or using distinct error codes.
-                if "NXDOMAIN" in e.message:
-                    actual_error = DnsNxDomainError(e.message)
-                elif "No answer" in e.message:
-                    actual_error = DnsNoAnswerError(e.message)
-                elif "Timeout" in e.message:
-                     actual_error = DnsResolutionTimeoutError(e.message)
-                else: # Fallback
-                    actual_error = DnsGenericError(e.message)
-                self._handle_dns_lookup_exception(actual_error, user_input, requested_record_type, dns_client_for_error)
-            else:
-                logger.error(f"DNS lookup failed with an unexpected GLib.Error: {e.message}")
-                show_global_error(self, f"DNS lookup error: {e.message}")
-                self._set_loading_state(False, f"Error: {e.message.splitlines()[0]}")
-        except Exception as e_unhandled: # Catch any other Python exceptions from result handling
-            logger.exception("DNSPage: Unexpected Python error in _dns_lookup_done_cb")
-            show_global_error(self, f"An unexpected error occurred: {e_unhandled}")
-            self._set_loading_state(False, "Unexpected error processing results.")
+            # Status is set by _handle_dns_lookup_success
+        except Exception as e:  # Catch all exceptions here and delegate to the handler
+            self._handle_dns_lookup_exception(e, user_input, requested_record_type, dns_client)
+            # Status is set by _handle_dns_lookup_exception
         finally:
-            # Final UI state update, ensuring loading is false
-            # The specific status message should have been set by success/error handlers
+            # Ensure loading state is always reset (spinner off, controls on),
+            # but preserve the status message set by success/error handlers.
+            # Call _set_loading_state without a message to achieve this.
             self._set_loading_state(False)
-
 
     def _get_selected_record_type(self) -> str:
         """
@@ -987,10 +669,10 @@ class DNSPage(Gtk.Box):
 
     def _display_result(
         self,
-        result_records: list[dict[str, Any]],
+        result_records: List[Dict[str, Any]],
         domain_or_ip: str,
         record_type: str,
-        dns_servers: Sequence[Any],  # Using typing.Sequence
+        dns_servers: Sequence[Any],
     ) -> None:
         """
         Display the DNS lookup results in the UI.
@@ -1219,8 +901,8 @@ class DNSPage(Gtk.Box):
 
     # --- Modified _build_*_record_row methods ---
 
-    def _build_address_record_row(  # type: ignore[type-arg]
-        self, record_data: dict[str, Any], name: str, base_subtitle: str, record_type: str
+    def _build_address_record_row(
+        self, record_data: Dict[str, Any], name: str, base_subtitle: str, record_type: str
     ) -> Adw.ActionRow:
         """
         Build a UI row for an A or AAAA DNS record.
@@ -1244,8 +926,8 @@ class DNSPage(Gtk.Box):
         self._add_standard_suffix_box_to_row(row, address_value, "Copy Address", summary_text)
         return row
 
-    def _build_cname_ns_ptr_record_row(  # type: ignore[type-arg]
-        self, record_data: dict[str, Any], name: str, base_subtitle: str, record_type: str
+    def _build_cname_ns_ptr_record_row(
+        self, record_data: Dict[str, Any], name: str, base_subtitle: str, record_type: str
     ) -> Adw.ActionRow:
         """
         Build a UI row for CNAME, NS, or PTR DNS records.
@@ -1275,8 +957,8 @@ class DNSPage(Gtk.Box):
         self._add_standard_suffix_box_to_row(row, target_value, "Copy Target", summary_text)
         return row
 
-    def _build_generic_data_record_row(  # type: ignore[type-arg]
-        self, record_data: dict[str, Any], name: str, base_subtitle: str, record_type: str
+    def _build_generic_data_record_row(
+        self, record_data: Dict[str, Any], name: str, base_subtitle: str, record_type: str
     ) -> Adw.ActionRow:
         """
         Build a UI row for generic DNS records that have a 'data' field.
@@ -1298,8 +980,8 @@ class DNSPage(Gtk.Box):
         self._add_standard_suffix_box_to_row(row, data_value, "Copy Data", summary_text)
         return row
 
-    def _build_mx_record_row(  # type: ignore[type-arg]
-        self, record_data: dict[str, Any], name: str, base_subtitle: str
+    def _build_mx_record_row(
+        self, record_data: Dict[str, Any], name: str, base_subtitle: str
     ) -> Adw.ExpanderRow:  # record_type is "MX"
         """
         Build a UI row for an MX DNS record.
@@ -1348,8 +1030,8 @@ class DNSPage(Gtk.Box):
         row.set_expanded(True)
         return row
 
-    def _build_txt_record_row(  # type: ignore[type-arg]
-        self, record_data: dict[str, Any], name: str, base_subtitle: str
+    def _build_txt_record_row(
+        self, record_data: Dict[str, Any], name: str, base_subtitle: str
     ) -> Adw.ExpanderRow:  # record_type is "TXT"
         """
         Build a UI row for a TXT DNS record.
@@ -1384,8 +1066,8 @@ class DNSPage(Gtk.Box):
         row.set_expanded(bool(texts))
         return row
 
-    def _build_soa_record_row(  # type: ignore[type-arg]
-        self, record_data: dict[str, Any], name: str, base_subtitle: str
+    def _build_soa_record_row(
+        self, record_data: Dict[str, Any], name: str, base_subtitle: str
     ) -> Adw.ExpanderRow:  # record_type is "SOA"
         """
         Build a UI row for an SOA DNS record.
@@ -1428,7 +1110,7 @@ class DNSPage(Gtk.Box):
         row.set_expanded(True)
         return row
 
-    def _create_record_row(self, record_data: dict[str, Any]) -> Optional[Gtk.Widget]:
+    def _create_record_row(self, record_data: Dict[str, Any]) -> Optional[Gtk.Widget]:
         """
         Create a UI row for a single DNS record dictionary.
 

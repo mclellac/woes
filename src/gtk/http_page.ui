@@ -51,28 +51,10 @@
             <property name="subtitle" translatable="yes">Idle</property>
             <property name="title" translatable="yes">Status</property>
             <child type="suffix">
-              <object class="GtkBox">
-                <property name="orientation">horizontal</property>
-                <property name="spacing">6</property>
-                <child>
-                  <object class="GtkButton" id="http_cancel_button">
-                    <property name="icon-name">process-stop-symbolic</property>
-                    <property name="tooltip-text" translatable="yes">Cancel HTTP Fetch</property>
-                    <property name="valign">center</property>
-                    <property name="visible">False</property>
-                    <property name="sensitive">False</property>
-                    <style>
-                      <class name="destructive-action"/>
-                    </style>
-                  </object>
-                </child>
-                <child>
-                  <object class="GtkSpinner" id="http_status_spinner">
-                    <property name="spinning">False</property>
-                    <property name="valign">center</property>
-                    <property name="visible">False</property>
-                  </object>
-                </child>
+              <object class="GtkSpinner" id="http_status_spinner">
+                <property name="spinning">False</property>
+                <property name="valign">center</property>
+                <property name="visible">False</property>
               </object>
             </child>
           </object>

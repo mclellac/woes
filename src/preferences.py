@@ -27,8 +27,7 @@ try:
 except ImportError:
     dnspython_available = False
 
-NONE_OPTION_TITLE = "None"  # Module-level constant for "None"
-
+NONE_OPTION_TITLE = "None" # Module-level constant for "None"
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/preferences.ui")
 class Preferences(Adw.PreferencesWindow):
@@ -106,7 +105,7 @@ class Preferences(Adw.PreferencesWindow):
 
     __gtype_name__ = "Preferences"
 
-    NONE_OPTION_TITLE = "None"  # Class attribute
+    NONE_OPTION_TITLE = "None" # Class attribute
 
     font_scale_combo_row: Adw.ComboRow = Gtk.Template.Child("font_scale_combo_row")  # type: ignore
     theme_combo_row: Adw.ComboRow = Gtk.Template.Child("theme_combo_row")  # type: ignore
@@ -229,17 +228,14 @@ class Preferences(Adw.PreferencesWindow):
             self.global_output_font_button.connect("font-set", self.on_global_font_setting_changed)
 
         if self.user_agent_combo_row:
-            self._ua_combo_handler_id = self.user_agent_combo_row.connect(
-                "notify::selected-item", self._on_default_user_agent_changed
-            )
+            self._ua_combo_handler_id = self.user_agent_combo_row.connect("notify::selected-item", self._on_default_user_agent_changed)
             # logging.debug(f"Connected _on_default_user_agent_changed with handler ID: {self._ua_combo_handler_id}") # Reduced verbosity
         else:
-            self._ua_combo_handler_id = None  # Ensure it's None if row doesn't exist
-            logging.error(
-                "user_agent_combo_row not found during load_ui, cannot connect signal for default User-Agent."
-            )
+            self._ua_combo_handler_id = None # Ensure it's None if row doesn't exist
+            logging.error("user_agent_combo_row not found during load_ui, cannot connect signal for default User-Agent.")
 
         # Custom HTTP Header Signals
+
 
     def on_global_font_setting_changed(self, font_button: Gtk.FontButton):
         """
@@ -479,9 +475,7 @@ class Preferences(Adw.PreferencesWindow):
             row.set_activatable_widget(remove_button)  # type: ignore[no-untyped-call]
             self.custom_ua_list_container.append(row)  # type: ignore[union-attr]
 
-        logging.debug(
-            "_render_custom_ua_list: Refreshing default UA dropdown by calling _populate_user_agent_combo_row."
-        )
+        logging.debug("_render_custom_ua_list: Refreshing default UA dropdown by calling _populate_user_agent_combo_row.")
         self._populate_user_agent_combo_row()  # Keep dropdown in sync
 
     def _on_add_custom_ua_clicked(self, _widget: Gtk.Widget) -> None:
@@ -525,7 +519,7 @@ class Preferences(Adw.PreferencesWindow):
         )  # type: ignore[union-attr]
 
         # Check for duplicate titles (Default UAs + Custom UAs)
-        all_existing_titles = [ua_dict["title"] for ua_dict in USER_AGENTS] + [pair[0] for pair in current_ua_pairs]
+        all_existing_titles = [ua_dict['title'] for ua_dict in USER_AGENTS] + [pair[0] for pair in current_ua_pairs]
         if title_text in all_existing_titles:
             logging.info(f"Custom User-Agent title '{title_text}' already exists or conflicts with a default UA.")
             if self.new_custom_ua_title_entry:
@@ -639,7 +633,7 @@ class Preferences(Adw.PreferencesWindow):
 
         # Call to _render_custom_ua_list also calls _populate_user_agent_combo_row
         # which handles loading and setting the default user agent.
-        self._render_custom_ua_list()  # This will call _populate_user_agent_combo_row
+        self._render_custom_ua_list() # This will call _populate_user_agent_combo_row
 
         self._is_programmatically_changing_ua_combo = True
         if self._ua_combo_handler_id and self.user_agent_combo_row:
@@ -647,31 +641,25 @@ class Preferences(Adw.PreferencesWindow):
             # logging.debug(f"load_preferences: UA ComboBox handler {self._ua_combo_handler_id} blocked.") # Reduced verbosity
 
         default_ua_title_gsettings = self.settings.get_string("default-user-agent-title")
-        logging.info(
-            f"Preferences: Loading default User-Agent title from GSettings: '{default_ua_title_gsettings if default_ua_title_gsettings else 'None (empty string)'}'"
-        )
+        logging.info(f"Preferences: Loading default User-Agent title from GSettings: '{default_ua_title_gsettings if default_ua_title_gsettings else 'None (empty string)'}'")
         model = self.user_agent_combo_row.get_model()
 
-        if default_ua_title_gsettings == "":  # User explicitly wants "None" (system default)
+        if default_ua_title_gsettings == "": # User explicitly wants "None" (system default)
             was_selected = self._select_combo_row_item(self.user_agent_combo_row, self.NONE_OPTION_TITLE)
             # logging.info(f"load_preferences: Attempted to select '{self.NONE_OPTION_TITLE}'. Success: {was_selected}") # Reduced verbosity
             if not was_selected:
-                logging.error(
-                    f"load_preferences: Critical - '{self.NONE_OPTION_TITLE}' not found in user_agent_combo_row."
-                )
+                logging.error(f"load_preferences: Critical - '{self.NONE_OPTION_TITLE}' not found in user_agent_combo_row.")
                 if model and model.get_n_items() > 0:
                     self.user_agent_combo_row.set_selected(0)
-        elif default_ua_title_gsettings:  # A specific UA title is saved
+        elif default_ua_title_gsettings: # A specific UA title is saved
             was_selected = self._select_combo_row_item(self.user_agent_combo_row, default_ua_title_gsettings)
             # logging.info(f"load_preferences: Attempted to select '{default_ua_title_gsettings}'. Success: {was_selected}") # Reduced verbosity
             if not was_selected:
-                logging.warning(
-                    f"load_preferences: Saved default UA title '{default_ua_title_gsettings}' not found. Falling back to '{self.NONE_OPTION_TITLE}'."
-                )
+                logging.warning(f"load_preferences: Saved default UA title '{default_ua_title_gsettings}' not found. Falling back to '{self.NONE_OPTION_TITLE}'.")
                 self.settings.set_string("default-user-agent-title", "")
                 if not self._select_combo_row_item(self.user_agent_combo_row, self.NONE_OPTION_TITLE):
-                    logging.error(f"load_preferences: Critical - Fallback '{self.NONE_OPTION_TITLE}' not found.")
-        else:  # GSetting is empty, but not explicitly ""
+                     logging.error(f"load_preferences: Critical - Fallback '{self.NONE_OPTION_TITLE}' not found.")
+        else: # GSetting is empty, but not explicitly ""
             if not self._select_combo_row_item(self.user_agent_combo_row, self.NONE_OPTION_TITLE):
                 logging.error(f"load_preferences: Critical - '{self.NONE_OPTION_TITLE}' not found during initial load.")
             self.settings.set_string("default-user-agent-title", "")
@@ -692,6 +680,7 @@ class Preferences(Adw.PreferencesWindow):
                 logging.warning(f"GSettings 'output-font' was empty, set to default: {default_font}")
 
         # HTTP Headers
+
 
     def _populate_user_agent_combo_row(self):
         """
@@ -723,13 +712,11 @@ class Preferences(Adw.PreferencesWindow):
 
         # 2. Add standard user agents from constants.py
         for ua_dict in USER_AGENTS:
-            title = ua_dict["title"]
-            if title not in all_ua_titles:  # Avoid duplicates
+            title = ua_dict['title']
+            if title not in all_ua_titles: # Avoid duplicates
                 all_ua_titles.append(title)
             else:
-                logging.warning(
-                    f"Standard User-Agent title '{title}' conflicts with '{self.NONE_OPTION_TITLE}' or another standard UA. Skipping."
-                )
+                logging.warning(f"Standard User-Agent title '{title}' conflicts with '{self.NONE_OPTION_TITLE}' or another standard UA. Skipping.")
 
         # 3. Add custom user agents from GSettings
         variant = self.settings.get_value("custom-user-agents")
@@ -770,6 +757,7 @@ class Preferences(Adw.PreferencesWindow):
         self._is_programmatically_changing_ua_combo = False
         # logging.debug("_populate_user_agent_combo_row: Cleared programmatic change flag and unblocked handler.") # Reduced verbosity
 
+
     def _on_default_user_agent_changed(self, combo_row: Adw.ComboRow, _gparam: GObject.ParamSpec):
         """
         Handle direct user changes in the default User-Agent selection ComboBox.
@@ -794,9 +782,7 @@ class Preferences(Adw.PreferencesWindow):
         :type _gparam: GObject.ParamSpec
         """
         if self._is_programmatically_changing_ua_combo:
-            logging.debug(
-                f"_on_default_user_agent_changed: Ignoring signal for '{combo_row.get_selected_item().get_string() if combo_row.get_selected_item() else 'N/A'}' due to _is_programmatically_changing_ua_combo flag."
-            )
+            logging.debug(f"_on_default_user_agent_changed: Ignoring signal for '{combo_row.get_selected_item().get_string() if combo_row.get_selected_item() else 'N/A'}' due to _is_programmatically_changing_ua_combo flag.")
             return
         # logging.debug(f"_on_default_user_agent_changed: Processing signal for '{combo_row.get_selected_item().get_string() if combo_row.get_selected_item() else 'N/A'}'. Flag is False.")
         selected_item_obj = combo_row.get_selected_item()
@@ -805,7 +791,7 @@ class Preferences(Adw.PreferencesWindow):
             # logging.debug(f"_on_default_user_agent_changed: Raw selected title from dropdown: '{selected_ua_title}'")
             if selected_ua_title:
                 current_gsettings_val = self.settings.get_string("default-user-agent-title")
-                gsetting_to_save = ""  # Assume self.NONE_OPTION_TITLE
+                gsetting_to_save = "" # Assume self.NONE_OPTION_TITLE
                 if selected_ua_title != self.NONE_OPTION_TITLE:
                     gsetting_to_save = selected_ua_title
 
@@ -816,17 +802,17 @@ class Preferences(Adw.PreferencesWindow):
                     logging.info(f"Preferences: Saving default User-Agent title to GSettings: '{gsetting_to_save}'")
                     self.settings.set_string("default-user-agent-title", gsetting_to_save)
                     # logging.info(f"_on_default_user_agent_changed: Value read back from GSettings default-user-agent-title immediately after set: '{self.settings.get_string('default-user-agent-title')}'")
-            else:  # selected_ua_title is None or empty string (should not happen with Gtk.StringList of valid titles)
+            else: # selected_ua_title is None or empty string (should not happen with Gtk.StringList of valid titles)
                 logging.warning("Selected UA title is None or empty, which is unexpected. Setting GSettings to empty.")
                 self.settings.set_string("default-user-agent-title", "")
 
         elif selected_item_obj is None:
-            # This case could happen if the model is cleared or selection is programmatically set to invalid.
-            # If the list becomes empty, GSettings should reflect "no preference" or "system default".
+             # This case could happen if the model is cleared or selection is programmatically set to invalid.
+             # If the list becomes empty, GSettings should reflect "no preference" or "system default".
             model = combo_row.get_model()
-            if model is None or model.get_n_items() == 0:  # type: ignore[attr-defined]
+            if model is None or model.get_n_items() == 0: # type: ignore[attr-defined]
                 current_gsettings_val = self.settings.get_string("default-user-agent-title")
-                if current_gsettings_val != "":  # Only update if it's not already empty
+                if current_gsettings_val != "": # Only update if it's not already empty
                     self.settings.set_string("default-user-agent-title", "")
                     logging.debug("Default user agent selection cleared as list is empty or selection is invalid.")
 

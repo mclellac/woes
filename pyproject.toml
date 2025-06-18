@@ -14,10 +14,8 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    # PyGObject removed to rely on system version
+    "PyGObject",
     "requests",
-    "dnspython", # Added dnspython here as it's a direct project dependency
-    "PyYAML"     # Added PyYAML here as it's a direct project dependency
 ]
 
 [project.scripts]

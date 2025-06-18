@@ -8,10 +8,10 @@ and Server Name Indication (SNI) for HTTPS connections.
 import logging
 import socket
 import ssl
-from typing import Optional, Tuple, Any  # list and dict will be used directly
+from typing import Optional, Tuple, Any # Use list, dict
 
 import requests
-import requests.utils  # For urlparse, urlunparse
+import requests.utils # For urlparse, urlunparse
 from requests.adapters import HTTPAdapter
 
 try:
@@ -52,7 +52,6 @@ class CustomDNSAdapter(HTTPAdapter):
         :type default_sni: str, optional
         :param kwargs: Keyword arguments for :class:`requests.adapters.HTTPAdapter`.
         :type kwargs: Any
-        :rtype: None
         """
         self.custom_dns_server: Optional[str] = custom_dns_server
         self.default_sni_for_ip_url: Optional[str] = default_sni
@@ -249,7 +248,6 @@ class CustomDNSAdapter(HTTPAdapter):
         :type block: bool, optional
         :param pool_kwargs: Extra keyword arguments for PoolManager initialization.
         :type pool_kwargs: Any
-        :rtype: None
         """
         sni_hostname_for_pool: Optional[str] = None
         if self._resolved_sni:

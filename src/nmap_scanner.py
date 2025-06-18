@@ -16,7 +16,7 @@ import shutil
 import time
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
-from typing import Any, Optional, TypedDict, Union
+from typing import Any, Dict, List, Optional, TypedDict, Union  # Use dict, list
 
 try:
     from gi.repository import Gio
@@ -50,18 +50,6 @@ class ScanStatus(Enum):
 
 class ScanCancelledError(PortScannerError):
     """Exception raised when an Nmap scan is cancelled."""
-
-    pass
-
-
-class NmapPrerequisiteError(PortScannerError):
-    """Exception raised when a prerequisite for Nmap (like nmap itself or pkexec) is not found."""
-
-    pass
-
-
-class NmapUnsupportedPlatformError(PortScannerError):
-    """Exception raised when a feature (e.g., privilege escalation) is not supported on the current platform."""
 
     pass
 
@@ -114,7 +102,7 @@ def _is_scan_root_required(nmap_args_list: list[str]) -> bool:
     return is_required
 
 
-def get_escalated_command(command_parts: list[str]) -> list[str]:
+def get_escalated_command(command_parts: List[str]) -> List[str]:
     """
     Construct a command list for privilege escalation based on the OS.
 
@@ -135,10 +123,7 @@ def get_escalated_command(command_parts: list[str]) -> list[str]:
     logger.debug("Nmap path resolved to: %s", nmap_path)
 
     if not nmap_path:
-        # This case should ideally be caught before calling get_escalated_command,
-        # as nmap_path is specific to the nmap executable itself.
-        # However, if called directly with a non-existent nmap_executable:
-        raise NmapPrerequisiteError(f"Nmap executable '{nmap_executable}' not found in PATH.")
+        raise FileNotFoundError(f"Nmap executable '{nmap_executable}' not found in PATH.")
 
     resolved_command_parts = [nmap_path] + command_parts[1:]
 
@@ -146,18 +131,18 @@ def get_escalated_command(command_parts: list[str]) -> list[str]:
     if system == "Linux":
         if not shutil.which("pkexec"):
             logger.error("pkexec not found, but it is required for privilege escalation on Linux.")
-            raise NmapPrerequisiteError("pkexec not found. Needed for privilege escalation.")
+            raise FileNotFoundError("pkexec not found. Needed for privilege escalation.")
         escalated_cmd = ["pkexec"] + resolved_command_parts
     elif system == "Darwin":
         if not shutil.which("osascript"):
             logger.error("osascript not found, but it is required for privilege escalation on macOS.")
-            raise NmapPrerequisiteError("osascript not found. Needed for privilege escalation.")
+            raise FileNotFoundError("osascript not found. Needed for privilege escalation.")
         quoted_command = " ".join(shlex.quote(part) for part in resolved_command_parts)
         osascript_command = f'do shell script "{quoted_command}" with administrator privileges'
         escalated_cmd = ["osascript", "-e", osascript_command]
     else:
         logger.warning("Privilege escalation not configured for system: %s.", system)
-        raise NmapUnsupportedPlatformError(f"Privilege escalation not supported on this platform: {system}")
+        raise NotImplementedError(f"Privilege escalation not supported on this platform: {system}")
 
     logger.debug("Escalated command: %s", escalated_cmd)
     return escalated_cmd
@@ -173,11 +158,7 @@ class NmapScanner:
     """
 
     def __init__(self):
-        """
-        Initialize the NmapScanner.
-
-        :rtype: None
-        """
+        """Initialize the NmapScanner."""
         logger.debug("NmapScanner initialized.")
         self.executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=4)
         self.nm: Optional[nmap.PortScanner] = None
@@ -185,11 +166,7 @@ class NmapScanner:
         self.current_cancellable: Optional[Gio.Cancellable] = None
 
     def __del__(self) -> None:
-        """
-        Ensure the ThreadPoolExecutor is shut down and any running Nmap process is terminated.
-
-        :rtype: None
-        """
+        """Ensure the ThreadPoolExecutor is shut down and any running Nmap process is terminated."""
         logger.debug("NmapScanner.__del__ called.")
         if self.current_process and self.current_process.poll() is None:
             logger.info("Terminating active Nmap process during NmapScanner deletion.")
@@ -280,7 +257,7 @@ class NmapScanner:
         logger.debug("Nmap options constructed: %s", options)
         return options
 
-    def _build_nmap_arguments(self, params: NmapScanParameters) -> list[str]:  # type: ignore[type-arg]
+    def _build_nmap_arguments(self, params: NmapScanParameters) -> list[str]:
         """
         Build the list of arguments for the Nmap command.
 
@@ -313,7 +290,7 @@ class NmapScanner:
             nmap_args_list.append(f"--dns-servers={custom_dns_server.strip()}")
             logger.info("Using custom DNS server for Nmap scan: %s", custom_dns_server.strip())
 
-        nmap_args_list.extend(["-oX", "-", params["target"]])  # type: ignore[literal-required]
+        nmap_args_list.extend(["-oX", "-", params["target"]])
         logger.debug("Built Nmap arguments: %s", nmap_args_list)
         return nmap_args_list
 
@@ -325,35 +302,23 @@ class NmapScanner:
         :type nmap_args_list: list[str]
         :param needs_escalation: Whether privilege escalation is required.
         :type needs_escalation: bool
-        :raises NmapPrerequisiteError: If nmap executable or an escalation tool (pkexec, osascript) is not found.
-        :raises NmapUnsupportedPlatformError: If privilege escalation is attempted on an unsupported platform.
-        :raises PortScannerError: For other errors during command preparation.
+        :raises PortScannerError: If escalation fails or ``nmap`` executable is not found.
+        :raises FileNotFoundError: If ``nmap`` executable is not found for non-escalated command.
         :return: The final list of command parts for execution.
         :rtype: list[str]
         """
         final_command_parts: list[str] = []
-        try:
-            if needs_escalation:
-                logger.info("Escalation required for Nmap scan execution.")
-                # Ensure nmap itself is checked first, even if get_escalated_command also checks.
-                nmap_executable_check = nmap_args_list[0]
-                if not shutil.which(nmap_executable_check):
-                    raise NmapPrerequisiteError(f"Nmap executable '{nmap_executable_check}' not found in PATH before escalation attempt.")
-                final_command_parts = get_escalated_command(nmap_args_list)
-                if not final_command_parts: # Should not happen if get_escalated_command raises appropriately
-                    raise PortScannerError("Failed to prepare escalated command (empty result from get_escalated_command).")
-            else:
-                nmap_executable = nmap_args_list[0]
-                nmap_path = shutil.which(nmap_executable)
-                if not nmap_path:
-                    raise NmapPrerequisiteError(f"Nmap executable '{nmap_executable}' not found for non-escalated command.")
-                final_command_parts = [nmap_path] + nmap_args_list[1:]
-        except (FileNotFoundError, NotImplementedError) as e: # Catch legacy errors from a direct call to get_escalated_command if any
-            if isinstance(e, FileNotFoundError):
-                raise NmapPrerequisiteError(str(e)) from e
-            else: # NotImplementedError
-                raise NmapUnsupportedPlatformError(str(e)) from e
-
+        if needs_escalation:
+            logger.info("Escalation required for Nmap scan execution.")
+            final_command_parts = get_escalated_command(nmap_args_list)
+            if not final_command_parts:
+                raise PortScannerError("Failed to prepare escalated command (empty result from get_escalated_command).")
+        else:
+            nmap_executable = nmap_args_list[0]
+            nmap_path = shutil.which(nmap_executable)
+            if not nmap_path:
+                raise FileNotFoundError(f"Nmap executable '{nmap_executable}' not found for non-escalated command.")
+            final_command_parts = [nmap_path] + nmap_args_list[1:]
         return final_command_parts
 
     def _parse_nmap_error_message(
@@ -494,19 +459,15 @@ class NmapScanner:
 
             return self.nm
 
-        except NmapPrerequisiteError: # Specific errors should be caught first
-            raise
-        except NmapUnsupportedPlatformError:
-            raise
-        except FileNotFoundError as e_fnf: # Should now be NmapPrerequisiteError
-            logger.error("FileNotFoundError caught directly in run_nmap_scan, should be NmapPrerequisiteError: %s", e_fnf, exc_info=True)
-            raise NmapPrerequisiteError(f"Nmap execution prerequisite not found: {e_fnf}") from e_fnf
-        except NotImplementedError as e_ni: # Should now be NmapUnsupportedPlatformError
-            logger.error("NotImplementedError caught directly in run_nmap_scan, should be NmapUnsupportedPlatformError: %s", e_ni, exc_info=True)
-            raise NmapUnsupportedPlatformError(f"Privilege escalation not implemented for this platform: {e_ni}") from e_ni
+        except FileNotFoundError as e_fnf:
+            logger.exception("Nmap execution prerequisite not found:")
+            raise PortScannerError(f"Nmap execution prerequisite not found: {e_fnf}") from e_fnf
+        except NotImplementedError as e_ni:
+            logger.exception("Privilege escalation not implemented for this platform:")
+            raise PortScannerError(f"Privilege escalation not implemented for this platform: {e_ni}") from e_ni
         except ScanCancelledError:
             raise
-        except PortScannerError: # Catch other PortScannerErrors that are not the specific ones above
+        except PortScannerError:
             raise
         except TypeError as e_type:
             logger.exception("Type error during Nmap scan setup or execution:")
@@ -548,7 +509,7 @@ class NmapScanner:
             all_results[host] = yaml_output
         return all_results
 
-    def to_plain_dict(self, data: Any) -> Union[dict[str, Any], Any]:
+    def to_plain_dict(self, data: Any) -> Union[Dict[str, Any], Any]:
         """
         Recursively convert Nmap data (potentially custom nmap types) to plain dicts/lists.
 
@@ -557,7 +518,7 @@ class NmapScanner:
         :param data: The Nmap data to convert.
         :type data: Any
         :return: The data converted to plain Python dicts, lists, and primitive types.
-        :rtype: Union[dict[str, Any], Any]
+        :rtype: Union[Dict[str, Any], Any]
         """
         if isinstance(data, nmap.PortScannerHostDict):
             return {k: self.to_plain_dict(v) for k, v in data.items()}

@@ -1,7 +1,7 @@
 """Module for fetching HTTP headers and processing responses."""
 
 import logging
-from typing import Optional, Any  # dict, list used directly
+from typing import Optional, Dict, List, Any  # Use dict, list
 
 import requests
 import requests.utils  # For urlparse, urlunparse
@@ -114,7 +114,6 @@ class HttpFetcher:
         :type custom_dns_server: Optional[str]
         :param cancellable: Optional :class:`Gio.Cancellable` object for cancellation. Defaults to ``None``.
         :type cancellable: Optional[Gio.Cancellable]
-        :rtype: None
         """
         self.url: str = url
         self.use_akamai_pragma: bool = use_akamai_pragma
@@ -154,6 +153,7 @@ class HttpFetcher:
             initial_request_specific_headers["Host"] = self.host_header
             logger.info("HttpFetcher: Using user-provided Host header for initial request: '%s'", self.host_header)
 
+
         # Akamai Pragma headers
         if self.use_akamai_pragma:
             directives = [
@@ -173,7 +173,7 @@ class HttpFetcher:
             logger.info("HttpFetcher: Akamai Pragma headers not included.")
         return initial_request_specific_headers, session_headers
 
-    def _execute_http_request(self, initial_request_headers: dict[str, str]) -> requests.Response:
+    def _execute_http_request(self, initial_request_headers: Dict[str, str]) -> requests.Response:
         """
         Execute the HTTP GET request using the configured session.
 
@@ -193,13 +193,6 @@ class HttpFetcher:
             raise HttpClientError("Request cancelled before sending.")
 
         try:
-            # Note: Gio.Cancellable is checked here, but it won't interrupt an ongoing
-            # requests.get() call. Cancellation primarily prevents starting new requests
-            # or processing results of already completed ones.
-            logger.debug(
-                "HttpFetcher: Executing requests.get(). Note: Gio.Cancellable does not abort in-flight 'requests' calls. "
-                "Cancellation is checked before this call and after it returns."
-            )
             response = self.session.get(
                 self.url,
                 headers=(initial_request_headers if initial_request_headers else None),
@@ -208,18 +201,18 @@ class HttpFetcher:
             )
             return response
         except requests.exceptions.Timeout as e:
-            logger.warning("HttpFetcher: Timeout for '%s': %s", self.url, e, exc_info=True)
+            logger.warning("HttpFetcher: Timeout for '%s': %s", self.url, e)
             raise HttpRequestTimeoutError(f"Request timed out for {self.url}.") from e
         except requests.exceptions.ConnectionError as e:
-            logger.warning("HttpFetcher: ConnectionError for '%s': %s", self.url, e, exc_info=True)
+            logger.warning("HttpFetcher: ConnectionError for '%s': %s", self.url, e)
             custom_msg = self._get_detailed_connection_error_message(e, self.url)
             msg = custom_msg or f"Network connection error for {self.url}."
             raise HttpConnectionError(msg) from e
         except requests.exceptions.RequestException as e:
-            logger.warning("HttpFetcher: RequestException for '%s': %s", self.url, e, exc_info=True)
+            logger.warning("HttpFetcher: RequestException for '%s': %s", self.url, e)
             raise HttpGenericRequestError(f"Request failed for {self.url}: {e}") from e
 
-    def _process_http_response(self, response: requests.Response) -> list[dict[str, Any]]:
+    def _process_http_response(self, response: requests.Response) -> List[Dict[str, Any]]:
         """
         Process the HTTP response, including redirects.
 
@@ -246,7 +239,7 @@ class HttpFetcher:
             final_data_type = "final"
         except requests.exceptions.HTTPError as http_err:
             error_url = str(http_err.request.url) if http_err.request else self.url
-            logger.warning("HttpFetcher: HTTPError for URL '%s' (final URL: '%s'): %s", self.url, error_url, http_err, exc_info=True)
+            logger.warning("HttpFetcher: HTTPError for URL '%s' (final URL: '%s'): %s", self.url, error_url, http_err)
             error_message = self._format_http_error(http_err)
             raise HttpProcessingError(
                 error_message, status_code=http_err.response.status_code, url=error_url
@@ -339,10 +332,10 @@ class HttpFetcher:
             logger.info("HttpFetcher: Connection refused condition identified for URL: %s", url)
             parsed_url_scheme = requests.utils.urlparse(url).scheme
             if parsed_url_scheme == "https":
-                return "Connection Refused: The server at the HTTPS URL actively refused the connection. Suggestions: Try the 'http://' version of the URL, or check if the server is down or a firewall is blocking the connection."
+                return "Connection Refused: Server at HTTPS URL actively refused. Try 'http://'?"
             if parsed_url_scheme == "http":
-                return "Connection Refused: The server at the HTTP URL actively refused the connection. Suggestions: Try the 'https://' version of the URL, or check if the server is down."
-            return "Connection Refused: The server at the specified URL actively refused the connection. Check if the server is operational and accessible."
+                return "Connection Refused: Server at HTTP URL actively refused. Try 'https://' or check if server is down."
+            return "Connection Refused: The server at the specified URL actively refused the connection."
         return None
 
     def _format_http_error(self, e: requests.exceptions.HTTPError) -> str:
@@ -359,15 +352,13 @@ class HttpFetcher:
         status_code = e.response.status_code  # type: ignore[union-attr]
         reason = e.response.reason if e.response.reason else "Unknown Error"  # type: ignore[union-attr]
         url = e.request.url if e.request else "N/A"  # type: ignore[union-attr]
-        base_message = f"HTTP Error {status_code} ({reason}) for URL: {url}."
-
         if status_code == 403:
-            return f"{base_message} Access Denied. Check if you have permission to access this resource."
+            return f"403 Forbidden: Access to {url} denied."
         if status_code == 404:
-            return f"{base_message} Resource Not Found. Ensure the URL is correct and the resource exists."
+            return f"404 Not Found: Resource at {url} not found."
         if status_code == 500:
-            return f"{base_message} The server encountered an internal issue. Please try again later."
-        return base_message
+            return f"500 Internal Server Error for {url}."
+        return f"HTTP Error {status_code} ({reason}) for URL: {url}."
 
     def fetch_headers(self) -> list[dict[str, Any]]:
         """
@@ -386,11 +377,7 @@ class HttpFetcher:
 
         adapter_sni_hint: Optional[str] = None
         if self.host_header:
-            # This line seems to be for parsing the URL to potentially extract hostname for SNI,
-            # but it doesn't assign the result. Assuming it's for a side effect or was part of
-            # an incomplete thought. If SNI is needed from host_header for IP URLs,
-            # it should be explicitly handled. For now, just ensuring correct attribute access.
-            _ = requests.utils.urlparse(self.url)  # Correct attribute access
+            requests.utils.urlparse(self.url)  # type: ignore[attr-defined]
 
         effective_custom_dns_server: Optional[str] = self.custom_dns_server if dns else None
         if self.custom_dns_server and not dns:

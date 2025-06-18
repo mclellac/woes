@@ -22,9 +22,9 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 module_content = f"""
 {{
     "app-id": "{APP_ID}",
-    "runtime": "{RUNTIME}",  # noqa: F821
-    "runtime-version": "{RUNTIME_VERSION}",  # noqa: F821
-    "sdk": "{SDK}",  # noqa: F821
+    "runtime": "{RUNTIME}",
+    "runtime-version": "{RUNTIME_VERSION}",
+    "sdk": "{SDK}",
     "command": "woes",
     "finish-args": [
         "--share=network",
@@ -70,9 +70,9 @@ if not os.path.exists(os.path.join(OUTPUT_DIR, REPO_NAME)):
             "build-init",
             os.path.join(OUTPUT_DIR, REPO_NAME),
             APP_ID,
-            SDK,  # noqa: F821
-            RUNTIME,  # noqa: F821
-            RUNTIME_VERSION,  # noqa: F821
+            SDK,
+            RUNTIME,
+            RUNTIME_VERSION,
             f"--branch={BRANCH}",
         ],
         check=True,

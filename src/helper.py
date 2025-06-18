@@ -2,11 +2,8 @@
 
 import logging
 from typing import Optional
-
 from gi.repository import Gdk, Gtk, GObject
 import gi
-
-from .utils import show_global_toast
 
 gi.require_version("Gtk", "4.0")
 
@@ -51,7 +48,6 @@ class Helper:
         to the clipboard using the ``Ctrl+C`` combination.
 
         :return: None
-        :rtype: None
         """
         key_controller = Gtk.EventControllerKey.new()
         key_controller.connect("key-pressed", self.on_key_pressed)  # type: ignore[no-untyped-call]
@@ -62,7 +58,6 @@ class Helper:
         Set up a context menu (right-click) with a 'Copy' option.
 
         :return: None
-        :rtype: None
         """
         self.popover = Gtk.Popover.new()
         if isinstance(self.widget, Gtk.Widget):
@@ -93,7 +88,6 @@ class Helper:
         :type x: float
         :param y: The y-coordinate of the mouse click relative to the widget.
         :type y: float
-        :rtype: None
         """
         if n_press == 1:  # Process only single clicks for context menu
             self.last_right_click_coords = (x, y)
@@ -118,7 +112,6 @@ class Helper:
         standard header) and copies it to the clipboard.
 
         :return: None
-        :rtype: None
         """
         logger.debug("copy_context_item_to_clipboard called.")
         if (
@@ -139,26 +132,29 @@ class Helper:
             logger.debug("No widget picked at coordinates.")
             return
 
-        # target_list_item_widget: Optional[Gtk.ListItem] = None # Old variable
-        item_obj: Optional[GObject.Object] = None # Will hold the actual data item
+        target_list_item_widget: Optional[Gtk.ListItem] = None
         current_widget: Optional[Gtk.Widget] = picked_widget
-        # Traverse up to find the Gtk.ColumnViewRowWidget.
+        # Traverse up to find the Gtk.ListItem.
         while current_widget is not None:
-            logger.debug(f"Widget traversal: current_widget is {type(current_widget)}")
-            if isinstance(current_widget, Gtk.ColumnViewRowWidget): # Check for ColumnViewRowWidget
-                item_obj = current_widget.get_item() # Get the item from the row widget
-                logger.debug(f"Found Gtk.ColumnViewRowWidget, item_obj: {item_obj}")
+            if isinstance(current_widget, Gtk.ListItem):
+                target_list_item_widget = current_widget
                 break
             if current_widget == self.widget:  # Stop if we've reached the ColumnView itself
-                logger.debug("Reached ColumnView widget while traversing up, Gtk.ColumnViewRowWidget not found in path.")
+                logger.debug("Reached ColumnView widget while traversing up, Gtk.ListItem not found in path.")
                 break
             current_widget = current_widget.get_parent()
 
-        if item_obj is None: # Check if we successfully got the item_obj
-            logger.debug("item_obj not found by traversing up from picked_widget.")
+        if not target_list_item_widget:
+            logger.debug("Gtk.ListItem widget not found by traversing up from picked_widget.")
             return
-        # No longer need target_list_item_widget.get_item() as item_obj is already the data item.
-        logger.debug(f"Using item_obj: {item_obj}, type: {type(item_obj)}")
+        logger.debug(f"Found target_list_item_widget: {target_list_item_widget}")
+
+        item_obj: Optional[GObject.Object] = target_list_item_widget.get_item()
+
+        if item_obj is None:
+            logger.debug("item_obj is None from target_list_item_widget.get_item().")
+            return
+        logger.debug(f"Got item_obj: {item_obj}, type: {type(item_obj)}")
 
         text_to_copy: str = ""
         try:
@@ -178,30 +174,22 @@ class Helper:
             else:  # Standard header (key: value)
                 text_to_copy = f"{str(key_attr if key_attr is not None else '')}: {str(value_attr if value_attr is not None else '')}"
 
+            clipboard: Gdk.Clipboard = self.widget.get_clipboard()  # type: ignore[assignment]
             if not text_to_copy:
                 logger.debug("text_to_copy is empty after attribute processing.")
-                show_global_toast(self.parent_window, "Nothing to copy for this item.")
-                return # Return early if nothing to copy
             else:
                 logger.debug(f"Constructed text_to_copy: '{text_to_copy}'")
 
-            clipboard = self.widget.get_clipboard() # New approach for Gtk.Widget
-
+            clipboard: Gdk.Clipboard = self.widget.get_clipboard()  # type: ignore[assignment]
             if clipboard:
-                clipboard.set_text(text_to_copy) # GTK4 set_text takes only one argument
+                content_provider = Gdk.ContentProvider.new_for_value(text_to_copy)
+                clipboard.set_content(content_provider)  # type: ignore[no-untyped-call]
                 logger.debug("Successfully set clipboard content.")
-                show_global_toast(self.parent_window, "Copied to clipboard.")
             else:
-                logger.warning("Failed to get clipboard object from widget.")
-                show_global_toast(self.parent_window, "Failed to access clipboard.")
+                logger.warning("Failed to get clipboard object.")
 
         except AttributeError as e:
-            logger.warning(f"AttributeError in copy_context_item_to_clipboard: {e}. Item might not have expected attributes.")
-            show_global_toast(self.parent_window, "Cannot copy: item data not found.")
-        except Exception as e: # Catch other potential errors during clipboard operation
-            logger.exception(f"Error copying context item to clipboard: {e}")
-            show_global_toast(self.parent_window, "Error copying to clipboard.")
-
+            logger.warning(f"AttributeError in copy_context_item_to_clipboard: {e}")
 
     def on_copy_menu_item_activated(self, _button: Gtk.Button) -> None:
         """
@@ -212,7 +200,6 @@ class Helper:
         :param _button: The :class:`Gtk.Button` that triggered the event (unused).
         :type _button: Gtk.Button
         :return: None
-        :rtype: None
         """
         self.copy_context_item_to_clipboard()
         if self.popover:
@@ -251,7 +238,6 @@ class Helper:
         Handles both :class:`Gtk.MultiSelection` and :class:`Gtk.SingleSelection` models.
 
         :return: None
-        :rtype: None
         """
         if not isinstance(self.widget, Gtk.ColumnView):
             return
@@ -259,17 +245,17 @@ class Helper:
         selection_model: Optional[GObject.Object] = self.widget.get_model()
         selected_texts: list[str] = []
 
-        items_to_copy: list[GObject.Object] = []
+        items_to_copy: list[GObject.Object] = []  # type: ignore[misc]
         if isinstance(selection_model, Gtk.MultiSelection):
-            selection_bitset: Gtk.Bitset = selection_model.get_selection()
+            selection_bitset: Gtk.Bitset = selection_model.get_selection()  # type: ignore[assignment]
             current_pos = selection_bitset.get_minimum()
-            while current_pos != Gtk.INVALID_LIST_POSITION:
-                item = selection_model.get_item(current_pos)  # type: ignore[call-overload] # Common for Gtk.SelectionModel
+            while current_pos != Gtk.INVALID_LIST_POSITION:  # type: ignore[comparison-overlap]
+                item = selection_model.get_item(current_pos)  # type: ignore[call-overload]
                 if item:
                     items_to_copy.append(item)
                 current_pos = selection_bitset.get_next(current_pos)
         elif isinstance(selection_model, Gtk.SingleSelection):
-            item = selection_model.get_selected_item()  # type: ignore[call-overload] # Common for Gtk.SelectionModel
+            item = selection_model.get_selected_item()  # type: ignore[call-overload]
             if item:
                 items_to_copy.append(item)
 
@@ -293,14 +279,7 @@ class Helper:
 
         if selected_texts:
             clipboard_text = "\n".join(selected_texts)
-            clipboard = self.widget.get_clipboard() # New approach for Gtk.Widget
+            clipboard: Gdk.Clipboard = self.widget.get_clipboard()  # type: ignore[assignment]
             if clipboard:
-                clipboard.set_text(clipboard_text) # GTK4 set_text takes only one argument
-                logger.info("Selection copied to clipboard.")
-                show_global_toast(self.parent_window, "Selection copied to clipboard.")
-            else:
-                logger.warning("Failed to get clipboard object for selection copy.")
-                show_global_toast(self.parent_window, "Failed to access clipboard.")
-        else:
-            logger.info("No text selected or available to copy.")
-            show_global_toast(self.parent_window, "Nothing selected to copy.")
+                content_provider = Gdk.ContentProvider.new_for_value(clipboard_text)
+                clipboard.set_content(content_provider)  # type: ignore[no-untyped-call]

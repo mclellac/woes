@@ -1,7 +1,7 @@
 """Provides a client for performing DNS lookups."""
 
 import logging
-from typing import Optional, Any
+from typing import Optional, Any # Use list, dict
 import ipaddress
 
 import dns.resolver
@@ -52,7 +52,6 @@ class DnsResolverClient:
 
         :param custom_dns_server: Optional IP address of a custom DNS server.
         :type custom_dns_server: str, optional
-        :rtype: None
         """
         self.resolver: dns.resolver.Resolver = dns.resolver.Resolver()
         if custom_dns_server:
@@ -115,23 +114,19 @@ class DnsResolverClient:
                 parsed_records.append(record)
             return parsed_records
         except dns.resolver.NXDOMAIN as e:
-            logger.info("DnsResolverClient: NXDOMAIN for %s (%s): %s", query_name_str, record_type_str, e, exc_info=True)
-            raise DnsNxDomainError(f"Domain not found (NXDOMAIN). Ensure the domain name '{query_name_str}' is correct.") from e
+            logger.info("DnsResolverClient: NXDOMAIN for %s (%s): %s", query_name_str, record_type_str, e)
+            raise DnsNxDomainError(f"Domain not found: {query_name_str}") from e
         except dns.resolver.NoAnswer as e:
-            logger.info("DnsResolverClient: NoAnswer for %s (%s): %s", query_name_str, record_type_str, e, exc_info=True)
+            logger.info("DnsResolverClient: NoAnswer for %s (%s): %s", query_name_str, record_type_str, e)
             raise DnsNoAnswerError(
-                f"No records of type '{record_type_str}' found for domain '{query_name_str}' (NoAnswer), though the domain itself exists. Try a different record type."
+                f"No {record_type_str} records found for {query_name_str}, though the name exists."
             ) from e
         except dns.resolver.Timeout as e:
-            logger.warning("DnsResolverClient: Timeout for %s (%s): %s", query_name_str, record_type_str, e, exc_info=True)
-            raise DnsResolutionTimeoutError(
-                f"DNS query for '{query_name_str}' ({record_type_str}) timed out. Your DNS server might be slow, unreachable, or there could be network issues. Check your network and DNS settings."
-            ) from e
+            logger.warning("DnsResolverClient: Timeout for %s (%s): %s", query_name_str, record_type_str, e)
+            raise DnsResolutionTimeoutError(f"DNS query timed out for {query_name_str}") from e
         except dns.exception.DNSException as e:
-            logger.warning("DnsResolverClient: DNSException for %s (%s): %s", query_name_str, record_type_str, e, exc_info=True)
-            raise DnsGenericError(
-                f"An unexpected DNS error occurred for '{query_name_str}' ({record_type_str}): {e}. Check your network and DNS settings."
-            ) from e
+            logger.warning("DnsResolverClient: DNSException for %s (%s): %s", query_name_str, record_type_str, e)
+            raise DnsGenericError(f"DNS error for {query_name_str}: {e}") from e
 
     def resolve(self, domain_or_ip: str, record_type: str) -> list[dict[str, Any]]:
         """

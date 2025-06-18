@@ -16,7 +16,7 @@ import time
 from enum import Enum
 
 import gi
-from gi.repository import Gtk, Adw, Gio, GLib, GObject, Pango
+from gi.repository import Gtk, Adw, Gio, GLib, GObject, Gdk, Pango
 
 from .constants import RESOURCE_PREFIX, APP_ID
 from .utils import show_global_error, show_global_toast, is_valid_url
@@ -49,21 +49,20 @@ class WebScanPage(Gtk.Box):
     # New UI elements for Nikto options
     nikto_format_combo_row: Adw.ComboRow = Gtk.Template.Child()
     nikto_output_file_row: Adw.EntryRow = Gtk.Template.Child()
-
-    STATUS_STYLE_CLASSES = ["success", "warning", "error", "accent"]
     nikto_output_file_button: Gtk.Button = Gtk.Template.Child()
     no404_switch: Adw.SwitchRow = Gtk.Template.Child()
     auth_bypass_switch: Adw.SwitchRow = Gtk.Template.Child()
 
     def __init__(self, **kwargs: Any):
+        """Initialize the WebScanPage."""
+        logging.debug("WebScanPage.__init__ called")
         """
         Initialize the WebScanPage.
 
-        :param kwargs: Keyword arguments passed to the :class:`Gtk.Box` constructor.
+        :param kwargs: Keyword arguments passed to the :class:`Adw.PreferencesPage` constructor.
         :type kwargs: Any
         """
         super().__init__(**kwargs)
-        logging.debug("WebScanPage.__init__ called")
         self.source_view: Gtk.TextView = Gtk.TextView()
         self.source_view.set_name("webscan-output-textview")
         source_buffer = Gtk.TextBuffer()
@@ -82,7 +81,7 @@ class WebScanPage(Gtk.Box):
 
         self.current_web_scan_task: Optional[Gio.Task] = None
         self.current_web_scan_cancellable: Optional[Gio.Cancellable] = None
-        self.current_nikto_process: Optional[subprocess.Popen[str]] = None
+        self.current_nikto_process: Optional[subprocess.Popen[str]] = None  # Added Popen type hint
         self._current_webscan_params: Optional[dict[str, Any]] = None
         self.settings: Gio.Settings = Gio.Settings.new(APP_ID)
         self.style_manager: Adw.StyleManager = Adw.StyleManager.get_default()
@@ -92,11 +91,16 @@ class WebScanPage(Gtk.Box):
         self._output_font_desc: Pango.FontDescription = Pango.FontDescription.from_string(
             output_font_str if output_font_str else "Monospace 10"
         )
+        # if hasattr(self, "source_view") and self.source_view: # Replaced by CssProvider
+        #     self.source_view.override_font(self._output_font_desc)
 
         self.font_css_provider = Gtk.CssProvider()
         if hasattr(self, "source_view") and self.source_view:
-            self.source_view.get_style_context().add_provider(self.font_css_provider, Gtk.STYLE_PROVIDER_PRIORITY_USER)
-        self._update_font_css()
+            self.source_view.get_style_context().add_provider(
+                self.font_css_provider, Gtk.STYLE_PROVIDER_PRIORITY_USER
+            )
+        self._update_font_css() # Initial font application
+
 
         if self.scan_button:
             self.scan_button.get_style_context().add_class("suggested-action")
@@ -115,7 +119,6 @@ class WebScanPage(Gtk.Box):
             self.copy_results_button.set_sensitive(False)
 
         self.url_entry.connect("entry-activated", self.on_scan_button_clicked)
-        self.url_entry.connect("changed", self._on_url_entry_changed) # Clear error on type
 
         if self.scan_button:
             self.scan_button.connect("clicked", self.on_scan_button_clicked)
@@ -137,29 +140,6 @@ class WebScanPage(Gtk.Box):
         self.settings.connect(f"changed::{self._output_font_gsettings_key}", self._on_global_output_font_changed)
         self._update_results_actions_sensitivity()
 
-    @staticmethod
-    def _copy_to_clipboard(text: str, widget: Gtk.Widget) -> None:
-        """
-        Copy the given text to the clipboard.
-
-        :param text: The text to copy.
-        :type text: str
-        :param widget: The :class:`Gtk.Widget` from which to get the clipboard.
-        :type widget: Gtk.Widget
-        """
-        try:
-            display = widget.get_display()
-            clipboard = Gtk.Clipboard.get_default(display)
-            if clipboard:
-                clipboard.set_text(text, -1)
-                logger.info("Text copied to clipboard: %s", text[:100] + "..." if len(text) > 100 else text)
-            else:
-                logger.warning("Could not get default clipboard from widget's display: %s", widget)
-                show_global_toast(widget.get_native(), "Failed to access clipboard.") # type: ignore
-        except Exception:  # pylint: disable=broad-except
-            logger.exception("Error copying to clipboard:")
-            show_global_toast(widget.get_native(), "Error copying to clipboard.") # type: ignore
-
     def _on_global_output_font_changed(self, settings: Gio.Settings, key: str) -> None:
         """Handle changes to the global output font GSettings key."""
         logger.debug("WebScanPage: Global output font setting changed for key: %s", key)
@@ -168,6 +148,10 @@ class WebScanPage(Gtk.Box):
             self._output_font_desc = Pango.FontDescription.from_string(
                 output_font_str if output_font_str else "Monospace 10"
             )
+            # if hasattr(self, "source_view") and self.source_view: # Replaced by CssProvider
+            #     self.source_view.override_font(self._output_font_desc)
+            # else:
+            #     logger.warning("WebScanPage: source_view not available to apply font change.")
             self._update_font_css()
 
     def _update_font_css(self) -> None:
@@ -190,9 +174,9 @@ class WebScanPage(Gtk.Box):
         size_in_pango_units = self._output_font_desc.get_size()
 
         size_in_points = 0.0
-        if size_in_pango_units > 0:  # Pango.SCALE can be 0, avoid division by zero
+        if size_in_pango_units > 0: # Pango.SCALE can be 0, avoid division by zero
             size_in_points = size_in_pango_units / Pango.SCALE
-        else:  # Default to a reasonable size if Pango size is 0 or invalid
+        else: # Default to a reasonable size if Pango size is 0 or invalid
             size_in_points = 10.0
             logger.warning(f"WebScanPage: Pango font size was {size_in_pango_units}, defaulting to {size_in_points}pt.")
 
@@ -201,26 +185,8 @@ class WebScanPage(Gtk.Box):
         css = f"textview#webscan-output-textview {{ font-family: '{effective_font_family}'; font-size: {size_in_points:.1f}pt; }}"
         try:
             self.font_css_provider.load_from_string(css)
-        except GLib.Error as e:  # Catch potential errors from load_from_string
+        except GLib.Error as e: # Catch potential errors from load_from_string
             logger.error(f"WebScanPage: Error loading CSS string '{css}': {e}")
-
-    def _on_url_entry_changed(self, editable: Adw.EntryRow) -> None:
-        """
-        Handle the 'changed' signal for the URL entry row.
-
-        Clears the 'error' CSS class from the entry row and hides any global error
-        banner specifically related to this input's validation.
-
-        :param editable: The Adw.EntryRow that emitted the signal.
-        :type editable: Adw.EntryRow
-        """
-        if editable.has_css_class("error"):
-            editable.remove_css_class("error")
-            main_window = self.get_native()
-            if main_window and hasattr(main_window, "hide_error_if_message_matches"):
-                main_window.hide_error_if_message_matches("Invalid Target URL. Please enter a valid URL (e.g., http://example.com).") # type: ignore[attr-defined]
-            # If the specific hide method isn't there, the error banner might persist until the next successful validation
-            # or explicit _clear_error() call. This is acceptable.
 
     def __del__(self):
         """Clean up when the WebScanPage is destroyed."""
@@ -351,12 +317,17 @@ class WebScanPage(Gtk.Box):
             text_content = buffer.get_text(start_iter, end_iter, False)
 
             if text_content:
-                WebScanPage._copy_to_clipboard(text_content, self)
-                # For consistency with dns_page, success toast is good.
-                show_global_toast(self, "Webscan results copied to clipboard.")
+                try:
+                    clipboard = Gdk.Display.get_default().get_clipboard()
+                    if clipboard:
+                        clipboard.set(text_content)
+                        logger.info("Webscan results copied to clipboard successfully.")
+                    else:
+                        logger.warning("Failed to get default clipboard for copying webscan results.")
+                except Exception as e:  # Clipboard operations can be unreliable
+                    logger.error(f"Error copying webscan results to clipboard: {e}", exc_info=True)
             else:
                 logger.info("No webscan results to copy.")
-                show_global_toast(self, "No results to copy.")
 
     def on_scan_button_clicked(self, _widget: Gtk.Button):
         """
@@ -378,28 +349,20 @@ class WebScanPage(Gtk.Box):
             target_url = "https://" + target_url
 
         if not target_url:
-            self.url_entry.add_css_class("error")
-            error_message = "Invalid Target URL. Please enter a valid URL (e.g., http://example.com)."
-            show_global_error(self, error_message)
-            self.scan_button.set_sensitive(True) # Re-enable button if validation fails early
+            show_global_toast(self, "Target URL cannot be empty.")
+            main_window = self.get_native()
+            if not (main_window and hasattr(main_window, "show_toast")):
+                show_global_error(self, "Target URL cannot be empty.")
+            self.scan_button.set_sensitive(True)
             return
 
         if not is_valid_url(target_url, schemes=["http", "https", "ftp"]):
-            self.url_entry.add_css_class("error")
-            error_message = "Invalid Target URL. Please enter a valid URL (e.g., http://example.com)."
-            show_global_error(self, error_message)
-            self.scan_button.set_sensitive(True) # Re-enable button
+            show_global_toast(self, "Invalid URL format. Please enter a valid URL.")
+            main_window = self.get_native()
+            if not (main_window and hasattr(main_window, "show_toast")):
+                show_global_error(self, "Invalid URL format. Please enter a valid URL.")
+            self.scan_button.set_sensitive(True)
             return
-
-        # If validation passes
-        self.url_entry.remove_css_class("error")
-        # Clear any existing global error banner that might have been shown by previous validation attempts
-        main_window = self.get_native()
-        if main_window and hasattr(main_window, "hide_error_if_message_matches"):
-            main_window.hide_error_if_message_matches("Invalid Target URL. Please enter a valid URL (e.g., http://example.com).") # type: ignore[attr-defined]
-        elif main_window and hasattr(main_window, "hide_error"): # Fallback
-             main_window.hide_error() # type: ignore[attr-defined]
-
 
         buffer = self.source_view.get_buffer()
         buffer.set_text(f"Scanning {target_url}...\n\n")
@@ -408,10 +371,6 @@ class WebScanPage(Gtk.Box):
         self.scan_button.set_sensitive(False)
 
         if self.webscan_status_action_row:
-            style_context = self.webscan_status_action_row.get_style_context()
-            for css_class in WebScanPage.STATUS_STYLE_CLASSES:
-                style_context.remove_class(css_class)
-            style_context.add_class("accent")
             self.webscan_status_action_row.set_subtitle("Scanning...")
         if self.webscan_status_spinner:
             self.webscan_status_spinner.set_visible(True)
@@ -450,11 +409,7 @@ class WebScanPage(Gtk.Box):
         task.run_in_thread(self._run_scan_task_thread_func)
 
     def _run_scan_task_thread_func(
-        self,
-        task: Gio.Task,
-        _source_object: "WebScanPage",
-        _task_data_unused: Optional[dict[str, Any]],
-        cancellable: Gio.Cancellable,
+        self, task: Gio.Task, _source_object: GObject.Object, _task_data_unused: Any, cancellable: Gio.Cancellable
     ):
         """
         Execute the Nikto scan in a separate thread, with cancellation support.
@@ -468,8 +423,8 @@ class WebScanPage(Gtk.Box):
         :param cancellable: A :class:`Gio.Cancellable` object to monitor for cancellation.
         :type cancellable: Gio.Cancellable
         """
-        # _source_object is self for tasks created with self as source
-        scan_params = self._current_webscan_params
+        page_instance: WebScanPage = _source_object
+        scan_params = page_instance._current_webscan_params
 
         if not scan_params:
             logger.error("WebScanPage: _run_scan_task_thread_func: _current_webscan_params is None.")
@@ -480,7 +435,7 @@ class WebScanPage(Gtk.Box):
             )
             return
 
-        target_url = scan_params.get("target_url", "")  # Use .get for safety
+        target_url = scan_params["target_url"]
         force_ssl = scan_params.get("force_ssl", False)
         cgi_vulns = scan_params.get("cgi_vulns", False)
         interesting_content = scan_params.get("interesting_content", False)
@@ -621,8 +576,6 @@ class WebScanPage(Gtk.Box):
             raw_original_stderr = stderr_str if isinstance(stderr_str, str) else ""
             raw_original_stdout = stdout_str if isinstance(stdout_str, str) else ""
             rfi_warning_detected_in_raw = False
-            # Nikto may output a warning about RFIURL directly to stdout/stderr,
-            # separate from its main report output (which can also sometimes go to stderr).
             rfi_warning_signature = "- ***** RFIURL is not defined in nikto.conf--no RFI tests will run *****"
 
             if rfi_warning_signature in raw_original_stderr or rfi_warning_signature in raw_original_stdout:
@@ -633,10 +586,6 @@ class WebScanPage(Gtk.Box):
             aux_output: Optional[str] = None
             report_extracted_from_tuple = False
 
-            # Nikto's output behavior can be inconsistent. Sometimes, the primary report
-            # (intended for stdout or a file) might be wrapped in a Python tuple string representation
-            # and sent to stderr, especially with certain formats or when errors occur.
-            # This section attempts to handle such cases by looking for this tuple string.
             tuple_end_marker = "', None))"
             tuple_end_marker_alt = "', '')"
 
@@ -785,24 +734,22 @@ class WebScanPage(Gtk.Box):
                     str(aux_output) if aux_output is not None else None,
                 )
             )
-        except FileNotFoundError as _e_fnf:
-            logger.error("Nikto command not found. Ensure it's in PATH.", exc_info=True)
+        except FileNotFoundError:
+            logger.error("Nikto command not found. Ensure it's in PATH.")
             task.return_new_error_literal(
                 GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN),
                 WebScanErrorType.NIKTO_NOT_FOUND.value,
                 "Nikto command not found. Please ensure it is installed and in your system's PATH.",
             )
-        except Exception:  # Catch any other unexpected error
-            logger.exception("An unexpected error occurred during Nikto scan task.")
+        except Exception as e:
+            logger.exception(f"An unexpected error occurred during Nikto scan task: {e}")
             task.return_new_error_literal(
-                GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN),
-                WebScanErrorType.GENERIC.value,
-                "An unexpected error occurred during the scan.",
+                GLib.quark_from_string(WEB_SCAN_ERROR_DOMAIN), WebScanErrorType.GENERIC.value, str(e)
             )
         finally:
             self.current_nikto_process = None
 
-    def _on_scan_task_done(self, _source_object: "WebScanPage", result: Gio.AsyncResult, _user_data: Optional[Any]):
+    def _on_scan_task_done(self, _source_object: GObject.Object, result: Gio.AsyncResult, _user_data: object):
         """
         Handle completion of the Nikto scan task.
 
@@ -820,11 +767,6 @@ class WebScanPage(Gtk.Box):
             # self._current_webscan_params = None
 
         logger.info(f"Nikto scan task done for {target_url}.")
-
-        if self.webscan_status_action_row:
-            style_context = self.webscan_status_action_row.get_style_context()
-            for css_class in WebScanPage.STATUS_STYLE_CLASSES:
-                style_context.remove_class(css_class)
 
         try:
             returned_data = result.propagate_value()
@@ -880,21 +822,16 @@ class WebScanPage(Gtk.Box):
                     self.webscan_status_action_row.set_subtitle("Scan complete. See results below.")
                 else:
                     self.webscan_status_action_row.set_subtitle("Scan complete. No output received.")
-                self.webscan_status_action_row.get_style_context().add_class("success")
             elif s_out is None and s_err is None and not (isinstance(returned_data, tuple) and len(returned_data) == 2):
-                if self.webscan_status_action_row:
-                     if self.webscan_status_action_row.get_subtitle() == "Scanning...":
-                        self.webscan_status_action_row.set_subtitle("Error: Unexpected scan result format.")
-                     self.webscan_status_action_row.get_style_context().add_class("error") # Treat as error
-            else: # No output but propagation was fine
+                if self.webscan_status_action_row and self.webscan_status_action_row.get_subtitle() == "Scanning...":
+                    self.webscan_status_action_row.set_subtitle("Error: Unexpected scan result format.")
+            else:
                 if self.webscan_status_action_row:
                     self.webscan_status_action_row.set_subtitle("Scan complete. No output received.")
-                    self.webscan_status_action_row.get_style_context().add_class("success")
-
 
         except GLib.Error as e:
-            logger.error(
-                f"Nikto scan task for {target_url} failed or was cancelled: {e.message} (Domain: {e.domain}, Code: {e.code})", exc_info=e
+            logger.warning(
+                f"Nikto scan task for {target_url} failed or was cancelled: {e.message} (Domain: {e.domain}, Code: {e.code})"
             )
 
             brief_user_message = e.message
@@ -924,7 +861,6 @@ class WebScanPage(Gtk.Box):
 
             if self.webscan_status_action_row:
                 self.webscan_status_action_row.set_subtitle(brief_user_message)
-                self.webscan_status_action_row.get_style_context().add_class("error")
             show_global_error(self, brief_user_message)
 
             if (
@@ -950,7 +886,6 @@ class WebScanPage(Gtk.Box):
 
             if self.webscan_status_action_row:
                 self.webscan_status_action_row.set_subtitle(user_message)
-                self.webscan_status_action_row.get_style_context().add_class("error")
             show_global_error(self, user_message + " Check logs for details.")
             self._update_textview(None, detailed_error_msg_for_textview, is_error_message=True)
         finally:
@@ -1043,8 +978,3 @@ WEB_SCAN_ERROR_DOMAIN = "web-scan-error-domain"
 
 class WebScanErrorType(int, Enum):
     """Enumeration of Web Scan error types for :class:`Gio.Task` error reporting."""
-
-    GENERIC = 0
-    TIMEOUT = 1 # Added based on usage in _on_scan_task_done
-    NIKTO_NOT_FOUND = 2
-    CANCELLED = 3
