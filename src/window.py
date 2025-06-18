@@ -22,6 +22,9 @@ from .constants import (
 )
 from .style_utils import apply_font_size, apply_theme
 from .http_page import HttpPage
+from .nmap_page import NmapPage
+from .dns_page import DNSPage
+from .webscan_page import WebScanPage
 
 
 gi.require_version("Adw", "1")
