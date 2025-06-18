@@ -21,6 +21,7 @@ from .constants import (
     TEXT_SCALING_FACTOR_KEY,
 )
 from .style_utils import apply_font_size, apply_theme
+from .http_page import HttpPage
 
 
 gi.require_version("Adw", "1")
