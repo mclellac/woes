@@ -77,40 +77,120 @@ class DnsResolverClient:
         :rtype: list[dict[str, Any]]
         """
         try:
-            answer: dns.resolver.Answer = self.resolver.resolve(query_name_str, record_type_str)  # type: ignore[no-untyped-call]
+import dns.name
+from dns.rdtypes.IN import A, AAAA, CNAME, MX, NS, PTR, SOA
+from dns.rdtypes.ANY import TXT # TXT can be class IN or ANY
+
+# Helper functions for parsing specific RDATA types
+# Each function takes the rdata object and the base record dictionary,
+# and adds/modifies it with type-specific information.
+
+def _parse_a_record(rdata: A.A, record: dict[str, Any]) -> None:
+    """Parses an A record."""
+    record["address"] = rdata.address
+
+def _parse_aaaa_record(rdata: AAAA.AAAA, record: dict[str, Any]) -> None:
+    """Parses an AAAA record."""
+    record["address"] = rdata.address
+
+def _parse_cname_record(rdata: CNAME.CNAME, record: dict[str, Any]) -> None:
+    """Parses a CNAME record."""
+    record["target"] = rdata.target.to_text()
+
+def _parse_mx_record(rdata: MX.MX, record: dict[str, Any]) -> None:
+    """Parses an MX record."""
+    record["preference"] = rdata.preference
+    record["exchange"] = rdata.exchange.to_text()
+
+def _parse_txt_record(rdata: TXT.TXT, record: dict[str, Any]) -> None:
+    """Parses a TXT record."""
+    # rdata.strings is a list of bytes
+    record["texts"] = [s.decode("utf-8", "replace") for s in rdata.strings]
+
+def _parse_ns_record(rdata: NS.NS, record: dict[str, Any]) -> None:
+    """Parses an NS record."""
+    record["target"] = rdata.target.to_text()
+
+def _parse_ptr_record(rdata: PTR.PTR, record: dict[str, Any]) -> None:
+    """Parses a PTR record."""
+    record["target"] = rdata.target.to_text()
+
+def _parse_soa_record(rdata: SOA.SOA, record: dict[str, Any]) -> None:
+    """Parses an SOA record."""
+    record["mname"] = rdata.mname.to_text()
+    record["rname"] = rdata.rname.to_text()
+    record["serial"] = rdata.serial
+    record["refresh"] = rdata.refresh
+    record["retry"] = rdata.retry
+    record["expire"] = rdata.expire
+    record["minimum"] = rdata.minimum
+
+# Dispatcher dictionary mapping RDATA types to parser functions
+_RDATA_PARSERS = {
+    dns.rdatatype.A: _parse_a_record,
+    dns.rdatatype.AAAA: _parse_aaaa_record,
+    dns.rdatatype.CNAME: _parse_cname_record,
+    dns.rdatatype.MX: _parse_mx_record,
+    dns.rdatatype.TXT: _parse_txt_record,
+    dns.rdatatype.NS: _parse_ns_record,
+    dns.rdatatype.PTR: _parse_ptr_record,
+    dns.rdatatype.SOA: _parse_soa_record,
+}
+
+# ... (DnsResolverClient class definition starts here) ...
+# Inside DnsResolverClient:
+    def _lookup_record_internal(self, query_name_str: str, record_type_str: str) -> list[dict[str, Any]]:
+        """
+        Look up and parse DNS records.
+
+        Internal method.
+
+        :param query_name_str: Domain name or reverse IP to query.
+        :type query_name_str: str
+        :param record_type_str: DNS record type string.
+        :type record_type_str: str
+        :raises DnsResolutionTimeoutError: If DNS query times out.
+        :raises DnsNxDomainError: If domain does not exist.
+        :raises DnsNoAnswerError: If query name valid but no records of requested type exist.
+        :raises DnsGenericError: For other DNS lookup failures.
+        :return: List of parsed DNS record dictionaries.
+        :rtype: list[dict[str, Any]]
+        """
+        try:
+            # The resolve method can take various types for record_type, including int or string.
+            # We use string as per our method signature.
+            answer: dns.resolver.Answer = self.resolver.resolve(query_name_str, record_type_str)
+
             parsed_records: list[dict[str, Any]] = []
-            for rdata in answer:
+
+            # The answer object has an rrset attribute, which is the RRset that matched the query.
+            # All rdata within this answer will share the same TTL from this rrset.
+            # If answer.rrset is None (e.g., for NXDOMAIN, though caught by exception),
+            # this would be an issue, but successful resolution implies an rrset.
+            common_ttl = answer.rrset.ttl if answer.rrset else 0 # Default to 0 if somehow no rrset
+
+            for rdata in answer: # type: dns.rdata.Rdata
+                # Common fields for all records
                 record: dict[str, Any] = {
-                    "name": answer.qname.to_text(),  # type: ignore[attr-defined]
-                    "ttl": rdata.ttl if hasattr(rdata, "ttl") else answer.response.answer[0].ttl,  # type: ignore[union-attr]
-                    "class": dns.rdataclass.to_text(rdata.rdclass),  # type: ignore[no-untyped-call]
-                    "type": dns.rdatatype.to_text(rdata.rdtype),  # type: ignore[no-untyped-call]
+                    "name": answer.qname.to_text(), # qname is a dns.name.Name object
+                    "ttl": common_ttl,
+                    "class": dns.rdataclass.to_text(rdata.rdclass),
+                    "type": dns.rdatatype.to_text(rdata.rdtype),
                 }
-                if rdata.rdtype == dns.rdatatype.A:
-                    record["address"] = rdata.address
-                elif rdata.rdtype == dns.rdatatype.AAAA:
-                    record["address"] = rdata.address
-                elif rdata.rdtype == dns.rdatatype.CNAME:
-                    record["target"] = rdata.target.to_text()
-                elif rdata.rdtype == dns.rdatatype.MX:
-                    record["preference"] = rdata.preference
-                    record["exchange"] = rdata.exchange.to_text()
-                elif rdata.rdtype == dns.rdatatype.TXT:  # type: ignore[attr-defined]
-                    record["texts"] = [s.decode("utf-8", "replace") for s in rdata.strings]  # type: ignore[attr-defined]
-                elif rdata.rdtype == dns.rdatatype.NS:  # type: ignore[attr-defined]
-                    record["target"] = rdata.target.to_text()  # type: ignore[attr-defined]
-                elif rdata.rdtype == dns.rdatatype.PTR:  # type: ignore[attr-defined]
-                    record["target"] = rdata.target.to_text()  # type: ignore[attr-defined]
-                elif rdata.rdtype == dns.rdatatype.SOA:  # type: ignore[attr-defined]
-                    record["mname"] = rdata.mname.to_text()  # type: ignore[attr-defined]
-                    record["rname"] = rdata.rname.to_text()  # type: ignore[attr-defined]
-                    record["serial"] = rdata.serial  # type: ignore[attr-defined]
-                    record["refresh"] = rdata.refresh  # type: ignore[attr-defined]
-                    record["retry"] = rdata.retry  # type: ignore[attr-defined]
-                    record["expire"] = rdata.expire  # type: ignore[attr-defined]
-                    record["minimum"] = rdata.minimum  # type: ignore[attr-defined]
+
+                # Use the dispatcher to find the appropriate parser
+                parser = _RDATA_PARSERS.get(rdata.rdtype)
+                if parser:
+                    # We cast rdata to 'Any' here because the parser functions have specific types.
+                    # Alternatively, each parser could handle 'Any' and do its own check,
+                    # or we'd need a more complex dispatcher type hint.
+                    # For now, this keeps parser signatures clean.
+                    # The dispatcher logic ensures correct parser is called.
+                    parser(rdata, record) # type: ignore[arg-type]
                 else:
-                    record["data"] = rdata.to_text()  # type: ignore[no-untyped-call]
+                    # Fallback for unknown record types
+                    record["data"] = rdata.to_text()
+
                 parsed_records.append(record)
             return parsed_records
         except dns.resolver.NXDOMAIN as e:

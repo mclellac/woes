@@ -182,7 +182,8 @@ class HttpPage(Gtk.Box):
         """
         super().__init__(**kwargs)
         logger.debug("HttpPage initialized.")
-        self.current_http_task: Optional[Gio.Task] = None
+        self.current_http_task: Optional[Gio.Task] = None # Retained for compatibility if other parts use it
+        self._http_fetch_cancellable: Optional[Gio.Cancellable] = None # For async task
         self._current_header_items: list[HeaderItem] = []
         self._http_task_data_for_thread: dict[str, Any] = {}
         self._ua_title_to_value_map: dict[str, Optional[str]] = {}  # Maps display titles to actual UA strings
@@ -522,16 +523,31 @@ class HttpPage(Gtk.Box):
         }
         logger.debug("HttpPage: Starting header fetch task with data: %s", self._http_task_data_for_thread)
 
-        task = Gio.Task.new(self, None, self._fetch_headers_task_done_cb, None)  # type: ignore[arg-type]
-        self.current_http_task = task
-        task.run_in_thread(self._fetch_headers_task_thread_func)  # type: ignore[arg-type]
+        # Cancel previous task if any
+        if self._http_fetch_cancellable and not self._http_fetch_cancellable.is_cancelled():
+            self._http_fetch_cancellable.cancel()
+            logger.info("HttpPage: Cancelled previous HTTP fetch task.")
+
+        self._http_fetch_cancellable = Gio.Cancellable()
+
+        task = Gio.Task.new(
+            source_object=self, # type: ignore
+            cancellable=self._http_fetch_cancellable,
+            callback=self._fetch_headers_task_done_cb, # type: ignore
+            # task_data passed to Gio.Task.new (if any) is available via task.get_task_data()
+            # The thread function _fetch_headers_task_thread_func will receive this task object.
+            # It also receives the source_object, its own task_data (if provided to run_in_thread), and the cancellable.
+        )
+        self.current_http_task = task # Keep if current_http_task is used for direct task manipulation elsewhere
+        task.run_in_thread(self._fetch_headers_task_thread_func) # type: ignore[arg-type]
+
 
     def _fetch_headers_task_thread_func(
         self,
-        task: Gio.Task,
-        _source_object: GObject.Object,
-        _task_data_arg: Dict[str, Any],
-        cancellable: Optional[Gio.Cancellable],
+        task: Gio.Task, # The task instance
+        _source_object: GObject.Object, # The source_object used in Gio.Task.new()
+        _task_data: Optional[Any], # Task-specific data passed to Gio.Task.run_in_thread() itself (not task_data of Gio.Task.new)
+        cancellable: Optional[Gio.Cancellable], # The Gio.Cancellable associated with the task
     ) -> None:
         """
         Background thread function for fetching HTTP headers.
@@ -915,6 +931,11 @@ class HttpPage(Gtk.Box):
         self._clear_error()
         if self.http_entry_row:
             self.http_entry_row.set_text("")
+
+        # Cancel any ongoing fetch task if results are cleared
+        if self._http_fetch_cancellable and not self._http_fetch_cancellable.is_cancelled():
+            self._http_fetch_cancellable.cancel()
+            logger.info("HttpPage: Cancelled HTTP fetch task due to clearing results.")
 
     def _on_color_setting_changed(self, settings: Gio.Settings, key: str) -> None:
         """
