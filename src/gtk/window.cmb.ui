@@ -12,12 +12,13 @@
           <object class="GtkBox" id="main_box">
             <property name="halign">baseline-fill</property>
             <property name="orientation">vertical</property>
+            <property name="vexpand">True</property>
+            <property name="vexpand-set">True</property>
             <child>
               <object class="AdwHeaderBar" id="header_bar">
                 <property name="title-widget">
-                  <object class="AdwViewSwitcher" id="switcher_title">
+                  <object class="AdwViewSwitcherTitle" id="switcher_title">
                     <property name="halign">baseline-fill</property>
-                    <property name="policy">wide</property>
                     <property name="stack">stack</property>
                   </object>
                 </property>
@@ -78,11 +79,13 @@
                       <object class="AdwStatusPage" id="nmap_status_page">
                         <property name="description">This tool is designed to facilitate network scanning, reconnaissance, and exploit detection using Nmap, a powerful network scanning tool. This interface provides the capability to perform various types of scans, including &lt;b&gt;service detection&lt;/b&gt;, &lt;b&gt;OS fingerprinting&lt;/b&gt;, &lt;b&gt;port scanning&lt;/b&gt;, and &lt;b&gt;vulnerability assessments&lt;/b&gt; using the &lt;i&gt;Nmap Scripting Engine (NSE)&lt;/i&gt;.</property>
                         <property name="icon-name" bind-source="nmap_page" bind-property="icon-name" bind-flags="sync-create"/>
+                        <property name="margin-end">15</property>
+                        <property name="margin-start">15</property>
                         <property name="title" bind-source="nmap_page" bind-property="title" bind-flags="sync-create">Port Scanning</property>
-                        <property name="valign">start</property>
+                        <property name="vexpand">True</property>
+                        <property name="vexpand-set">True</property>
                         <child>
                           <object class="AdwClampScrollable">
-                            <property name="hexpand">True</property>
                             <property name="maximum-size">1400</property>
                             <property name="unit">px</property>
                             <property name="vexpand">True</property>
@@ -180,6 +183,8 @@
     <property name="height-request">600</property>
     <property name="overflow">hidden</property>
     <property name="title" translatable="yes">Woes</property>
+    <property name="vexpand">True</property>
+    <property name="vexpand-set">True</property>
     <property name="width-request">1000</property>
     <child>
       <object class="AdwBreakpoint">

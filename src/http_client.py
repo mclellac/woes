@@ -4,8 +4,7 @@ import logging
 from typing import Optional, Dict, List, Any  # Use dict, list
 
 import requests
-# import requests.utils  # For urlparse, urlunparse -> Replaced by direct import
-from urllib.parse import urlparse
+import requests.utils  # For urlparse, urlunparse
 
 try:
     import dns.resolver
@@ -272,153 +271,71 @@ class HttpFetcher:
         current_exc: Optional[BaseException] = exc
         found_connection_refused: bool = False
         max_depth = 5
-import socket
-import errno # For errno constants
-
-# ... (other imports) ...
-
-# Helper to get errno from an exception if possible
-def _get_errno(e: BaseException) -> Optional[int]:
-    if hasattr(e, 'errno') and isinstance(e.errno, int):
-        return e.errno
-    if hasattr(e, 'args') and isinstance(e.args, tuple) and len(e.args) > 0 and isinstance(e.args[0], int):
-        # Sometimes errno is the first argument, e.g. in some OSErrors
-        # Check if it's a known errno value to be more certain, though this is heuristic
-        # For now, we'll just return it if it's an int.
-        # A more robust check might involve checking against a list of valid errnos.
-        return e.args[0]
-    return None
-
-# ... (class HttpFetcher and other methods) ...
-
-    def _get_detailed_connection_error_message(self, exc: Exception, url: str) -> Optional[str]:
-        """
-        Attempt to find a 'Connection Refused' error within a chain of exceptions.
-        Prioritizes specific exception types and errno checks over string matching.
-
-        Moved from ``HttpPage``.
-
-        :param exc: The initial exception object.
-        :type exc: Exception
-        :param url: The URL for which the connection was attempted.
-        :type url: str
-        :return: A detailed error message if 'Connection Refused' is identified,
-                 otherwise ``None``.
-        :rtype: Optional[str]
-        """
-        current_exc: Optional[BaseException] = exc
-        found_connection_refused: bool = False
-        max_depth = 10 # Increased depth slightly for deeply nested exceptions
-        processed_exceptions = set() # To avoid infinite loops in rare cases
-
         for _depth in range(max_depth):
-            if current_exc is None or id(current_exc) in processed_exceptions:
+            if current_exc is None:
                 break
-            processed_exceptions.add(id(current_exc))
-
-            # 1. Direct check for ConnectionRefusedError
+            exc_str = str(current_exc).lower()
             if isinstance(current_exc, ConnectionRefusedError):
                 found_connection_refused = True
                 break
-
-            # 2. Check for OSError with specific errno ECONNREFUSED
-            # ConnectionRefusedError is a subclass of OSError, so this might be redundant
-            # if the direct check above is comprehensive, but kept for thoroughness.
-            if isinstance(current_exc, OSError) and _get_errno(current_exc) == errno.ECONNREFUSED:
-                found_connection_refused = True
-                break
-
-            # 3. Check urllib3 specific exceptions that often wrap ConnectionRefusedError
             if isinstance(current_exc, urllib3_exceptions.NewConnectionError):
-                # Check if the NewConnectionError itself was caused by a ConnectionRefusedError or ECONNREFUSED
-                # This can be in its __cause__ or sometimes an 'original_error' attribute if urllib3 adds one.
-                # The loop will check __cause__ automatically.
-                # We also check its string representation as a fallback.
-                exc_str_lower = str(current_exc).lower()
-                if "connection refused" in exc_str_lower or "errno 111" in exc_str_lower:
+                if "connection refused" in exc_str or "errno 111" in exc_str:
                     found_connection_refused = True
                     break
-                # Check original_error if present (as in existing code)
                 if hasattr(current_exc, "original_error"):
-                    original_error = current_exc.original_error # type: ignore
-                    if isinstance(original_error, ConnectionRefusedError) or \
-                       (isinstance(original_error, OSError) and _get_errno(original_error) == errno.ECONNREFUSED):
+                    original_error = current_exc.original_error
+                    if isinstance(original_error, ConnectionRefusedError) or (
+                        hasattr(original_error, "errno") and original_error.errno == 111
+                    ):
                         found_connection_refused = True
                         break
-                    if "connection refused" in str(original_error).lower() or "errno 111" in str(original_error).lower():
-                         found_connection_refused = True
-                         break
-
-
             if isinstance(current_exc, urllib3_exceptions.MaxRetryError):
-                # The actual connection error is in the 'reason' attribute
-                if hasattr(current_exc, "reason") and current_exc.reason is not None: # type: ignore
-                    # We don't break here; instead, we set current_exc to its reason
-                    # and let the loop continue to analyze the reason exception.
-                    # This avoids duplicating all the checks for the reason.
-                    # However, to ensure progress, we'll do a quick check on reason string here
-                    # and if it matches, we can break early.
-                    reason_exc_str_lower = str(current_exc.reason).lower() # type: ignore
-                    if "connection refused" in reason_exc_str_lower or "errno 111" in reason_exc_str_lower:
+                if hasattr(current_exc, "reason") and isinstance(
+                    current_exc.reason, urllib3_exceptions.NewConnectionError
+                ):
+                    reason_exc_str = str(current_exc.reason).lower()
+                    if "connection refused" in reason_exc_str or "errno 111" in reason_exc_str:
                         found_connection_refused = True
                         break
-                    # If not immediately found in string, the loop will continue with reason as current_exc
-                else: # No reason, MaxRetryError itself might contain clues (less likely for refused)
-                    exc_str_lower = str(current_exc).lower()
-                    if "connection refused" in exc_str_lower or "errno 111" in exc_str_lower:
-                        found_connection_refused = True
-                        break
-
-
-            # 4. Fallback: Generic string matching on the current exception's string or args
-            # This is kept from the original logic as a final catch-all.
-            # We check this after specific types because string matching can be less precise.
-            if not found_connection_refused:
-                exc_str_lower = str(current_exc).lower()
-                if "connection refused" in exc_str_lower or "errno 111" in exc_str_lower:
-                    found_connection_refused = True
-                    break
-                if hasattr(current_exc, 'args') and isinstance(current_exc.args, tuple):
-                    for arg in current_exc.args:
-                        if isinstance(arg, str):
-                            arg_lower = arg.lower()
-                            if "connection refused" in arg_lower or "errno 111" in arg_lower:
-                                found_connection_refused = True
-                                break
-                    if found_connection_refused:
-                        break
-
-            if found_connection_refused: # Should be caught by inner breaks, but for safety.
+                    if hasattr(current_exc.reason, "original_error"):
+                        original_error = current_exc.reason.original_error
+                        if isinstance(original_error, ConnectionRefusedError) or (
+                            hasattr(original_error, "errno") and original_error.errno == 111
+                        ):
+                            found_connection_refused = True
+                            break
+            if (
+                any("connection refused" in str(arg).lower() for arg in current_exc.args if isinstance(arg, str))
+                or "connection refused" in exc_str
+            ):
+                found_connection_refused = True
+            if (
+                any("errno 111" in str(arg).lower() for arg in current_exc.args if isinstance(arg, str))
+                or "errno 111" in exc_str
+            ):
+                found_connection_refused = True
+            if found_connection_refused:
                 break
-
-            # Navigate to the next exception in the chain
             next_exc: Optional[BaseException] = None
             if hasattr(current_exc, "__cause__") and current_exc.__cause__ is not None:
                 next_exc = current_exc.__cause__
             elif (
                 hasattr(current_exc, "__context__")
                 and current_exc.__context__ is not None
-                and not getattr(current_exc, "__suppress_context__", False) # type: ignore
+                and not getattr(current_exc, "__suppress_context__", False)
             ):
                 next_exc = current_exc.__context__
-
-            # Avoid getting stuck if current_exc is its own cause/context (shouldn't happen)
-            if current_exc is next_exc or next_exc is None: # Break if no progress or end of chain
+            if current_exc is next_exc:
                 break
             current_exc = next_exc
-
         if found_connection_refused:
             logger.info("HttpFetcher: Connection refused condition identified for URL: %s", url)
-            # self.url is available if needed, but the passed 'url' param is more direct for this method's scope
-            parsed_url = urlparse(url)
-            scheme = parsed_url.scheme.lower() if parsed_url.scheme else ""
-
-            if scheme == "https":
+            parsed_url_scheme = requests.utils.urlparse(url).scheme
+            if parsed_url_scheme == "https":
                 return "Connection Refused: Server at HTTPS URL actively refused. Try 'http://'?"
-            elif scheme == "http":
+            if parsed_url_scheme == "http":
                 return "Connection Refused: Server at HTTP URL actively refused. Try 'https://' or check if server is down."
-            else: # Fallback for ftp, ws, or other schemes, or if scheme parsing failed
-                return "Connection Refused: The server at the specified URL actively refused the connection."
+            return "Connection Refused: The server at the specified URL actively refused the connection."
         return None
 
     def _format_http_error(self, e: requests.exceptions.HTTPError) -> str:
@@ -458,22 +375,9 @@ def _get_errno(e: BaseException) -> Optional[int]:
         """
         initial_request_specific_headers, session_headers = self._prepare_request_headers()
 
-        # Determine the SNI hint for the CustomDNSAdapter.
-        # Priority:
-        # 1. User-defined Host header (self.host_header)
-        # 2. Hostname from the URL
         adapter_sni_hint: Optional[str] = None
-        parsed_url = urlparse(self.url)
-        url_hostname = parsed_url.hostname
-
         if self.host_header:
-            adapter_sni_hint = self.host_header
-            logger.info("HttpFetcher: Using Host header ('%s') as SNI hint.", self.host_header)
-        elif url_hostname:
-            adapter_sni_hint = url_hostname
-            logger.info("HttpFetcher: Using URL hostname ('%s') as SNI hint.", url_hostname)
-        else:
-            logger.warning("HttpFetcher: Could not determine hostname for SNI hint from URL: %s", self.url)
+            requests.utils.urlparse(self.url)  # type: ignore[attr-defined]
 
         effective_custom_dns_server: Optional[str] = self.custom_dns_server if dns else None
         if self.custom_dns_server and not dns:
@@ -481,15 +385,13 @@ def _get_errno(e: BaseException) -> Optional[int]:
                 "HttpFetcher: Custom DNS ('%s') configured, but dnspython missing for adapter.", self.custom_dns_server
             )
 
-        # Pass the determined SNI hint to the adapter.
-        # The adapter is expected to use this for TLS connections, especially when connecting to an IP.
         adapter = CustomDNSAdapter(custom_dns_server=effective_custom_dns_server, default_sni=adapter_sni_hint)
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
         logger.info(
-            "HttpFetcher: CustomDNSAdapter mounted (DNS: '%s', SNI hint: '%s').",
+            "HttpFetcher: CustomDNSAdapter mounted (DNS: '%s', SNI hint for IP URL: '%s').",
             effective_custom_dns_server,
-            adapter_sni_hint, # Log the actual hint being used
+            adapter_sni_hint,
         )
 
         if session_headers:
