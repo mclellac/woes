@@ -85,6 +85,10 @@ class NmapPage(Gtk.Box):
     status_row = Gtk.Template.Child("status_row")
     scan_spinner = Gtk.Template.Child("scan_spinner")
     nmap_cancel_scan_button = Gtk.Template.Child()
+    nmap_tcp_syn_scan_switchrow = Gtk.Template.Child("nmap_tcp_syn_scan_switchrow")
+    nmap_output_format_combo_row = Gtk.Template.Child("nmap_output_format_combo_row")
+    nmap_output_file_row = Gtk.Template.Child("nmap_output_file_row")
+    nmap_output_file_button = Gtk.Template.Child("nmap_output_file_button")
 
     nmap_host_listbox = Gtk.Template.Child("nmap_host_listbox")
     nmap_detail_box = Gtk.Template.Child("nmap_detail_box")
@@ -186,7 +190,71 @@ class NmapPage(Gtk.Box):
         self.nmap_host_listbox.connect("row-selected", self._on_target_selected)
         if self.nmap_cancel_scan_button:
             self.nmap_cancel_scan_button.connect("clicked", self._on_cancel_scan_clicked)
+        if self.nmap_output_format_combo_row:
+            self.nmap_output_format_combo_row.connect("notify::selected-item", self._on_nmap_output_format_changed)
+        if self.nmap_output_file_button:
+            self.nmap_output_file_button.connect("clicked", self._on_nmap_output_file_button_clicked)
+
+        # Initial sensitivity settings
+        if self.nmap_output_file_row:
+            self.nmap_output_file_row.set_sensitive(False)
+        if self.nmap_output_file_button:
+            self.nmap_output_file_button.set_sensitive(False)
+
         self.settings.connect(f"changed::{self._output_font_gsettings_key}", self._on_global_output_font_changed)
+
+    def _on_nmap_output_format_changed(self, combo_row: Adw.ComboRow, _param_spec: GObject.ParamSpec):
+        selected_item = combo_row.get_selected_item()
+        if not selected_item:
+            is_file_required = False
+        else:
+            selected_format_str = selected_item.get_string()
+            # "None" format does not require a file. Others do.
+            is_file_required = selected_format_str != "None"
+
+        if self.nmap_output_file_row:
+            self.nmap_output_file_row.set_sensitive(is_file_required)
+        if self.nmap_output_file_button:
+            self.nmap_output_file_button.set_sensitive(is_file_required)
+
+        if not is_file_required and self.nmap_output_file_row:
+            self.nmap_output_file_row.set_text("")
+        logger.debug(f"Nmap output format changed. File required: {is_file_required}")
+
+    def _on_nmap_output_file_button_clicked(self, _button: Gtk.Button):
+        dialog = Gtk.FileChooserNative.new(
+            "Save Nmap Output", self.get_native(), Gtk.FileChooserAction.SAVE, "_Save", "_Cancel"
+        )
+        dialog.set_modal(True)
+
+        # Suggest filename based on format
+        selected_format_item = self.nmap_output_format_combo_row.get_selected_item()
+        default_name = "nmap_scan"
+        extension = "txt" # Default
+        if selected_format_item:
+            format_str = selected_format_item.get_string()
+            if "Normal (.txt)" in format_str:
+                extension = "txt"
+            elif "Grepable (.gnmap)" in format_str:
+                extension = "gnmap"
+            elif "XML (.xml)" in format_str:
+                extension = "xml"
+        dialog.set_current_name(f"{default_name}.{extension}")
+
+        def on_dialog_response(_source_object, response_id, _user_data):
+            if response_id == Gtk.ResponseType.ACCEPT:
+                file_obj = dialog.get_file() # Get GFile object
+                if file_obj:
+                    file_path = file_obj.get_path()
+                    if self.nmap_output_file_row:
+                        self.nmap_output_file_row.set_text(file_path if file_path else "")
+                        logger.info(f"Nmap output file set to: {file_path}")
+            elif response_id == Gtk.ResponseType.CANCEL:
+                logger.info("Nmap output file selection cancelled.")
+            dialog.destroy()
+
+        dialog.connect("response", on_dialog_response, None)
+        dialog.show()
 
     def _on_global_output_font_changed(self, settings: Gio.Settings, key: str) -> None:
         """Handle changes to the global output font GSettings key."""
@@ -285,6 +353,7 @@ class NmapPage(Gtk.Box):
             "target": target,
             "os_fingerprinting": self.nmap_fingerprint_switchrow.get_active(),
             "scan_all_ports": self.nmap_all_ports_switchrow.get_active(),
+            "tcp_syn_scan": self.nmap_tcp_syn_scan_switchrow.get_active(),
             "selected_script": (
                 item.get_string()
                 if isinstance(
@@ -307,6 +376,20 @@ class NmapPage(Gtk.Box):
             ),
             "custom_dns_server": self.settings.get_string("custom-dns-server"),
         }
+
+        output_format_item = self.nmap_output_format_combo_row.get_selected_item()
+        output_filename_str = self.nmap_output_file_row.get_text().strip()
+
+        if output_format_item:
+            output_format_str = output_format_item.get_string()
+            if output_format_str != "None" and output_filename_str:
+                scan_params["output_format"] = output_format_str
+                scan_params["output_filename"] = output_filename_str
+            elif output_format_str != "None" and not output_filename_str:
+                logger.warning("Nmap output format selected but no filename provided. File output will be skipped.")
+                # Optionally show a toast to the user here
+                show_global_toast(self, "Output format selected, but no filename given. Output will not be saved to file.")
+
         logger.info(f"NmapPage: Starting Nmap scan task with params: {scan_params}")
 
         self.current_nmap_task = Gio.Task.new(
