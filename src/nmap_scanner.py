@@ -74,6 +74,12 @@ class NmapScanParameters(TypedDict, total=False):
     :type timing_template: str
     :param custom_dns_server: Custom DNS server to use for the scan.
     :type custom_dns_server: Optional[str]
+    :param tcp_syn_scan: Whether to perform a TCP SYN scan.
+    :type tcp_syn_scan: bool
+    :param output_format: The desired output format for the scan results (e.g., "Normal", "XML", "Grepable").
+    :type output_format: Optional[str]
+    :param output_filename: The filename to save the scan results to.
+    :type output_filename: Optional[str]
     """
 
     target: str
@@ -84,6 +90,9 @@ class NmapScanParameters(TypedDict, total=False):
     no_ping: bool
     timing_template: str
     custom_dns_server: Optional[str]
+    tcp_syn_scan: bool
+    output_format: Optional[str]
+    output_filename: Optional[str]
 
 
 def _is_scan_root_required(nmap_args_list: list[str]) -> bool:
@@ -266,8 +275,10 @@ class NmapScanner:
         :return: A list of arguments for the Nmap command.
         :rtype: list[str]
         """
-        nmap_args_list: list[str] = ["nmap", "-sS"]  # -sS (TCP SYN scan) requires root
+        nmap_args_list: list[str] = ["nmap"]
 
+        if params.get("tcp_syn_scan"):
+            nmap_args_list.append("-sS")  # -sS (TCP SYN scan) requires root
         if params.get("os_fingerprinting"):
             nmap_args_list.append("-O")
         if params.get("service_version"):
@@ -290,7 +301,24 @@ class NmapScanner:
             nmap_args_list.append(f"--dns-servers={custom_dns_server.strip()}")
             logger.info("Using custom DNS server for Nmap scan: %s", custom_dns_server.strip())
 
-        nmap_args_list.extend(["-oX", "-", params["target"]])
+        # Always add -oX - for existing UI functionality to parse XML output from stdout
+        nmap_args_list.extend(["-oX", "-"])
+
+        output_format = params.get("output_format")
+        output_filename = params.get("output_filename")
+
+        if output_format and output_filename:
+            if output_format == "Normal (.txt)":
+                nmap_args_list.extend(["-oN", output_filename])
+            elif output_format == "Grepable (.gnmap)":
+                nmap_args_list.extend(["-oG", output_filename])
+            elif output_format == "XML (.xml)":
+                # This will be a separate file from the stdout XML used by analyze_nmap_xml_scan
+                nmap_args_list.extend(["-oX", output_filename])
+            # else: Consider adding a log message for unhandled formats if necessary
+
+        nmap_args_list.append(params["target"])
+        # logger.info("FINAL NMAP COMMAND ARGS: %s", " ".join(nmap_args_list)) # Temporary for testing - REMOVED
         logger.debug("Built Nmap arguments: %s", nmap_args_list)
         return nmap_args_list
 

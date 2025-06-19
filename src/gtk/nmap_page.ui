@@ -129,6 +129,45 @@
                     <property name="title" translatable="yes">Timing Template (-T)</property>
                   </object>
                 </child>
+                <child>
+                  <object class="AdwSwitchRow" id="nmap_tcp_syn_scan_switchrow">
+                    <property name="title" translatable="yes">TCP SYN Scan (-sS)</property>
+                    <property name="subtitle" translatable="yes">Performs a stealthy SYN scan (requires root/administrator privileges)</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="AdwComboRow" id="nmap_output_format_combo_row">
+                    <property name="title" translatable="yes">Output Format</property>
+                    <property name="model">
+                      <object class="GtkStringList">
+                        <items>
+                          <item translatable="yes">None</item>
+                          <item translatable="yes">Normal (.txt)</item>
+                          <item translatable="yes">Grepable (.gnmap)</item>
+                          <item translatable="yes">XML (.xml)</item>
+                        </items>
+                      </object>
+                    </property>
+                    <property name="selected">0</property> <!-- Default to "None" -->
+                  </object>
+                </child>
+                <child>
+                  <object class="AdwEntryRow" id="nmap_output_file_row">
+                    <property name="title" translatable="yes">Output Filename</property>
+                    <property name="sensitive">false</property> <!-- Initially insensitive -->
+                    <child type="suffix">
+                      <object class="GtkButton" id="nmap_output_file_button">
+                        <property name="icon-name">document-open-symbolic</property>
+                        <property name="tooltip-text" translatable="yes">Choose Output File</property>
+                        <property name="valign">center</property>
+                        <property name="sensitive">false</property> <!-- Initially insensitive -->
+                        <style>
+                          <class name="flat"/>
+                        </style>
+                      </object>
+                    </child>
+                  </object>
+                </child>
               </object>
             </child>
             <child>
