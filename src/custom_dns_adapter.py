@@ -1,5 +1,4 @@
-"""
-Custom HTTPAdapter for requests with custom DNS and SNI.
+"""Custom HTTPAdapter for requests with custom DNS and SNI.
 
 Provides a :class:`requests.adapters.HTTPAdapter` for custom DNS resolution
 and Server Name Indication (SNI) for HTTPS connections.
@@ -8,7 +7,7 @@ and Server Name Indication (SNI) for HTTPS connections.
 import logging
 import socket
 import ssl
-from typing import Optional, Tuple, Any # Use list, dict
+from typing import Optional, Any # No Tuple needed for Python 3.9+ type hints
 
 import requests
 import requests.utils # For urlparse, urlunparse
@@ -27,8 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 class CustomDNSAdapter(HTTPAdapter):
-    """
-    Custom requests.adapters.HTTPAdapter for DNS and SNI.
+    """Custom requests.adapters.HTTPAdapter for DNS and SNI.
 
     Enables custom DNS resolution and SNI handling. Resolves hostnames using
     a specified DNS server (if dnspython is available) and configures SNI
@@ -41,17 +39,12 @@ class CustomDNSAdapter(HTTPAdapter):
     def __init__(
         self, *args: Any, custom_dns_server: Optional[str] = None, default_sni: Optional[str] = None, **kwargs: Any
     ):
-        """
-        Initialize the CustomDNSAdapter.
+        """Initialize the CustomDNSAdapter.
 
         :param args: Positional arguments for :class:`requests.adapters.HTTPAdapter`.
-        :type args: Any
         :param custom_dns_server: IP of the custom DNS server. Uses system DNS if None or dnspython is unavailable.
-        :type custom_dns_server: str, optional
         :param default_sni: Hostname for SNI/certificate validation if URL is an IP. Typically from Host header.
-        :type default_sni: str, optional
         :param kwargs: Keyword arguments for :class:`requests.adapters.HTTPAdapter`.
-        :type kwargs: Any
         """
         self.custom_dns_server: Optional[str] = custom_dns_server
         self.default_sni_for_ip_url: Optional[str] = default_sni
@@ -60,16 +53,13 @@ class CustomDNSAdapter(HTTPAdapter):
         super().__init__(*args, **kwargs)
 
     def _resolve_hostname_to_ip(self, hostname: str) -> Optional[str]:
-        """
-        Resolve a hostname using the custom DNS server.
+        """Resolve a hostname using the custom DNS server.
 
         Attempts AAAA records first, then A.
 
         :param hostname: The hostname to resolve.
-        :type hostname: str
         :return: Resolved IP address (IPv6 preferred) or None if resolution fails,
                  custom DNS is not configured, or dnspython is unavailable.
-        :rtype: str, optional
         """
         if not self.custom_dns_server or not dns:
             logger.debug(
@@ -129,32 +119,24 @@ class CustomDNSAdapter(HTTPAdapter):
         self,
         request: requests.models.PreparedRequest,
         stream: bool = False,
-        timeout: Optional[float | Tuple[float, float]] = None,
+        timeout: Optional[float | tuple[float, float]] = None,
         verify: bool = True,
-        cert: Optional[Tuple[str, str] | str] = None,
+        cert: Optional[tuple[str, str] | str] = None,
         proxies: Optional[dict[str, str]] = None,
     ) -> requests.Response:  # type: ignore[override]
-        """
-        Send a prepared request.
+        """Send a prepared request.
 
         Handles sending a request, potentially using custom DNS to modify the
         destination IP and configuring SNI. Overrides
         :meth:`requests.adapters.HTTPAdapter.send`.
 
         :param request: The :class:`requests.PreparedRequest` to send.
-        :type request: requests.models.PreparedRequest
         :param stream: Whether to stream the request content, defaults to False.
-        :type stream: bool, optional
         :param timeout: Timeout for the request (float or tuple), defaults to None.
-        :type timeout: float or tuple[float, float], optional
         :param verify: Whether to verify TLS certificate (bool or path to CA bundle), defaults to True.
-        :type verify: bool or str, optional
         :param cert: Path to SSL certificate (single file or tuple of cert/key), defaults to None.
-        :type cert: tuple[str, str] or str, optional
         :param proxies: Proxies dictionary for the request, defaults to None.
-        :type proxies: dict[str, str], optional
         :return: The :class:`requests.Response` object.
-        :rtype: requests.Response
         """
         parsed_url = requests.utils.urlparse(request.url)  # type: ignore[attr-defined]
         original_hostname = parsed_url.hostname
@@ -178,7 +160,7 @@ class CustomDNSAdapter(HTTPAdapter):
                 self._resolved_sni = original_hostname
                 self.resolved_ip_cache[original_hostname] = resolved_ip
                 logger.info(
-                    "CustomDNSAdapter.send: Original request URL %s will be used. Connection will target resolved IP %s (SNI will be: %s)",  # type: ignore[str-format]
+                    "CustomDNSAdapter.send: Original request URL %s will be used. Connection will target resolved IP %s (SNI will be: %s)",
                     request.url,
                     resolved_ip,
                     self._resolved_sni,
@@ -187,15 +169,11 @@ class CustomDNSAdapter(HTTPAdapter):
         return super().send(request, stream, timeout, verify, cert, proxies)  # type: ignore[return-value]
 
     def get_connection(self, url: str, proxies: Optional[dict[str, str]] = None) -> Any:  # type: ignore[override]
-        """
-        Override :meth:`requests.adapters.HTTPAdapter.get_connection` for custom IP.
+        """Override :meth:`requests.adapters.HTTPAdapter.get_connection` for custom IP.
 
         :param url: The URL to connect to.
-        :type url: str
         :param proxies: Proxies configuration.
-        :type proxies: dict[str, str], optional
         :return: The connection object from urllib3.
-        :rtype: urllib3.connectionpool.HTTPConnectionPool or urllib3.connectionpool.HTTPSConnectionPool
         """
         parsed_url = requests.utils.urlparse(url)  # type: ignore[attr-defined]
         original_hostname = parsed_url.hostname
@@ -206,7 +184,7 @@ class CustomDNSAdapter(HTTPAdapter):
 
         if resolved_ip_for_connection:
             logger.info(
-                "CustomDNSAdapter.get_connection: Using resolved IP %s for connection to original host %s (URL: %s)",  # type: ignore[str-format]
+                "CustomDNSAdapter.get_connection: Using resolved IP %s for connection to original host %s (URL: %s)",
                 resolved_ip_for_connection,
                 original_hostname,
                 url,
@@ -224,7 +202,7 @@ class CustomDNSAdapter(HTTPAdapter):
             connection_target_url = requests.utils.urlunparse(conn_url_parts)  # type: ignore[attr-defined]
 
             logger.debug(
-                "CustomDNSAdapter.get_connection: PoolManager will connect to IP-based URL: %s (SNI via _resolved_sni: %s)",  # type: ignore[str-format]
+                "CustomDNSAdapter.get_connection: PoolManager will connect to IP-based URL: %s (SNI via _resolved_sni: %s)",
                 connection_target_url,
                 self._resolved_sni,
             )
@@ -237,17 +215,12 @@ class CustomDNSAdapter(HTTPAdapter):
             return super().get_connection(url, proxies=proxies)  # type: ignore[no-any-return]
 
     def init_poolmanager(self, connections: int, maxsize: int, block: bool = False, **pool_kwargs: Any) -> None:  # type: ignore[override]
-        """
-        Initialize `urllib3.PoolManager` with SNI and cert validation.
+        """Initialize `urllib3.PoolManager` with SNI and cert validation.
 
         :param connections: Number of urllib3 connection pools to cache.
-        :type connections: int
         :param maxsize: Maximum number of connections to save in the pool.
-        :type maxsize: int
         :param block: Whether the pool should block for connections, defaults to False.
-        :type block: bool, optional
         :param pool_kwargs: Extra keyword arguments for PoolManager initialization.
-        :type pool_kwargs: Any
         """
         sni_hostname_for_pool: Optional[str] = None
         if self._resolved_sni:

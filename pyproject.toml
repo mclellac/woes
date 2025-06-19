@@ -72,10 +72,9 @@ target-version = "py310"
 select = ["E4", "E7", "E9", "F", "D", "B", "ARG"]
 ignore = [
     "E402", # Module level import not at top of file (often needed with Gtk gi.require_version)
-    "D203", # Conflicts with D211
-    "D212", # Conflicts with D213
     "E722", # Do not use bare `except:` (broad-except) (formerly B001)
     "PLR0914", # too-many-locals
+    "D213", # Conflicts with D212 (ruff auto-ignores D212)
 ]
 
 # Allow fixes for all enabled rules
@@ -103,8 +102,3 @@ docstring-code-format = false
 
 # Set the line length limit used when formatting code snippets in docstrings.
 docstring-code-line-length = "dynamic"
-
-[tool.ruff.lint.per-file-ignores]
-"src/dns_page.py" = ["C901"]
-"src/http_page.py" = ["E501"]
-"src/main.py" = ["SLF001"]

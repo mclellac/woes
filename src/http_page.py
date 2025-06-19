@@ -1,5 +1,4 @@
-"""
-Defines the HTTP Headers page for the Woes application.
+"""Defines the HTTP Headers page for the Woes application.
 
 This module provides the :class:`.HttpPage` class, which allows users to fetch and
 inspect HTTP headers for a given URL. It includes options for custom Host
@@ -10,7 +9,7 @@ and uses a background thread for network operations to keep the UI responsive.
 
 import logging
 from enum import Enum
-from typing import Any, Dict, List, Optional  # Use lowercase for built-in types, e.g. list, dict
+from typing import Any, dict, list, Optional
 
 import gi
 
@@ -18,7 +17,7 @@ gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
 from gi.repository import Adw, Gio, GObject, Gtk, GLib, Gdk, Pango
 
-from .constants import RESOURCE_PREFIX, APP_ID, USER_AGENTS  # NONE_OPTION_TITLE removed from here
+from .constants import RESOURCE_PREFIX, APP_ID, USER_AGENTS
 from .utils import show_global_error, show_global_toast, is_valid_url
 from .helper import Helper
 from .http_client import (
@@ -48,24 +47,14 @@ class HttpErrorType(int, Enum):
 
 
 class HeaderItem(GObject.Object):
-    """
-    :class:`GObject.Object` representing a single header key-value pair for the :class:`Gtk.ColumnView`.
-
-    :ivar key: The header key or special row title.
-    :vartype key: str
-    :ivar value: The header value or special row description.
-    :vartype value: str
-    :ivar is_special_row: Whether this item represents a special row (e.g., URL/status line).
-    :vartype is_special_row: bool
-    """
+    """:class:`GObject.Object` representing a single header key-value pair for the :class:`Gtk.ColumnView`."""
 
     key: str
     value: str
     is_special_row: bool
 
     def __init__(self, key: str, value: str, is_special_row: bool = False):
-        """
-        Initialize a HeaderItem.
+        """Initialize a HeaderItem.
 
         :param key: The header key or special row title.
         :type key: str
@@ -84,8 +73,7 @@ class HeaderItem(GObject.Object):
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/http_page.ui")
 class HttpPage(Gtk.Box):
-    """
-    Activity page for fetching and inspecting HTTP headers.
+    """Activity page for fetching and inspecting HTTP headers.
 
     This class manages the UI and logic for the HTTP Headers inspection tool.
     It handles user input for URL, Host header, and User-Agent selection.
@@ -123,36 +111,6 @@ class HttpPage(Gtk.Box):
           current GSettings default (constants -> custom UAs -> `requests` default).
         - Otherwise, the User-Agent selected in the page's dropdown is used.
     - Selections on this page *do not* modify the global `default-user-agent-title` GSetting.
-
-    :ivar _http_page_ua_is_following_gsettings_default: Tracks if the page's UA dropdown
-                                                        should mirror the GSettings default.
-    :vartype _http_page_ua_is_following_gsettings_default: bool
-    :ivar _gsettings_ua_changed_handler_id: Stores the ID of the GSettings "changed"
-                                           signal handler for `default-user-agent-title`,
-                                           used for connecting/disconnecting the listener.
-    :vartype _gsettings_ua_changed_handler_id: int
-    :ivar http_entry_row: :class:`Adw.EntryRow` for the URL.
-    :vartype http_entry_row: Adw.EntryRow
-    :ivar http_apply_button: Button to trigger fetching headers.
-    :vartype http_apply_button: Gtk.Button
-    :ivar http_host_header_row: Entry row for custom Host header.
-    :vartype http_host_header_row: Adw.EntryRow
-    :ivar http_user_agent_row: ComboRow for User-Agent selection.
-    :vartype http_user_agent_row: Adw.ComboRow
-    :ivar http_pragma_switch_row: Switch for Akamai Pragma headers.
-    :vartype http_pragma_switch_row: Adw.SwitchRow
-    :ivar http_column_view: ColumnView for displaying headers.
-    :vartype http_column_view: Gtk.ColumnView
-    :ivar http_results_group: PreferencesGroup containing the results view.
-    :vartype http_results_group: Adw.PreferencesGroup
-    :ivar clear_results_button: Button to clear results.
-    :vartype clear_results_button: Gtk.Button
-    :ivar copy_results_button: Button to copy results to clipboard.
-    :vartype copy_results_button: Gtk.Button
-    :ivar http_status_row: :class:`Adw.ActionRow` to display status messages.
-    :vartype http_status_row: Adw.ActionRow
-    :ivar http_status_spinner: :class:`Gtk.Spinner` for loading indication.
-    :vartype http_status_spinner: Gtk.Spinner
     """
 
     __gtype_name__ = "HttpPage"
@@ -169,16 +127,12 @@ class HttpPage(Gtk.Box):
     http_status_spinner: Gtk.Spinner = Gtk.Template.Child()
 
     def __init__(self, **kwargs: Any):
-        """Initialize the HttpPage."""
-        logging.debug("HttpPage.__init__ called")
-        """
-        Initialize the HttpPage.
+        """Initialize the HttpPage.
 
         Initializes UI elements, GSettings, the header list store for the
         column view, and connects signals.
 
         :param kwargs: Keyword arguments passed to the :class:`Gtk.Box` constructor.
-        :type kwargs: Any
         """
         super().__init__(**kwargs)
         logger.debug("HttpPage initialized.")
@@ -240,11 +194,7 @@ class HttpPage(Gtk.Box):
         self.column_view_helper = Helper(widget=self.http_column_view, parent_window=self.get_native())
 
     def _connect_signals(self) -> None:
-        """
-        Connect signals for UI elements to their respective handlers.
-
-        :return: None
-        """
+        """Connect signals for UI elements to their respective handlers."""
         self.http_entry_row.connect("entry-activated", self._on_entry_row_activated)
         self.http_apply_button.connect("clicked", self._on_entry_row_activated)
         self.http_pragma_switch_row.connect("notify::active", self._on_pragma_toggled)
@@ -261,14 +211,11 @@ class HttpPage(Gtk.Box):
             self.http_user_agent_row.connect("notify::selected-item", self._on_http_page_ua_selection_changed)
 
     def _on_host_header_changed(self, entry_row: Adw.EntryRow) -> None:
-        """
-        Handle changes in the Host header entry row.
+        """Handle changes in the Host header entry row.
 
         Adds or removes a CSS class to indicate if an override is active.
 
         :param entry_row: The :class:`Adw.EntryRow` for the Host header.
-        :type entry_row: Adw.EntryRow
-        :return: None
         """
         if not entry_row:
             return
@@ -279,16 +226,12 @@ class HttpPage(Gtk.Box):
             entry_row.remove_css_class("active-override")
 
     def _on_user_agent_changed(self, combo_row: Adw.ComboRow, _gparam: Optional[GObject.ParamSpec]) -> None:
-        """
-        Handle changes in the User-Agent combo row selection.
+        """Handle changes in the User-Agent combo row selection.
 
         Adds or removes a CSS class to indicate if a non-default User-Agent is active.
 
         :param combo_row: The :class:`Adw.ComboRow` for User-Agent selection.
-        :type combo_row: Adw.ComboRow
         :param _gparam: The :class:`GObject.ParamSpec` of the property that changed (unused).
-        :type _gparam: Optional[GObject.ParamSpec]
-        :return: None
         """
         if not combo_row:
             return
@@ -306,25 +249,20 @@ class HttpPage(Gtk.Box):
     def _on_user_agent_changed_visual_feedback(
         self, combo_row: Adw.ComboRow, _gparam: Optional[GObject.ParamSpec]
     ) -> None:
-        """
-        Handle visual feedback for User-Agent combo row selection changes.
+        """Handle visual feedback for User-Agent combo row selection changes.
 
         This method is responsible for adding/removing the 'active-override' CSS class.
         It is separated from the logic that saves the preference to GSettings.
 
         :param combo_row: The :class:`Adw.ComboRow` for User-Agent selection.
-        :type combo_row: Adw.ComboRow
         :param _gparam: The :class:`GObject.ParamSpec` of the property that changed (unused).
-        :type _gparam: Optional[GObject.ParamSpec]
-        :return: None
         """
         self._on_user_agent_changed(combo_row, _gparam)  # Call the original method for CSS
 
     def _save_selected_user_agent_preference(
         self, combo_row: Adw.ComboRow, _gparam: Optional[GObject.ParamSpec]
     ) -> None:
-        """
-        Handle User-Agent selection changes in the HTTP Page's dropdown.
+        """Handle User-Agent selection changes in the HTTP Page's dropdown.
 
         This method is connected to the 'notify::selected-item' signal of the
         User-Agent ComboRow on the HTTP Page. It logs the change for the current
@@ -334,10 +272,7 @@ class HttpPage(Gtk.Box):
         globally configured default User-Agent preference.
 
         :param combo_row: The :class:`Adw.ComboRow` for User-Agent selection.
-        :type combo_row: Adw.ComboRow
         :param _gparam: The :class:`GObject.ParamSpec` of the property that changed (unused).
-        :type _gparam: Optional[GObject.ParamSpec]
-        :return: None
         """
         if not combo_row:
             return
@@ -346,7 +281,7 @@ class HttpPage(Gtk.Box):
         if isinstance(selected_item_obj, Gtk.StringObject):
             selected_title = selected_item_obj.get_string()
             logger.info(
-                f"HTTP Page User-Agent selection changed to: '{selected_title}'. This is a session-specific change."
+                "HTTP Page User-Agent selection changed to: '%s'. This is a session-specific change.", selected_title
             )
             # The line below is commented out to prevent HTTP page selection from changing global default.
             # self.settings.set_string("default-user-agent-title", selected_title if selected_title != "None" else "")
@@ -356,15 +291,12 @@ class HttpPage(Gtk.Box):
             # self.settings.set_string("default-user-agent-title", "")
 
     def _on_copy_results_clicked(self, _button: Gtk.Button) -> None:
-        """
-        Handle the click event for the 'Copy Results' button.
+        """Handle the click event for the 'Copy Results' button.
 
         Constructs a string representation of the displayed headers and copies
         it to the clipboard.
 
         :param _button: The :class:`Gtk.Button` that was clicked (unused).
-        :type _button: Gtk.Button
-        :return: None
         """
         logger.info("Copying all headers to clipboard.")
         lines: list[str] = []
@@ -394,8 +326,7 @@ class HttpPage(Gtk.Box):
             logger.info("No headers to copy from the results view.")
 
     def _on_entry_row_activated(self, _widget: Gtk.Widget) -> None:
-        """
-        Handle activation of the URL entry row or click of the 'Fetch' button.
+        """Handle activation of the URL entry row or click of the 'Fetch' button.
 
         Validates the URL and gathers request parameters for the HTTP request:
         - URL: Taken from `http_entry_row`.
@@ -422,8 +353,6 @@ class HttpPage(Gtk.Box):
         logged via `logging.info`.
 
         :param _widget: The :class:`Gtk.Widget` that triggered the activation (unused).
-        :type _widget: Gtk.Widget
-        :return: None
         """
         original_url = self.http_entry_row.get_text().strip()
         url = self._ensure_scheme(original_url)
@@ -451,23 +380,23 @@ class HttpPage(Gtk.Box):
         if isinstance(selected_item_obj, Gtk.StringObject):
             selected_ua_title_in_http_page_dropdown = selected_item_obj.get_string()
 
-        # logging.debug(f"HTTP Page: UA dropdown selection: '{selected_ua_title_in_http_page_dropdown}'") # Reduced verbosity
+        # logging.debug("HTTP Page: UA dropdown selection: '%s'", selected_ua_title_in_http_page_dropdown) # Reduced verbosity
 
         if selected_ua_title_in_http_page_dropdown and selected_ua_title_in_http_page_dropdown != "None":
             user_agent_to_send = self._ua_title_to_value_map.get(selected_ua_title_in_http_page_dropdown)
             logging.info(
-                f"HTTP Page: Using User-Agent from page dropdown selection: '{selected_ua_title_in_http_page_dropdown}'"
+                "HTTP Page: Using User-Agent from page dropdown selection: '%s'", selected_ua_title_in_http_page_dropdown
             )
             if (
                 user_agent_to_send is None and selected_ua_title_in_http_page_dropdown != "None"
             ):  # Should not happen if map is correct
                 logging.warning(
-                    f"HTTP Page: UA title '{selected_ua_title_in_http_page_dropdown}' in dropdown but not in map. This is unexpected. Sending no specific UA (requests default)."
+                    "HTTP Page: UA title '%s' in dropdown but not in map. This is unexpected. Sending no specific UA (requests default).", selected_ua_title_in_http_page_dropdown
                 )
         else:
             logging.info("HTTP Page: Page dropdown selection is 'None'. Using GSettings default User-Agent.")
             gsettings_default_title = self.settings.get_string("default-user-agent-title")
-            # logging.debug(f"HTTP Page: GSettings default-user-agent-title is: '{gsettings_default_title}'") # Reduced verbosity
+            # logging.debug("HTTP Page: GSettings default-user-agent-title is: '%s'", gsettings_default_title) # Reduced verbosity
 
             if gsettings_default_title:  # An explicit default is set in GSettings
                 ua_found_in_constants = False
@@ -478,7 +407,7 @@ class HttpPage(Gtk.Box):
                         break
                 if ua_found_in_constants:
                     logging.info(
-                        f"HTTP Page: Resolved GSettings default '{gsettings_default_title}' from standard User-Agents."
+                        "HTTP Page: Resolved GSettings default '%s' from standard User-Agents.", gsettings_default_title
                     )
                 else:
                     custom_uas_variant = self.settings.get_value("custom-user-agents")
@@ -495,11 +424,11 @@ class HttpPage(Gtk.Box):
                             break
                     if ua_found_in_custom:
                         logging.info(
-                            f"HTTP Page: Resolved GSettings default '{gsettings_default_title}' from custom User-Agents."
+                            "HTTP Page: Resolved GSettings default '%s' from custom User-Agents.", gsettings_default_title
                         )
                     else:
                         logging.warning(
-                            f"HTTP Page: GSettings default User-Agent title '{gsettings_default_title}' not found in constants or custom UAs. Sending no specific UA (requests default)."
+                            "HTTP Page: GSettings default User-Agent title '%s' not found in constants or custom UAs. Sending no specific UA (requests default).", gsettings_default_title
                         )
                         user_agent_to_send = None
             else:  # GSettings default is empty string, meaning "None" (use requests default)
@@ -510,7 +439,7 @@ class HttpPage(Gtk.Box):
 
         custom_dns_server = self.settings.get_string("custom-dns-server")
         logging.info(
-            f"HttpPage: Final User-Agent for request task: {user_agent_to_send if user_agent_to_send else 'None (requests default will be used)'}"
+            "HttpPage: Final User-Agent for request task: %s", (user_agent_to_send if user_agent_to_send else 'None (requests default will be used)')
         )
 
         self._http_task_data_for_thread = {
@@ -530,11 +459,10 @@ class HttpPage(Gtk.Box):
         self,
         task: Gio.Task,
         _source_object: GObject.Object,
-        _task_data_arg: Dict[str, Any],
+        _task_data_arg: dict[str, Any],
         cancellable: Optional[Gio.Cancellable],
     ) -> None:
-        """
-        Background thread function for fetching HTTP headers.
+        """Background thread function for fetching HTTP headers.
 
         This function is executed by :meth:`Gio.Task.run_in_thread`.
         It instantiates :class:`.http_client.HttpFetcher` with necessary parameters
@@ -547,10 +475,7 @@ class HttpPage(Gtk.Box):
         :type _source_object: GObject.Object
         :param _task_data_arg: Additional data passed to the task (unused).
                                The actual data is retrieved from ``self._http_task_data_for_thread``.
-        :type _task_data_arg: dict[str, Any]
         :param cancellable: A :class:`Gio.Cancellable` object to monitor for cancellation.
-        :type cancellable: Optional[Gio.Cancellable]
-        :return: None
         """
         current_task_data = self._http_task_data_for_thread
         url_to_fetch: str = current_task_data["url"]
@@ -623,8 +548,7 @@ class HttpPage(Gtk.Box):
     def _fetch_headers_task_done_cb(
         self, _source_object: GObject.Object, _result: Gio.AsyncResult, _user_data: Optional[Any] = None
     ) -> None:
-        """
-        Handle completion of the HTTP headers fetch task.
+        """Handle completion of the HTTP headers fetch task.
 
         Processes the result from the background thread, updates the UI with headers
         or an error message, and re-enables UI elements.
@@ -632,10 +556,7 @@ class HttpPage(Gtk.Box):
         :param _source_object: The source object that initiated the task (unused).
         :type _source_object: GObject.Object
         :param result: The :class:`Gio.AsyncResult` from the completed task.
-        :type result: Gio.AsyncResult
         :param _user_data: User data passed with the callback (unused).
-        :type _user_data: Optional[Any]
-        :return: None
         """
         task_being_processed = self.current_http_task
         if task_being_processed is None:
@@ -776,17 +697,13 @@ class HttpPage(Gtk.Box):
                     self._set_loading_state(False, "Idle - operation ended.")
 
     def _set_loading_state(self, active: bool, message: str = "Idle") -> None:
-        """
-        Set the UI loading state.
+        """Set the UI loading state.
 
         Manages the visibility of the spinner, updates the status message,
         and adjusts the sensitivity of input controls.
 
         :param active: If ``True``, sets the UI to a loading state; otherwise, sets it to an idle state.
-        :type active: bool
         :param message: The message to display in the status row. Defaults to "Idle".
-        :type message: str
-        :return: None
         """
         if self.http_status_spinner:
             self.http_status_spinner.set_visible(active)
@@ -812,16 +729,13 @@ class HttpPage(Gtk.Box):
 
     @staticmethod
     def _ensure_scheme(url: str) -> str:
-        """
-        Ensure the URL has a scheme, defaulting to 'https://'.
+        """Ensure the URL has a scheme, defaulting to 'https://'.
 
         This provides a basic check before passing to :class:`.http_client.HttpFetcher`,
         which will perform more robust URL parsing.
 
         :param url: The input URL string.
-        :type url: str
         :return: The URL string, with 'https://' prepended if no scheme was present.
-        :rtype: str
         """
         if "://" not in url:
             logger.debug("URL '%s' has no scheme, prepending 'https://'.", url)
@@ -829,32 +743,25 @@ class HttpPage(Gtk.Box):
         return url
 
     def _on_pragma_toggled(self, _widget: Gtk.Switch, _gparam: GObject.ParamSpec) -> None:
-        """
-        Handle toggling of the Akamai Pragma switch.
+        """Handle toggling of the Akamai Pragma switch.
 
         If a URL is present in the entry row, it re-triggers the fetch.
 
         :param _widget: The :class:`Gtk.Switch` that was toggled (unused).
-        :type _widget: Gtk.Switch
         :param _gparam: The :class:`GObject.ParamSpec` of the property that changed (unused).
-        :type _gparam: GObject.ParamSpec
-        :return: None
         """
         logger.debug("Akamai Pragma toggled: %s. Re-fetching if URL present.", self.http_pragma_switch_row.get_active())
         if self.http_entry_row.get_text().strip():
             self._on_entry_row_activated(self.http_entry_row)
 
-    def _update_column_view_model(self, header_items: Optional[List[HeaderItem]]) -> None:
-        """
-        Update the :class:`Gio.ListStore` for the header :class:`Gtk.ColumnView`.
+    def _update_column_view_model(self, header_items: Optional[list[HeaderItem]]) -> None:
+        """Update the :class:`Gio.ListStore` for the header :class:`Gtk.ColumnView`.
 
         Clears the existing items and appends new ones if provided.
         Shows or hides the results group accordingly.
 
         :param header_items: A list of :class:`.HeaderItem` objects to display,
                              or ``None`` to clear the view.
-        :type header_items: Optional[list[HeaderItem]]
-        :return: None
         """
         self.header_list_store.remove_all()  # type: ignore[attr-defined]
         if header_items:
@@ -865,31 +772,20 @@ class HttpPage(Gtk.Box):
             self._hide_results()
 
     def _show_results(self) -> None:
-        """
-        Make the HTTP results group visible.
-
-        :return: None
-        """
+        """Make the HTTP results group visible."""
         if self.http_results_group:
             self.http_results_group.set_visible(True)
 
     def _hide_results(self) -> None:
-        """
-        Make the HTTP results group invisible.
-
-        :return: None
-        """
+        """Make the HTTP results group invisible."""
         if self.http_results_group:
             self.http_results_group.set_visible(False)
 
     def _clear_error(self) -> None:
-        """
-        Clear any error state in the UI.
+        """Clear any error state in the UI.
 
         Hides the main window's error banner and removes the 'error' CSS class
         from the URL entry row.
-
-        :return: None
         """
         main_window = self.get_native()
         if main_window and hasattr(main_window, "hide_error"):
@@ -900,14 +796,11 @@ class HttpPage(Gtk.Box):
             self.http_entry_row.remove_css_class("error")
 
     def _on_clear_results_clicked(self, _button: Gtk.Button) -> None:
-        """
-        Handle the click event for the 'Clear Results' button.
+        """Handle the click event for the 'Clear Results' button.
 
         Clears the displayed headers, error state, and the URL entry.
 
         :param _button: The :class:`Gtk.Button` that was clicked (unused).
-        :type _button: Gtk.Button
-        :return: None
         """
         logger.info("Results cleared by user action.")
         self._current_header_items = []
@@ -917,17 +810,13 @@ class HttpPage(Gtk.Box):
             self.http_entry_row.set_text("")
 
     def _on_color_setting_changed(self, settings: Gio.Settings, key: str) -> None:
-        """
-        Handle changes to color-related GSettings.
+        """Handle changes to color-related GSettings.
 
         Updates the internal color attributes and re-populates the column view
         to apply the new colors if results are currently displayed.
 
         :param settings: The :class:`Gio.Settings` object that changed.
-        :type settings: Gio.Settings
         :param key: The GSettings key that changed.
-        :type key: str
-        :return: None
         """
         logger.debug("Color setting changed for GSettings key: %s", key)
         if key == "http-output-header-key-color":
@@ -941,17 +830,13 @@ class HttpPage(Gtk.Box):
             self._update_column_view_model(self._current_header_items)
 
     def _on_global_output_font_changed(self, settings: Gio.Settings, key: str) -> None:
-        """
-        Handle changes to the global output font GSettings key.
+        """Handle changes to the global output font GSettings key.
 
         Updates the internal font description and re-populates the column view
         to apply the new font if results are currently displayed.
 
         :param settings: The :class:`Gio.Settings` object that changed.
-        :type settings: Gio.Settings
         :param key: The GSettings key that changed.
-        :type key: str
-        :return: None
         """
         logger.debug("HttpPage: Global output font setting changed for key: %s", key)
         if key == self._output_font_gsettings_key:
@@ -964,8 +849,7 @@ class HttpPage(Gtk.Box):
                 self._update_column_view_model(self._current_header_items)
 
     def _update_user_agent_model(self) -> None:
-        """
-        Update the model for the User-Agent :class:`Adw.ComboRow` on the HTTP Page.
+        """Update the model for the User-Agent :class:`Adw.ComboRow` on the HTTP Page.
 
         This method populates the dropdown with a "None" option, standard User-Agents
         from :mod:`.constants.USER_AGENTS`, and any custom User-Agents defined in
@@ -978,8 +862,6 @@ class HttpPage(Gtk.Box):
         User-Agent title (or "None" if the GSetting is empty). This action
         correctly initializes the dropdown's visible selection to match the global
         default preference.
-
-        :return: None
         """
         if not self.http_user_agent_row:
             logger.error("HttpPage: _update_user_agent_model: http_user_agent_row is None, cannot update model.")
@@ -1006,7 +888,7 @@ class HttpPage(Gtk.Box):
                     # Allow it, but it will override the placeholder map if it wasn't done carefully above.
                     # The current logic (checking `title not in self._ua_title_to_value_map`) handles this.
                 else:  # True duplicate
-                    logger.warning(f"Standard User-Agent title '{title}' is a duplicate. Skipping.")
+                    logger.warning("Standard User-Agent title '%s' is a duplicate. Skipping.", title)
 
         variant = self.settings.get_value("custom-user-agents")
         custom_ua_pairs: list[tuple[str, str]] = list(
@@ -1020,19 +902,18 @@ class HttpPage(Gtk.Box):
         self.http_user_agent_row.set_model(Gtk.StringList.new(display_titles))
 
         default_ua_title_from_prefs = self.settings.get_string("default-user-agent-title")
-        # logging.info(f"HttpPage._update_user_agent_model: Initial default UA from GSettings: '{default_ua_title_from_prefs}'.") # Can be verbose
+        # logging.info("HttpPage._update_user_agent_model: Initial default UA from GSettings: '%s'.", default_ua_title_from_prefs) # Can be verbose
         # self._select_ua_in_http_page_dropdown(default_ua_title_from_prefs if default_ua_title_from_prefs else "None")
         # Visual feedback is handled by _select_ua_in_http_page_dropdown calling _on_user_agent_changed_visual_feedback
 
         self._http_page_ua_is_following_gsettings_default = True  # Start by following
         default_ua_title_from_prefs = self.settings.get_string("default-user-agent-title")
         effective_default_title = default_ua_title_from_prefs if default_ua_title_from_prefs else "None"
-        # logging.info(f"HttpPage._update_user_agent_model: Initial default UA from GSettings: '{default_ua_title_from_prefs}' (effective: '{effective_default_title}'). Setting dropdown.") # Reduced verbosity
+        # logging.info("HttpPage._update_user_agent_model: Initial default UA from GSettings: '%s' (effective: '%s'). Setting dropdown.", default_ua_title_from_prefs, effective_default_title) # Reduced verbosity
         self._select_ua_in_http_page_dropdown(effective_default_title)
 
     def _on_http_page_ua_selection_changed(self, combo_row: Adw.ComboRow, _gparam: GObject.ParamSpec) -> None:
-        """
-        Handle user selection changes in the HTTP Page's User-Agent dropdown.
+        """Handle user selection changes in the HTTP Page's User-Agent dropdown.
 
         This method updates the `_http_page_ua_is_following_gsettings_default`
         flag based on the user's selection:
@@ -1061,25 +942,24 @@ class HttpPage(Gtk.Box):
         if selected_title_on_page == "None":
             self._http_page_ua_is_following_gsettings_default = True
             logging.info(
-                f"HttpPage: UA selection is 'None'. Now following GSettings. Current GSettings default: '{effective_gsettings_default}'."
+                "HttpPage: UA selection is 'None'. Now following GSettings. Current GSettings default: '%s'.", effective_gsettings_default
             )
             self._select_ua_in_http_page_dropdown(effective_gsettings_default)
         elif selected_title_on_page == effective_gsettings_default:
             self._http_page_ua_is_following_gsettings_default = True
             logging.info(
-                f"HttpPage: UA selection '{selected_title_on_page}' matches GSettings default. Now following GSettings."
+                "HttpPage: UA selection '%s' matches GSettings default. Now following GSettings.", selected_title_on_page
             )
         else:
             self._http_page_ua_is_following_gsettings_default = False
             logging.info(
-                f"HttpPage: UA selection is '{selected_title_on_page}'. This is a session override. Not following GSettings default ('{effective_gsettings_default}')."
+                "HttpPage: UA selection is '%s'. This is a session override. Not following GSettings default ('%s').", selected_title_on_page, effective_gsettings_default
             )
 
         self._on_user_agent_changed_visual_feedback(combo_row, _gparam)
 
     def _on_default_ua_gsetting_changed(self, settings: Gio.Settings, key: str) -> None:
-        """
-        Handle changes to the 'default-user-agent-title' GSettings key.
+        """Handle changes to the 'default-user-agent-title' GSettings key.
 
         If `_http_page_ua_is_following_gsettings_default` is `True`, this method
         updates the User-Agent dropdown on this HTTP page (by calling
@@ -1097,11 +977,11 @@ class HttpPage(Gtk.Box):
             effective_new_gsettings_default = (
                 new_gsettings_default_ua_title if new_gsettings_default_ua_title else "None"
             )
-            # logging.info(f"HttpPage: GSettings default-user-agent-title changed to: '{new_gsettings_default_ua_title}' (effective: '{effective_new_gsettings_default}').") # Can be verbose
+            # logging.info("HttpPage: GSettings default-user-agent-title changed to: '%s' (effective: '%s').", new_gsettings_default_ua_title, effective_new_gsettings_default) # Can be verbose
 
             if self._http_page_ua_is_following_gsettings_default:
                 logging.info(
-                    f"HttpPage: Currently following GSettings default. Updating dropdown to new GSettings default: '{effective_new_gsettings_default}'."
+                    "HttpPage: Currently following GSettings default. Updating dropdown to new GSettings default: '%s'.", effective_new_gsettings_default
                 )
                 self._select_ua_in_http_page_dropdown(effective_new_gsettings_default)
             else:
@@ -1110,12 +990,11 @@ class HttpPage(Gtk.Box):
                 if isinstance(current_http_page_selection_obj, Gtk.StringObject):
                     current_http_page_selected_title = current_http_page_selection_obj.get_string()
                 logging.info(
-                    f"HttpPage: Not following GSettings default (current page selection: '{current_http_page_selected_title}'). Ignoring GSettings change for dropdown update."
+                    "HttpPage: Not following GSettings default (current page selection: '%s'). Ignoring GSettings change for dropdown update.", current_http_page_selected_title
                 )
 
     def _select_ua_in_http_page_dropdown(self, title_to_select: str) -> bool:
-        """
-        Safely select an item in the HTTP Page's User-Agent dropdown by its title.
+        """Safely select an item in the HTTP Page's User-Agent dropdown by its title.
 
         If the exact `title_to_select` is not found in the dropdown's model, this
         method falls back to selecting the "None" option. It ensures that the
@@ -1128,11 +1007,9 @@ class HttpPage(Gtk.Box):
 
         :param title_to_select: The title of the User-Agent to select in the dropdown.
                                 If this title is not found, "None" will be selected as a fallback.
-        :type title_to_select: str
         :return: ``True`` if an item (either the target or fallback "None") was
                  successfully selected, ``False`` if the model is invalid or empty,
                  or if "None" could not be selected as a fallback.
-        :rtype: bool
         """
         model = self.http_user_agent_row.get_model()
         if not isinstance(model, Gtk.StringList):  # type: ignore
@@ -1143,7 +1020,7 @@ class HttpPage(Gtk.Box):
 
         final_title_to_select = title_to_select
         if title_to_select not in all_titles_in_dropdown:
-            logging.warning(f"HttpPage: UA Title '{title_to_select}' not found in dropdown. Falling back to 'None'.")
+            logging.warning("HttpPage: UA Title '%s' not found in dropdown. Falling back to 'None'.", title_to_select)
             final_title_to_select = "None"
 
         if final_title_to_select in all_titles_in_dropdown:
@@ -1151,11 +1028,11 @@ class HttpPage(Gtk.Box):
                 idx = all_titles_in_dropdown.index(final_title_to_select)
                 self.http_user_agent_row.set_selected(idx)
                 self._on_user_agent_changed_visual_feedback(self.http_user_agent_row, None)
-                # logging.debug(f"HttpPage: Successfully selected '{final_title_to_select}' in dropdown.") # Reduced verbosity
+                # logging.debug("HttpPage: Successfully selected '%s' in dropdown.", final_title_to_select) # Reduced verbosity
                 return True
             except ValueError:
                 logging.error(
-                    f"HttpPage: Error selecting '{final_title_to_select}' (ValueError) despite it being in list. This is unexpected."
+                    "HttpPage: Error selecting '%s' (ValueError) despite it being in list. This is unexpected.", final_title_to_select
                 )
                 return False
         elif model.get_n_items() > 0:
@@ -1172,8 +1049,7 @@ class HttpPage(Gtk.Box):
         return False
 
     def do_dispose(self):
-        """
-        Override GObject.Object.do_dispose to disconnect signal handlers.
+        """Override GObject.Object.do_dispose to disconnect signal handlers.
 
         Ensures that the GSettings listener for `default-user-agent-title`
         is disconnected when the HttpPage object is disposed, preventing
@@ -1187,8 +1063,7 @@ class HttpPage(Gtk.Box):
         super().do_dispose()
 
     def _create_factory(self, attr_name: str, wrap_text: bool = False) -> Gtk.SignalListItemFactory:
-        """
-        Create a Gtk.SignalListItemFactory for Gtk.ColumnView columns.
+        """Create a Gtk.SignalListItemFactory for Gtk.ColumnView columns.
 
         This factory configures how items (:class:`HeaderItem`) are displayed in the
         columns of the :class:`Gtk.ColumnView`. It sets up labels, binds them to
@@ -1197,11 +1072,8 @@ class HttpPage(Gtk.Box):
 
         :param attr_name: The attribute name of the :class:`.HeaderItem` to display
                           (e.g., 'key' or 'value').
-        :type attr_name: str
         :param wrap_text: Whether the text in the label should wrap. Defaults to ``False``.
-        :type wrap_text: bool
         :return: A configured :class:`Gtk.SignalListItemFactory`.
-        :rtype: Gtk.SignalListItemFactory
         """
         factory = Gtk.SignalListItemFactory()
 
@@ -1234,9 +1106,9 @@ class HttpPage(Gtk.Box):
                     value_text = GLib.markup_escape_text(str(item.value)) if item.value else ""
                     full_text = key_text
                     if value_text.strip() and value_text != "N/A":
-                        full_text += f" {value_text}"
+                        full_text += " " + value_text # Concatenation
                     label.set_markup(
-                        f"<b><span font_family='{GLib.markup_escape_text(current_family)}' size='{size_in_pango_units}' foreground='{self._special_row_color}'>{full_text}</span></b>"
+                        "<b><span font_family='%s' size='%d' foreground='%s'>%s</span></b>" % (GLib.markup_escape_text(current_family), size_in_pango_units, self._special_row_color, full_text)
                     )
                 else:  # 'value' column for special rows is typically empty
                     label.set_markup("")
@@ -1244,7 +1116,7 @@ class HttpPage(Gtk.Box):
                 color_to_use = self._header_key_color if attr_name == "key" else self._header_value_color
                 escaped_text = GLib.markup_escape_text(str(text_to_display))
                 label.set_markup(
-                    f"<span font_family='{GLib.markup_escape_text(current_family)}' size='{size_in_pango_units}' foreground='{color_to_use}'>{escaped_text}</span>"
+                    "<span font_family='%s' size='%d' foreground='%s'>%s</span>" % (GLib.markup_escape_text(current_family), size_in_pango_units, color_to_use, escaped_text)
                 )
 
         factory.connect("setup", setup_func)
@@ -1252,14 +1124,11 @@ class HttpPage(Gtk.Box):
         return factory
 
     def trigger_fetch(self) -> None:
-        """
-        Programmatically trigger the 'Fetch' action.
+        """Programmatically trigger the 'Fetch' action.
 
         This method is typically called in response to a keyboard shortcut
         or an external event. It simulates a click on the 'Fetch' button
         if the button is available and sensitive.
-
-        :return: None
         """
         logging.debug("HTTP fetch triggered by shortcut.")
         if self.http_apply_button and self.http_apply_button.get_sensitive():
