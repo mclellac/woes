@@ -11,8 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class Helper:
-    """
-    Provides keyboard shortcuts and context menu for :class:`Gtk.ColumnView`.
+    """Provides keyboard shortcuts and context menu for :class:`Gtk.ColumnView`.
 
     This helper class adds common functionalities like ``Ctrl+C`` for copying
     and a right-click context menu with a 'Copy' option to a
@@ -20,15 +19,12 @@ class Helper:
     """
 
     def __init__(self, widget: Gtk.Widget, parent_window: Gtk.Window):
-        """
-        Initialize the Helper class.
+        """Initialize the Helper class.
 
         :param widget: The widget to which the helper is attached. This is
                        expected to be a :class:`Gtk.ColumnView` for full
                        functionality.
-        :type widget: Gtk.Widget
         :param parent_window: The parent :class:`Gtk.Window` containing the widget.
-        :type parent_window: Gtk.Window
         """
         self.widget: Gtk.Widget = widget
         self.parent_window: Gtk.Window = parent_window
@@ -41,24 +37,17 @@ class Helper:
             self.setup_context_menu()
 
     def setup_keyboard_shortcut(self) -> None:
-        """
-        Set up a keyboard shortcut (``Ctrl+C``) for copying.
+        """Set up a keyboard shortcut (``Ctrl+C``) for copying.
 
         This allows copying selected content from the :class:`Gtk.ColumnView`
         to the clipboard using the ``Ctrl+C`` combination.
-
-        :return: None
         """
         key_controller = Gtk.EventControllerKey.new()
         key_controller.connect("key-pressed", self.on_key_pressed)  # type: ignore[no-untyped-call]
         self.widget.add_controller(key_controller)  # type: ignore[no-untyped-call]
 
     def setup_context_menu(self) -> None:
-        """
-        Set up a context menu (right-click) with a 'Copy' option.
-
-        :return: None
-        """
+        """Set up a context menu (right-click) with a 'Copy' option."""
         self.popover = Gtk.Popover.new()
         if isinstance(self.widget, Gtk.Widget):
             self.popover.set_parent(self.widget)  # type: ignore[no-untyped-call]
@@ -75,19 +64,14 @@ class Helper:
         self.widget.add_controller(gesture)  # type: ignore[no-untyped-call]
 
     def on_right_click(self, _gesture: Gtk.GestureClick, n_press: int, x: float, y: float) -> None:
-        """
-        Display the context menu popover at the location of the mouse click.
+        """Display the context menu popover at the location of the mouse click.
 
         Called when the right-click gesture is detected on the widget.
 
         :param _gesture: The :class:`Gtk.GestureClick` that triggered the event (unused).
-        :type _gesture: Gtk.GestureClick
         :param n_press: The number of mouse button presses.
-        :type n_press: int
         :param x: The x-coordinate of the mouse click relative to the widget.
-        :type x: float
         :param y: The y-coordinate of the mouse click relative to the widget.
-        :type y: float
         """
         if n_press == 1:  # Process only single clicks for context menu
             self.last_right_click_coords = (x, y)
@@ -102,16 +86,13 @@ class Helper:
                 self.popover.popup()  # type: ignore[no-untyped-call]
 
     def copy_context_item_to_clipboard(self) -> None:
-        """
-        Copy the content of the right-clicked item to the clipboard.
+        """Copy the content of the right-clicked item to the clipboard.
 
         This method uses the coordinates stored from the last right-click event
         to identify the specific :class:`Gtk.ListItem` and its underlying data item
         (e.g., a `HeaderItem` from `http_page.py`). It then formats the text
         based on the item's attributes (special row, continuation line, or
         standard header) and copies it to the clipboard.
-
-        :return: None
         """
         logger.debug("copy_context_item_to_clipboard called.")
         if (
@@ -123,10 +104,10 @@ class Helper:
             return
 
         x_coord, y_coord = self.last_right_click_coords
-        logger.debug(f"Coordinates for pick: x={x_coord}, y={y_coord}")
+        logger.debug("Coordinates for pick: x=%s, y=%s", x_coord, y_coord)
 
         picked_widget = self.widget.pick(x_coord, y_coord, Gtk.PickFlags.DEFAULT)  # type: ignore[no-untyped-call]
-        logger.debug(f"widget.pick result: {picked_widget}")
+        logger.debug("widget.pick result: %s", picked_widget)
 
         if picked_widget is None:
             logger.debug("No widget picked at coordinates.")
@@ -147,14 +128,14 @@ class Helper:
         if not target_list_item_widget:
             logger.debug("Gtk.ListItem widget not found by traversing up from picked_widget.")
             return
-        logger.debug(f"Found target_list_item_widget: {target_list_item_widget}")
+        logger.debug("Found target_list_item_widget: %s", target_list_item_widget)
 
         item_obj: Optional[GObject.Object] = target_list_item_widget.get_item()
 
         if item_obj is None:
             logger.debug("item_obj is None from target_list_item_widget.get_item().")
             return
-        logger.debug(f"Got item_obj: {item_obj}, type: {type(item_obj)}")
+        logger.debug("Got item_obj: %s, type: %s", item_obj, type(item_obj))
 
         text_to_copy: str = ""
         try:
@@ -162,7 +143,7 @@ class Helper:
             key_attr = getattr(item_obj, "key", None)
             value_attr = getattr(item_obj, "value", None)
             is_special_attr = getattr(item_obj, "is_special_row", False)
-            logger.debug(f"Retrieved attributes: key='{key_attr}', value='{value_attr}', is_special={is_special_attr}")
+            logger.debug("Retrieved attributes: key='%s', value='%s', is_special=%s", key_attr, value_attr, is_special_attr)
 
             if is_special_attr:
                 text_to_copy = str(key_attr if key_attr is not None else "")
@@ -178,7 +159,7 @@ class Helper:
             if not text_to_copy:
                 logger.debug("text_to_copy is empty after attribute processing.")
             else:
-                logger.debug(f"Constructed text_to_copy: '{text_to_copy}'")
+                logger.debug("Constructed text_to_copy: '%s'", text_to_copy)
 
             clipboard: Gdk.Clipboard = self.widget.get_clipboard()  # type: ignore[assignment]
             if clipboard:
@@ -189,17 +170,14 @@ class Helper:
                 logger.warning("Failed to get clipboard object.")
 
         except AttributeError as e:
-            logger.warning(f"AttributeError in copy_context_item_to_clipboard: {e}")
+            logger.warning("AttributeError in copy_context_item_to_clipboard: %s", e)
 
     def on_copy_menu_item_activated(self, _button: Gtk.Button) -> None:
-        """
-        Handle activation of the 'Copy' menu item.
+        """Handle activation of the 'Copy' menu item.
 
         Copies the right-clicked item's content to the clipboard and hides the popover.
 
         :param _button: The :class:`Gtk.Button` that triggered the event (unused).
-        :type _button: Gtk.Button
-        :return: None
         """
         self.copy_context_item_to_clipboard()
         if self.popover:
@@ -208,19 +186,13 @@ class Helper:
     def on_key_pressed(
         self, _controller: Gtk.EventControllerKey, keyval: int, _keycode: int, state: Gdk.ModifierType
     ) -> bool:
-        """
-        Handle the ``Ctrl+C`` keyboard shortcut to copy selected content.
+        """Handle the ``Ctrl+C`` keyboard shortcut to copy selected content.
 
         :param _controller: The :class:`Gtk.EventControllerKey` that triggered the event (unused).
-        :type _controller: Gtk.EventControllerKey
         :param keyval: The value of the key pressed (e.g., :const:`Gdk.KEY_c`).
-        :type keyval: int
         :param _keycode: The hardware keycode of the key pressed (unused).
-        :type _keycode: int
         :param state: The state of the modifier keys (e.g., :const:`Gdk.ModifierType.CONTROL_MASK`).
-        :type state: Gdk.ModifierType
         :return: ``True`` if the ``Ctrl+C`` event was handled, ``False`` otherwise.
-        :rtype: bool
         """
         if state & Gdk.ModifierType.CONTROL_MASK and keyval == Gdk.KEY_c:
             self.copy_to_clipboard()
@@ -228,16 +200,13 @@ class Helper:
         return False
 
     def copy_to_clipboard(self) -> None:
-        """
-        Copy selected content from the :class:`Gtk.ColumnView` to the clipboard.
+        """Copy selected content from the :class:`Gtk.ColumnView` to the clipboard.
 
         Assumes the items in the :class:`Gtk.ColumnView` model have 'key' and
         'value' attributes to construct the string. This method formats the copied text
         similarly to :meth:`.copy_context_item_to_clipboard` for consistency, handling
         special rows, continuation lines, and standard headers.
         Handles both :class:`Gtk.MultiSelection` and :class:`Gtk.SingleSelection` models.
-
-        :return: None
         """
         if not isinstance(self.widget, Gtk.ColumnView):
             return

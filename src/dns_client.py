@@ -1,7 +1,7 @@
 """Provides a client for performing DNS lookups."""
 
 import logging
-from typing import Optional, Any # Use list, dict
+from typing import Optional, Any
 import ipaddress
 
 import dns.resolver
@@ -47,11 +47,9 @@ class DnsResolverClient:
     """Encapsulates DNS lookup logic."""
 
     def __init__(self, custom_dns_server: Optional[str] = None):
-        """
-        Initialize :class:`DnsResolverClient`.
+        """Initialize :class:`DnsResolverClient`.
 
         :param custom_dns_server: Optional IP address of a custom DNS server.
-        :type custom_dns_server: str, optional
         """
         self.resolver: dns.resolver.Resolver = dns.resolver.Resolver()
         if custom_dns_server:
@@ -60,21 +58,17 @@ class DnsResolverClient:
         self.resolver.lifetime = 2.0
 
     def _lookup_record_internal(self, query_name_str: str, record_type_str: str) -> list[dict[str, Any]]:
-        """
-        Look up and parse DNS records.
+        """Look up and parse DNS records.
 
         Internal method.
 
         :param query_name_str: Domain name or reverse IP to query.
-        :type query_name_str: str
         :param record_type_str: DNS record type string.
-        :type record_type_str: str
         :raises DnsResolutionTimeoutError: If DNS query times out.
         :raises DnsNxDomainError: If domain does not exist.
         :raises DnsNoAnswerError: If query name valid but no records of requested type exist.
         :raises DnsGenericError: For other DNS lookup failures.
         :return: List of parsed DNS record dictionaries.
-        :rtype: list[dict[str, Any]]
         """
         try:
             answer: dns.resolver.Answer = self.resolver.resolve(query_name_str, record_type_str)  # type: ignore[no-untyped-call]
@@ -129,17 +123,13 @@ class DnsResolverClient:
             raise DnsGenericError(f"DNS error for {query_name_str}: {e}") from e
 
     def resolve(self, domain_or_ip: str, record_type: str) -> list[dict[str, Any]]:
-        """
-        Resolve DNS records for a domain/IP and record type.
+        """Resolve DNS records for a domain/IP and record type.
 
         :param domain_or_ip: Domain name or IP address to query.
-        :type domain_or_ip: str
         :param record_type: DNS record type string (e.g., "A", "MX", "PTR").
                             Handles reverse DNS for "PTR" queries of IP addresses.
-        :type record_type: str
         :raises DnsClientError: and its subclasses for DNS resolution issues.
         :return: List of parsed DNS record dictionaries.
-        :rtype: list[dict[str, Any]]
         """
         logger.debug("DnsResolverClient: resolve called for %s, type %s", domain_or_ip, record_type)
 
@@ -152,7 +142,7 @@ class DnsResolverClient:
             try:
                 is_ip = False
                 try:
-                    ipaddress.ip_address(domain_or_ip)  # Use a proper IP validation library
+                    ipaddress.ip_address(domain_or_ip)
                     is_ip = True
                 except ValueError:
                     is_ip = False

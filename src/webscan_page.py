@@ -1,5 +1,4 @@
-"""
-Defines the WebScan page for the Woes application.
+"""Defines the WebScan page for the Woes application.
 
 This page provides a simple interface to run Nikto scans against a target URL
 and display the results.
@@ -155,8 +154,7 @@ class WebScanPage(Gtk.Box):
             self._update_font_css()
 
     def _update_font_css(self) -> None:
-        """
-        Update the CSS provider with the current font settings.
+        """Update the CSS provider with the current font settings.
 
         This method generates a CSS string to set the ``font-family`` and
         ``font-size`` for the ``textview#webscan-output-textview`` widget.
@@ -195,8 +193,7 @@ class WebScanPage(Gtk.Box):
             self.current_web_scan_cancellable.cancel()
 
     def _on_nikto_format_changed(self, combo_row: Adw.ComboRow, _param_spec: GObject.ParamSpec):
-        """
-        Handle changes in the Nikto output format selection.
+        """Handle changes in the Nikto output format selection.
 
         Updates the sensitivity of the output file row based on whether
         the selected format requires an output file.
@@ -223,8 +220,7 @@ class WebScanPage(Gtk.Box):
         logger.debug(f"Nikto format changed to: {selected_format}. File required: {is_file_required}")
 
     def _on_nikto_output_file_button_clicked(self, _button: Gtk.Button):
-        """
-        Handle click of the 'Choose Output File' button for Nikto.
+        """Handle click of the 'Choose Output File' button for Nikto.
 
         Opens a Gtk.FileChooserNative dialog to allow the user to select
         a save location and filename for Nikto's output.
@@ -265,8 +261,7 @@ class WebScanPage(Gtk.Box):
         dialog.show()
 
     def _on_cancel_scan_clicked(self, _button: Gtk.Button) -> None:
-        """
-        Handle click on the 'Cancel Scan' button.
+        """Handle click on the 'Cancel Scan' button.
 
         :param _button: The :class:`Gtk.Button` that was clicked (unused).
         :type _button: Gtk.Button
@@ -281,8 +276,7 @@ class WebScanPage(Gtk.Box):
             logger.warning("No active scan or cancellable to cancel.")
 
     def _on_clear_results_clicked(self, _button: Gtk.Button):
-        """
-        Handle click of the 'Clear Results' button.
+        """Handle click of the 'Clear Results' button.
 
         :param _button: The :class:`Gtk.Button` that was clicked (unused).
         :type _button: Gtk.Button
@@ -298,8 +292,7 @@ class WebScanPage(Gtk.Box):
         self._update_results_actions_sensitivity()
 
     def _on_copy_results_clicked(self, _button: Gtk.Button):
-        """
-        Handle click of the 'Copy Results' button.
+        """Handle click of the 'Copy Results' button.
 
         :param _button: The :class:`Gtk.Button` that was clicked (unused).
         :type _button: Gtk.Button
@@ -330,8 +323,7 @@ class WebScanPage(Gtk.Box):
                 logger.info("No webscan results to copy.")
 
     def on_scan_button_clicked(self, _widget: Gtk.Button):
-        """
-        Handle the 'Scan' button click event.
+        """Handle the 'Scan' button click event.
 
         :param _widget: The :class:`Gtk.Button` that was clicked (unused).
         :type _widget: Gtk.Button
@@ -411,8 +403,7 @@ class WebScanPage(Gtk.Box):
     def _run_scan_task_thread_func(
         self, task: Gio.Task, _source_object: GObject.Object, _task_data_unused: Any, cancellable: Gio.Cancellable
     ):
-        """
-        Execute the Nikto scan in a separate thread, with cancellation support.
+        """Execute the Nikto scan in a separate thread, with cancellation support.
 
         :param task: The :class:`Gio.Task` associated with this operation.
         :type task: Gio.Task
@@ -750,8 +741,7 @@ class WebScanPage(Gtk.Box):
             self.current_nikto_process = None
 
     def _on_scan_task_done(self, _source_object: GObject.Object, result: Gio.AsyncResult, _user_data: object):
-        """
-        Handle completion of the Nikto scan task.
+        """Handle completion of the Nikto scan task.
 
         :param _source_object: The :class:`GObject.Object` source of the task.
         :type _source_object: GObject.Object
@@ -910,8 +900,7 @@ class WebScanPage(Gtk.Box):
     def _update_textview(
         self, stdout_content: Optional[str], stderr_content: Optional[str], is_error_message: bool = False
     ):
-        """
-        Update the results :class:`Gtk.TextView` with Nikto's stdout and error messages/stderr.
+        """Update the results :class:`Gtk.TextView` with Nikto's stdout and error messages/stderr.
 
         :param stdout_content: The standard output content from Nikto.
         :type stdout_content: Optional[str]

@@ -1,5 +1,4 @@
-"""
-Manages the application's preferences window and settings.
+"""Manages the application's preferences window and settings.
 
 This module provides the UI and logic for adjusting application-wide
 preferences such as font scaling, color themes, source view style schemes,
@@ -31,8 +30,7 @@ NONE_OPTION_TITLE = "None" # Module-level constant for "None"
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/preferences.ui")
 class Preferences(Adw.PreferencesWindow):
-    """
-    Adw.PreferencesWindow subclass for managing application settings.
+    """Adw.PreferencesWindow subclass for managing application settings.
 
     This class defines the structure and behavior of the preferences dialog,
     organized into "Appearance" and "Behavior" pages. It allows users to
@@ -58,49 +56,6 @@ class Preferences(Adw.PreferencesWindow):
        programmatic changes are complete.
     This ensures that GSettings are only updated when the user directly interacts
     with the `user_agent_combo_row`.
-
-    :ivar _ua_combo_handler_id: Stores the ID of the "notify::selected-item" signal
-                                handler for `user_agent_combo_row`. Used to block/unblock
-                                the signal during programmatic updates.
-    :vartype _ua_combo_handler_id: Optional[int]
-    :ivar _is_programmatically_changing_ua_combo: A flag to indicate that changes to
-                                                  `user_agent_combo_row`'s selection
-                                                  are programmatic and should not trigger
-                                                  the GSettings save logic in
-                                                  `_on_default_user_agent_changed`.
-    :vartype _is_programmatically_changing_ua_combo: bool
-
-    :ivar NONE_OPTION_TITLE: Class attribute to consistently refer to the "None" option title
-                             (representing system default or no override).
-    :vartype NONE_OPTION_TITLE: str
-    :ivar font_scale_combo_row: :class:`Adw.ComboRow` for font scaling.
-    :vartype font_scale_combo_row: Adw.ComboRow
-    :ivar theme_combo_row: :class:`Adw.ComboRow` for theme selection.
-    :vartype theme_combo_row: Adw.ComboRow
-    :ivar dns_server_entryrow: :class:`Adw.EntryRow` for custom DNS server.
-    :vartype dns_server_entryrow: Adw.EntryRow
-    :ivar prefs_dns_apply_button: :class:`Gtk.Button` to apply DNS server settings.
-    :vartype prefs_dns_apply_button: Gtk.Button
-    :ivar preferences_error_banner: :class:`Adw.Banner` for displaying errors.
-    :vartype preferences_error_banner: Adw.Banner
-    :ivar http_header_key_color_button: :class:`Gtk.ColorDialogButton` for header key color.
-    :vartype http_header_key_color_button: Gtk.ColorDialogButton
-    :ivar http_header_value_color_button: :class:`Gtk.ColorDialogButton` for header value color.
-    :vartype http_header_value_color_button: Gtk.ColorDialogButton
-    :ivar http_special_row_color_button: :class:`Gtk.ColorDialogButton` for special row color.
-    :vartype http_special_row_color_button: Gtk.ColorDialogButton
-    :ivar new_custom_ua_title_entry: :class:`Gtk.Entry` for new custom User-Agent title.
-    :vartype new_custom_ua_title_entry: Gtk.Entry
-    :ivar new_custom_ua_value_entry: :class:`Gtk.Entry` for new custom User-Agent value.
-    :vartype new_custom_ua_value_entry: Gtk.Entry
-    :ivar add_custom_ua_button: :class:`Gtk.Button` to add custom User-Agent.
-    :vartype add_custom_ua_button: Gtk.Button
-    :ivar custom_ua_list_container: :class:`Gtk.Box` (or similar container) for custom User-Agent list.
-    :vartype custom_ua_list_container: Gtk.Widget
-    :ivar user_agent_combo_row: :class:`Adw.ComboRow` for default user agent selection.
-    :vartype user_agent_combo_row: Adw.ComboRow
-    :ivar global_output_font_button: :class:`Gtk.FontButton` for global output font.
-    :vartype global_output_font_button: Gtk.FontButton
     """
 
     __gtype_name__ = "Preferences"
@@ -129,11 +84,9 @@ class Preferences(Adw.PreferencesWindow):
     global_output_font_button: Gtk.FontButton = Gtk.Template.Child("global_output_font_button")  # type: ignore
 
     def __init__(self, main_window: Optional[Gtk.Window] = None):
-        """
-        Initialize the Preferences window.
+        """Initialize the Preferences window.
 
         :param main_window: The parent :class:`Gtk.Window` for this dialog.
-        :type main_window: Optional[Gtk.Window]
         """
         super().__init__(modal=True)
         self.main_window: Optional[Gtk.Window] = main_window
@@ -183,8 +136,7 @@ class Preferences(Adw.PreferencesWindow):
             logging.error("'dns_server_entryrow' template child not found during __init__.")
 
     def load_ui(self):
-        """
-        Connect signals for UI elements.
+        """Connect signals for UI elements.
 
         This method sets up connections for various UI elements to their
         respective handler functions, and initializes GSettings listeners.
@@ -238,20 +190,18 @@ class Preferences(Adw.PreferencesWindow):
 
 
     def on_global_font_setting_changed(self, font_button: Gtk.FontButton):
-        """
-        Handle the 'font-set' signal from the global output :class:`Gtk.FontButton`.
+        """Handle the 'font-set' signal from the global output :class:`Gtk.FontButton`.
 
         Updates the 'output-font' GSettings preference with the new font
         description string. This GSettings change is then observed by
         the main window to update the CSS for relevant TextViews.
 
         :param font_button: The :class:`Gtk.FontButton` that emitted the signal.
-        :type font_button: Gtk.FontButton
         """
         font_desc_str = font_button.get_font()  # Gets "Family [Style] Size"
         if font_desc_str:
             self.settings.set_string("output-font", font_desc_str)
-            logging.debug(f"Global output font set to: {font_desc_str}")
+            logging.debug("Global output font set to: %s", font_desc_str)
         else:
             # This case should ideally not happen if a font is always selected.
             # Fallback to a default if it does, or log an error.
@@ -261,25 +211,20 @@ class Preferences(Adw.PreferencesWindow):
             logging.warning("No font description from FontButton, reset to default.")
 
     def on_error_banner_dismiss_clicked(self, _banner: Adw.Banner, *_args):
-        """
-        Handle the click event for dismissing the error banner.
+        """Handle the click event for dismissing the error banner.
 
         :param _banner: The :class:`Adw.Banner` that was clicked (or its dismiss button).
-        :type _banner: Adw.Banner
         :param _args: Additional arguments (unused).
-        :type _args: Any
         """
         self.hide_banner_and_clear_error_state()
 
-    def on_dns_server_changed(self, _widget: Gtk.Widget):  # pylint: disable=unused-argument
-        """
-        Handle changes to the custom DNS server entry.
+    def on_dns_server_changed(self, _widget: Gtk.Widget):
+        """Handle changes to the custom DNS server entry.
 
         Validates the entered IP address. If valid, saves it to GSettings.
         If invalid, displays an error banner.
 
         :param _widget: The :class:`Gtk.Widget` that triggered the change (:class:`Adw.EntryRow` or :class:`Gtk.Button`).
-        :type _widget: Gtk.Widget
         """
         dns_server = self.dns_server_entryrow.get_text().strip()
 
@@ -302,25 +247,22 @@ class Preferences(Adw.PreferencesWindow):
             if self.dns_server_entryrow:
                 self.dns_server_entryrow.add_css_class("error")
             error_message = "Invalid IPv4 address for DNS server."
-            logging.error(f"Invalid custom DNS server IP address provided: {dns_server}")
+            logging.error("Invalid custom DNS server IP address provided: %s", dns_server)
 
             self.preferences_error_banner.set_title(error_message)
             self.preferences_error_banner.set_revealed(True)
             GLib.timeout_add_seconds(4, self.hide_banner_and_clear_error_state, self.dns_server_entryrow)
 
     def hide_banner_and_clear_error_state(self, entry_row_widget: Optional[Adw.EntryRow] = None) -> bool:
-        """
-        Hide the error banner and remove 'error' CSS class from an entry row.
+        """Hide the error banner and remove 'error' CSS class from an entry row.
 
         This method is also used as a :func:`GLib.timeout_add_seconds` callback,
         in which case it must return :data:`GLib.SOURCE_REMOVE`.
 
         :param entry_row_widget: The :class:`Adw.EntryRow` to clear the error state from.
                                  If ``None``, defaults to `self.dns_server_entryrow`.
-        :type entry_row_widget: Optional[Adw.EntryRow]
         :return: :data:`GLib.SOURCE_REMOVE` if called as a timeout, indicating the timer should not repeat.
                  Implicitly returns ``None`` otherwise.
-        :rtype: bool
         """
         self.preferences_error_banner.set_revealed(False)
         target_entry_row = entry_row_widget if entry_row_widget else self.dns_server_entryrow
@@ -330,13 +272,10 @@ class Preferences(Adw.PreferencesWindow):
 
     @staticmethod
     def is_valid_ipv4(ip_address: str) -> bool:
-        """
-        Validate if the input string is a syntactically valid IPv4 address.
+        """Validate if the input string is a syntactically valid IPv4 address.
 
         :param ip_address: The string to validate.
-        :type ip_address: str
         :return: ``True`` if the string is a valid IPv4 address, ``False`` otherwise.
-        :rtype: bool
         """
         parts = ip_address.split(".")
         if len(parts) != 4:
@@ -351,15 +290,12 @@ class Preferences(Adw.PreferencesWindow):
         return True
 
     def on_font_scale_changed(self, combo_row: Adw.ComboRow, _gparam: GObject.ParamSpec):
-        """
-        Handle changes in the font scale preference :class:`Adw.ComboRow`.
+        """Handle changes in the font scale preference :class:`Adw.ComboRow`.
 
         Saves the selected font scaling percentage string to GSettings.
 
         :param combo_row: The :class:`Adw.ComboRow` whose selection changed.
-        :type combo_row: Adw.ComboRow
         :param _gparam: The :class:`GObject.ParamSpec` of the property that changed (unused).
-        :type _gparam: GObject.ParamSpec
         """
         selected_item_obj = combo_row.get_selected_item()
         if isinstance(selected_item_obj, Gtk.StringObject):
@@ -368,15 +304,12 @@ class Preferences(Adw.PreferencesWindow):
             logging.debug("Font scaling preference set to %s.", selected_scale_str)
 
     def on_theme_preference_changed(self, combo_row: Adw.ComboRow, _gparam: GObject.ParamSpec):
-        """
-        Handle changes in the theme preference :class:`Adw.ComboRow`.
+        """Handle changes in the theme preference :class:`Adw.ComboRow`.
 
         Saves the selected theme name string (e.g., "Light", "Dark") to GSettings.
 
         :param combo_row: The :class:`Adw.ComboRow` whose selection changed.
-        :type combo_row: Adw.ComboRow
         :param _gparam: The :class:`GObject.ParamSpec` of the property that changed (unused).
-        :type _gparam: GObject.ParamSpec
         """
         selected_item_obj = combo_row.get_selected_item()
         if isinstance(selected_item_obj, Gtk.StringObject):
@@ -389,13 +322,10 @@ class Preferences(Adw.PreferencesWindow):
 
     @staticmethod
     def _rgba_to_hex(rgba: Gdk.RGBA) -> str:
-        """
-        Convert a :class:`Gdk.RGBA` object to a hex color string (e.g., ``#RRGGBB``).
+        """Convert a :class:`Gdk.RGBA` object to a hex color string (e.g., ``#RRGGBB``).
 
         :param rgba: The :class:`Gdk.RGBA` object to convert.
-        :type rgba: Gdk.RGBA
         :return: The hex color string.
-        :rtype: str
         """
         red = int(rgba.red * 255)
         green = int(rgba.green * 255)
@@ -403,30 +333,23 @@ class Preferences(Adw.PreferencesWindow):
         return f"#{red:02x}{green:02x}{blue:02x}"
 
     def on_http_color_changed(self, button: Gtk.ColorDialogButton, _gparam: GObject.ParamSpec, gsettings_key: str):
-        """
-        Handle RGBA color change from a :class:`Gtk.ColorDialogButton` and save as hex.
+        """Handle RGBA color change from a :class:`Gtk.ColorDialogButton` and save as hex.
 
         :param button: The :class:`Gtk.ColorDialogButton` that emitted the signal.
-        :type button: Gtk.ColorDialogButton
         :param _gparam: The :class:`GObject.ParamSpec` of the property that changed (unused).
-        :type _gparam: GObject.ParamSpec
         :param gsettings_key: The GSettings key to save the color to.
-        :type gsettings_key: str
         """
         rgba = button.get_rgba()
         if rgba:
             color_hex_string = self._rgba_to_hex(rgba)
             self.settings.set_string(gsettings_key, color_hex_string)
-            logging.debug(f"HTTP color for {gsettings_key} set to hex: {color_hex_string}")
+            logging.debug("HTTP color for %s set to hex: %s", gsettings_key, color_hex_string)
 
     def _load_color_button_preference(self, button: Gtk.ColorDialogButton, gsettings_key: str):
-        """
-        Load a color from GSettings (stored as hex) and apply to :class:`Gtk.ColorDialogButton`.
+        """Load a color from GSettings (stored as hex) and apply to :class:`Gtk.ColorDialogButton`.
 
         :param button: The :class:`Gtk.ColorDialogButton` to apply the color to.
-        :type button: Gtk.ColorDialogButton
         :param gsettings_key: The GSettings key to load the color from.
-        :type gsettings_key: str
         """
         color_string = self.settings.get_string(gsettings_key)
         if color_string:
@@ -436,16 +359,15 @@ class Preferences(Adw.PreferencesWindow):
                     button.set_rgba(color)
                 else:
                     logging.warning(
-                        f"Gdk.RGBA.parse returned false for color string '{color_string}' for GSettings key '{gsettings_key}'."
+                        "Gdk.RGBA.parse returned false for color string '%s' for GSettings key '%s'.", color_string, gsettings_key
                     )
             except GLib.Error as e:
                 logging.warning(
-                    f"Failed to parse color string '{color_string}' for GSettings key '{gsettings_key}': {e}."
+                    "Failed to parse color string '%s' for GSettings key '%s': %s.", color_string, gsettings_key, e
                 )
 
     def _render_custom_ua_list(self):
-        """
-        Clear and repopulate the list of custom User-Agents in the UI.
+        """Clear and repopulate the list of custom User-Agents in the UI.
 
         Retrieves User-Agent pairs (title, value) from GSettings,
         creates an :class:`Adw.ActionRow` for each, and adds them to the
@@ -479,8 +401,7 @@ class Preferences(Adw.PreferencesWindow):
         self._populate_user_agent_combo_row()  # Keep dropdown in sync
 
     def _on_add_custom_ua_clicked(self, _widget: Gtk.Widget) -> None:
-        """
-        Handle the 'Add User Agent' button click or :class:`Gtk.Entry` activation.
+        """Handle the 'Add User Agent' button click or :class:`Gtk.Entry` activation.
 
         Retrieves text from the title and value entry fields.
         If both are non-empty and the title is unique, adds the new
@@ -488,7 +409,6 @@ class Preferences(Adw.PreferencesWindow):
         Provides visual feedback for empty fields or duplicate titles.
 
         :param _widget: The :class:`Gtk.Widget` that triggered the signal.
-        :type _widget: Gtk.Widget
         """
         if not self.new_custom_ua_title_entry or not self.new_custom_ua_value_entry:
             return
@@ -521,7 +441,7 @@ class Preferences(Adw.PreferencesWindow):
         # Check for duplicate titles (Default UAs + Custom UAs)
         all_existing_titles = [ua_dict['title'] for ua_dict in USER_AGENTS] + [pair[0] for pair in current_ua_pairs]
         if title_text in all_existing_titles:
-            logging.info(f"Custom User-Agent title '{title_text}' already exists or conflicts with a default UA.")
+            logging.info("Custom User-Agent title '%s' already exists or conflicts with a default UA.", title_text)
             if self.new_custom_ua_title_entry:
                 self.new_custom_ua_title_entry.add_css_class("error")  # type: ignore[union-attr]
             return
@@ -532,24 +452,22 @@ class Preferences(Adw.PreferencesWindow):
         new_variant = GLib.Variant("a(ss)", current_ua_pairs)
 
         if self.settings.set_value("custom-user-agents", new_variant):
-            logging.info(f"Added custom User-Agent: '{title_text}' -> '{value_text}'")
+            logging.info("Added custom User-Agent: '%s' -> '%s'", title_text, value_text)
             if self.new_custom_ua_title_entry:
                 self.new_custom_ua_title_entry.set_text("")  # type: ignore[union-attr]
             if self.new_custom_ua_value_entry:
                 self.new_custom_ua_value_entry.set_text("")  # type: ignore[union-attr]
             # self._render_custom_ua_list() is called by GSettings "changed::custom-user-agents" signal
         else:
-            logging.error(f"Failed to save custom User-Agent list to GSettings with new UA: {title_text}")
+            logging.error("Failed to save custom User-Agent list to GSettings with new UA: %s", title_text)
 
     def _on_remove_custom_ua_clicked(self, title_to_remove: str) -> None:
-        """
-        Handle the click of a 'remove' button for a custom User-Agent.
+        """Handle the click of a 'remove' button for a custom User-Agent.
 
         Removes the User-Agent pair identified by ``title_to_remove`` from
         GSettings and updates the UI list.
 
         :param title_to_remove: The title of the User-Agent to remove.
-        :type title_to_remove: str
         """
         variant = self.settings.get_value("custom-user-agents")
         current_ua_pairs: list[tuple[str, str]] = list(
@@ -562,28 +480,23 @@ class Preferences(Adw.PreferencesWindow):
         if len(updated_ua_pairs) < original_length:
             new_variant = GLib.Variant("a(ss)", updated_ua_pairs)
             if self.settings.set_value("custom-user-agents", new_variant):
-                logging.info(f"Removed custom User-Agent with title: {title_to_remove}")
+                logging.info("Removed custom User-Agent with title: %s", title_to_remove)
                 # self._render_custom_ua_list() is called by GSettings "changed::custom-user-agents" signal
             else:
-                logging.error(f"Failed to save custom User-Agent list after removing title: {title_to_remove}")
+                logging.error("Failed to save custom User-Agent list after removing title: %s", title_to_remove)
         else:
-            logging.warning(f"Attempted to remove non-existent User-Agent with title: {title_to_remove}")
+            logging.warning("Attempted to remove non-existent User-Agent with title: %s", title_to_remove)
 
     def _select_combo_row_item(self, combo_row: Adw.ComboRow, setting_value: str, case_sensitive: bool = True) -> bool:
-        """
-        Select an item in an :class:`Adw.ComboRow` based on its string value.
+        """Select an item in an :class:`Adw.ComboRow` based on its string value.
 
         Iterates through the items in the :class:`Adw.ComboRow`'s model (expected to be :class:`Gtk.StringList`).
         If a match is found (case-sensitive or insensitive), the item is selected.
 
         :param combo_row: The :class:`Adw.ComboRow` to operate on.
-        :type combo_row: Adw.ComboRow
         :param setting_value: The string value of the item to select.
-        :type setting_value: str
         :param case_sensitive: Whether the string comparison should be case-sensitive. Defaults to ``True``.
-        :type case_sensitive: bool
         :return: ``True`` if an item was successfully found and selected, ``False`` otherwise.
-        :rtype: bool
         """
         model = combo_row.get_model()
         if isinstance(model, Gtk.StringList):
@@ -601,8 +514,7 @@ class Preferences(Adw.PreferencesWindow):
         return False
 
     def load_preferences(self) -> None:
-        """
-        Load preferences from GSettings and update the UI elements accordingly.
+        """Load preferences from GSettings and update the UI elements accordingly.
 
         For each preference (font scale, theme, style scheme, DNS server),
         it retrieves the value from GSettings and sets the corresponding
@@ -638,30 +550,30 @@ class Preferences(Adw.PreferencesWindow):
         self._is_programmatically_changing_ua_combo = True
         if self._ua_combo_handler_id and self.user_agent_combo_row:
             self.user_agent_combo_row.handler_block(self._ua_combo_handler_id)
-            # logging.debug(f"load_preferences: UA ComboBox handler {self._ua_combo_handler_id} blocked.") # Reduced verbosity
+            # logging.debug("load_preferences: UA ComboBox handler %s blocked.", self._ua_combo_handler_id) # Reduced verbosity
 
         default_ua_title_gsettings = self.settings.get_string("default-user-agent-title")
-        logging.info(f"Preferences: Loading default User-Agent title from GSettings: '{default_ua_title_gsettings if default_ua_title_gsettings else 'None (empty string)'}'")
+        logging.info("Preferences: Loading default User-Agent title from GSettings: '%s'", (default_ua_title_gsettings if default_ua_title_gsettings else 'None (empty string)'))
         model = self.user_agent_combo_row.get_model()
 
         if default_ua_title_gsettings == "": # User explicitly wants "None" (system default)
             was_selected = self._select_combo_row_item(self.user_agent_combo_row, self.NONE_OPTION_TITLE)
-            # logging.info(f"load_preferences: Attempted to select '{self.NONE_OPTION_TITLE}'. Success: {was_selected}") # Reduced verbosity
+            # logging.info("load_preferences: Attempted to select '%s'. Success: %s", self.NONE_OPTION_TITLE, was_selected) # Reduced verbosity
             if not was_selected:
-                logging.error(f"load_preferences: Critical - '{self.NONE_OPTION_TITLE}' not found in user_agent_combo_row.")
+                logging.error("load_preferences: Critical - '%s' not found in user_agent_combo_row.", self.NONE_OPTION_TITLE)
                 if model and model.get_n_items() > 0:
                     self.user_agent_combo_row.set_selected(0)
         elif default_ua_title_gsettings: # A specific UA title is saved
             was_selected = self._select_combo_row_item(self.user_agent_combo_row, default_ua_title_gsettings)
-            # logging.info(f"load_preferences: Attempted to select '{default_ua_title_gsettings}'. Success: {was_selected}") # Reduced verbosity
+            # logging.info("load_preferences: Attempted to select '%s'. Success: %s", default_ua_title_gsettings, was_selected) # Reduced verbosity
             if not was_selected:
-                logging.warning(f"load_preferences: Saved default UA title '{default_ua_title_gsettings}' not found. Falling back to '{self.NONE_OPTION_TITLE}'.")
+                logging.warning("load_preferences: Saved default UA title '%s' not found. Falling back to '%s'.", default_ua_title_gsettings, self.NONE_OPTION_TITLE)
                 self.settings.set_string("default-user-agent-title", "")
                 if not self._select_combo_row_item(self.user_agent_combo_row, self.NONE_OPTION_TITLE):
-                     logging.error(f"load_preferences: Critical - Fallback '{self.NONE_OPTION_TITLE}' not found.")
+                     logging.error("load_preferences: Critical - Fallback '%s' not found.", self.NONE_OPTION_TITLE)
         else: # GSetting is empty, but not explicitly ""
             if not self._select_combo_row_item(self.user_agent_combo_row, self.NONE_OPTION_TITLE):
-                logging.error(f"load_preferences: Critical - '{self.NONE_OPTION_TITLE}' not found during initial load.")
+                logging.error("load_preferences: Critical - '%s' not found during initial load.", self.NONE_OPTION_TITLE)
             self.settings.set_string("default-user-agent-title", "")
 
         if self._ua_combo_handler_id and self.user_agent_combo_row:
@@ -677,14 +589,13 @@ class Preferences(Adw.PreferencesWindow):
                 default_font = "Sans 10"
                 self.global_output_font_button.set_font(default_font)  # type: ignore[union-attr]
                 self.settings.set_string("output-font", default_font)
-                logging.warning(f"GSettings 'output-font' was empty, set to default: {default_font}")
+                logging.warning("GSettings 'output-font' was empty, set to default: %s", default_font)
 
         # HTTP Headers
 
 
     def _populate_user_agent_combo_row(self):
-        """
-        Populate the ``user_agent_combo_row`` with available User-Agent choices.
+        """Populate the ``user_agent_combo_row`` with available User-Agent choices.
 
         This method clears and then reconstructs the list of User-Agent titles
         for the dropdown. It includes a "None" option (representing system default,
@@ -716,7 +627,7 @@ class Preferences(Adw.PreferencesWindow):
             if title not in all_ua_titles: # Avoid duplicates
                 all_ua_titles.append(title)
             else:
-                logging.warning(f"Standard User-Agent title '{title}' conflicts with '{self.NONE_OPTION_TITLE}' or another standard UA. Skipping.")
+                logging.warning("Standard User-Agent title '%s' conflicts with '%s' or another standard UA. Skipping.", title, self.NONE_OPTION_TITLE)
 
         # 3. Add custom user agents from GSettings
         variant = self.settings.get_value("custom-user-agents")
@@ -729,7 +640,7 @@ class Preferences(Adw.PreferencesWindow):
                 all_ua_titles.append(title)
             else:
                 logging.warning(
-                    f"Custom UA title '{title}' conflicts with a standard or another custom UA title. Skipping."
+                    "Custom UA title '%s' conflicts with a standard or another custom UA title. Skipping.", title
                 )
 
         model = Gtk.StringList.new(all_ua_titles)
@@ -759,8 +670,7 @@ class Preferences(Adw.PreferencesWindow):
 
 
     def _on_default_user_agent_changed(self, combo_row: Adw.ComboRow, _gparam: GObject.ParamSpec):
-        """
-        Handle direct user changes in the default User-Agent selection ComboBox.
+        """Handle direct user changes in the default User-Agent selection ComboBox.
 
         This method is connected to the "notify::selected-item" signal of the
         `user_agent_combo_row`. It saves the selected User-Agent title to GSettings
@@ -777,31 +687,29 @@ class Preferences(Adw.PreferencesWindow):
         response to direct user interaction with this ComboBox.
 
         :param combo_row: The :class:`Adw.ComboRow` whose selection changed.
-        :type combo_row: Adw.ComboRow
         :param _gparam: The :class:`GObject.ParamSpec` of the property that changed (unused).
-        :type _gparam: GObject.ParamSpec
         """
         if self._is_programmatically_changing_ua_combo:
-            logging.debug(f"_on_default_user_agent_changed: Ignoring signal for '{combo_row.get_selected_item().get_string() if combo_row.get_selected_item() else 'N/A'}' due to _is_programmatically_changing_ua_combo flag.")
+            logging.debug("_on_default_user_agent_changed: Ignoring signal for '%s' due to _is_programmatically_changing_ua_combo flag.", (combo_row.get_selected_item().get_string() if combo_row.get_selected_item() else 'N/A'))
             return
-        # logging.debug(f"_on_default_user_agent_changed: Processing signal for '{combo_row.get_selected_item().get_string() if combo_row.get_selected_item() else 'N/A'}'. Flag is False.")
+        # logging.debug("_on_default_user_agent_changed: Processing signal for '%s'. Flag is False.", (combo_row.get_selected_item().get_string() if combo_row.get_selected_item() else 'N/A'))
         selected_item_obj = combo_row.get_selected_item()
         if isinstance(selected_item_obj, Gtk.StringObject):
             selected_ua_title = selected_item_obj.get_string()
-            # logging.debug(f"_on_default_user_agent_changed: Raw selected title from dropdown: '{selected_ua_title}'")
+            # logging.debug("_on_default_user_agent_changed: Raw selected title from dropdown: '%s'", selected_ua_title)
             if selected_ua_title:
                 current_gsettings_val = self.settings.get_string("default-user-agent-title")
                 gsetting_to_save = "" # Assume self.NONE_OPTION_TITLE
                 if selected_ua_title != self.NONE_OPTION_TITLE:
                     gsetting_to_save = selected_ua_title
 
-                # logging.debug(f"_on_default_user_agent_changed: Current GSettings value for default-user-agent-title: '{current_gsettings_val}'")
-                # logging.debug(f"_on_default_user_agent_changed: Intended gsetting_to_save: '{gsetting_to_save}' (based on selected_ua_title: '{selected_ua_title}', self.NONE_OPTION_TITLE: '{self.NONE_OPTION_TITLE}')")
+                # logging.debug("_on_default_user_agent_changed: Current GSettings value for default-user-agent-title: '%s'", current_gsettings_val)
+                # logging.debug("_on_default_user_agent_changed: Intended gsetting_to_save: '%s' (based on selected_ua_title: '%s', self.NONE_OPTION_TITLE: '%s')", gsetting_to_save, selected_ua_title, self.NONE_OPTION_TITLE)
 
                 if gsetting_to_save != current_gsettings_val:
-                    logging.info(f"Preferences: Saving default User-Agent title to GSettings: '{gsetting_to_save}'")
+                    logging.info("Preferences: Saving default User-Agent title to GSettings: '%s'", gsetting_to_save)
                     self.settings.set_string("default-user-agent-title", gsetting_to_save)
-                    # logging.info(f"_on_default_user_agent_changed: Value read back from GSettings default-user-agent-title immediately after set: '{self.settings.get_string('default-user-agent-title')}'")
+                    # logging.info("_on_default_user_agent_changed: Value read back from GSettings default-user-agent-title immediately after set: '%s'", self.settings.get_string('default-user-agent-title'))
             else: # selected_ua_title is None or empty string (should not happen with Gtk.StringList of valid titles)
                 logging.warning("Selected UA title is None or empty, which is unexpected. Setting GSettings to empty.")
                 self.settings.set_string("default-user-agent-title", "")

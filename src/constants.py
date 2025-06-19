@@ -1,5 +1,4 @@
-"""
-Global constants for the Woes application.
+"""Global constants for the Woes application.
 
 This module defines various global constants used throughout the Woes application,
 including application identifiers, resource paths, theme names, version information,
@@ -22,8 +21,8 @@ APP_ISSUES_URL = "https://github.com/mclellac/woes/issues"
 
 # PKGDATADIR would typically be set by the build system (e.g., Meson, Autotools)
 _default_pkgdatadir = "/usr/local/share/woes"
-PKGDATADIR = os.environ.get("WOES_PKGDATADIR", _default_pkgdatadir)
 # This allows overriding with an environment variable for testing or different installations.
+PKGDATADIR = os.environ.get("WOES_PKGDATADIR", _default_pkgdatadir)
 
 GNOME_INTERFACE_SCHEMA = "org.gnome.desktop.interface"
 FONT_NAME_KEY = "font-name"

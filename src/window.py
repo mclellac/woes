@@ -1,5 +1,4 @@
-"""
-Defines the main application window for Woes.
+"""Defines the main application window for Woes.
 
 This module contains the :class:`WoesWindow` class, which is the primary
 :class:`Adw.ApplicationWindow`. It handles UI setup, GSettings bindings for
@@ -12,10 +11,6 @@ from typing import Optional, Any
 import gi
 from gi.repository import Adw, Gdk, Gio, Gtk, GLib, GObject, Pango
 
-from .nmap_page import NmapPage
-from .http_page import HttpPage
-from .dns_page import DNSPage
-from .webscan_page import WebScanPage
 
 from .constants import (
     APP_ID,
@@ -35,8 +30,7 @@ gi.require_version("Gtk", "4.0")
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/window.ui")
 class WoesWindow(Adw.ApplicationWindow):
-    """
-    Main application window for the Woes application.
+    """Main application window for the Woes application.
 
     Manages the overall UI structure, including the main stack view and
     title switcher. It binds window properties (size, state) to :class:`Gio.Settings`
@@ -119,8 +113,7 @@ class WoesWindow(Adw.ApplicationWindow):
             self.hide_error()
 
     def _on_global_output_font_setting_changed_for_css(self, settings: Gio.Settings, key: str):
-        """
-        Handle changes to the 'output-font' GSettings key for TextView CSS.
+        """Handle changes to the 'output-font' GSettings key for TextView CSS.
 
         Updates the CSS style for Nmap and Webscan TextViews when the
         'output-font' setting changes.
@@ -135,8 +128,7 @@ class WoesWindow(Adw.ApplicationWindow):
             self.update_textview_font_style(new_font_str if new_font_str else "Sans 10")
 
     def update_textview_font_style(self, font_desc_str: str):
-        """
-        Update the font style for Nmap and Webscan TextViews.
+        """Update the font style for Nmap and Webscan TextViews.
 
         This method takes a Pango font description string (e.g., "Sans Bold 12"),
         generates a CSS rule targeting the TextViews used for Nmap raw output
@@ -183,8 +175,7 @@ class WoesWindow(Adw.ApplicationWindow):
             logger.error(f"Unexpected error loading CSS string: {e_generic}. CSS was: {css_string}")
 
     def _on_main_error_banner_dismissed(self, _banner: Optional[Adw.Banner] = None, _data: Optional[Any] = None):
-        """
-        Handle dismissal of the main error banner.
+        """Handle dismissal of the main error banner.
 
         This callback is connected to the 'button-clicked' signal of the
         ``main_error_banner``.
@@ -197,8 +188,7 @@ class WoesWindow(Adw.ApplicationWindow):
         self.hide_error()
 
     def show_error(self, message: str):
-        """
-        Display a message in the main error banner.
+        """Display a message in the main error banner.
 
         If the ``main_error_banner`` widget is available, its title is set to
         the provided message, an 'error' CSS class is added, and it's revealed.
@@ -214,8 +204,7 @@ class WoesWindow(Adw.ApplicationWindow):
             logging.warning("main_error_banner not available to show message: %s", message)
 
     def hide_error(self):
-        """
-        Hide the main error banner and clear its title.
+        """Hide the main error banner and clear its title.
 
         If the ``main_error_banner`` widget is available, its 'error' CSS class
         is removed, it's hidden, and its title is cleared.
@@ -228,8 +217,7 @@ class WoesWindow(Adw.ApplicationWindow):
             logging.warning("main_error_banner not available to hide.")
 
     def _on_gnome_font_setting_changed(self, _gnome_settings_obj: Gio.Settings, key_name: str):
-        """
-        Handle changes to GNOME's system font settings.
+        """Handle changes to GNOME's system font settings.
 
         This callback is connected to changes in ``org.gnome.desktop.interface``
         for ``font-name`` and ``text-scaling-factor``. It triggers re-application
@@ -246,8 +234,7 @@ class WoesWindow(Adw.ApplicationWindow):
         apply_font_size(self.settings)
 
     def setup_ui(self):
-        """
-        Set up the main UI components.
+        """Set up the main UI components.
 
         This includes loading CSS, applying initial preferences, and connecting
         signals for UI elements like the page switcher.
@@ -271,8 +258,7 @@ class WoesWindow(Adw.ApplicationWindow):
             logging.warning("switcher_title or stack not found during setup_ui.")
 
     def _on_theme_preference_setting_changed(self, settings: Gio.Settings, key: str):
-        """
-        Handle changes to the 'theme-preference' GSettings key.
+        """Handle changes to the 'theme-preference' GSettings key.
 
         Applies the new theme and reloads CSS to ensure theme-specific styles
         are correctly applied.
@@ -288,8 +274,7 @@ class WoesWindow(Adw.ApplicationWindow):
         self.load_css()
 
     def _on_font_scaling_setting_changed(self, _settings: Gio.Settings, key: str):
-        """
-        Handle changes to the 'font-scaling-percentage' GSettings key.
+        """Handle changes to the 'font-scaling-percentage' GSettings key.
 
         Triggers re-application of font sizes based on the new scaling factor.
 
@@ -303,8 +288,7 @@ class WoesWindow(Adw.ApplicationWindow):
         apply_font_size(self.settings)
 
     def load_css(self):
-        """
-        Load the appropriate CSS file (style.css or style-dark.css) based on the current theme.
+        """Load the appropriate CSS file (style.css or style-dark.css) based on the current theme.
 
         The CSS is loaded from GResources and applied to the application.
         """
@@ -333,8 +317,7 @@ class WoesWindow(Adw.ApplicationWindow):
             )
 
     def reload_css(self):
-        """
-        Reload CSS based on the current theme preference.
+        """Reload CSS based on the current theme preference.
 
         This is a convenience method that calls :meth:`.load_css`.
         """
@@ -342,8 +325,7 @@ class WoesWindow(Adw.ApplicationWindow):
         self.load_css()
 
     def apply_preferences(self) -> None:
-        """
-        Apply stored font and theme preferences to the application.
+        """Apply stored font and theme preferences to the application.
 
         This method reads 'theme-preference' from GSettings, applies the
         font size using :func:`.style_utils.apply_font_size`, and applies
@@ -359,8 +341,7 @@ class WoesWindow(Adw.ApplicationWindow):
             logging.error("An unexpected error of type %s occurred while applying preferences: %s", type(e).__name__, e)
 
     def on_page_switched(self, _widget: Adw.ViewSwitcherTitle, _gparam: GObject.ParamSpec):
-        """
-        Handle the page switch event from the :class:`Adw.ViewSwitcherTitle`.
+        """Handle the page switch event from the :class:`Adw.ViewSwitcherTitle`.
 
         Logs the name of the newly visible child page in the main stack.
 
@@ -376,8 +357,7 @@ class WoesWindow(Adw.ApplicationWindow):
             logging.warning("on_page_switched called but self.stack is not available.")
 
     def show_toast(self, title: str, priority: Adw.ToastPriority = Adw.ToastPriority.NORMAL, timeout: int = 2) -> None:
-        """
-        Display an :class:`Adw.Toast` message using the window's :class:`Adw.ToastOverlay`.
+        """Display an :class:`Adw.Toast` message using the window's :class:`Adw.ToastOverlay`.
 
         :param title: The message to display in the toast.
         :type title: str
