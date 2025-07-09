@@ -185,21 +185,21 @@ def build_application(os_type):
     print("[Build] Installation complete!")
 
     # macOS-specific fix
-    if os_type == "Darwin":
-        site_packages_dir = next((p for p in sys.path if "site-packages" in p), None)
-        if site_packages_dir:
-            old_path = Path("/usr/local" + site_packages_dir) / "woes"
-            new_path = Path(site_packages_dir) / "woes"
-
-            if new_path.exists():
-                print(f"[macOS Fix] Removing old directory: {new_path}")
-                run_command(["sudo", "rm", "-rf", str(new_path)])
-
-            if old_path.exists():
-                print("[macOS Fix] Moving akstaging to correct site-packages location...")
-                run_command(["sudo", "mv", "-v", str(old_path), str(new_path)])
-        else:
-            print(">> Failed to determine Python site-packages directory.")
+    # if os_type == "Darwin":
+    #    site_packages_dir = next((p for p in sys.path if "site-packages" in p), None)
+    #    if site_packages_dir:
+    #        old_path = Path("/usr/local" + site_packages_dir) / "woes"
+    #        new_path = Path(site_packages_dir) / "woes"
+    #
+    #        if new_path.exists():
+    #            print(f"[macOS Fix] Removing old directory: {new_path}")
+    #            run_command(["sudo", "rm", "-rf", str(new_path)])
+    #
+    #        if old_path.exists():
+    #            print("[macOS Fix] Moving akstaging to correct site-packages location...")
+    #            run_command(["sudo", "mv", "-v", str(old_path), str(new_path)])
+    #    else:
+    #        print(">> Failed to determine Python site-packages directory.")
 
 
 def check_homebrew():
