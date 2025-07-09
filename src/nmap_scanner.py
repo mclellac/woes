@@ -15,7 +15,7 @@ import shutil
 import time
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
-from typing import Any, dict, list, Optional, TypedDict, Union
+from typing import Any, Dict, List, Optional, TypedDict, Union
 
 try:
     from gi.repository import Gio
