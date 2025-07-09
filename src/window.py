@@ -25,6 +25,10 @@ from .style_utils import apply_font_size, apply_theme
 gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
 
+from . import http_page
+from . import nmap_page
+from . import dns_page
+from . import webscan_page
 
 # Imports for custom page widgets
 
