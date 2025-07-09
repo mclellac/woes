@@ -9,7 +9,7 @@ and uses a background thread for network operations to keep the UI responsive.
 
 import logging
 from enum import Enum
-from typing import Any, dict, list, Optional
+from typing import Any, Dict, List, Optional
 
 import gi
 
