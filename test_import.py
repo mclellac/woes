@@ -1,7 +1,15 @@
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
-from gi.repository import Gtk, Adw, GLib # Added GLib
+from gi.repository import GLib, Gio # Added GLib, Gio
+import os
+
+# Register GResource bundle early so templates can be resolved
+script_dir = os.path.dirname(os.path.abspath(__file__))
+gresource_path = os.path.join(script_dir, "build", "src", "woes.gresource")
+if os.path.exists(gresource_path):
+    resource = Gio.Resource.load(gresource_path)
+    Gio.Resource._register(resource)
 
 try:
     # Ensure src directory is in path if running from root, or adjust import path

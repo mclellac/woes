@@ -15,7 +15,7 @@ import shutil
 import time
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
-from typing import Any, Dict, List, Optional, TypedDict, Union
+from typing import Any, Optional, TypedDict, Union, Callable
 
 try:
     from gi.repository import Gio
@@ -128,7 +128,8 @@ def get_escalated_command(command_parts: list[str]) -> list[str]:
             logger.error("osascript not found, but it is required for privilege escalation on macOS.")
             raise FileNotFoundError("osascript not found. Needed for privilege escalation.")
         quoted_command = " ".join(shlex.quote(part) for part in resolved_command_parts)
-        osascript_command = f'do shell script "{quoted_command}" with administrator privileges'
+        escaped_command = quoted_command.replace("\\", "\\\\").replace('"', '\\"')
+        osascript_command = f'do shell script "{escaped_command}" with administrator privileges'
         escalated_cmd = ["osascript", "-e", osascript_command]
     else:
         logger.warning("Privilege escalation not configured for system: %s.", system)
@@ -258,6 +259,12 @@ class NmapScanner:
             nmap_args_list.append(f"--script={params['selected_script']}")  # type: ignore[literal-required]
         if params.get("no_ping"):
             nmap_args_list.append("-Pn")
+        if params.get("fast_scan"):
+            nmap_args_list.append("-F")
+        if params.get("ping_scan"):
+            nmap_args_list.append("-sn")
+        if params.get("intense_scan"):
+            nmap_args_list.append("-A")
 
         timing_template = params.get("timing_template", "T3")
         if timing_template and re.match(r"^T[0-5]$", timing_template):
@@ -272,6 +279,7 @@ class NmapScanner:
 
         # Always add -oX - for existing UI functionality to parse XML output from stdout
         nmap_args_list.extend(["-oX", "-"])
+        nmap_args_list.extend(["--stats-every", "1s"])
 
         output_format = params.get("output_format")
         output_filename = params.get("output_filename")
@@ -359,6 +367,7 @@ class NmapScanner:
         self,
         params: NmapScanParameters,
         cancellable: Optional[Gio.Cancellable] = None,
+        progress_callback: Optional[Callable[[float, str], None]] = None,
     ) -> nmap.PortScanner:
         """Run an Nmap scan with the given parameters and handle cancellation.
 
@@ -367,6 +376,7 @@ class NmapScanner:
 
         :param params: The parameters for the Nmap scan, conforming to :class:`.NmapScanParameters`.
         :param cancellable: An optional :class:`Gio.Cancellable` object to monitor for cancellation requests.
+        :param progress_callback: An optional callback to report real-time scanning progress (0.0 to 1.0) and description.
         :raises .ScanCancelledError: If the scan is cancelled.
         :raises nmap.PortScannerError: If the Nmap scan fails, prerequisites are missing,
                                   or output parsing fails.
@@ -398,6 +408,28 @@ class NmapScanner:
                 final_command_parts, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8"
             )
 
+            collected_stderr_lines = []
+            import threading
+            from gi.repository import GLib
+
+            def read_stderr():
+                try:
+                    for line in iter(self.current_process.stderr.readline, ""):
+                        collected_stderr_lines.append(line)
+                        if "Timing: About" in line:
+                            match = re.search(r"About\s+(\d+(?:\.\d+)?)\%\s+done", line)
+                            if match and progress_callback:
+                                percentage = float(match.group(1))
+                                GLib.idle_add(progress_callback, percentage / 100.0, line.strip())
+                        elif "undergoing" in line:
+                            if progress_callback:
+                                GLib.idle_add(progress_callback, 0.0, line.strip())
+                except Exception as e_read:
+                    logger.debug("Error reading Nmap stderr: %s", e_read)
+
+            stderr_thread = threading.Thread(target=read_stderr, daemon=True)
+            stderr_thread.start()
+
             while self.current_process.poll() is None:
                 if self.current_cancellable and self.current_cancellable.is_cancelled():
                     logger.info("Cancellation requested for Nmap scan of target: %s", params["target"])  # type: ignore[literal-required]
@@ -412,11 +444,11 @@ class NmapScanner:
                 time.sleep(0.2)
 
             if self.current_process:
-                stdout_bytes, stderr_bytes = self.current_process.communicate()
-                stdout_str = stdout_bytes
-                stderr_str = stderr_bytes
+                stdout_str = self.current_process.stdout.read()
                 returncode = self.current_process.returncode
                 self.current_process = None
+                stderr_thread.join(timeout=1.0)
+                stderr_str = "".join(collected_stderr_lines)
 
             if returncode != 0:
                 logger.debug("Nmap process stdout (on error code %s): %s", returncode, stdout_str)

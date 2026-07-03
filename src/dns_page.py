@@ -14,7 +14,7 @@ from gi.repository import Adw, Gio, Gtk, Pango, GObject
 from typing import Optional, Sequence, Any, List, Dict
 
 from .constants import APP_ID, RESOURCE_PREFIX
-from .utils import show_global_error, show_global_toast, is_valid_ip, is_valid_domain
+from .utils import show_global_error, show_global_toast, is_valid_ip, is_valid_domain, unwrap_task_result
 from .dns_client import (
     DnsResolverClient,
     DnsClientError,  # Base for catching all client errors
@@ -71,8 +71,16 @@ class DNSPage(Gtk.Box):
         self._current_user_input: Optional[str] = None
         self._current_requested_record_type: Optional[str] = None
         self._current_dns_servers: Optional[Sequence[Any]] = None
+        self.current_dns_cancellable: Optional[Gio.Cancellable] = None
+        self._current_dns_task_data: Optional[Dict[str, Any]] = None
 
         self._connect_signals()
+
+    def __del__(self) -> None:
+        """Cancel active DNS lookups on destruction."""
+        if hasattr(self, "current_dns_cancellable") and self.current_dns_cancellable:
+            self.current_dns_cancellable.cancel()
+
 
         # Initialize new status row and spinner
         # Initially disable clear/copy buttons as there are no results
@@ -132,51 +140,47 @@ class DNSPage(Gtk.Box):
         self._current_dns_servers = None
 
     def _on_copy_all_results_clicked(self, _button: Gtk.Button) -> None:
-        """Copy all displayed DNS results to the clipboard.
+        """Copy all displayed DNS results to the clipboard formatted as a standard DNS zone file.
 
         :param _button: The :class:`Gtk.Button` that was clicked (unused).
         """
         logger.info("Copying all DNS results to clipboard.")
-        all_results_text = []
-
-        # Iterate through children of dns_results_box_container
-        child = self.dns_results_box_container.get_first_child()  # type: ignore
-        while child:
-            text_parts_for_child = []
-            if isinstance(child, Adw.ActionRow):
-                title = child.get_title()
-                subtitle = child.get_subtitle()
-                if title:
-                    text_parts_for_child.append(title)
-                if subtitle:
-                    text_parts_for_child.append(subtitle)
-
-                # Attempt to get text from suffixes if they are labels
-                # This is a simplified approach; real implementation might need to traverse deeper
-                # or access data from the model that generated the rows.
-                # For this example, we'll focus on title/subtitle of ActionRows.
-                # If the row has a Gtk.Label in a suffix, try to get its text.
-                # This part is heuristic as direct access to full record data isn't stored on rows.
-
-            elif isinstance(child, Adw.ExpanderRow):
-                title = child.get_title()
-                subtitle = child.get_subtitle()
-                if title:
-                    text_parts_for_child.append(title)
-                if subtitle:
-                    text_parts_for_child.append(subtitle)
-                # Could iterate expander's rows too, but keeping it simple for now.
-                # A more robust way would be to have the data that generated these rows
-                # stored in an instance variable and iterate that.
-
-            if text_parts_for_child:
-                all_results_text.append(" - ".join(text_parts_for_child))
-
-            child = child.get_next_sibling()
-
-        if not all_results_text:
+        if not hasattr(self, "_current_result_records") or not self._current_result_records:
             show_global_toast(self, "No results to copy.")  # type: ignore
             return
+
+        all_results_text = []
+        for record in self._current_result_records:
+            name = record.get("name", "@")
+            ttl = record.get("ttl", "3600")
+            rd_class = record.get("class", "IN")
+            rd_type = record.get("type", "A")
+
+            data_val = ""
+            if rd_type in ("A", "AAAA"):
+                data_val = record.get("address", "")
+            elif rd_type in ("CNAME", "NS", "PTR"):
+                data_val = record.get("target", "")
+            elif rd_type == "MX":
+                preference = record.get("preference", "")
+                exchange = record.get("exchange", "")
+                data_val = f"{preference} {exchange}"
+            elif rd_type == "TXT":
+                texts = record.get("texts", [])
+                data_val = " ".join([f'"{t}"' for t in texts])
+            elif rd_type == "SOA":
+                mname = record.get("mname", "")
+                rname = record.get("rname", "")
+                serial = record.get("serial", "")
+                refresh = record.get("refresh", "")
+                retry = record.get("retry", "")
+                expire = record.get("expire", "")
+                minimum = record.get("minimum", "")
+                data_val = f"{mname} {rname} ( {serial} {refresh} {retry} {expire} {minimum} )"
+            else:
+                data_val = record.get("data", "")
+
+            all_results_text.append(f"{name}\t{ttl}\t{rd_class}\t{rd_type}\t{data_val}")
 
         final_text_to_copy = "\n".join(all_results_text)
         DNSPage._copy_to_clipboard(final_text_to_copy, self)
@@ -416,6 +420,8 @@ class DNSPage(Gtk.Box):
             main_window = self.get_native()  # type: ignore
             if not (main_window and hasattr(main_window, "show_toast")):  # type: ignore
                 show_global_error(self, "Input cannot be empty.")  # type: ignore
+            if self.domain_entry:
+                self.domain_entry.add_css_class("error")
             return False
 
         if not self._is_valid_ip_or_domain(user_input):
@@ -423,6 +429,8 @@ class DNSPage(Gtk.Box):
             main_window = self.get_native()  # type: ignore
             if not (main_window and hasattr(main_window, "show_toast")):
                 show_global_error(self, "Invalid IP address or domain name.")  # type: ignore
+            if self.domain_entry:
+                self.domain_entry.add_css_class("error")
             return False
         return True
 
@@ -559,12 +567,14 @@ class DNSPage(Gtk.Box):
             self.dns_status_row.set_subtitle(status_subtitle)  # type: ignore
 
     def _perform_lookup(self) -> None:
-        """Perform the DNS lookup based on user input and selected record type.
+        """Perform the DNS lookup based on user input and selected record type asynchronously.
 
         Orchestrates input validation, client interaction, and result/error display.
         """
         self._set_loading_state(True, "Looking up...")
         user_input = self.domain_entry.get_text().strip()  # type: ignore
+        if self.domain_entry:
+            self.domain_entry.remove_css_class("error")
         requested_record_type = self._get_selected_record_type()
         logger.debug("DNSPage: Performing DNS lookup for: %s, type: %s", user_input, requested_record_type)
 
@@ -577,18 +587,83 @@ class DNSPage(Gtk.Box):
         custom_dns_server = self.settings.get_string("custom-dns-server")
         dns_client = DnsResolverClient(custom_dns_server=custom_dns_server or None)
 
+        self.current_dns_cancellable = Gio.Cancellable.new()
+        task = Gio.Task.new(self, self.current_dns_cancellable, self._on_dns_lookup_task_done, None)
+        self._current_dns_task_data = {
+            "user_input": user_input,
+            "requested_record_type": requested_record_type,
+            "dns_client": dns_client,
+        }
+        task.run_in_thread(self._run_dns_lookup_thread_func)
+
+    def _run_dns_lookup_thread_func(
+        self, task: Gio.Task, _source_object: GObject.Object, _task_data_unused: Any, cancellable: Gio.Cancellable
+    ) -> None:
+        """Execute the DNS lookup in a separate thread.
+
+        :param task: The :class:`Gio.Task` associated with this operation.
+        :param _source_object: The :class:`GObject.Object` source of the task.
+        :param _task_data_unused: Unused task data.
+        :param cancellable: A :class:`Gio.Cancellable` object to monitor for cancellation.
+        """
+        page_instance: DNSPage = _source_object
+        task_data = page_instance._current_dns_task_data
+        if not task_data:
+            task.return_value((None, Exception("Internal error: Task data not found.")))
+            return
+
+        dns_client = task_data["dns_client"]
+        user_input = task_data["user_input"]
+        requested_record_type = task_data["requested_record_type"]
+
         try:
+            if cancellable.is_cancelled():
+                task.return_value((None, DnsClientError("Lookup was cancelled before start.")))
+                return
+
             result_data = dns_client.resolve(user_input, requested_record_type)
-            self._handle_dns_lookup_success(result_data, user_input, requested_record_type, dns_client)
-            # Status is set by _handle_dns_lookup_success
-        except Exception as e:  # Catch all exceptions here and delegate to the handler
-            self._handle_dns_lookup_exception(e, user_input, requested_record_type, dns_client)
-            # Status is set by _handle_dns_lookup_exception
-        finally:
-            # Ensure loading state is always reset (spinner off, controls on),
-            # but preserve the status message set by success/error handlers.
-            # Call _set_loading_state without a message to achieve this.
+
+            if cancellable.is_cancelled():
+                task.return_value((None, DnsClientError("Lookup was cancelled.")))
+            else:
+                task.return_value(result_data)
+        except Exception as e:
+            task.return_value((None, e))
+
+    def _on_dns_lookup_task_done(
+        self, _source_object: GObject.Object, result: Gio.AsyncResult, _user_data: Optional[Any]
+    ) -> None:
+        """Handle completion of the DNS lookup task.
+
+        :param _source_object: The source object (DNSPage).
+        :param result: The task's AsyncResult.
+        :param _user_data: Unused callback user data.
+        """
+        self.current_dns_cancellable = None
+        task_data = self._current_dns_task_data
+        if not task_data:
             self._set_loading_state(False)
+            return
+
+        dns_client = task_data["dns_client"]
+        user_input = task_data["user_input"]
+        requested_record_type = task_data["requested_record_type"]
+
+        try:
+            returned_data = unwrap_task_result(result)
+
+            if isinstance(returned_data, tuple) and len(returned_data) == 2:
+                result_data, exception = returned_data
+                if exception is not None:
+                    raise exception
+                self._handle_dns_lookup_success(result_data, user_input, requested_record_type, dns_client)
+            else:
+                self._handle_dns_lookup_success(returned_data, user_input, requested_record_type, dns_client)
+        except Exception as e:
+            self._handle_dns_lookup_exception(e, user_input, requested_record_type, dns_client)
+        finally:
+            self._set_loading_state(False)
+
 
     def _get_selected_record_type(self) -> str:
         """Get the currently selected DNS record type from the dropdown.

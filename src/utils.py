@@ -3,11 +3,13 @@
 import logging
 import ipaddress
 import re
+import os
+import json
 from urllib.parse import urlparse
-from typing import Optional, List
+from typing import Optional, List, Any
 
 import gi
-from gi.repository import Gtk, Adw
+from gi.repository import Gtk, Adw, GLib
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
@@ -144,3 +146,52 @@ def is_valid_url(url: str, schemes: Optional[List[str]] = None) -> bool:
         return True
     except ValueError:  # urlparse can raise ValueError for some malformed URLs, though it's rare
         return False
+
+
+def unwrap_task_result(result) -> Any:
+    """Unwrap the value from a Gio.AsyncResult/Task, resolving GObject wrappers.
+
+    :param result: The Gio.AsyncResult to unwrap.
+    :return: The unwrapped Python object.
+    """
+    val = result.propagate_value()
+    if hasattr(val, "value"):
+        val = val.value
+    return val
+
+
+def load_target_history() -> List[str]:
+    """Load target history from a local config file."""
+    config_dir = os.path.join(GLib.get_user_config_dir(), "woes")
+    history_file = os.path.join(config_dir, "target_history.json")
+    if os.path.exists(history_file):
+        try:
+            with open(history_file, "r") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return []
+
+
+def save_target_history(target: str) -> None:
+    """Save a target to the local target history file, maintaining a limit of 10 items."""
+    if not target or not target.strip():
+        return
+    target = target.strip()
+    config_dir = os.path.join(GLib.get_user_config_dir(), "woes")
+    os.makedirs(config_dir, exist_ok=True)
+    history_file = os.path.join(config_dir, "target_history.json")
+
+    history = load_target_history()
+    if target in history:
+        history.remove(target)
+    history.insert(0, target)
+    history = history[:10]  # limit to 10 items
+
+    try:
+        with open(history_file, "w") as f:
+            json.dump(history, f)
+    except Exception:
+        pass
+
+

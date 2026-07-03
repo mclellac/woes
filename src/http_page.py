@@ -8,8 +8,9 @@ and uses a background thread for network operations to keep the UI responsive.
 """
 
 import logging
+import os
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import gi
 
@@ -18,7 +19,7 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import Adw, Gio, GObject, Gtk, GLib, Gdk, Pango
 
 from .constants import RESOURCE_PREFIX, APP_ID, USER_AGENTS
-from .utils import show_global_error, show_global_toast, is_valid_url
+from .utils import show_global_error, show_global_toast, is_valid_url, unwrap_task_result
 from .helper import Helper
 from .http_client import (
     HttpFetcher,
@@ -123,6 +124,7 @@ class HttpPage(Gtk.Box):
     http_results_group: Adw.PreferencesGroup = Gtk.Template.Child()
     clear_results_button: Gtk.Button = Gtk.Template.Child()
     copy_results_button: Gtk.Button = Gtk.Template.Child()
+    http_export_results_button: Gtk.Button = Gtk.Template.Child()
     http_status_row: Adw.ActionRow = Gtk.Template.Child()
     http_status_spinner: Gtk.Spinner = Gtk.Template.Child()
 
@@ -201,6 +203,8 @@ class HttpPage(Gtk.Box):
         self.clear_results_button.connect("clicked", self._on_clear_results_clicked)
         if self.copy_results_button:
             self.copy_results_button.connect("clicked", self._on_copy_results_clicked)
+        if self.http_export_results_button:
+            self.http_export_results_button.connect("clicked", self._on_export_results_clicked)
         if self.http_host_header_row:
             self.http_host_header_row.connect("changed", self._on_host_header_changed)
         if self.http_user_agent_row:
@@ -325,6 +329,52 @@ class HttpPage(Gtk.Box):
         else:
             logger.info("No headers to copy from the results view.")
 
+    def _on_export_results_clicked(self, _button: Gtk.Button) -> None:
+        """Handle the click event for the 'Save Results' button.
+
+        Opens a file chooser dialog and writes the displayed headers to the selected file.
+        """
+        logger.info("Opening export headers dialog.")
+        lines: list[str] = []
+        if self.header_list_store:
+            for i in range(self.header_list_store.get_n_items()):  # type: ignore[attr-defined]
+                item = self.header_list_store.get_item(i)  # type: ignore[attr-defined]
+                if isinstance(item, HeaderItem):
+                    if item.is_special_row:
+                        if item.value and item.value.strip():
+                            lines.append(f"{item.key} {item.value}")
+                        else:
+                            lines.append(item.key)
+                    else:
+                        lines.append(f"{item.key}: {item.value}")
+        if not lines:
+            show_global_toast(self, "No results to export.")  # type: ignore
+            return
+
+        text_to_save = "\n".join(lines)
+
+        dialog = Gtk.FileChooserNative.new(
+            "Save HTTP Headers", self.get_native(), Gtk.FileChooserAction.SAVE, "_Save", "_Cancel"
+        )
+
+        def on_dialog_response(dialog_obj, response_id, _user_data_unused):
+            if response_id == Gtk.ResponseType.ACCEPT:
+                file_obj = dialog_obj.get_file()
+                if file_obj:
+                    filepath = file_obj.get_path()
+                    if filepath:
+                        try:
+                            with open(filepath, "w", encoding="utf-8") as f:
+                                f.write(text_to_save)
+                            show_global_toast(self, f"Saved to {os.path.basename(filepath)}")  # type: ignore
+                        except Exception as e:
+                            logger.error("Error saving HTTP headers file: %s", e, exc_info=True)
+                            show_global_error(self, f"Failed to save file: {e}")  # type: ignore
+            dialog_obj.destroy()
+
+        dialog.connect("response", on_dialog_response, None)
+        dialog.show()
+
     def _on_entry_row_activated(self, _widget: Gtk.Widget) -> None:
         """Handle activation of the URL entry row or click of the 'Fetch' button.
 
@@ -355,6 +405,8 @@ class HttpPage(Gtk.Box):
         :param _widget: The :class:`Gtk.Widget` that triggered the activation (unused).
         """
         original_url = self.http_entry_row.get_text().strip()
+        if self.http_entry_row:
+            self.http_entry_row.remove_css_class("error")
         url = self._ensure_scheme(original_url)
         # logger.info("Fetching headers for URL: %s (original input: %s)", url, original_url) # Reduced verbosity
 
@@ -365,6 +417,8 @@ class HttpPage(Gtk.Box):
             main_window = self.get_native()
             if not (main_window and hasattr(main_window, "show_toast")):
                 show_global_error(self, toast_message)  # type: ignore[arg-type]
+            if self.http_entry_row:
+                self.http_entry_row.add_css_class("error")
             self._update_column_view_model(None)
             self._set_loading_state(False, "Idle - Invalid URL.")
             return
@@ -572,15 +626,11 @@ class HttpPage(Gtk.Box):
         logger.info("Processing task completion in _fetch_headers_task_done_cb.")
 
         try:
-            propagate_result = task_being_processed.propagate_value()  # type: ignore[union-attr]
+            propagate_result = unwrap_task_result(task_being_processed)  # type: ignore[arg-type]
             actual_list_of_responses: Optional[list[dict[str, Any]]] = None
 
             if isinstance(propagate_result, list):
                 actual_list_of_responses = propagate_result
-            elif hasattr(propagate_result, "value") and isinstance(propagate_result.value, list):  # type: ignore[attr-defined]
-                # Handles cases where the result might be wrapped, e.g. by older PyGObject versions or specific task types
-                logger.debug("HttpPage: Accessing .value from propagated result of type %s", type(propagate_result))
-                actual_list_of_responses = propagate_result.value  # type: ignore[attr-defined]
             else:
                 logger.error("HttpPage: Unexpected type from propagate_value: %s", type(propagate_result))
                 show_global_error(self, "Unexpected result type from background task.")  # type: ignore[arg-type]

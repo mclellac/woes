@@ -1,7 +1,7 @@
 """Module for fetching HTTP headers and processing responses."""
 
 import logging
-from typing import Optional, Dict, List, Any
+from typing import Optional, Any
 
 import requests
 import requests.utils  # For urlparse, urlunparse

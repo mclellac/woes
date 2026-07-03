@@ -87,6 +87,16 @@
                 </style>
               </object>
             </child>
+            <child>
+              <object class="GtkButton" id="http_export_results_button">
+                <property name="icon-name">document-save-symbolic</property>
+                <property name="tooltip-text" translatable="yes">Save Results to File</property>
+                <property name="valign">center</property>
+                <style>
+                  <class name="flat"/>
+                </style>
+              </object>
+            </child>
           </object>
         </property>
         <property name="title" translatable="yes">Response Headers</property>

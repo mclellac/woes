@@ -18,7 +18,7 @@ import gi
 from gi.repository import Gtk, Adw, Gio, GLib, GObject, Gdk, Pango
 
 from .constants import RESOURCE_PREFIX, APP_ID
-from .utils import show_global_error, show_global_toast, is_valid_url
+from .utils import show_global_error, show_global_toast, is_valid_url, unwrap_task_result
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
@@ -333,6 +333,8 @@ class WebScanPage(Gtk.Box):
         buffer = self.source_view.get_buffer()
         if not buffer:
             return
+        if self.url_entry:
+            self.url_entry.remove_css_class("error")
         target_url = self.url_entry.get_text().strip()
         if target_url and not (
             target_url.startswith("http://") or target_url.startswith("https://") or target_url.startswith("ftp://")
@@ -345,6 +347,8 @@ class WebScanPage(Gtk.Box):
             main_window = self.get_native()
             if not (main_window and hasattr(main_window, "show_toast")):
                 show_global_error(self, "Target URL cannot be empty.")
+            if self.url_entry:
+                self.url_entry.add_css_class("error")
             self.scan_button.set_sensitive(True)
             return
 
@@ -353,6 +357,8 @@ class WebScanPage(Gtk.Box):
             main_window = self.get_native()
             if not (main_window and hasattr(main_window, "show_toast")):
                 show_global_error(self, "Invalid URL format. Please enter a valid URL.")
+            if self.url_entry:
+                self.url_entry.add_css_class("error")
             self.scan_button.set_sensitive(True)
             return
 
@@ -759,16 +765,9 @@ class WebScanPage(Gtk.Box):
         logger.info(f"Nikto scan task done for {target_url}.")
 
         try:
-            returned_data = result.propagate_value()
-
+            returned_data = unwrap_task_result(result)
             if isinstance(returned_data, tuple) and len(returned_data) == 2:
                 s_out, s_err = returned_data
-            elif (
-                hasattr(returned_data, "value")
-                and isinstance(returned_data.value, tuple)
-                and len(returned_data.value) == 2
-            ):
-                s_out, s_err = returned_data.value
             else:
                 s_out, s_err = None, None
                 logger.error(f"Nikto scan for {target_url} returned unexpected result format: {type(returned_data)}")

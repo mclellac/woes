@@ -45,6 +45,10 @@
                   <item>MX</item>
                   <item>NS</item>
                   <item>PTR</item>
+                  <item>SOA</item>
+                  <item>SRV</item>
+                  <item>CAA</item>
+                  <item>ANY</item>
                 </items>
               </object>
             </property>

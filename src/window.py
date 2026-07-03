@@ -25,12 +25,12 @@ from .style_utils import apply_font_size, apply_theme
 gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
 
-from . import http_page
-from . import nmap_page
-from . import dns_page
-from . import webscan_page
 
-# Imports for custom page widgets
+# Imports for custom page widgets so they register their GTypes
+from . import http_page  # noqa: F401
+from . import nmap_page  # noqa: F401
+from . import dns_page  # noqa: F401
+from . import webscan_page  # noqa: F401
 
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/window.ui")
 class WoesWindow(Adw.ApplicationWindow):

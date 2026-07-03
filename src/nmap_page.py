@@ -20,7 +20,7 @@ import nmap
 
 from .constants import APP_ID, RESOURCE_PREFIX
 from .nmap_scanner import NmapScanner, ScanStatus, ScanCancelledError
-from .utils import show_global_error, show_global_toast
+from .utils import show_global_error, show_global_toast, unwrap_task_result, load_target_history, save_target_history
 
 
 gi.require_version("Adw", "1")
@@ -77,8 +77,11 @@ class NmapPage(Gtk.Box):
     nmap_timing_template_comborow = Gtk.Template.Child("nmap_timing_template_comborow")
     status_row = Gtk.Template.Child("status_row")
     scan_spinner = Gtk.Template.Child("scan_spinner")
+    scan_progress_bar = Gtk.Template.Child("scan_progress_bar")
     nmap_cancel_scan_button = Gtk.Template.Child()
     nmap_tcp_syn_scan_switchrow = Gtk.Template.Child("nmap_tcp_syn_scan_switchrow")
+    nmap_profile_dropdown = Gtk.Template.Child("nmap_profile_dropdown")
+    nmap_history_dropdown = Gtk.Template.Child("nmap_history_dropdown")
     nmap_output_format_combo_row = Gtk.Template.Child("nmap_output_format_combo_row")
     nmap_output_file_row = Gtk.Template.Child("nmap_output_file_row")
     nmap_output_file_button = Gtk.Template.Child("nmap_output_file_button")
@@ -140,6 +143,7 @@ class NmapPage(Gtk.Box):
 
         self._init_page_ui()
         self._connect_signals()
+        self._update_history_dropdown()
         logger.info("NmapPage initialized.")
 
     def __del__(self):
@@ -183,6 +187,10 @@ class NmapPage(Gtk.Box):
             self.nmap_output_format_combo_row.connect("notify::selected-item", self._on_nmap_output_format_changed)
         if self.nmap_output_file_button:
             self.nmap_output_file_button.connect("clicked", self._on_nmap_output_file_button_clicked)
+        if self.nmap_profile_dropdown:
+            self.nmap_profile_dropdown.connect("notify::selected-item", self._on_nmap_profile_changed)
+        if self.nmap_history_dropdown:
+            self.nmap_history_dropdown.connect("notify::selected-item", self._on_history_selected)
 
         # Initial sensitivity settings
         if self.nmap_output_file_row:
@@ -209,6 +217,61 @@ class NmapPage(Gtk.Box):
         if not is_file_required and self.nmap_output_file_row:
             self.nmap_output_file_row.set_text("")
         logger.debug("Nmap output format changed. File required: %s", is_file_required)
+
+    def _on_nmap_profile_changed(self, combo_row: Adw.ComboRow, _param_spec: GObject.ParamSpec):
+        selected_index = combo_row.get_selected()
+        logger.info("Nmap scan profile changed to index: %d", selected_index)
+        if selected_index == 0:
+            return  # Custom: do not override
+
+        # Setup standard presets
+        if selected_index == 1:  # Fast Scan (-F)
+            self.nmap_fingerprint_switchrow.set_active(False)
+            self.nmap_all_ports_switchrow.set_active(False)
+            self.nmap_tcp_syn_scan_switchrow.set_active(False)
+            self.nmap_service_version_switchrow.set_active(False)
+            self.nmap_no_ping_switchrow.set_active(False)
+            self.nmap_timing_template_comborow.set_selected(4)  # T4
+        elif selected_index == 2:  # Ping Scan / Host Discovery (-sn)
+            self.nmap_fingerprint_switchrow.set_active(False)
+            self.nmap_all_ports_switchrow.set_active(False)
+            self.nmap_tcp_syn_scan_switchrow.set_active(False)
+            self.nmap_service_version_switchrow.set_active(False)
+            self.nmap_no_ping_switchrow.set_active(False)
+            self.nmap_timing_template_comborow.set_selected(3)  # T3
+        elif selected_index == 3:  # Intense Scan (-T4 -A)
+            self.nmap_fingerprint_switchrow.set_active(True)
+            self.nmap_all_ports_switchrow.set_active(False)
+            self.nmap_tcp_syn_scan_switchrow.set_active(False)
+            self.nmap_service_version_switchrow.set_active(True)
+            self.nmap_no_ping_switchrow.set_active(False)
+            self.nmap_timing_template_comborow.set_selected(4)  # T4
+        elif selected_index == 4:  # Slow Stealth Scan (-T1 -sS)
+            self.nmap_fingerprint_switchrow.set_active(False)
+            self.nmap_all_ports_switchrow.set_active(False)
+            self.nmap_tcp_syn_scan_switchrow.set_active(True)
+            self.nmap_service_version_switchrow.set_active(False)
+            self.nmap_no_ping_switchrow.set_active(False)
+            self.nmap_timing_template_comborow.set_selected(1)  # T1
+
+    def _update_history_dropdown(self) -> None:
+        if not self.nmap_history_dropdown:
+            return
+        history = load_target_history()
+        string_list = Gtk.StringList.new(None)
+        string_list.append("Select recent target...")
+        for h in history:
+            string_list.append(h)
+        self.nmap_history_dropdown.set_model(string_list)
+        self.nmap_history_dropdown.set_selected(0)
+
+    def _on_history_selected(self, combo_row: Adw.ComboRow, _param_spec: GObject.ParamSpec) -> None:
+        selected_index = combo_row.get_selected()
+        selected_item = combo_row.get_selected_item()
+        if selected_index > 0 and selected_item:
+            target_str = selected_item.get_string()
+            if self.nmap_target_entryrow:
+                self.nmap_target_entryrow.set_text(target_str)
 
     def _on_nmap_output_file_button_clicked(self, _button: Gtk.Button):
         dialog = Gtk.FileChooserNative.new(
@@ -306,18 +369,24 @@ class NmapPage(Gtk.Box):
             logger.warning("No active scan or cancellable to cancel.")
 
     def _on_target_activate(self, _widget: Adw.EntryRow) -> None:
+        if self.nmap_target_entryrow:
+            self.nmap_target_entryrow.remove_css_class("error")
         target = self.nmap_target_entryrow.get_text().strip()
         self._clear_error()
 
         if not self.scanner.validate_target_input(target):
             message = "Invalid target format. Please enter a valid IP, CIDR, or hostname."
             show_global_toast(self, message)
+            if self.nmap_target_entryrow:
+                self.nmap_target_entryrow.add_css_class("error")
             return
-        self.nmap_target_entryrow.remove_css_class("error")
 
         if not target:
             self._clear_results()
             return
+
+        save_target_history(target)
+        self._update_history_dropdown()
 
         if self.current_nmap_task and not self.current_nmap_task.is_done():
             if self.current_nmap_cancellable and not self.current_nmap_cancellable.is_cancelled():
@@ -362,6 +431,15 @@ class NmapPage(Gtk.Box):
             ),
             "custom_dns_server": self.settings.get_string("custom-dns-server"),
         }
+
+        # Add profile preset parameters
+        selected_profile_index = self.nmap_profile_dropdown.get_selected()
+        if selected_profile_index == 1:  # Fast Scan (-F)
+            scan_params["fast_scan"] = True
+        elif selected_profile_index == 2:  # Ping Scan (-sn)
+            scan_params["ping_scan"] = True
+        elif selected_profile_index == 3:  # Intense Scan (-T4 -A)
+            scan_params["intense_scan"] = True
 
         output_format_item = self.nmap_output_format_combo_row.get_selected_item()
         output_filename_str = self.nmap_output_file_row.get_text().strip()
@@ -423,7 +501,7 @@ class NmapPage(Gtk.Box):
             return
 
         try:
-            nm = self.scanner.run_nmap_scan(params, cancellable=cancellable)
+            nm = self.scanner.run_nmap_scan(params, cancellable=cancellable, progress_callback=self._on_scan_progress)
 
             if cancellable and cancellable.is_cancelled():
                 task.return_new_error_literal(
@@ -478,24 +556,10 @@ class NmapPage(Gtk.Box):
 
         nm_results_final: Optional[nmap.PortScanner] = None
         try:
-            propagated_value = result.propagate_value()
+            propagated_value = unwrap_task_result(result)
 
             if isinstance(propagated_value, nmap.PortScanner):
                 nm_results_final = propagated_value
-            elif hasattr(propagated_value, "value") and isinstance(
-                propagated_value.value, nmap.PortScanner
-            ):
-                logger.debug(
-                    "NmapPage: Received wrapped object %s with .value attribute containing nmap.PortScanner. Unwrapping.", type(propagated_value)
-                )
-                nm_results_final = propagated_value.value
-            elif hasattr(propagated_value, "value"):
-                logger.error(
-                    "NmapPage: Received wrapped object %s with .value of type %s. Expected nmap.PortScanner.", type(propagated_value), type(propagated_value.value)
-                )
-                self._handle_scan_error(
-                    original_target, "Scan returned unexpectedly wrapped data of the wrong type."
-                )
             else:
                 logger.error(
                     "Nmap scan for %s returned unexpected result type: %s", original_target, type(propagated_value)
@@ -867,6 +931,18 @@ class NmapPage(Gtk.Box):
                 self.nmap_detail_box.append(self.nmap_detail_placeholder)
             self.nmap_detail_placeholder.set_visible(True)
 
+    def _on_scan_progress(self, fraction: float, message: str) -> None:
+        """Handle real-time scan progress updates from the scanner.
+
+        This method is invoked on the main UI thread via GLib.idle_add.
+
+        :param fraction: The scan progress as a float between 0.0 and 1.0.
+        :param message: A descriptive message containing the current phase and details.
+        """
+        if hasattr(self, "scan_progress_bar") and self.scan_progress_bar:
+            self.scan_progress_bar.set_fraction(fraction)
+        self.status_row.set_subtitle(message)
+
     def _set_scan_status(self, status_type: ScanStatus, message: str):
         """Set the scan status and update the UI via GLib.idle_add.
 
@@ -890,6 +966,9 @@ class NmapPage(Gtk.Box):
         if status_type == ScanStatus.IN_PROGRESS:
             self.scan_spinner.set_visible(True)
             self.scan_spinner.start()
+            if hasattr(self, "scan_progress_bar") and self.scan_progress_bar:
+                self.scan_progress_bar.set_visible(True)
+                self.scan_progress_bar.set_fraction(0.0)
             self.status_row.set_title("Scanning...")
             style_context.add_class("accent-color")
             if self.nmap_apply_button:
@@ -900,6 +979,8 @@ class NmapPage(Gtk.Box):
         else:
             self.scan_spinner.stop()
             self.scan_spinner.set_visible(False)
+            if hasattr(self, "scan_progress_bar") and self.scan_progress_bar:
+                self.scan_progress_bar.set_visible(False)
             if self.nmap_apply_button:
                 self.nmap_apply_button.set_sensitive(True)
             if hasattr(self, "nmap_cancel_scan_button") and self.nmap_cancel_scan_button:

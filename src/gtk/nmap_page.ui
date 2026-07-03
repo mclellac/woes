@@ -52,10 +52,40 @@
               </object>
             </child>
             <child>
+              <object class="AdwComboRow" id="nmap_history_dropdown">
+                <property name="title" translatable="yes">Recent Targets</property>
+                <property name="subtitle" translatable="yes">Select a target from your recent scan history</property>
+                <property name="model">
+                  <object class="GtkStringList" id="nmap_history_list_store">
+                    <property name="strings">No history yet</property>
+                  </object>
+                </property>
+                <property name="selected">0</property>
+              </object>
+            </child>
+            <child>
               <object class="AdwExpanderRow" id="nmap_advanced_options_expander">
                 <property name="hexpand">true</property>
                 <property name="hexpand-set">true</property>
                 <property name="title" translatable="yes">Nmap Scan Options</property>
+                <child>
+                  <object class="AdwComboRow" id="nmap_profile_dropdown">
+                    <property name="title" translatable="yes">Scan Profile</property>
+                    <property name="subtitle" translatable="yes">Choose a preset scan profile to pre-configure options</property>
+                    <property name="model">
+                      <object class="GtkStringList" id="nmap_profiles_list_store">
+                        <property name="strings">Custom</property>
+                        <items>
+                          <item>Fast Scan (-F)</item>
+                          <item>Ping Scan / Host Discovery (-sn)</item>
+                          <item>Intense Scan (-T4 -A)</item>
+                          <item>Slow Stealth Scan (-T1 -sS)</item>
+                        </items>
+                      </object>
+                    </property>
+                    <property name="selected">0</property>
+                  </object>
+                </child>
                 <child>
                   <object class="AdwSwitchRow" id="nmap_fingerprint_switchrow">
                     <property name="subtitle" translatable="yes">Enable this to attempt OS detection (often requires root/administrator privileges)</property>
@@ -181,6 +211,13 @@
                   <object class="GtkSpinner" id="scan_spinner">
                     <property name="spinning">False</property>
                     <property name="visible">False</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkProgressBar" id="scan_progress_bar">
+                    <property name="hexpand">True</property>
+                    <property name="visible">False</property>
+                    <property name="valign">center</property>
                   </object>
                 </child>
                 <child type="suffix">
