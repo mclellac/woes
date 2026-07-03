@@ -48,6 +48,7 @@ class TestHttpFetcher(unittest.TestCase):
         mock_response.status_code = 404
         mock_response.reason = "Not Found"
         mock_response.url = self.url
+        mock_response.history = []
         # Create a mock request object for the response's request attribute
         mock_request = MagicMock()
         mock_request.url = self.url

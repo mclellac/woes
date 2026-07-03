@@ -18,6 +18,7 @@ distros = {
     "centos": "fedora",
     "rhel": "fedora",
     "arch": "arch",
+    "archarm": "arch",
     "darwin": "darwin",
 }
 

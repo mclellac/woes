@@ -64,13 +64,13 @@
       "name": "pyyaml",
       "buildsystem": "simple",
       "build-commands": [
-        "pip3 install --no-cache-dir --prefix=/app https://files.pythonhosted.org/packages/54/ed/79a089b6be93607fa5cdaedf301d7dfb23af5f25c398d5ead2525b063e17/pyyaml-6.0.2.tar.gz"
+        "pip3 install --no-cache-dir --prefix=/app https://files.pythonhosted.org/packages/05/8e/961c0007c59b8dd7729d542c61a4d537767a59645b82a0b521206e1e25c2/pyyaml-6.0.3.tar.gz"
       ],
       "sources": [
         {
           "type": "archive",
-          "url": "https://files.pythonhosted.org/packages/54/ed/79a089b6be93607fa5cdaedf301d7dfb23af5f25c398d5ead2525b063e17/pyyaml-6.0.2.tar.gz",
-          "sha256": "d584d9ec91ad65861cc08d42e834324ef890a082e591037abe114850ff7bbc3e"
+          "url": "https://files.pythonhosted.org/packages/05/8e/961c0007c59b8dd7729d542c61a4d537767a59645b82a0b521206e1e25c2/pyyaml-6.0.3.tar.gz",
+          "sha256": "d76623373421df22fb4cf8817020cbb7ef15c725b9d5e45f17e189bfc384190f"
         }
       ],
       "build-options": {
@@ -88,8 +88,8 @@
       "sources": [
         {
           "type": "archive",
-          "url": "https://nmap.org/dist/nmap-7.95.tar.bz2",
-          "sha256": "e14ab530e47b5afd88f1c8a2bac7f89cd8fe6b478e22d255c5b9bddb7a1c5778"
+          "url": "https://nmap.org/dist/nmap-7.99.tar.bz2",
+          "sha256": "df512492ffd108e53a27a06f26d8635bbe89e0e569455dc8ffef058c035d51b2"
         }
       ]
     },

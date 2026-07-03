@@ -9,7 +9,6 @@
     <property name="hexpand">True</property>
     <property name="vexpand">True</property>
     <property name="vexpand-set">True</property>
-    <property name="width-request">700</property>
     <child>
       <object class="GtkBox" id="page_vbox">
         <property name="hexpand">true</property>
