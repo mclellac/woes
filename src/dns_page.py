@@ -265,6 +265,24 @@ class DNSPage(Gtk.Box):
         row.set_selectable(False)
         return row
 
+    def _apply_label_font(self, label: Gtk.Label) -> None:
+        """Apply the output font description to a Gtk.Label using a Gtk.CssProvider."""
+        if not self._output_font_desc:
+            return
+
+        font_family = self._output_font_desc.get_family()
+        size_in_pango_units = self._output_font_desc.get_size()
+        size_in_points = (size_in_pango_units / Pango.SCALE) if size_in_pango_units > 0 else 10.0
+        effective_font_family = font_family if font_family else "Sans"
+
+        css_provider = Gtk.CssProvider()
+        css = f"label {{ font-family: '{effective_font_family}'; font-size: {size_in_points:.1f}pt; }}"
+        try:
+            css_provider.load_from_string(css)
+            label.get_style_context().add_provider(css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        except Exception as e:
+            logger.error("DNSPage: Error applying custom font CSS: %s", e)
+
     def _add_standard_suffix_box_to_row(
         self,
         row: Adw.ActionRow,
@@ -288,7 +306,7 @@ class DNSPage(Gtk.Box):
             lines=1,
             ellipsize=Pango.EllipsizeMode.END,
         )
-        value_label.override_font(self._output_font_desc)
+        self._apply_label_font(value_label)
         # suffix_box removed
         row.add_suffix(value_label)  # type: ignore
         row.add_suffix(
@@ -343,7 +361,7 @@ class DNSPage(Gtk.Box):
             lines=1,
             ellipsize=Pango.EllipsizeMode.END,
         )
-        value_label.override_font(self._output_font_desc)
+        self._apply_label_font(value_label)
         copy_button = self._create_copy_button(value_text, f"{copy_tooltip_prefix}: {value_text}", expander_row)
 
         # content_box removed
