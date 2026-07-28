@@ -15,7 +15,8 @@ import gi
 gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
 gi.require_version("GtkSource", "5")
-from gi.repository import Adw, Gdk, Gio, Gtk, GtkSource, GLib
+gi.require_version("Pango", "1.0")
+from gi.repository import Adw, Gdk, Gio, Gtk, GtkSource, GLib, Pango
 
 BASE_FONT_SIZE_PT = 12.0
 
@@ -47,18 +48,18 @@ def _get_linux_font_preferences(
         font_name_str = gnome_settings.get_string(FONT_NAME_KEY)
         text_scaling_factor = gnome_settings.get_double(TEXT_SCALING_FACTOR_KEY)
 
-        match = re.match(r"^(.*)\s+(\d+(\.\d+)?)$", font_name_str)
-        if match:
-            gnome_font_family = match.group(1).strip()
-            gnome_base_size_pt = float(match.group(2))
-            font_family = gnome_font_family
+        if font_name_str:
+            desc = Pango.FontDescription.from_string(font_name_str)
+            font_family = desc.get_family()
+            size = desc.get_size()
+            if size > 0:
+                if desc.get_size_is_absolute():
+                    gnome_base_size_pt = (size / Pango.SCALE) * 0.75
+                else:
+                    gnome_base_size_pt = size / Pango.SCALE
+            else:
+                gnome_base_size_pt = base_font_size_pt
             font_size_pt = gnome_base_size_pt * text_scaling_factor
-        else:
-            logging.warning(
-                "Could not parse GNOME font-name string: '%s'. Using application base font size %spt.",
-                font_name_str,
-                font_size_pt,
-            )
     except GLib.Error:
         pass  # GNOME desktop font settings might not be available
 
@@ -100,46 +101,54 @@ def _get_app_font_scaling(app_settings: Gio.Settings) -> float:
     return parsed_app_percentage
 
 
+_font_css_provider: Optional[Gtk.CssProvider] = None
+
+
 def apply_system_font_preferences(app_settings: Gio.Settings):
     """Apply font preferences system-wide.
 
-    Considers system-wide GNOME settings (if on Linux) for base font family and size,
-    then applies the application's own font scaling percentage from GSettings.
-    The resulting font style is applied globally using a :class:`Gtk.CssProvider`.
+    Applies the application's font scaling percentage from GSettings
+    and optionally sets the system font family on the root window using a :class:`Gtk.CssProvider`.
 
     :param app_settings: The application's :class:`Gio.Settings` object.
     :type app_settings: Gio.Settings
     """
-    font_family_to_apply: Optional[str] = None
-    font_size_to_apply_pt: float = BASE_FONT_SIZE_PT
+    global _font_css_provider
 
+    font_family_to_apply: Optional[str] = None
     if platform.system() == "Linux":
-        font_family_to_apply, font_size_to_apply_pt = _get_linux_font_preferences(font_size_to_apply_pt)
+        font_family_to_apply, _ = _get_linux_font_preferences(BASE_FONT_SIZE_PT)
 
     parsed_app_percentage = _get_app_font_scaling(app_settings)
-    final_font_size_pt = font_size_to_apply_pt * (parsed_app_percentage / 100.0)
 
+    css_rules = []
     if font_family_to_apply:
         css_font_family = f"'{font_family_to_apply}'" if " " in font_family_to_apply else font_family_to_apply
-        css = f"* {{ font-family: {css_font_family}; font-size: {final_font_size_pt:.2f}pt; }}"
-    else:
-        css = f"* {{ font-size: {final_font_size_pt:.2f}pt; }}"
+        css_rules.append(f"font-family: {css_font_family};")
+
+    css_rules.append(f"font-size: {parsed_app_percentage:.0f}%;")
+
+    css = f"window {{ {' '.join(css_rules)} }}"
 
     logging.info(
-        "Applying font preferences. Final effective font size: %.2fpt (Base size: %.2fpt, App scale: %s%%)",
-        final_font_size_pt,
-        font_size_to_apply_pt,
+        "Applying font preferences: %s (App scale: %s%%)",
+        css,
         parsed_app_percentage,
     )
 
-    css_provider = Gtk.CssProvider()
-    css_provider.load_from_data(css.encode())
+    display = Gdk.Display.get_default()
+    if display:
+        if _font_css_provider is not None:
+            Gtk.StyleContext.remove_provider_for_display(display, _font_css_provider)
 
-    Gtk.StyleContext.add_provider_for_display(
-        Gdk.Display.get_default(),
-        css_provider,
-        Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
-    )
+        _font_css_provider = Gtk.CssProvider()
+        _font_css_provider.load_from_data(css.encode())
+
+        Gtk.StyleContext.add_provider_for_display(
+            display,
+            _font_css_provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+        )
 
 
 def apply_font_size(settings: Gio.Settings):

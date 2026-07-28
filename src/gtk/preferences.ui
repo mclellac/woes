@@ -12,16 +12,20 @@
         <property name="title">Appearance</property>
         <property name="icon-name">preferences-desktop-theme-symbolic</property>
         <child>
-          <object class="AdwBanner" id="preferences_error_banner">
-            <property name="revealed">False</property>
-            <property name="valign">start</property>
-            <property name="button-label" translatable="yes">Dismiss</property>
-            <signal name="button-clicked" handler="on_error_banner_dismiss_clicked"/>
+          <object class="AdwPreferencesGroup" id="banner_group">
+            <child>
+              <object class="AdwBanner" id="preferences_error_banner">
+                <property name="revealed">False</property>
+                <property name="valign">start</property>
+                <property name="button-label" translatable="yes">Dismiss</property>
+                <signal name="button-clicked" handler="on_error_banner_dismiss_clicked"/>
+              </object>
+            </child>
           </object>
         </child>
         <child>
           <object class="AdwPreferencesGroup" id="appearance_group">
-            <property name="title">Theme &amp; Font Size</property>
+            <property name="title">Theme &amp;amp; Font Size</property>
             <child>
               <object class="AdwComboRow" id="theme_combo_row">
                 <property name="title" translatable="yes">Theme</property>
