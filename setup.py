@@ -107,7 +107,6 @@ package_data = {
             "options": ["install"],
             "packages": [
                 "meson",
-                "meson-python",
                 "ninja",
                 "gtk4",
                 "libadwaita",
