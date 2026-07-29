@@ -90,4 +90,4 @@ woes_sources = files(
 )
 
 # Install the Python source files
-python_bin.install_sources(woes_sources, subdir: conf.get('WOESDIR'))
+python_bin.install_sources(woes_sources, subdir: 'woes')

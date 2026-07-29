@@ -141,6 +141,11 @@ package_data = {
 
 def get_elevated_prefix():
     """Get privilege escalation command prefix if running as non-root user."""
+    os_type = platform.system()
+    if os_type == "Darwin":
+        # On macOS, Homebrew prefix (/opt/homebrew or /usr/local) is user-owned.
+        # Running sudo on macOS is unnecessary and breaks PATH environment for Homebrew tools.
+        return []
     if hasattr(os, "geteuid") and os.geteuid() == 0:
         return []
     if shutil.which("sudo"):
