@@ -64,9 +64,10 @@ python_modules = [
 foreach module : python_modules
     import_name = module[0]
     pkg_name = module[1]
-    dep_check = run_command(python_bin, ['-c', 'import ' + import_name], check: false)
+    py_check = 'import sys, glob, os; [sys.path.insert(0, p) for pat in ["/opt/homebrew/lib/python3.*/site-packages", "/usr/local/lib/python3.*/site-packages", os.path.expanduser("~/Library/Python/3.*/lib/python/site-packages")] for p in glob.glob(pat) if p not in sys.path]; import ' + import_name
+    dep_check = run_command(python_bin, ['-c', py_check], check: false)
     if dep_check.returncode() != 0
-        warning('Python module \'' + import_name + '\' (package \'' + pkg_name + '\') not found by ' + python_bin.full_path() + '. Please ensure it is installed for runtime.')
+        warning('Python module \'' + import_name + '\' (package \'' + pkg_name + '\') not found. Please ensure it is installed for runtime.')
     endif
 endforeach
 
