@@ -51,6 +51,13 @@ if platform.system() == "Darwin":
     for p in glob.glob("/usr/local/lib/python3.*/site-packages") + glob.glob("/opt/homebrew/lib/python3.*/site-packages"):
         if p not in sys.path:
             sys.path.insert(0, p)
+    # Ensure GTK4 icon themes (adwaita-icon-theme) in Homebrew / usr/local paths are found by GTK4
+    extra_xdg = ["/opt/homebrew/share", "/usr/local/share"]
+    current_xdg = os.environ.get("XDG_DATA_DIRS", "")
+    for d in extra_xdg:
+        if os.path.exists(d) and d not in current_xdg.split(":"):
+            current_xdg = (current_xdg + ":" + d) if current_xdg else d
+    os.environ["XDG_DATA_DIRS"] = current_xdg
 
 signal.signal(signal.SIGINT, signal.SIG_DFL)
 
