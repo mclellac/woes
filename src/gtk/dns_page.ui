@@ -33,7 +33,7 @@
         </child>
         <child>
           <object class="AdwComboRow" id="dns_record_type_dropdown">
-            <property name="icon-name">preferences-system-network-symbolic</property>
+            <property name="icon-name">globe-symbolic</property>
             <property name="model">
               <object class="GtkStringList" id="dns_record_type_list">
                 <property name="strings">A</property>
