@@ -51,7 +51,7 @@ foreach module : python_modules
     pkg_name = module[1]
     dep_check = run_command(python_bin, ['-c', 'import ' + import_name], check: false)
     if dep_check.returncode() != 0
-        error('Python module \'' + import_name + '\' (package \'' + pkg_name + '\') not found. Please install it using your package manager or pip.')
+        warning('Python module \'' + import_name + '\' (package \'' + pkg_name + '\') not found by ' + python_bin.full_path() + '. Please ensure it is installed for runtime.')
     endif
 endforeach
 
