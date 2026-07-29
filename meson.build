@@ -21,9 +21,19 @@ if not python_bin.language_version().version_compare('>= 3.10')
     error('Python 3.10 or newer is required.')
 endif
 
-# macOS-specific prefix correction
+# Installation directories
+prefix = get_option('prefix')
+
+# macOS (Darwin)-specific prefix and architecture handling (ARM64 Apple Silicon vs Intel)
 if host_machine.system() == 'darwin'
-    prefix = '/usr/local'
+    if (host_machine.cpu_family() == 'aarch64' or host_machine.cpu() == 'arm64') and import('fs').is_dir('/opt/homebrew')
+        if prefix == '/usr/local'
+            prefix = '/opt/homebrew'
+        endif
+        message('Building for macOS ARM (Apple Silicon), using prefix: ' + prefix)
+    else
+        message('Building for macOS Intel (x86_64), using prefix: ' + prefix)
+    endif
 endif
 
 # Declare runtime dependencies
@@ -34,23 +44,24 @@ dependencies = [
     dependency('pygobject-3.0', version: '>= 3.46.0'),
 ]
 
-# Verify and install Python dependencies
+# Verify Python module dependencies via Python import checks
+# Format: [module_import_name, package_name]
 python_modules = [
-    'requests',
-    'python-nmap',
-    'PyYAML',
-    'dnspython'
+    ['requests', 'requests'],
+    ['nmap', 'python-nmap'],
+    ['yaml', 'PyYAML'],
+    ['dns', 'dnspython'],
 ]
 
 foreach module : python_modules
-    dep_check = run_command(python_bin, ['-m', 'pip', 'show', module], check: false)
+    import_name = module[0]
+    pkg_name = module[1]
+    dep_check = run_command(python_bin, ['-c', 'import ' + import_name], check: false)
     if dep_check.returncode() != 0
-        error('Python module \'' + module + '\' not found. Please install it using pip.')
+        error('Python module \'' + import_name + '\' (package \'' + pkg_name + '\') not found. Please install it using your package manager or pip.')
     endif
 endforeach
 
-# Installation directories
-prefix = get_option('prefix')
 modulesdir = python_bin.get_install_dir() # Modules directory for post-install
 bindir = join_paths(prefix, get_option('bindir'))
 datadir = join_paths(prefix, get_option('datadir'))

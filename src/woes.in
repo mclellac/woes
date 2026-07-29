@@ -43,16 +43,21 @@ print("APP_ID: ", APP_ID)
 print("VERSION: ", VERSION)
 print("GSETTINGS_SCHEMA_DIR: ", GSETTINGS_SCHEMA_DIR)
 
-# sys.path.insert(1, PYTHON_SITE_PACKAGES_DIR) # This line is suspected to cause issues
+if PYTHON_SITE_PACKAGES_DIR and PYTHON_SITE_PACKAGES_DIR not in sys.path:
+    sys.path.insert(0, PYTHON_SITE_PACKAGES_DIR)
+
 signal.signal(signal.SIGINT, signal.SIG_DFL)
 
-# Use gettext on macOS, otherwise bindtext
+# macOS (Darwin) gettext binding vs GLibc locale binding
 if platform.system() == "Darwin":
     gettext.bindtextdomain("woes", LOCALE_DIR)
     gettext.textdomain("woes")
-else:
+elif hasattr(locale, "bindtextdomain"):
     locale.bindtextdomain("woes", LOCALE_DIR)
     locale.textdomain("woes")
+else:
+    gettext.bindtextdomain("woes", LOCALE_DIR)
+    gettext.textdomain("woes")
 
 gettext.install("woes", LOCALE_DIR)
 

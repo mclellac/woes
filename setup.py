@@ -19,7 +19,12 @@ distros = {
     "rhel": "fedora",
     "arch": "arch",
     "archarm": "arch",
+    "manjaro": "arch",
+    "alpine": "alpine",
     "darwin": "darwin",
+    "freebsd": "freebsd",
+    "openbsd": "openbsd",
+    "netbsd": "netbsd",
 }
 
 # Package data for different OS and distributions
@@ -78,11 +83,27 @@ package_data = {
                 "glib2",
             ],
         },
+        "alpine": {
+            "manager": "apk",
+            "update": ["update"],
+            "options": ["add"],
+            "packages": [
+                "meson",
+                "ninja",
+                "gtk4.0-dev",
+                "libadwaita-dev",
+                "py3-gobject3",
+                "py3-requests",
+                "py3-yaml",
+                "py3-dnspython",
+                "gettext",
+            ],
+        },
     },
     "Darwin": {
-        "darwin": {  # Adjusted the structure to match how other OSes are defined
+        "darwin": {
             "manager": "brew",
-            "update": ["upgrade"],
+            "update": ["update"],
             "options": ["install"],
             "packages": [
                 "meson",
@@ -93,41 +114,84 @@ package_data = {
                 "desktop-file-utils",
                 "pygobject3",
                 "glib",
+                "gettext",
+            ],
+        }
+    },
+    "FreeBSD": {
+        "freebsd": {
+            "manager": "pkg",
+            "update": ["update"],
+            "options": ["install", "-y"],
+            "packages": [
+                "meson",
+                "ninja",
+                "gtk4",
+                "libadwaita",
+                "pkgconf",
+                "py311-gobject3",
+                "py311-requests",
+                "py311-yaml",
+                "py311-dnspython",
+                "gettext",
             ],
         }
     },
 }
 
 
+def get_elevated_prefix():
+    """Get privilege escalation command prefix if running as non-root user."""
+    if hasattr(os, "geteuid") and os.geteuid() == 0:
+        return []
+    if shutil.which("sudo"):
+        return ["sudo"]
+    if shutil.which("doas"):
+        return ["doas"]
+    return []
+
+
 def run_command(cmd):
     """Run a system command and handle errors."""
     try:
         result = subprocess.run(cmd, check=True, text=True, capture_output=True)
-        print(result.stdout)
+        if result.stdout:
+            print(result.stdout)
     except subprocess.CalledProcessError as e:
-        print(f"Error: Command {' '.join(map(str, cmd))} failed.")  # Convert PosixPath to str
-        print(e.stderr)
+        print(f"Error: Command {' '.join(map(str, cmd))} failed.")
+        if e.stderr:
+            print(e.stderr)
         sys.exit(1)
 
 
 def detect_os_and_distro():
     """Detect the operating system and distribution."""
     os_type = platform.system()
+    distro = "unknown"
     if os_type == "Linux":
         try:
-            with open("/etc/os-release") as f:
-                lines = f.readlines()
-                distro_info = {}
-                for line in lines:
-                    key, value = line.strip().split("=")
-                    distro_info[key] = value.strip('"')
-                distro = distro_info.get("ID", "unknown")
+            if os.path.exists("/etc/os-release"):
+                with open("/etc/os-release") as f:
+                    lines = f.readlines()
+                    distro_info = {}
+                    for line in lines:
+                        if "=" in line:
+                            key, value = line.strip().split("=", 1)
+                            distro_info[key] = value.strip('"')
+                    distro = distro_info.get("ID", "unknown")
+                    if distro not in distros and "ID_LIKE" in distro_info:
+                        for like in distro_info["ID_LIKE"].split():
+                            if like in distros:
+                                distro = like
+                                break
         except Exception as e:
-            raise RuntimeError(f"Could not determine Linux distribution: {str(e)}") from e
+            print(f"[Warning] Could not determine Linux distribution: {e}")
     elif os_type == "Darwin":
         distro = "darwin"
+    elif "BSD" in os_type or os_type in ("FreeBSD", "OpenBSD", "NetBSD", "DragonFly"):
+        distro = os_type.lower()
     else:
-        raise ValueError(f"Unsupported operating system: {os_type}")
+        distro = os_type.lower()
 
     return os_type, distro
 
@@ -143,9 +207,10 @@ def install_packages():
         update_cmd = [manager] + data["update"]
         install_cmd = [manager] + data["options"] + data["packages"]
 
-        if os_type == "Linux" and os.geteuid():
-            update_cmd.insert(0, "sudo")
-            install_cmd.insert(0, "sudo")
+        elevated = get_elevated_prefix()
+        if elevated and manager != "brew":
+            update_cmd = elevated + update_cmd
+            install_cmd = elevated + install_cmd
 
         # Running the commands
         print("Running command:", " ".join(update_cmd))
@@ -153,14 +218,19 @@ def install_packages():
         print("Running command:", " ".join(install_cmd))
         run_command(install_cmd)
     else:
-        raise ValueError(f"Unsupported OS or distribution: {os_type}, {distro}")
+        print(f"[Notice] Automated package installation is not pre-configured for {os_type} ({distro}).")
+        print("Please ensure required dependencies (meson, ninja, gtk4, libadwaita, pygobject, python-nmap, requests, PyYAML, dnspython) are installed.")
 
 
 def check_and_delete_directory(directory):
     """Check if a directory exists and delete it if it does, with user message."""
     if os.path.exists(directory):
         print(f"[Cleanup] Removing existing directory: {directory}")
-        run_command(["sudo", "rm", "-rf", directory])
+        try:
+            shutil.rmtree(directory)
+        except OSError:
+            elevated = get_elevated_prefix()
+            run_command(elevated + ["rm", "-rf", str(directory)])
 
 
 def build_application(os_type):
@@ -179,28 +249,31 @@ def build_application(os_type):
     run_command(ninja_build_cmd)
 
     # Ninja install
-    ninja_install_cmd = ["sudo", "ninja", "-C", str(build_dir), "install"]
+    elevated = get_elevated_prefix()
+    ninja_install_cmd = elevated + ["ninja", "-C", str(build_dir), "install"]
     print("[Build] Running Ninja install command:", " ".join(ninja_install_cmd))
     run_command(ninja_install_cmd)
 
     print("[Build] Installation complete!")
 
-    # macOS-specific fix
-    # if os_type == "Darwin":
-    #    site_packages_dir = next((p for p in sys.path if "site-packages" in p), None)
-    #    if site_packages_dir:
-    #        old_path = Path("/usr/local" + site_packages_dir) / "woes"
-    #        new_path = Path(site_packages_dir) / "woes"
-    #
-    #        if new_path.exists():
-    #            print(f"[macOS Fix] Removing old directory: {new_path}")
-    #            run_command(["sudo", "rm", "-rf", str(new_path)])
-    #
-    #        if old_path.exists():
-    #            print("[macOS Fix] Moving akstaging to correct site-packages location...")
-    #            run_command(["sudo", "mv", "-v", str(old_path), str(new_path)])
-    #    else:
-    #        print(">> Failed to determine Python site-packages directory.")
+    # macOS (Darwin)-specific post-install site-packages alignment for ARM and Intel
+    if os_type == "Darwin":
+        site_packages_dir = next((p for p in sys.path if "site-packages" in p), None)
+        if site_packages_dir:
+            target_path = Path(site_packages_dir) / "woes"
+            possible_sources = [
+                Path("/opt/homebrew") / site_packages_dir.lstrip("/"),  # macOS ARM
+                Path("/usr/local") / site_packages_dir.lstrip("/"),    # macOS Intel
+            ]
+            for source_parent in possible_sources:
+                source = source_parent / "woes"
+                if source.exists() and source != target_path:
+                    print(f"[macOS Fix] Moving installed woes package from {source} to {target_path}...")
+                    if target_path.exists():
+                        shutil.rmtree(target_path, ignore_errors=True)
+                    elevated = get_elevated_prefix()
+                    run_command(elevated + ["mv", "-v", str(source), str(target_path)])
+                    break
 
 
 def check_homebrew():

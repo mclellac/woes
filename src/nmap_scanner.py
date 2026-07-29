@@ -118,11 +118,16 @@ def get_escalated_command(command_parts: list[str]) -> list[str]:
     resolved_command_parts = [nmap_path] + command_parts[1:]
 
     escalated_cmd = []
-    if system == "Linux":
-        if not shutil.which("pkexec"):
-            logger.error("pkexec not found, but it is required for privilege escalation on Linux.")
-            raise FileNotFoundError("pkexec not found. Needed for privilege escalation.")
-        escalated_cmd = ["pkexec"] + resolved_command_parts
+    if system == "Linux" or "BSD" in system or system in ("FreeBSD", "OpenBSD", "NetBSD", "DragonFly"):
+        if shutil.which("pkexec"):
+            escalated_cmd = ["pkexec"] + resolved_command_parts
+        elif shutil.which("doas"):
+            escalated_cmd = ["doas"] + resolved_command_parts
+        elif shutil.which("sudo"):
+            escalated_cmd = ["sudo"] + resolved_command_parts
+        else:
+            logger.error("No privilege escalation tool (pkexec, doas, sudo) found.")
+            raise FileNotFoundError("No privilege escalation tool (pkexec, doas, sudo) found.")
     elif system == "Darwin":
         if not shutil.which("osascript"):
             logger.error("osascript not found, but it is required for privilege escalation on macOS.")
@@ -355,7 +360,7 @@ class NmapScanner:
             ):
                 error_message = "User cancelled the request for administrator privileges."
             elif (
-                platform.system() == "Linux"
+                (platform.system() == "Linux" or "BSD" in platform.system() or platform.system() in ("FreeBSD", "OpenBSD", "NetBSD", "DragonFly"))
                 and returncode in [1, 126, 127]
                 and not nmap_xml_output.strip()
                 and not nmap_stderr.strip()
