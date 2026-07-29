@@ -100,7 +100,7 @@ woes_sources = files(
 
 # Install the Python source files
 if host_machine.system() == 'darwin'
-    python_bin.install_sources(woes_sources, install_dir: '/usr/local/lib' / ('python' + python_bin.language_version()) / 'site-packages' / 'woes')
+    install_data(woes_sources, install_dir: '/usr/local/lib' / ('python' + python_bin.language_version()) / 'site-packages' / 'woes')
 else
     python_bin.install_sources(woes_sources, subdir: 'woes')
 endif
