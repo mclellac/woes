@@ -204,19 +204,37 @@ def install_packages():
     if os_type in package_data and distro_key in package_data[os_type]:
         data = package_data[os_type][distro_key]
         manager = data["manager"]
-        update_cmd = [manager] + data["update"]
-        install_cmd = [manager] + data["options"] + data["packages"]
 
-        elevated = get_elevated_prefix()
-        if elevated and manager != "brew":
-            update_cmd = elevated + update_cmd
-            install_cmd = elevated + install_cmd
+        if os_type == "Darwin" and manager == "brew":
+            missing_packages = []
+            for pkg in data["packages"]:
+                res = subprocess.run(
+                    ["brew", "list", "--formula", pkg],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                if res.returncode != 0:
+                    missing_packages.append(pkg)
+            if missing_packages:
+                print("Running command: brew update")
+                run_command(["brew", "update"])
+                print("Installing missing Homebrew dependencies:", " ".join(missing_packages))
+                run_command(["brew", "install"] + missing_packages)
+            else:
+                print("[Homebrew] All required dependencies are already installed.")
+        else:
+            update_cmd = [manager] + data["update"]
+            install_cmd = [manager] + data["options"] + data["packages"]
 
-        # Running the commands
-        print("Running command:", " ".join(update_cmd))
-        run_command(update_cmd)
-        print("Running command:", " ".join(install_cmd))
-        run_command(install_cmd)
+            elevated = get_elevated_prefix()
+            if elevated:
+                update_cmd = elevated + update_cmd
+                install_cmd = elevated + install_cmd
+
+            print("Running command:", " ".join(update_cmd))
+            run_command(update_cmd)
+            print("Running command:", " ".join(install_cmd))
+            run_command(install_cmd)
     else:
         print(f"[Notice] Automated package installation is not pre-configured for {os_type} ({distro}).")
         print("Please ensure required dependencies (meson, ninja, gtk4, libadwaita, pygobject, python-nmap, requests, PyYAML, dnspython) are installed.")

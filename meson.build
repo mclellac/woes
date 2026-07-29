@@ -12,7 +12,10 @@ fs = import('fs')
 
 # Find Python installation (prefer Homebrew/user Python over Xcode system Python on macOS)
 if host_machine.system() == 'darwin'
-    python_bin = python.find_installation('python3', dirs: ['/opt/homebrew/bin', '/usr/local/bin'], required: false)
+    python_bin = python.find_installation('/opt/homebrew/bin/python3', required: false)
+    if not python_bin.found()
+        python_bin = python.find_installation('/usr/local/bin/python3', required: false)
+    endif
     if not python_bin.found()
         python_bin = python.find_installation('python3')
     endif
