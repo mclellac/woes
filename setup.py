@@ -262,8 +262,6 @@ def build_application(os_type):
             "meson",
             "setup",
             "--prefix=/usr/local",
-            "--bindir=/usr/local/bin",
-            "--datadir=/usr/local/share",
             str(build_dir),
         ]
     else:
