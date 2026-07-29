@@ -156,16 +156,12 @@ def get_elevated_prefix():
 
 
 def run_command(cmd):
-    """Run a system command and handle errors."""
+    """Run a system command live with output streamed directly to terminal."""
     try:
-        result = subprocess.run(cmd, check=True, text=True, capture_output=True)
-        if result.stdout:
-            print(result.stdout)
+        subprocess.run(cmd, check=True)
     except subprocess.CalledProcessError as e:
-        print(f"Error: Command {' '.join(map(str, cmd))} failed.")
-        if e.stderr:
-            print(e.stderr)
-        sys.exit(1)
+        print(f"Error: Command {' '.join(map(str, cmd))} failed with exit code {e.returncode}.")
+        sys.exit(e.returncode)
 
 
 def detect_os_and_distro():
