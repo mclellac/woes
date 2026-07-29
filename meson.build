@@ -8,6 +8,7 @@ project('woes',
 i18n = import('i18n')
 gnome = import('gnome')
 python = import('python')
+fs = import('fs')
 
 # Find Python installation
 python_bin = python.find_installation('python3')
@@ -26,7 +27,7 @@ prefix = get_option('prefix')
 
 # macOS (Darwin)-specific prefix and architecture handling (ARM64 Apple Silicon vs Intel)
 if host_machine.system() == 'darwin'
-    if (host_machine.cpu_family() == 'aarch64' or host_machine.cpu() == 'arm64') and import('fs').is_dir('/opt/homebrew')
+    if (host_machine.cpu_family() == 'aarch64' or host_machine.cpu() == 'arm64') and fs.is_dir('/opt/homebrew')
         if prefix == '/usr/local'
             prefix = '/opt/homebrew'
         endif
@@ -58,7 +59,7 @@ foreach module : python_modules
     pkg_name = module[1]
     dep_check = run_command(python_bin, ['-c', 'import ' + import_name], check: false)
     if dep_check.returncode() != 0
-        error('Python module \'' + import_name + '\' (package \'' + pkg_name + '\') not found. Please install it using your package manager or pip.')
+        warning('Python module \'' + import_name + '\' (package \'' + pkg_name + '\') not found by ' + python_bin.full_path() + '. Please ensure it is installed for runtime.')
     endif
 endforeach
 

@@ -275,6 +275,42 @@ def build_application(os_type):
                     break
 
 
+def configure_environment_paths():
+    """Ensure PATH and PKG_CONFIG_PATH include standard Homebrew/BSD locations."""
+    os_type = platform.system()
+    if os_type == "Darwin":
+        extra_bins = ["/opt/homebrew/bin", "/usr/local/bin"]
+        extra_pkgs = [
+            "/opt/homebrew/lib/pkgconfig",
+            "/opt/homebrew/share/pkgconfig",
+            "/usr/local/lib/pkgconfig",
+            "/usr/local/share/pkgconfig",
+        ]
+    elif "BSD" in os_type or os_type in ("FreeBSD", "OpenBSD", "NetBSD"):
+        extra_bins = ["/usr/local/bin", "/usr/pkg/bin"]
+        extra_pkgs = [
+            "/usr/local/libdata/pkgconfig",
+            "/usr/local/lib/pkgconfig",
+            "/usr/pkg/lib/pkgconfig",
+        ]
+    else:
+        extra_bins = []
+        extra_pkgs = []
+
+    current_path = os.environ.get("PATH", "")
+    for b in extra_bins:
+        if os.path.exists(b) and b not in current_path.split(":"):
+            current_path = b + ":" + current_path
+    os.environ["PATH"] = current_path
+
+    current_pkg = os.environ.get("PKG_CONFIG_PATH", "")
+    pkg_list = [p for p in extra_pkgs if os.path.exists(p)]
+    if current_pkg:
+        pkg_list.append(current_pkg)
+    if pkg_list:
+        os.environ["PKG_CONFIG_PATH"] = ":".join(pkg_list)
+
+
 def check_homebrew():
     """Check if Homebrew is installed on macOS."""
     if shutil.which("brew") is None:
@@ -292,6 +328,8 @@ def main():
     if not any(vars(args).values()):
         parser.print_help()
         sys.exit(0)
+
+    configure_environment_paths()
 
     os_type, distro = detect_os_and_distro()
     print(f"[System] Detected operating system: {os_type}")
