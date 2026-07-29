@@ -237,13 +237,26 @@ def check_and_delete_directory(directory):
             run_command(elevated + ["rm", "-rf", str(directory)])
 
 
+def get_default_prefix():
+    """Get standard install prefix for host OS and architecture."""
+    os_type = platform.system()
+    if os_type == "Darwin":
+        arch = platform.machine()
+        if (arch in ("arm64", "aarch64") or "arm" in arch.lower()) and os.path.exists("/opt/homebrew"):
+            return "/opt/homebrew"
+        return "/usr/local"
+    return "/usr/local"
+
+
 def build_application(os_type):
     """Build and install the application with informative messages."""
     build_dir = Path("build")
     check_and_delete_directory(build_dir)
 
+    prefix = get_default_prefix()
+
     # Meson setup
-    meson_cmd = ["meson", "setup", str(build_dir)]
+    meson_cmd = ["meson", "setup", f"--prefix={prefix}", str(build_dir)]
     print("\n[Build] Running Meson setup command:", " ".join(meson_cmd))
     run_command(meson_cmd)
 

@@ -25,16 +25,8 @@ endif
 # Installation directories
 prefix = get_option('prefix')
 
-# macOS (Darwin)-specific prefix and architecture handling (ARM64 Apple Silicon vs Intel)
 if host_machine.system() == 'darwin'
-    if (host_machine.cpu_family() == 'aarch64' or host_machine.cpu() == 'arm64') and fs.is_dir('/opt/homebrew')
-        if prefix == '/usr/local'
-            prefix = '/opt/homebrew'
-        endif
-        message('Building for macOS ARM (Apple Silicon), using prefix: ' + prefix)
-    else
-        message('Building for macOS Intel (x86_64), using prefix: ' + prefix)
-    endif
+    message('Building for macOS (' + host_machine.cpu_family() + '), using prefix: ' + prefix)
 endif
 
 # Declare runtime dependencies
@@ -64,19 +56,19 @@ foreach module : python_modules
 endforeach
 
 modulesdir = python_bin.get_install_dir() # Modules directory for post-install
-bindir = join_paths(prefix, get_option('bindir'))
-datadir = join_paths(prefix, get_option('datadir'))
-libexecdir = join_paths(prefix, get_option('libexecdir'))
-localedir = join_paths(prefix, get_option('localedir'))
-pkgdatadir = join_paths(datadir, meson.project_name())
-icondir = join_paths(datadir, 'icons', 'hicolor')
-schemadir = join_paths(datadir, 'glib-2.0', 'schemas')
+bindir = prefix / get_option('bindir')
+datadir = prefix / get_option('datadir')
+libexecdir = prefix / get_option('libexecdir')
+localedir = prefix / get_option('localedir')
+pkgdatadir = datadir / meson.project_name()
+icondir = datadir / 'icons' / 'hicolor'
+schemadir = datadir / 'glib-2.0' / 'schemas'
 
 # Application metadata and directories
 default_pkgappid = 'com.github.mclellac.WebOpsEvaluationSuite'
 pkgappid = default_pkgappid
-appdatadir = join_paths(datadir, 'metainfo')
-desktopdir = join_paths(datadir, 'applications')
+appdatadir = datadir / 'metainfo'
+desktopdir = datadir / 'applications'
 
 # Subdirectories
 subdir('src')

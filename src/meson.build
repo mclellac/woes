@@ -16,11 +16,11 @@ message('Site packages dir (woes subdir): ' + site_packages_dir)
 python_site_packages_dir = python_purelib
 
 # Define paths
-localedir = join_paths(get_option('prefix'), 'share', 'locale')
-pkgdatadir = join_paths(get_option('prefix'), 'share', 'woes')
-datadir_option = join_paths(get_option('prefix'), get_option('datadir'))
-pkgschemadir = join_paths(get_option('prefix'), 'share', meson.project_name())
-gsettings_schemadir = join_paths(get_option('prefix'), 'share', 'glib-2.0', 'schemas')
+localedir = get_option('prefix') / get_option('localedir')
+pkgdatadir = get_option('prefix') / get_option('datadir') / 'woes'
+datadir_option = get_option('prefix') / get_option('datadir')
+pkgschemadir = get_option('prefix') / get_option('datadir') / meson.project_name()
+gsettings_schemadir = get_option('prefix') / get_option('datadir') / 'glib-2.0' / 'schemas'
 
 # Prepare configuration data
 conf = configuration_data()
@@ -34,16 +34,16 @@ conf.set('GSETTINGSSCHEMADIR', gsettings_schemadir) # Add this line
 
 # Set paths conditionally based on whether it is a Flatpak build
 if is_flatpak_build
-  conf.set('DATADIR', join_paths(get_option('prefix'), 'share'))
+  conf.set('DATADIR', get_option('prefix') / 'share')
   conf.set(
     'PKGDATADIR',
-    join_paths(get_option('prefix'), 'share', meson.project_name()),
+    get_option('prefix') / 'share' / meson.project_name(),
   )
-  resource_path = join_paths(pkgdatadir, 'woes.gresource')
+  resource_path = pkgdatadir / 'woes.gresource'
 else
   conf.set('DATADIR', datadir_option)
-  conf.set('PKGDATADIR', join_paths(datadir_option, meson.project_name()))
-  resource_path = join_paths(datadir_option, 'woes', 'woes.gresource')
+  conf.set('PKGDATADIR', datadir_option / meson.project_name())
+  resource_path = datadir_option / 'woes' / 'woes.gresource'
 endif
 
 conf.set('RESOURCE_PATH', resource_path)
