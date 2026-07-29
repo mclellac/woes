@@ -274,25 +274,6 @@ def build_application(os_type):
 
     print("[Build] Installation complete!")
 
-    # macOS (Darwin)-specific post-install site-packages alignment for ARM and Intel
-    if os_type == "Darwin":
-        site_packages_dir = next((p for p in sys.path if "site-packages" in p), None)
-        if site_packages_dir:
-            target_path = Path(site_packages_dir) / "woes"
-            possible_sources = [
-                Path("/opt/homebrew") / site_packages_dir.lstrip("/"),  # macOS ARM
-                Path("/usr/local") / site_packages_dir.lstrip("/"),    # macOS Intel
-            ]
-            for source_parent in possible_sources:
-                source = source_parent / "woes"
-                if source.exists() and source != target_path:
-                    print(f"[macOS Fix] Moving installed woes package from {source} to {target_path}...")
-                    if target_path.exists():
-                        shutil.rmtree(target_path, ignore_errors=True)
-                    elevated = get_elevated_prefix()
-                    run_command(elevated + ["mv", "-v", str(source), str(target_path)])
-                    break
-
 
 def configure_environment_paths():
     """Ensure PATH and PKG_CONFIG_PATH include standard Homebrew/BSD locations."""
