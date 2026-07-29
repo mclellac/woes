@@ -16,11 +16,16 @@ message('Site packages dir (woes subdir): ' + site_packages_dir)
 python_site_packages_dir = python_purelib
 
 # Define paths
-opt_localedir = get_option('localedir')
-localedir = opt_localedir.startswith('/') ? opt_localedir : get_option('prefix') / opt_localedir
+if host_machine.system() == 'darwin'
+    localedir = '/usr/local/share/locale'
+    datadir_option = '/usr/local/share'
+else
+    opt_localedir = get_option('localedir')
+    localedir = opt_localedir.startswith('/') ? opt_localedir : get_option('prefix') / opt_localedir
 
-opt_datadir = get_option('datadir')
-datadir_option = opt_datadir.startswith('/') ? opt_datadir : get_option('prefix') / opt_datadir
+    opt_datadir = get_option('datadir')
+    datadir_option = opt_datadir.startswith('/') ? opt_datadir : get_option('prefix') / opt_datadir
+endif
 
 pkgdatadir = datadir_option / 'woes'
 pkgschemadir = datadir_option / meson.project_name()
