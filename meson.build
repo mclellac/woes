@@ -50,6 +50,7 @@ dependencies = [
     dependency('gtk4', version: '>= 4.18.0'),
     dependency('libadwaita-1', version: '>= 1.7.0'),
     dependency('pygobject-3.0', version: '>= 3.46.0'),
+    dependency('gtksourceview-5', version: '>= 5.0.0'),
 ]
 
 # Verify Python module dependencies via Python import checks
