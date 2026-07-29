@@ -46,6 +46,12 @@ print("GSETTINGS_SCHEMA_DIR: ", GSETTINGS_SCHEMA_DIR)
 if PYTHON_SITE_PACKAGES_DIR and PYTHON_SITE_PACKAGES_DIR not in sys.path:
     sys.path.insert(0, PYTHON_SITE_PACKAGES_DIR)
 
+if platform.system() == "Darwin":
+    import glob
+    for p in glob.glob("/usr/local/lib/python3.*/site-packages") + glob.glob("/opt/homebrew/lib/python3.*/site-packages"):
+        if p not in sys.path:
+            sys.path.insert(0, p)
+
 signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 # macOS (Darwin) gettext binding vs GLibc locale binding

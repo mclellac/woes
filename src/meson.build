@@ -13,7 +13,11 @@ site_packages_dir = join_paths(python_purelib, 'woes')
 message('Site packages dir (woes subdir): ' + site_packages_dir)
 
 # Create a new configuration variable for the site-packages directory (version specific)
-python_site_packages_dir = python_purelib
+if host_machine.system() == 'darwin'
+    python_site_packages_dir = '/usr/local/lib' / ('python' + python_bin.language_version()) / 'site-packages'
+else
+    python_site_packages_dir = python_purelib
+endif
 
 # Define paths
 if host_machine.system() == 'darwin'
