@@ -32,6 +32,7 @@ except ImportError:
 
 from gi.repository import Gio
 
+from .constants import get_default_user_agent
 from .custom_dns_adapter import CustomDNSAdapter
 
 logger = logging.getLogger(__name__)
@@ -127,12 +128,13 @@ class HttpFetcher:
         initial_request_specific_headers: dict[str, str] = {}
         session_headers: dict[str, str] = {}
 
-        # User-Agent override
+        # User-Agent handling: use custom User-Agent if provided, otherwise default browser User-Agent
+        effective_user_agent = self.user_agent if self.user_agent else get_default_user_agent()
+        session_headers["User-Agent"] = effective_user_agent
         if self.user_agent:
-            session_headers["User-Agent"] = self.user_agent
             logger.info("HttpFetcher: Using custom User-Agent: '%s'", self.user_agent)
         else:
-            logger.info("HttpFetcher: No custom User-Agent; `requests` default will be used.")
+            logger.info("HttpFetcher: Using default User-Agent: '%s'", effective_user_agent)
 
         # Host header is special and often set on the initial request directly.
         # It's applied to initial_request_specific_headers.
@@ -255,13 +257,13 @@ class HttpFetcher:
                 found_connection_refused = True
                 break
             if isinstance(current_exc, urllib3_exceptions.NewConnectionError):
-                if "connection refused" in exc_str or "errno 111" in exc_str:
+                if "connection refused" in exc_str or any(e in exc_str for e in ("errno 111", "errno 61", "10061")):
                     found_connection_refused = True
                     break
                 if hasattr(current_exc, "original_error"):
                     original_error = current_exc.original_error
                     if isinstance(original_error, ConnectionRefusedError) or (
-                        hasattr(original_error, "errno") and original_error.errno == 111
+                        hasattr(original_error, "errno") and original_error.errno in (111, 61, 10061)
                     ):
                         found_connection_refused = True
                         break
@@ -270,13 +272,13 @@ class HttpFetcher:
                     current_exc.reason, urllib3_exceptions.NewConnectionError
                 ):
                     reason_exc_str = str(current_exc.reason).lower()
-                    if "connection refused" in reason_exc_str or "errno 111" in reason_exc_str:
+                    if "connection refused" in reason_exc_str or any(e in reason_exc_str for e in ("errno 111", "errno 61", "10061")):
                         found_connection_refused = True
                         break
                     if hasattr(current_exc.reason, "original_error"):
                         original_error = current_exc.reason.original_error
                         if isinstance(original_error, ConnectionRefusedError) or (
-                            hasattr(original_error, "errno") and original_error.errno == 111
+                            hasattr(original_error, "errno") and original_error.errno in (111, 61, 10061)
                         ):
                             found_connection_refused = True
                             break
@@ -286,8 +288,8 @@ class HttpFetcher:
             ):
                 found_connection_refused = True
             if (
-                any("errno 111" in str(arg).lower() for arg in current_exc.args if isinstance(arg, str))
-                or "errno 111" in exc_str
+                any(any(e in str(arg).lower() for e in ("errno 111", "errno 61", "10061")) for arg in current_exc.args if isinstance(arg, str))
+                or any(e in exc_str for e in ("errno 111", "errno 61", "10061"))
             ):
                 found_connection_refused = True
             if found_connection_refused:
@@ -348,7 +350,7 @@ class HttpFetcher:
 
         adapter_sni_hint: Optional[str] = None
         if self.host_header:
-            requests.utils.urlparse(self.url)  # type: ignore[attr-defined]
+            adapter_sni_hint = self.host_header
 
         effective_custom_dns_server: Optional[str] = self.custom_dns_server if dns else None
         if self.custom_dns_server and not dns:

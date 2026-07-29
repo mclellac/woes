@@ -100,6 +100,37 @@ class TestHttpFetcher(unittest.TestCase):
             self.assertEqual(str(cm.exception), detailed_msg)
             self.assertIsInstance(cm.exception.__cause__, requests.exceptions.ConnectionError)
 
+    def test_default_user_agent_used_when_none(self):
+        """Test that a default browser User-Agent is set when no user_agent is provided."""
+        from src.constants import get_default_user_agent
+        fetcher = HttpFetcher(url="http://example.com", user_agent=None)
+        _, session_headers = fetcher._prepare_request_headers()
+        self.assertIn("User-Agent", session_headers)
+        self.assertEqual(session_headers["User-Agent"], get_default_user_agent())
+
+    def test_custom_user_agent_used_when_provided(self):
+        """Test that custom user_agent is set in session headers when provided."""
+        custom_ua = "CustomUA/1.0"
+        fetcher = HttpFetcher(url="http://example.com", user_agent=custom_ua)
+        _, session_headers = fetcher._prepare_request_headers()
+        self.assertEqual(session_headers.get("User-Agent"), custom_ua)
+
+    @patch('src.http_client.CustomDNSAdapter')
+    @patch('requests.Session.get')
+    def test_host_header_sets_adapter_sni_hint(self, mock_session_get: MagicMock, mock_adapter_cls: MagicMock):
+        """Test that providing a host header sets the SNI hint on CustomDNSAdapter."""
+        mock_response = MagicMock(spec=requests.Response)
+        mock_response.status_code = 200
+        mock_response.url = "http://1.2.3.4"
+        mock_response.headers = {}
+        mock_response.history = []
+        mock_session_get.return_value = mock_response
+
+        fetcher = HttpFetcher(url="http://1.2.3.4", host_header="example.com")
+        fetcher.fetch_headers()
+        mock_adapter_cls.assert_called_with(custom_dns_server=None, default_sni="example.com")
+
 
 if __name__ == '__main__':
     unittest.main()
+
