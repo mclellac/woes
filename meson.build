@@ -22,11 +22,11 @@ if not python_bin.language_version().version_compare('>= 3.10')
     error('Python 3.10 or newer is required.')
 endif
 
-# Installation directories
-prefix = get_option('prefix')
-
+# macOS-specific prefix correction
 if host_machine.system() == 'darwin'
-    message('Building for macOS (' + host_machine.cpu_family() + '), using prefix: ' + prefix)
+    prefix = '/usr/local'
+else
+    prefix = get_option('prefix')
 endif
 
 # Declare runtime dependencies
@@ -51,15 +51,24 @@ foreach module : python_modules
     pkg_name = module[1]
     dep_check = run_command(python_bin, ['-c', 'import ' + import_name], check: false)
     if dep_check.returncode() != 0
-        warning('Python module \'' + import_name + '\' (package \'' + pkg_name + '\') not found by ' + python_bin.full_path() + '. Please ensure it is installed for runtime.')
+        error('Python module \'' + import_name + '\' (package \'' + pkg_name + '\') not found. Please install it using your package manager or pip.')
     endif
 endforeach
 
 modulesdir = python_bin.get_install_dir() # Modules directory for post-install
-bindir = prefix / get_option('bindir')
-datadir = prefix / get_option('datadir')
-libexecdir = prefix / get_option('libexecdir')
-localedir = prefix / get_option('localedir')
+
+opt_bindir = get_option('bindir')
+bindir = opt_bindir.startswith('/') ? opt_bindir : prefix / opt_bindir
+
+opt_datadir = get_option('datadir')
+datadir = opt_datadir.startswith('/') ? opt_datadir : prefix / opt_datadir
+
+opt_libexecdir = get_option('libexecdir')
+libexecdir = opt_libexecdir.startswith('/') ? opt_libexecdir : prefix / opt_libexecdir
+
+opt_localedir = get_option('localedir')
+localedir = opt_localedir.startswith('/') ? opt_localedir : prefix / opt_localedir
+
 pkgdatadir = datadir / meson.project_name()
 icondir = datadir / 'icons' / 'hicolor'
 schemadir = datadir / 'glib-2.0' / 'schemas'

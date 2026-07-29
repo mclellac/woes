@@ -16,11 +16,15 @@ message('Site packages dir (woes subdir): ' + site_packages_dir)
 python_site_packages_dir = python_purelib
 
 # Define paths
-localedir = get_option('prefix') / get_option('localedir')
-pkgdatadir = get_option('prefix') / get_option('datadir') / 'woes'
-datadir_option = get_option('prefix') / get_option('datadir')
-pkgschemadir = get_option('prefix') / get_option('datadir') / meson.project_name()
-gsettings_schemadir = get_option('prefix') / get_option('datadir') / 'glib-2.0' / 'schemas'
+opt_localedir = get_option('localedir')
+localedir = opt_localedir.startswith('/') ? opt_localedir : get_option('prefix') / opt_localedir
+
+opt_datadir = get_option('datadir')
+datadir_option = opt_datadir.startswith('/') ? opt_datadir : get_option('prefix') / opt_datadir
+
+pkgdatadir = datadir_option / 'woes'
+pkgschemadir = datadir_option / meson.project_name()
+gsettings_schemadir = datadir_option / 'glib-2.0' / 'schemas'
 
 # Prepare configuration data
 conf = configuration_data()
