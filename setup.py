@@ -115,6 +115,12 @@ package_data = {
                 "glib",
                 "gettext",
             ],
+            "pip_packages": [
+                "requests",
+                "python-nmap",
+                "PyYAML",
+                "dnspython",
+            ],
         }
     },
     "FreeBSD": {
@@ -222,6 +228,11 @@ def install_packages():
                 run_command(["brew", "install"] + missing_packages)
             else:
                 print("[Homebrew] All required dependencies are already installed.")
+
+            # Install required Python dependencies via pip on macOS
+            pip_pkgs = data.get("pip_packages", ["requests", "python-nmap", "PyYAML", "dnspython"])
+            print("[Python] Installing Python dependencies:", " ".join(pip_pkgs))
+            run_command([sys.executable, "-m", "pip", "install"] + pip_pkgs)
         else:
             update_cmd = [manager] + data["update"]
             install_cmd = [manager] + data["options"] + data["packages"]
