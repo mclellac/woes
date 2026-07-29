@@ -12,7 +12,7 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gio, GLib, Gtk
+from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
 from .constants import (
     APP_ID,
@@ -187,6 +187,17 @@ class WoesApplication(Adw.Application):
         It ensures the main window (:class:`.window.WoesWindow`) is created and shown.
         If the window cannot be created or presented, the application may exit.
         """
+        try:
+            display = Gdk.Display.get_default()
+            if display:
+                icon_theme = Gtk.IconTheme.get_for_display(display)
+                icon_theme.add_resource_path(f"{RESOURCE_PREFIX}/icons")
+                icon_dir = os.path.join(os.path.dirname(PKGDATADIR), "icons")
+                if os.path.exists(icon_dir):
+                    icon_theme.add_search_path(icon_dir)
+        except Exception:
+            logging.warning("Could not register custom icon theme search paths", exc_info=True)
+
         win: Optional[WoesWindow] = self.props.active_window
         if not win:
             try:
