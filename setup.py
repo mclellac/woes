@@ -257,7 +257,18 @@ def build_application(os_type):
     check_and_delete_directory(build_dir)
 
     # Meson setup
-    meson_cmd = ["meson", "setup", str(build_dir)]
+    if os_type == "Darwin":
+        meson_cmd = [
+            "meson",
+            "setup",
+            "--prefix=/usr/local",
+            "--bindir=/usr/local/bin",
+            "--datadir=/usr/local/share",
+            str(build_dir),
+        ]
+    else:
+        meson_cmd = ["meson", "setup", str(build_dir)]
+
     print("\n[Build] Running Meson setup command:", " ".join(meson_cmd))
     run_command(meson_cmd)
 

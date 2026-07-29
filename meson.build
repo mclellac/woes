@@ -1,7 +1,7 @@
 project('woes',
     version: '0.99.0',
     meson_version: '>= 1.5.0',
-    default_options: ['warning_level=2', 'werror=false'],
+    default_options: ['warning_level=2', 'werror=false', 'prefix=/usr/local'],
 )
 
 # Imports
