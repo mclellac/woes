@@ -7,6 +7,9 @@ URLs, and predefined User-Agent strings.
 
 import os
 
+import gi
+
+gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk
 
 APP_ID = "com.github.mclellac.woes"

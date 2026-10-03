@@ -14,6 +14,10 @@ REPO_NAME = "woes"
 # Ensure the output directory exists
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
+RUNTIME = "org.gnome.Platform"
+RUNTIME_VERSION = "51"
+SDK = "org.gnome.Sdk"
+
 # 1. Create Flatpak module file (if it doesn't exist or needs updating)
 # This is a simplified example. You'll need to define your build options,
 # sources, and cleanup steps according to your project's needs.
@@ -56,10 +60,12 @@ module_content = f"""
     ]
 }}
 """
-with open(FLATPAK_MODULE_FILE, "w", encoding="utf-8") as f:
-    f.write(module_content)
-
-print(f"Generated Flatpak module file: {FLATPAK_MODULE_FILE}")
+if not os.path.exists(FLATPAK_MODULE_FILE):
+    with open(FLATPAK_MODULE_FILE, "w", encoding="utf-8") as f:
+        f.write(module_content)
+    print(f"Generated Flatpak module file: {FLATPAK_MODULE_FILE}")
+else:
+    print(f"Using existing Flatpak module file: {FLATPAK_MODULE_FILE}")
 
 # 2. Initialize Flatpak repository (if it doesn't exist)
 if not os.path.exists(os.path.join(OUTPUT_DIR, REPO_NAME)):

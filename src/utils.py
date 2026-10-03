@@ -9,10 +9,10 @@ from urllib.parse import urlparse
 from typing import Optional, List, Any
 
 import gi
-from gi.repository import Gtk, Adw, GLib
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
+from gi.repository import Gtk, Adw, GLib
 
 logger = logging.getLogger(__name__)
 
