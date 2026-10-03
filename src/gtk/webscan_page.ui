@@ -180,8 +180,7 @@
                   </object>
                 </child>
                 <child>
-                  <object class="GtkSpinner" id="webscan_status_spinner">
-                    <property name="spinning">False</property>
+                  <object class="AdwSpinner" id="webscan_status_spinner">
                     <property name="valign">center</property>
                     <property name="visible">False</property>
                   </object>

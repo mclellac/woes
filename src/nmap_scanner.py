@@ -15,7 +15,7 @@ import shutil
 import time
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
-from typing import Any, Optional, TypedDict, Union, Callable
+from typing import Any, TypedDict, Callable
 
 try:
     from gi.repository import Gio
@@ -67,19 +67,25 @@ class NmapScanParameters(TypedDict, total=False):
     :param tcp_syn_scan: Whether to perform a TCP SYN scan.
     :param output_format: The desired output format for the scan results (e.g., "Normal", "XML", "Grepable").
     :param output_filename: The filename to save the scan results to.
+    :param fast_scan: Whether to run a fast port scan (-F).
+    :param ping_scan: Whether to run host discovery ping only (-sn).
+    :param intense_scan: Whether to run an intense scan (-A).
     """
 
     target: str
     os_fingerprinting: bool
     scan_all_ports: bool
-    selected_script: Optional[str]
+    selected_script: str | None
     service_version: bool
     no_ping: bool
     timing_template: str
-    custom_dns_server: Optional[str]
+    custom_dns_server: str | None
     tcp_syn_scan: bool
-    output_format: Optional[str]
-    output_filename: Optional[str]
+    output_format: str | None
+    output_filename: str | None
+    fast_scan: bool
+    ping_scan: bool
+    intense_scan: bool
 
 
 def _is_scan_root_required(nmap_args_list: list[str]) -> bool:
@@ -156,9 +162,9 @@ class NmapScanner:
         """Initialize the NmapScanner."""
         logger.debug("NmapScanner initialized.")
         self.executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=4)
-        self.nm: Optional[nmap.PortScanner] = None
-        self.current_process: Optional[subprocess.Popen[str]] = None
-        self.current_cancellable: Optional[Gio.Cancellable] = None
+        self.nm: nmap.PortScanner | None = None
+        self.current_process: subprocess.Popen[str] | None = None
+        self.current_cancellable: Gio.Cancellable | None = None
 
     def __del__(self) -> None:
         """Ensure the ThreadPoolExecutor is shut down and any running Nmap process is terminated."""
@@ -371,8 +377,8 @@ class NmapScanner:
     def run_nmap_scan(
         self,
         params: NmapScanParameters,
-        cancellable: Optional[Gio.Cancellable] = None,
-        progress_callback: Optional[Callable[[float, str], None]] = None,
+        cancellable: Gio.Cancellable | None = None,
+        progress_callback: Callable[[float, str], None] | None = None,
     ) -> nmap.PortScanner:
         """Run an Nmap scan with the given parameters and handle cancellation.
 
@@ -525,7 +531,7 @@ class NmapScanner:
             all_results[host] = yaml_output
         return all_results
 
-    def to_plain_dict(self, data: Any) -> Union[dict[str, Any], Any]:
+    def to_plain_dict(self, data: Any) -> dict[str, Any] | Any:
         """Recursively convert Nmap data (potentially custom nmap types) to plain dicts/lists.
 
         This is necessary for proper serialization to formats like YAML or JSON.
@@ -540,3 +546,94 @@ class NmapScanner:
         if isinstance(data, dict):
             return {k: self.to_plain_dict(v) for k, v in data.items()}
         return data
+
+    @staticmethod
+    def export_profile_yaml(
+        params: dict[str, Any], name: str = "Scan Profile", description: str = ""
+    ) -> str:
+        """Export scan parameters to a YAML-formatted profile string.
+
+        :param params: Dictionary of scan parameters.
+        :param name: Human-readable name for the profile.
+        :param description: Optional description of what this profile does.
+        :return: YAML string representing the profile.
+        """
+        profile_data: dict[str, Any] = {
+            "profile": {
+                "name": name,
+                "description": description,
+                "parameters": {
+                    "os_fingerprinting": bool(params.get("os_fingerprinting", False)),
+                    "scan_all_ports": bool(params.get("scan_all_ports", False)),
+                    "tcp_syn_scan": bool(params.get("tcp_syn_scan", False)),
+                    "service_version": bool(params.get("service_version", False)),
+                    "no_ping": bool(params.get("no_ping", False)),
+                    "timing_template": str(params.get("timing_template", "T3")),
+                    "selected_script": params.get("selected_script"),
+                    "output_format": str(params.get("output_format", "None")),
+                },
+            }
+        }
+        if params.get("target"):
+            profile_data["profile"]["target"] = str(params["target"])
+        return yaml.safe_dump(profile_data, sort_keys=False, default_flow_style=False)
+
+    @staticmethod
+    def import_profile_yaml(yaml_content: str) -> dict[str, Any]:
+        """Parse and validate a YAML-formatted scan profile string.
+
+        :param yaml_content: The YAML string content.
+        :raises ValueError: If the YAML content is invalid or missing required structure.
+        :return: A dictionary of scan parameters and profile metadata.
+        """
+        try:
+            data = yaml.safe_load(yaml_content)
+        except yaml.YAMLError as e:
+            raise ValueError(f"Invalid YAML content: {e}") from e
+
+        if not isinstance(data, dict):
+            raise ValueError("Profile YAML must be a mapping/dictionary.")
+
+        profile_dict = data.get("profile", data)
+        if not isinstance(profile_dict, dict):
+            raise ValueError("Profile content must be a dictionary.")
+
+        params_dict = profile_dict.get("parameters", profile_dict)
+        if not isinstance(params_dict, dict):
+            raise ValueError("Profile parameters must be a dictionary.")
+
+        result: dict[str, Any] = {}
+        if "name" in profile_dict:
+            result["name"] = str(profile_dict["name"])
+        if "description" in profile_dict:
+            result["description"] = str(profile_dict["description"])
+        if "target" in profile_dict:
+            result["target"] = str(profile_dict["target"])
+
+        boolean_fields = [
+            "os_fingerprinting",
+            "scan_all_ports",
+            "tcp_syn_scan",
+            "service_version",
+            "no_ping",
+            "fast_scan",
+            "ping_scan",
+            "intense_scan",
+        ]
+        for field in boolean_fields:
+            if field in params_dict:
+                result[field] = bool(params_dict[field])
+
+        if "timing_template" in params_dict:
+            tt = str(params_dict["timing_template"])
+            if re.match(r"^T[0-5]$", tt):
+                result["timing_template"] = tt
+
+        if "selected_script" in params_dict:
+            script = params_dict["selected_script"]
+            result["selected_script"] = str(script) if script and str(script) != "None" else None
+
+        if "output_format" in params_dict:
+            result["output_format"] = str(params_dict["output_format"])
+
+        return result

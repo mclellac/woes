@@ -10,15 +10,9 @@
       <object class="AdwPreferencesGroup">
         <property name="title" translatable="yes">Lookup Parameters</property>
         <child>
-          <object class="AdwActionRow" id="dns_ip_entryrow">
+          <object class="AdwEntryRow" id="domain_entry">
             <property name="title" translatable="yes">Domain or IP Address</property>
             <property name="tooltip-text" translatable="yes">Enter a domain name or an IP address for reverse lookup</property>
-            <child>
-              <object class="GtkEntry" id="domain_entry">
-                <property name="hexpand">True</property>
-                <property name="valign">center</property>
-              </object>
-            </child>
             <child type="suffix">
               <object class="GtkButton" id="dns_apply_button">
                 <property name="label" translatable="yes">_Lookup Record</property>
@@ -48,6 +42,11 @@
                   <item>SOA</item>
                   <item>SRV</item>
                   <item>CAA</item>
+                  <item>HTTPS</item>
+                  <item>SVCB</item>
+                  <item>DNSKEY</item>
+                  <item>DS</item>
+                  <item>RRSIG</item>
                   <item>ANY</item>
                 </items>
               </object>
@@ -57,12 +56,39 @@
           </object>
         </child>
         <child>
+          <object class="AdwComboRow" id="dns_resolver_mode_dropdown">
+            <property name="icon-name">security-high-symbolic</property>
+            <property name="title" translatable="yes">Resolver Protocol</property>
+            <property name="model">
+              <object class="GtkStringList" id="dns_resolver_mode_list">
+                <property name="strings">Standard (UDP/TCP)</property>
+                <items>
+                  <item>Cloudflare DoH (HTTPS)</item>
+                  <item>Google DoH (HTTPS)</item>
+                  <item>Quad9 DoH (HTTPS)</item>
+                  <item>Cloudflare DoT (TLS)</item>
+                  <item>Quad9 DoT (TLS)</item>
+                  <item>Google DoT (TLS)</item>
+                  <item>Custom Endpoint</item>
+                </items>
+              </object>
+            </property>
+            <property name="selected">0</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwEntryRow" id="dns_custom_endpoint_entry">
+            <property name="title" translatable="yes">Custom DoH / Server Endpoint</property>
+            <property name="tooltip-text" translatable="yes">Enter DoH URL (https://...) or DoT IP address</property>
+            <property name="visible">False</property>
+          </object>
+        </child>
+        <child>
           <object class="AdwActionRow" id="dns_status_row">
             <property name="subtitle" translatable="yes">Idle</property>
             <property name="title" translatable="yes">Status</property>
             <child type="suffix">
-              <object class="GtkSpinner" id="dns_status_spinner">
-                <property name="spinning">False</property>
+              <object class="AdwSpinner" id="dns_status_spinner">
                 <property name="valign">center</property>
                 <property name="visible">False</property>
               </object>

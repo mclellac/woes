@@ -126,7 +126,7 @@ class HttpPage(Gtk.Box):
     copy_results_button: Gtk.Button = Gtk.Template.Child()
     http_export_results_button: Gtk.Button = Gtk.Template.Child()
     http_status_row: Adw.ActionRow = Gtk.Template.Child()
-    http_status_spinner: Gtk.Spinner = Gtk.Template.Child()
+    http_status_spinner: Adw.Spinner = Gtk.Template.Child()
 
     def __init__(self, **kwargs: Any):
         """Initialize the HttpPage.
@@ -757,10 +757,11 @@ class HttpPage(Gtk.Box):
         """
         if self.http_status_spinner:
             self.http_status_spinner.set_visible(active)
-            if active:
-                self.http_status_spinner.start()
-            else:
-                self.http_status_spinner.stop()
+            if hasattr(self.http_status_spinner, "start"):
+                if active:
+                    self.http_status_spinner.start()
+                else:
+                    self.http_status_spinner.stop()
 
         if self.http_status_row:
             self.http_status_row.set_subtitle(message)

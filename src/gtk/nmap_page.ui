@@ -80,10 +80,32 @@
                           <item>Ping Scan / Host Discovery (-sn)</item>
                           <item>Intense Scan (-T4 -A)</item>
                           <item>Slow Stealth Scan (-T1 -sS)</item>
+                          <item>Web Vulnerability Audit</item>
+                          <item>TLS &amp; Certificate Audit</item>
                         </items>
                       </object>
                     </property>
                     <property name="selected">0</property>
+                    <child type="suffix">
+                      <object class="GtkButton" id="nmap_import_profile_button">
+                        <property name="icon-name">document-open-symbolic</property>
+                        <property name="tooltip-text" translatable="yes">Import Profile from YAML</property>
+                        <property name="valign">center</property>
+                        <style>
+                          <class name="flat"/>
+                        </style>
+                      </object>
+                    </child>
+                    <child type="suffix">
+                      <object class="GtkButton" id="nmap_export_profile_button">
+                        <property name="icon-name">document-save-symbolic</property>
+                        <property name="tooltip-text" translatable="yes">Export Profile to YAML</property>
+                        <property name="valign">center</property>
+                        <style>
+                          <class name="flat"/>
+                        </style>
+                      </object>
+                    </child>
                   </object>
                 </child>
                 <child>
@@ -108,24 +130,43 @@
                           <item>default</item>
                           <item>vuln</item>
                           <item>discovery</item>
-                          <item>broadcast</item>
+                          <item>safe</item>
+                          <item>auth</item>
+                          <item>intrusive</item>
+                          <item>malware</item>
                           <item>exploit</item>
-                          <item>http-grep</item>
+                          <item>broadcast</item>
+                          <item>ssl-cert</item>
+                          <item>ssl-enum-ciphers</item>
+                          <item>http-security-headers</item>
+                          <item>http-headers</item>
+                          <item>http-title</item>
                           <item>http-enum</item>
-                          <item>http-config-backup</item>
-                          <item>http-wordpress-enum</item>
                           <item>http-cors</item>
                           <item>http-csrf</item>
-                          <item>http-cross-domain-policy</item>
+                          <item>http-config-backup</item>
+                          <item>http-wordpress-enum</item>
+                          <item>banner</item>
+                          <item>ssh-hostkey</item>
+                          <item>smb-vuln*</item>
+                          <item>dns-brute</item>
                           <item>mysql-users</item>
                           <item>vulscan/vulscan</item>
                           <item>firewalk</item>
+                          <item>Custom Expression...</item>
                         </items>
                       </object>
                     </property>
                     <property name="selected">0</property>
-                    <property name="subtitle" translatable="yes">Select a script or script category</property>
+                    <property name="subtitle" translatable="yes">No NSE scripts will be run</property>
                     <property name="title" translatable="yes">Nmap Scripting Engine (NSE)</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="AdwEntryRow" id="nmap_custom_script_entryrow">
+                    <property name="title" translatable="yes">Custom NSE Script</property>
+                    <property name="tooltip-text" translatable="yes">Script name or expression (e.g. vuln and not dos)</property>
+                    <property name="visible">False</property>
                   </object>
                 </child>
                 <child>
@@ -208,8 +249,8 @@
                 <property name="title" translatable="yes">Scan Status</property>
                 <property name="visible">true</property>
                 <child>
-                  <object class="GtkSpinner" id="scan_spinner">
-                    <property name="spinning">False</property>
+                  <object class="AdwSpinner" id="scan_spinner">
+                    <property name="valign">center</property>
                     <property name="visible">False</property>
                   </object>
                 </child>

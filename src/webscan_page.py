@@ -42,7 +42,7 @@ class WebScanPage(Gtk.Box):
     clear_results_button: Gtk.Button = Gtk.Template.Child()
     copy_results_button: Gtk.Button = Gtk.Template.Child()
     webscan_status_action_row: Adw.ActionRow = Gtk.Template.Child()
-    webscan_status_spinner: Gtk.Spinner = Gtk.Template.Child("webscan_status_spinner")
+    webscan_status_spinner: Adw.Spinner = Gtk.Template.Child("webscan_status_spinner")
     webscan_cancel_button: Gtk.Button = Gtk.Template.Child()
 
     # New UI elements for Nikto options
@@ -372,7 +372,8 @@ class WebScanPage(Gtk.Box):
             self.webscan_status_action_row.set_subtitle("Scanning...")
         if self.webscan_status_spinner:
             self.webscan_status_spinner.set_visible(True)
-            self.webscan_status_spinner.start()
+            if hasattr(self.webscan_status_spinner, "start"):
+                self.webscan_status_spinner.start()
         if self.webscan_cancel_button:
             self.webscan_cancel_button.set_visible(True)
             self.webscan_cancel_button.set_sensitive(True)
@@ -883,7 +884,8 @@ class WebScanPage(Gtk.Box):
                 self.webscan_cancel_button.set_sensitive(False)
                 self.webscan_cancel_button.set_visible(False)
             if self.webscan_status_spinner:
-                self.webscan_status_spinner.stop()
+                if hasattr(self.webscan_status_spinner, "stop"):
+                    self.webscan_status_spinner.stop()
                 self.webscan_status_spinner.set_visible(False)
 
             if self.webscan_status_action_row:

@@ -15,8 +15,10 @@ message('Site packages dir (woes subdir): ' + site_packages_dir)
 # Create a new configuration variable for the site-packages directory (version specific)
 if host_machine.system() == 'darwin'
     python_site_packages_dir = '/usr/local/lib' / ('python' + python_bin.language_version()) / 'site-packages'
-else
+elif get_option('prefix') == '/usr'
     python_site_packages_dir = python_purelib
+else
+    python_site_packages_dir = get_option('prefix') / 'lib' / ('python' + python_bin.language_version()) / 'site-packages'
 endif
 
 # Define paths

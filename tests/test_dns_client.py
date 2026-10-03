@@ -79,6 +79,81 @@ class TestDnsResolverClient(unittest.TestCase):
         except DnsClientError as e:
             self.fail(f"resolve() raised DnsClientError unexpectedly: {e}")
 
+    @patch('dns.query.https')
+    def test_resolve_doh_success(self, mock_https: MagicMock):
+        """Test successful DNS-over-HTTPS lookup."""
+        client = DnsResolverClient(resolver_mode="doh", endpoint="https://cloudflare-dns.com/dns-query")
+        mock_response = MagicMock(spec=dns.message.Message)
+        mock_response.rcode.return_value = dns.rcode.NOERROR
+
+        mock_rrset = MagicMock()
+        mock_rrset.name.to_text.return_value = "example.com."
+        mock_rrset.ttl = 300
+        mock_rrset.rdclass = dns.rdataclass.IN
+
+        mock_rdata = MagicMock()
+        mock_rdata.rdtype = dns.rdatatype.A
+        mock_rdata.address = "93.184.216.34"
+        mock_rdata.to_text.return_value = "93.184.216.34"
+
+        mock_rrset.__iter__.return_value = [mock_rdata]
+        mock_response.answer = [mock_rrset]
+        mock_https.return_value = mock_response
+
+        results = client.resolve("example.com", "A")
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["address"], "93.184.216.34")
+        self.assertEqual(results[0]["type"], "A")
+
+    @patch('dns.query.tls')
+    def test_resolve_dot_success(self, mock_tls: MagicMock):
+        """Test successful DNS-over-TLS lookup."""
+        client = DnsResolverClient(resolver_mode="dot", endpoint="1.1.1.1")
+        mock_response = MagicMock(spec=dns.message.Message)
+        mock_response.rcode.return_value = dns.rcode.NOERROR
+
+        mock_rrset = MagicMock()
+        mock_rrset.name.to_text.return_value = "example.com."
+        mock_rrset.ttl = 300
+        mock_rrset.rdclass = dns.rdataclass.IN
+
+        mock_rdata = MagicMock()
+        mock_rdata.rdtype = dns.rdatatype.HTTPS
+        mock_rdata.priority = 1
+        mock_rdata.target.to_text.return_value = "."
+        mock_rdata.params = 'alpn="h3,h2"'
+        mock_rdata.to_text.return_value = '1 . alpn="h3,h2"'
+
+        mock_rrset.__iter__.return_value = [mock_rdata]
+        mock_response.answer = [mock_rrset]
+        mock_tls.return_value = mock_response
+
+        results = client.resolve("example.com", "HTTPS")
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["type"], "HTTPS")
+        self.assertEqual(results[0]["priority"], 1)
+
+    @patch('dns.query.https')
+    def test_resolve_doh_nxdomain(self, mock_https: MagicMock):
+        """Test DoH lookup raises DnsNxDomainError on NXDOMAIN."""
+        client = DnsResolverClient(resolver_mode="doh")
+        mock_response = MagicMock(spec=dns.message.Message)
+        mock_response.rcode.return_value = dns.rcode.NXDOMAIN
+        mock_https.return_value = mock_response
+
+        with self.assertRaises(DnsNxDomainError):
+            client.resolve("nonexistent.example.com", "A")
+
+    def test_custom_dns_server_prefix_parsing(self):
+        """Test that custom_dns_server with https:// or tls:// sets mode appropriately."""
+        client_doh = DnsResolverClient(custom_dns_server="https://custom-doh.com/dns-query")
+        self.assertEqual(client_doh.resolver_mode, "doh")
+        self.assertEqual(client_doh.endpoint, "https://custom-doh.com/dns-query")
+
+        client_dot = DnsResolverClient(custom_dns_server="tls://1.0.0.1")
+        self.assertEqual(client_dot.resolver_mode, "dot")
+        self.assertEqual(client_dot.endpoint, "1.0.0.1")
+
 
 if __name__ == '__main__':
     unittest.main()

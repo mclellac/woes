@@ -122,6 +122,48 @@ class TestNmapScanner(unittest.TestCase):
         )
         self.assertIn("Stderr: Note: Host seems down. If it is really up, but blocking our ping probes, try -Pn", msg)
 
+    def test_export_and_import_profile_yaml(self):
+        """Test round-trip export and import of scan profile YAML."""
+        original_params = {
+            "target": "192.168.1.0/24",
+            "os_fingerprinting": True,
+            "scan_all_ports": True,
+            "tcp_syn_scan": True,
+            "service_version": True,
+            "no_ping": True,
+            "timing_template": "T4",
+            "selected_script": "vuln",
+            "output_format": "Normal (.txt)",
+        }
+        yaml_str = NmapScanner.export_profile_yaml(
+            original_params, name="Security Audit", description="Full vulnerability scan"
+        )
+        self.assertIn("Security Audit", yaml_str)
+        self.assertIn("192.168.1.0/24", yaml_str)
+        self.assertIn("vuln", yaml_str)
+
+        imported = NmapScanner.import_profile_yaml(yaml_str)
+        self.assertEqual(imported.get("name"), "Security Audit")
+        self.assertEqual(imported.get("description"), "Full vulnerability scan")
+        self.assertEqual(imported.get("target"), "192.168.1.0/24")
+        self.assertTrue(imported.get("os_fingerprinting"))
+        self.assertTrue(imported.get("scan_all_ports"))
+        self.assertTrue(imported.get("tcp_syn_scan"))
+        self.assertTrue(imported.get("service_version"))
+        self.assertTrue(imported.get("no_ping"))
+        self.assertEqual(imported.get("timing_template"), "T4")
+        self.assertEqual(imported.get("selected_script"), "vuln")
+        self.assertEqual(imported.get("output_format"), "Normal (.txt)")
+
+    def test_import_profile_yaml_invalid(self):
+        """Test import_profile_yaml with invalid YAML data."""
+        with self.assertRaises(ValueError):
+            NmapScanner.import_profile_yaml("not: a: valid: yaml: [")
+
+        with self.assertRaises(ValueError):
+            NmapScanner.import_profile_yaml("- item 1\n- item 2")
+
 
 if __name__ == '__main__':
     unittest.main()
+

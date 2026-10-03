@@ -10,7 +10,7 @@ import logging
 logger = logging.getLogger(__name__)
 import re
 from enum import Enum
-from typing import Optional, List, Dict, Any
+from typing import Any, Callable
 import yaml
 
 import gi
@@ -61,6 +61,38 @@ class NmapTargetRow(Gtk.ListBoxRow):
         self.set_child(label)
 
 
+NSE_SCRIPT_DESCRIPTIONS: dict[str, str] = {
+    "None": "No NSE scripts will be run",
+    "default": "Category: Standard safe, fast checks run by default with -sC",
+    "vuln": "Category: Check for known vulnerabilities and CVEs",
+    "discovery": "Category: Actively query targets for network and service discovery",
+    "safe": "Category: Safe scripts not intended to crash services or consume high bandwidth",
+    "auth": "Category: Deal with authentication credentials and bypassing mechanisms",
+    "intrusive": "Category: Aggressive scripts that may crash services or trigger IDS/IPS",
+    "malware": "Category: Test whether target is infected with malware or backdoors",
+    "exploit": "Category: Actively exploit known vulnerabilities",
+    "broadcast": "Category: Broadcast discovery on local subnet",
+    "ssl-cert": "Script: Retrieve and inspect TLS/SSL certificates (SANs, issuer, validity)",
+    "ssl-enum-ciphers": "Script: Enumerate supported SSL/TLS ciphers and protocol versions",
+    "http-security-headers": "Script: Audit HTTP response headers for missing security protections",
+    "http-headers": "Script: Fetch and display root HTTP response headers",
+    "http-title": "Script: Fetch page title from web servers",
+    "http-enum": "Script: Enumerate common web directories, files, and applications",
+    "http-cors": "Script: Test for misconfigured Cross-Origin Resource Sharing (CORS)",
+    "http-csrf": "Script: Check for cross-site request forgery vulnerabilities",
+    "http-config-backup": "Script: Search for exposed configuration and backup files",
+    "http-wordpress-enum": "Script: Enumerate WordPress themes and plugins",
+    "banner": "Script: Grab banner of open services",
+    "ssh-hostkey": "Script: Retrieve SSH host keys and fingerprints",
+    "smb-vuln*": "Script: Scan for critical SMB vulnerabilities (e.g. MS17-010)",
+    "dns-brute": "Script: Brute-force common DNS hostnames and subdomains",
+    "mysql-users": "Script: Enumerate MySQL database usernames",
+    "vulscan/vulscan": "Script: Query CVE databases (VulDB, OSVDB, NVD) for discovered services",
+    "firewalk": "Script: Analyze firewall rules via TTL expiration analysis",
+    "Custom Expression...": "Enter custom NSE script name or boolean expression below",
+}
+
+
 @Gtk.Template(resource_path=f"{RESOURCE_PREFIX}/nmap_page.ui")
 class NmapPage(Gtk.Box):
     """Activity page for performing Nmap scans and viewing results."""
@@ -72,15 +104,18 @@ class NmapPage(Gtk.Box):
     nmap_fingerprint_switchrow = Gtk.Template.Child("nmap_fingerprint_switchrow")
     nmap_all_ports_switchrow = Gtk.Template.Child("nmap_all_ports_switchrow")
     nmap_scripts_dropdown = Gtk.Template.Child("nmap_scripts_dropdown")
+    nmap_custom_script_entryrow = Gtk.Template.Child("nmap_custom_script_entryrow")
     nmap_service_version_switchrow = Gtk.Template.Child("nmap_service_version_switchrow")
     nmap_no_ping_switchrow = Gtk.Template.Child("nmap_no_ping_switchrow")
     nmap_timing_template_comborow = Gtk.Template.Child("nmap_timing_template_comborow")
     status_row = Gtk.Template.Child("status_row")
-    scan_spinner = Gtk.Template.Child("scan_spinner")
+    scan_spinner: Adw.Spinner = Gtk.Template.Child("scan_spinner")
     scan_progress_bar = Gtk.Template.Child("scan_progress_bar")
     nmap_cancel_scan_button = Gtk.Template.Child()
     nmap_tcp_syn_scan_switchrow = Gtk.Template.Child("nmap_tcp_syn_scan_switchrow")
     nmap_profile_dropdown = Gtk.Template.Child("nmap_profile_dropdown")
+    nmap_import_profile_button = Gtk.Template.Child("nmap_import_profile_button")
+    nmap_export_profile_button = Gtk.Template.Child("nmap_export_profile_button")
     nmap_history_dropdown = Gtk.Template.Child("nmap_history_dropdown")
     nmap_output_format_combo_row = Gtk.Template.Child("nmap_output_format_combo_row")
     nmap_output_file_row = Gtk.Template.Child("nmap_output_file_row")
@@ -189,6 +224,12 @@ class NmapPage(Gtk.Box):
             self.nmap_output_file_button.connect("clicked", self._on_nmap_output_file_button_clicked)
         if self.nmap_profile_dropdown:
             self.nmap_profile_dropdown.connect("notify::selected-item", self._on_nmap_profile_changed)
+        if self.nmap_import_profile_button:
+            self.nmap_import_profile_button.connect("clicked", self._on_import_profile_clicked)
+        if self.nmap_export_profile_button:
+            self.nmap_export_profile_button.connect("clicked", self._on_export_profile_clicked)
+        if self.nmap_scripts_dropdown:
+            self.nmap_scripts_dropdown.connect("notify::selected-item", self._on_script_dropdown_changed)
         if self.nmap_history_dropdown:
             self.nmap_history_dropdown.connect("notify::selected-item", self._on_history_selected)
 
@@ -199,6 +240,192 @@ class NmapPage(Gtk.Box):
             self.nmap_output_file_button.set_sensitive(False)
 
         self.settings.connect(f"changed::{self._output_font_gsettings_key}", self._on_global_output_font_changed)
+
+    def _on_script_dropdown_changed(self, combo_row: Adw.ComboRow, _param_spec: GObject.ParamSpec) -> None:
+        """Update subtitle description and show or hide custom script entry row."""
+        item = combo_row.get_selected_item()
+        script_key = item.get_string() if isinstance(item, Gtk.StringObject) else "None"
+        is_custom = script_key == "Custom Expression..."
+
+        description = NSE_SCRIPT_DESCRIPTIONS.get(script_key, "Select a script or script category")
+        combo_row.set_subtitle(description)
+
+        if self.nmap_custom_script_entryrow:
+            self.nmap_custom_script_entryrow.set_visible(is_custom)
+
+    def _get_selected_script_arg(self) -> str | None:
+        """Parse the selected NSE script or category name for Nmap execution."""
+        item = self.nmap_scripts_dropdown.get_selected_item()
+        if not isinstance(item, Gtk.StringObject):
+            return None
+        raw = item.get_string()
+        if not raw or raw == "None":
+            return None
+        if raw == "Custom Expression...":
+            if self.nmap_custom_script_entryrow:
+                custom_val = self.nmap_custom_script_entryrow.get_text().strip()
+                return custom_val if custom_val else None
+            return None
+        return raw
+
+    def _select_script_in_dropdown(self, script_name: str | None) -> None:
+        """Select the appropriate script item in the dropdown given a script name or category."""
+        if not script_name:
+            self.nmap_scripts_dropdown.set_selected(0)
+            if self.nmap_custom_script_entryrow:
+                self.nmap_custom_script_entryrow.set_visible(False)
+            return
+
+        model = self.nmap_scripts_dropdown.get_model()
+        if not model:
+            return
+        for i in range(model.get_n_items()):
+            item = model.get_item(i)
+            if isinstance(item, Gtk.StringObject) and item.get_string() == script_name:
+                self.nmap_scripts_dropdown.set_selected(i)
+                if self.nmap_custom_script_entryrow:
+                    self.nmap_custom_script_entryrow.set_visible(False)
+                return
+
+        # If not found in preset strings, set to Custom Expression...
+        custom_idx = model.get_n_items() - 1
+        self.nmap_scripts_dropdown.set_selected(custom_idx)
+        if self.nmap_custom_script_entryrow:
+            self.nmap_custom_script_entryrow.set_text(script_name)
+            self.nmap_custom_script_entryrow.set_visible(True)
+
+    def _on_import_profile_clicked(self, _button: Gtk.Button) -> None:
+        """Import scan parameters from a YAML profile file."""
+        dialog = Gtk.FileChooserNative.new(
+            "Import Scan Profile",
+            self.get_native(),
+            Gtk.FileChooserAction.OPEN,
+            "_Open",
+            "_Cancel",
+        )
+        dialog.set_modal(True)
+
+        filter_yaml = Gtk.FileFilter()
+        filter_yaml.set_name("YAML Files (*.yaml, *.yml)")
+        filter_yaml.add_pattern("*.yaml")
+        filter_yaml.add_pattern("*.yml")
+        dialog.add_filter(filter_yaml)
+
+        filter_all = Gtk.FileFilter()
+        filter_all.set_name("All Files")
+        filter_all.add_pattern("*")
+        dialog.add_filter(filter_all)
+
+        def on_dialog_response(_dialog: Gtk.NativeDialog, response_id: int):
+            if response_id == Gtk.ResponseType.ACCEPT:
+                file_obj = dialog.get_file()
+                if file_obj and (path := file_obj.get_path()):
+                    try:
+                        with open(path, "r", encoding="utf-8") as f:
+                            content = f.read()
+                        params = NmapScanner.import_profile_yaml(content)
+                        self._apply_imported_profile(params)
+                        profile_name = params.get("name", "Custom Profile")
+                        show_global_toast(self, f"Loaded profile: {profile_name}")
+                    except Exception as e:
+                        logger.exception("Failed to import YAML profile from %s: %s", path, e)
+                        show_global_error(self, f"Invalid profile file: {e}")
+            dialog.destroy()
+
+        dialog.connect("response", on_dialog_response)
+        dialog.show()
+
+    def _apply_imported_profile(self, params: dict[str, Any]) -> None:
+        """Apply imported scan profile parameters to the UI widgets."""
+        if "target" in params and self.nmap_target_entryrow:
+            self.nmap_target_entryrow.set_text(params["target"])
+        if "os_fingerprinting" in params:
+            self.nmap_fingerprint_switchrow.set_active(params["os_fingerprinting"])
+        if "scan_all_ports" in params:
+            self.nmap_all_ports_switchrow.set_active(params["scan_all_ports"])
+        if "tcp_syn_scan" in params:
+            self.nmap_tcp_syn_scan_switchrow.set_active(params["tcp_syn_scan"])
+        if "service_version" in params:
+            self.nmap_service_version_switchrow.set_active(params["service_version"])
+        if "no_ping" in params:
+            self.nmap_no_ping_switchrow.set_active(params["no_ping"])
+
+        if "timing_template" in params:
+            tt = params["timing_template"]  # e.g. "T4"
+            if re.match(r"^T[0-5]$", tt):
+                idx = int(tt[1])
+                self.nmap_timing_template_comborow.set_selected(idx)
+
+        if "selected_script" in params:
+            self._select_script_in_dropdown(params["selected_script"])
+        else:
+            self._select_script_in_dropdown(None)
+
+        if "output_format" in params:
+            fmt = params["output_format"]
+            model = self.nmap_output_format_combo_row.get_model()
+            if model:
+                for i in range(model.get_n_items()):
+                    item = model.get_item(i)
+                    if isinstance(item, Gtk.StringObject) and item.get_string() == fmt:
+                        self.nmap_output_format_combo_row.set_selected(i)
+                        break
+
+        # Set dropdown to Custom
+        self.nmap_profile_dropdown.set_selected(0)
+
+    def _on_export_profile_clicked(self, _button: Gtk.Button) -> None:
+        """Export current scan options as a YAML profile file."""
+        dialog = Gtk.FileChooserNative.new(
+            "Export Scan Profile",
+            self.get_native(),
+            Gtk.FileChooserAction.SAVE,
+            "_Save",
+            "_Cancel",
+        )
+        dialog.set_modal(True)
+        dialog.set_current_name("nmap_profile.yaml")
+
+        filter_yaml = Gtk.FileFilter()
+        filter_yaml.set_name("YAML Files (*.yaml, *.yml)")
+        filter_yaml.add_pattern("*.yaml")
+        filter_yaml.add_pattern("*.yml")
+        dialog.add_filter(filter_yaml)
+
+        def on_dialog_response(_dialog: Gtk.NativeDialog, response_id: int):
+            if response_id == Gtk.ResponseType.ACCEPT:
+                file_obj = dialog.get_file()
+                if file_obj and (path := file_obj.get_path()):
+                    try:
+                        timing_idx = self.nmap_timing_template_comborow.get_selected()
+                        current_params: dict[str, Any] = {
+                            "target": self.nmap_target_entryrow.get_text().strip(),
+                            "os_fingerprinting": self.nmap_fingerprint_switchrow.get_active(),
+                            "scan_all_ports": self.nmap_all_ports_switchrow.get_active(),
+                            "tcp_syn_scan": self.nmap_tcp_syn_scan_switchrow.get_active(),
+                            "service_version": self.nmap_service_version_switchrow.get_active(),
+                            "no_ping": self.nmap_no_ping_switchrow.get_active(),
+                            "timing_template": f"T{timing_idx}",
+                            "selected_script": self._get_selected_script_arg(),
+                            "output_format": (
+                                item.get_string()
+                                if (item := self.nmap_output_format_combo_row.get_selected_item())
+                                else "None"
+                            ),
+                        }
+                        yaml_content = NmapScanner.export_profile_yaml(
+                            current_params, name="Exported Scan Profile"
+                        )
+                        with open(path, "w", encoding="utf-8") as f:
+                            f.write(yaml_content)
+                        show_global_toast(self, f"Profile saved to {path}")
+                    except Exception as e:
+                        logger.exception("Failed to export YAML profile: %s", e)
+                        show_global_error(self, f"Failed to save profile: {e}")
+            dialog.destroy()
+
+        dialog.connect("response", on_dialog_response)
+        dialog.show()
 
     def _on_nmap_output_format_changed(self, combo_row: Adw.ComboRow, _param_spec: GObject.ParamSpec):
         selected_item = combo_row.get_selected_item()
@@ -232,6 +459,7 @@ class NmapPage(Gtk.Box):
             self.nmap_service_version_switchrow.set_active(False)
             self.nmap_no_ping_switchrow.set_active(False)
             self.nmap_timing_template_comborow.set_selected(4)  # T4
+            self._select_script_in_dropdown(None)
         elif selected_index == 2:  # Ping Scan / Host Discovery (-sn)
             self.nmap_fingerprint_switchrow.set_active(False)
             self.nmap_all_ports_switchrow.set_active(False)
@@ -239,6 +467,7 @@ class NmapPage(Gtk.Box):
             self.nmap_service_version_switchrow.set_active(False)
             self.nmap_no_ping_switchrow.set_active(False)
             self.nmap_timing_template_comborow.set_selected(3)  # T3
+            self._select_script_in_dropdown(None)
         elif selected_index == 3:  # Intense Scan (-T4 -A)
             self.nmap_fingerprint_switchrow.set_active(True)
             self.nmap_all_ports_switchrow.set_active(False)
@@ -246,6 +475,7 @@ class NmapPage(Gtk.Box):
             self.nmap_service_version_switchrow.set_active(True)
             self.nmap_no_ping_switchrow.set_active(False)
             self.nmap_timing_template_comborow.set_selected(4)  # T4
+            self._select_script_in_dropdown("default")
         elif selected_index == 4:  # Slow Stealth Scan (-T1 -sS)
             self.nmap_fingerprint_switchrow.set_active(False)
             self.nmap_all_ports_switchrow.set_active(False)
@@ -253,6 +483,23 @@ class NmapPage(Gtk.Box):
             self.nmap_service_version_switchrow.set_active(False)
             self.nmap_no_ping_switchrow.set_active(False)
             self.nmap_timing_template_comborow.set_selected(1)  # T1
+            self._select_script_in_dropdown(None)
+        elif selected_index == 5:  # Web Vulnerability Audit
+            self.nmap_fingerprint_switchrow.set_active(False)
+            self.nmap_all_ports_switchrow.set_active(False)
+            self.nmap_tcp_syn_scan_switchrow.set_active(False)
+            self.nmap_service_version_switchrow.set_active(True)
+            self.nmap_no_ping_switchrow.set_active(False)
+            self.nmap_timing_template_comborow.set_selected(4)  # T4
+            self._select_script_in_dropdown("vuln")
+        elif selected_index == 6:  # TLS & Certificate Audit
+            self.nmap_fingerprint_switchrow.set_active(False)
+            self.nmap_all_ports_switchrow.set_active(False)
+            self.nmap_tcp_syn_scan_switchrow.set_active(False)
+            self.nmap_service_version_switchrow.set_active(True)
+            self.nmap_no_ping_switchrow.set_active(False)
+            self.nmap_timing_template_comborow.set_selected(4)  # T4
+            self._select_script_in_dropdown("ssl-cert")
 
     def _update_history_dropdown(self) -> None:
         if not self.nmap_history_dropdown:
@@ -409,14 +656,7 @@ class NmapPage(Gtk.Box):
             "os_fingerprinting": self.nmap_fingerprint_switchrow.get_active(),
             "scan_all_ports": self.nmap_all_ports_switchrow.get_active(),
             "tcp_syn_scan": self.nmap_tcp_syn_scan_switchrow.get_active(),
-            "selected_script": (
-                item.get_string()
-                if isinstance(
-                    item := self.nmap_scripts_dropdown.get_selected_item(), Gtk.StringObject
-                )
-                and item.get_string() != "None"
-                else None
-            ),
+            "selected_script": self._get_selected_script_arg(),
             "service_version": self.nmap_service_version_switchrow.get_active(),
             "no_ping": self.nmap_no_ping_switchrow.get_active(),
             "timing_template": (
@@ -693,6 +933,7 @@ class NmapPage(Gtk.Box):
 
             self._add_host_details_expander(host_data_dict, selected_target_key)
             self._add_ports_expander(host_data_dict, selected_target_key)
+            self._add_host_scripts_expander(host_data_dict, selected_target_key)
             self._add_os_expander(host_data_dict, selected_target_key)
             self._add_raw_output_expander(host_data_dict, selected_target_key)
         elif item_obj is None and row is not None:
@@ -712,13 +953,65 @@ class NmapPage(Gtk.Box):
                 self.nmap_detail_box.append(self.nmap_detail_placeholder)
             self.nmap_detail_placeholder.set_visible(True)
 
-    def _add_raw_output_expander(self, host_data_dict: Dict[str, Any], host_key: str):
+    def _copy_to_clipboard(self, text: str, success_toast: str) -> None:
+        """Helper to copy text to clipboard and display a toast notification."""
+        if not text:
+            show_global_toast(self, "No text available to copy.")
+            return
+        try:
+            clipboard = self.get_clipboard()
+            if clipboard:
+                clipboard.set(text)
+                show_global_toast(self, success_toast)
+            else:
+                show_global_toast(self, "Failed to access clipboard.")
+        except Exception as e:
+            logger.exception("Error copying to clipboard: %s", e)
+            show_global_toast(self, f"Error copying: {e}")
+
+    def _on_export_host_yaml_clicked(self, host_key: str, host_data: dict[str, Any]) -> None:
+        """Handle exporting structured host scan results to a YAML file."""
+        dialog = Gtk.FileChooserNative.new(
+            f"Export Scan Results for {host_key}",
+            self.get_native(),
+            Gtk.FileChooserAction.SAVE,
+            "_Save",
+            "_Cancel",
+        )
+        dialog.set_modal(True)
+        safe_name = re.sub(r"[^a-zA-Z0-9_.-]", "_", host_key)
+        dialog.set_current_name(f"nmap_scan_{safe_name}.yaml")
+
+        filter_yaml = Gtk.FileFilter()
+        filter_yaml.set_name("YAML Files (*.yaml, *.yml)")
+        filter_yaml.add_pattern("*.yaml")
+        filter_yaml.add_pattern("*.yml")
+        dialog.add_filter(filter_yaml)
+
+        def on_dialog_response(_dialog: Gtk.NativeDialog, response_id: int):
+            if response_id == Gtk.ResponseType.ACCEPT:
+                file_obj = dialog.get_file()
+                if file_obj and (path := file_obj.get_path()):
+                    try:
+                        yaml_content = yaml.safe_dump(host_data, default_flow_style=False, sort_keys=False)
+                        with open(path, "w", encoding="utf-8") as f:
+                            f.write(yaml_content)
+                        show_global_toast(self, f"Exported results to {path}")
+                    except Exception as e:
+                        logger.exception("Error saving YAML results: %s", e)
+                        show_global_error(self, f"Failed to save YAML: {e}")
+            dialog.destroy()
+
+        dialog.connect("response", on_dialog_response)
+        dialog.show()
+
+    def _add_raw_output_expander(self, host_data_dict: dict[str, Any], host_key: str):
         """Add an Adw.ExpanderRow to display the human-readable text summary for a host.
 
         :param host_data_dict: The dictionary containing data for the host.
         :param host_key: The identifier for the host (e.g., IP address).
         """
-        expander = Adw.ExpanderRow(title="Text Scan Summary - %s" % host_key) # f-string for UI is fine
+        expander = Adw.ExpanderRow(title=f"Text Scan Summary - {host_key}")
         expander.set_expanded(True)
         human_readable_summary = self._generate_human_readable_host_summary(host_data_dict)
 
@@ -727,31 +1020,17 @@ class NmapPage(Gtk.Box):
         if source_buffer:
             source_buffer.set_text(human_readable_summary, -1)
         else:
-            # Fallback if buffer is somehow None, though Gtk.TextView usually ensures one
             new_buffer = Gtk.TextBuffer()
             new_buffer.set_text(human_readable_summary, -1)
             self.nmap_output_textview.set_buffer(new_buffer)
 
-        # Remove self.nmap_output_scrolled_window from its parent if it has one,
-        # before adding it to the expander row.
+        # Remove self.nmap_output_scrolled_window from its parent if it has one
         current_parent = self.nmap_output_scrolled_window.get_parent()
         if current_parent:
-            if isinstance(current_parent, Adw.ExpanderRow): # Check if parent is ExpanderRow
-                 # Adw.ExpanderRow does not have a direct 'remove' method for its rows.
-                 # Rows are added with add_row. If it's already in an expander,
-                 # it might be okay if it's the *same* expander and row.
-                 # However, to be safe, if it's a different expander or if we need to ensure
-                 # it's freshly added, we might need to manage expanders differently.
-                 # For now, assume we are adding to a new expander or re-adding is fine.
-                 # If issues arise, the logic for expander re-use or creation needs adjustment.
-                 pass # Potentially do nothing if parent is already the right expander
-            elif hasattr(current_parent, "remove"): # Generic remove for Gtk.Container
-                 current_parent.remove(self.nmap_output_scrolled_window) # type: ignore
+            if hasattr(current_parent, "remove"):
+                current_parent.remove(self.nmap_output_scrolled_window)  # type: ignore
             elif hasattr(current_parent, "set_child") and hasattr(current_parent, "get_child") and current_parent.get_child() == self.nmap_output_scrolled_window:
-                 current_parent.set_child(None) # type: ignore
-            else:
-                 logger.warning("NmapPage: nmap_output_scrolled_window parent is of unhandled type or not the direct child.")
-
+                current_parent.set_child(None)  # type: ignore
 
         expander.add_row(self.nmap_output_scrolled_window)
 
@@ -760,41 +1039,32 @@ class NmapPage(Gtk.Box):
         copy_summary_button.get_style_context().add_class("flat")
         copy_summary_button.connect(
             "clicked",
-            lambda _btn, text=human_readable_summary: self._on_copy_host_summary_clicked(text),
+            lambda _btn, text=human_readable_summary: self._copy_to_clipboard(text, "Host summary copied to clipboard."),
         )
         expander.add_suffix(copy_summary_button)
+
+        export_yaml_button = Gtk.Button.new_from_icon_name("document-save-symbolic")
+        export_yaml_button.set_tooltip_text("Export Host Results to YAML")
+        export_yaml_button.get_style_context().add_class("flat")
+        export_yaml_button.connect(
+            "clicked",
+            lambda _btn, hk=host_key, hd=host_data_dict: self._on_export_host_yaml_clicked(hk, hd),
+        )
+        expander.add_suffix(export_yaml_button)
 
         self.nmap_detail_box.append(expander)
 
     def _on_copy_host_summary_clicked(self, summary_text: str):
-        """Handle the click of the 'Copy Host Summary' button.
+        """Handle the click of the 'Copy Host Summary' button."""
+        self._copy_to_clipboard(summary_text, "Host summary copied to clipboard.")
 
-        :param summary_text: The summary text to copy to the clipboard.
-        """
-        if not summary_text:
-            show_global_toast(self, "No summary text available to copy.")
-            return
-
-        try:
-            clipboard = self.get_clipboard()
-            if clipboard:
-                clipboard.set(summary_text)
-                show_global_toast(self, "Host summary copied to clipboard.")
-                logger.info("Copied Nmap host summary to clipboard.")
-            else:
-                logger.warning("Could not get clipboard for NmapPage.")
-                show_global_toast(self, "Failed to access clipboard.")
-        except Exception as e:
-            logger.exception("Error copying Nmap host summary to clipboard:")
-            show_global_toast(self, f"Error copying: {e}") # f-string in UI message is fine
-
-    def _add_host_details_expander(self, host_data: Dict[str, Any], host_key: str):
+    def _add_host_details_expander(self, host_data: dict[str, Any], host_key: str):
         """Add an Adw.ExpanderRow to display general host information.
 
         :param host_data: The dictionary containing data for the host.
         :param host_key: The identifier for the host (e.g., IP address).
         """
-        expander = Adw.ExpanderRow(title="Host Information - %s" % host_key) # f-string for UI is fine
+        expander = Adw.ExpanderRow(title=f"Host Information - {host_key}")
         expander.set_expanded(True)
         status_info = host_data.get("status", {})
         status_subtitle = (
@@ -819,38 +1089,146 @@ class NmapPage(Gtk.Box):
             expander.add_row(Adw.ActionRow(title="Hostnames", subtitle="No hostnames reported"))
         self.nmap_detail_box.append(expander)
 
-    def _add_ports_expander(self, host_data: Dict[str, Any], host_key: str):
-        """Add an Adw.ExpanderRow to display detected network ports and their details.
+    def _add_ports_expander(self, host_data: dict[str, Any], host_key: str):
+        """Add an Adw.ExpanderRow to display detected network ports, state badges, and NSE script results.
 
         :param host_data: The dictionary containing data for the host.
         :param host_key: The identifier for the host (e.g., IP address).
         """
-        expander = Adw.ExpanderRow(title="Network Ports - %s" % host_key) # f-string for UI is fine
+        expander = Adw.ExpanderRow(title=f"Network Ports - {host_key}")
         expander.set_expanded(True)
         ports_found = False
+
         for proto in ["tcp", "udp", "sctp", "ip"]:
-            if proto_data := host_data.get(proto):
-                if isinstance(proto_data, dict):
-                    for port_id, port_info in proto_data.items():
-                        ports_found = True
-                        state = port_info.get("state", "N/A")
-                        name = port_info.get("name", "")
-                        product = port_info.get("product", "")
-                        version = port_info.get("version", "")
-                        reason = port_info.get("reason", "")
-                        title = f"Port {port_id}/{proto.upper()} ({state})"
-                        subtitle_parts = [name, product, version]
-                        subtitle = " ".join(filter(None, subtitle_parts))
-                        subtitle = (
-                            f"{subtitle} (Reason: {reason})" if subtitle else f"Reason: {reason}"
+            proto_data = host_data.get(proto)
+            if not isinstance(proto_data, dict):
+                continue
+
+            for port_id, port_info in proto_data.items():
+                if not isinstance(port_info, dict):
+                    continue
+                ports_found = True
+                state = port_info.get("state", "unknown")
+                name = port_info.get("name", "")
+                product = port_info.get("product", "")
+                version = port_info.get("version", "")
+                extrainfo = port_info.get("extrainfo", "")
+                reason = port_info.get("reason", "")
+                scripts = port_info.get("script", {})
+
+                title = f"Port {port_id}/{proto.upper()}"
+                service_details = " ".join(filter(None, [product, version, extrainfo]))
+                if name and service_details:
+                    subtitle = f"{name} · {service_details}"
+                elif service_details:
+                    subtitle = service_details
+                elif name:
+                    subtitle = name
+                else:
+                    subtitle = "Unknown Service"
+                if reason:
+                    subtitle += f" (reason: {reason})"
+
+                # Suffix: State Badge
+                badge = Gtk.Label(label=state.upper())
+                badge.set_valign(Gtk.Align.CENTER)
+                badge.add_css_class("badge")
+                state_lower = state.lower()
+                if state_lower == "open":
+                    badge.add_css_class("success")
+                elif "filter" in state_lower:
+                    badge.add_css_class("warning")
+                elif "close" in state_lower:
+                    badge.add_css_class("error")
+
+                # Suffix: Copy Endpoint button
+                copy_btn = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
+                copy_btn.set_tooltip_text(f"Copy {host_key}:{port_id}")
+                copy_btn.set_valign(Gtk.Align.CENTER)
+                copy_btn.add_css_class("flat")
+                endpoint_str = f"{host_key}:{port_id}"
+                copy_btn.connect(
+                    "clicked",
+                    lambda _b, ep=endpoint_str: self._copy_to_clipboard(
+                        ep, f"Copied {ep} to clipboard."
+                    ),
+                )
+
+                if scripts and isinstance(scripts, dict):
+                    port_row = Adw.ExpanderRow(title=title, subtitle=subtitle)
+                    port_row.set_expanded(False)
+                    port_row.add_suffix(badge)
+                    port_row.add_suffix(copy_btn)
+
+                    for script_id, script_output in scripts.items():
+                        out_str = str(script_output).strip() if script_output else "(no output)"
+                        script_row = Adw.ActionRow(title=f"NSE: {script_id}", subtitle=out_str)
+                        script_row.set_subtitle_lines(0)
+
+                        script_copy_btn = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
+                        script_copy_btn.set_tooltip_text(f"Copy {script_id} output")
+                        script_copy_btn.set_valign(Gtk.Align.CENTER)
+                        script_copy_btn.add_css_class("flat")
+                        script_copy_btn.connect(
+                            "clicked",
+                            lambda _b, s_out=out_str, s_id=script_id: self._copy_to_clipboard(
+                                s_out, f"Copied {s_id} script output to clipboard."
+                            ),
                         )
-                        expander.add_row(Adw.ActionRow(title=title, subtitle=subtitle))
+                        script_row.add_suffix(script_copy_btn)
+                        port_row.add_row(script_row)
+
+                    expander.add_row(port_row)
+                else:
+                    action_row = Adw.ActionRow(title=title, subtitle=subtitle)
+                    action_row.add_suffix(badge)
+                    action_row.add_suffix(copy_btn)
+                    expander.add_row(action_row)
+
         if not ports_found:
             expander.add_row(
                 Adw.ActionRow(
                     title="Ports", subtitle="No open ports reported or port data available."
                 )
             )
+        self.nmap_detail_box.append(expander)
+
+    def _add_host_scripts_expander(self, host_data: dict[str, Any], host_key: str):
+        """Add an Adw.ExpanderRow to display host-level NSE script outputs if present.
+
+        :param host_data: The dictionary containing data for the host.
+        :param host_key: The identifier for the host (e.g., IP address).
+        """
+        host_scripts = host_data.get("hostscript", [])
+        if not host_scripts or not isinstance(host_scripts, list):
+            return
+
+        expander = Adw.ExpanderRow(title=f"Host NSE Scripts - {host_key}")
+        expander.set_expanded(True)
+
+        for script_item in host_scripts:
+            if not isinstance(script_item, dict):
+                continue
+            script_id = script_item.get("id", "Unknown")
+            script_output = script_item.get("output", "")
+            out_str = str(script_output).strip() if script_output else "(no output)"
+
+            script_row = Adw.ActionRow(title=f"Script: {script_id}", subtitle=out_str)
+            script_row.set_subtitle_lines(0)
+
+            copy_btn = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
+            copy_btn.set_tooltip_text(f"Copy {script_id} output")
+            copy_btn.set_valign(Gtk.Align.CENTER)
+            copy_btn.add_css_class("flat")
+            copy_btn.connect(
+                "clicked",
+                lambda _b, s_out=out_str, s_id=script_id: self._copy_to_clipboard(
+                    s_out, f"Copied {s_id} output to clipboard."
+                ),
+            )
+            script_row.add_suffix(copy_btn)
+            expander.add_row(script_row)
+
         self.nmap_detail_box.append(expander)
 
     def _add_os_expander(self, host_data: Dict[str, Any], host_key: str):
@@ -965,7 +1343,8 @@ class NmapPage(Gtk.Box):
             style_context.remove_class(css_class)
         if status_type == ScanStatus.IN_PROGRESS:
             self.scan_spinner.set_visible(True)
-            self.scan_spinner.start()
+            if hasattr(self.scan_spinner, "start"):
+                self.scan_spinner.start()
             if hasattr(self, "scan_progress_bar") and self.scan_progress_bar:
                 self.scan_progress_bar.set_visible(True)
                 self.scan_progress_bar.set_fraction(0.0)
@@ -977,7 +1356,8 @@ class NmapPage(Gtk.Box):
                 self.nmap_cancel_scan_button.set_visible(True)
                 self.nmap_cancel_scan_button.set_sensitive(True)
         else:
-            self.scan_spinner.stop()
+            if hasattr(self.scan_spinner, "stop"):
+                self.scan_spinner.stop()
             self.scan_spinner.set_visible(False)
             if hasattr(self, "scan_progress_bar") and self.scan_progress_bar:
                 self.scan_progress_bar.set_visible(False)

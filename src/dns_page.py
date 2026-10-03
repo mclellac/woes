@@ -22,6 +22,11 @@ from .dns_client import (
     DnsNxDomainError,
     DnsNoAnswerError,
     DnsGenericError,
+    MODE_STANDARD,
+    MODE_DOH,
+    MODE_DOT,
+    DOH_PRESETS,
+    DOT_PRESETS,
 )
 
 
@@ -41,14 +46,16 @@ class DNSPage(Gtk.Box):
 
     __gtype_name__ = "DNSPage"
 
-    domain_entry = Gtk.Template.Child()
+    domain_entry: Adw.EntryRow = Gtk.Template.Child()
     dns_apply_button = Gtk.Template.Child()
     dns_record_type_dropdown = Gtk.Template.Child()
     dns_results_box_container = Gtk.Template.Child()
     dns_clear_results_button = Gtk.Template.Child()
     dns_copy_all_results_button = Gtk.Template.Child()
     dns_status_row = Gtk.Template.Child()
-    dns_status_spinner = Gtk.Template.Child()
+    dns_status_spinner: Adw.Spinner = Gtk.Template.Child()
+    dns_resolver_mode_dropdown: Adw.ComboRow = Gtk.Template.Child()
+    dns_custom_endpoint_entry: Adw.EntryRow = Gtk.Template.Child()
 
     def __init__(self, **kwargs: GObject.GObject):
         """Initialize the DNSPage.
@@ -87,9 +94,11 @@ class DNSPage(Gtk.Box):
 
     def _connect_signals(self) -> None:
         """Connect signals for UI elements to their respective handlers."""
-        self.domain_entry.connect("activate", self._on_entry_activated)  # type: ignore
+        self.domain_entry.connect("entry-activated", self._on_entry_activated)  # type: ignore
         self.dns_apply_button.connect("clicked", self._on_entry_activated)  # type: ignore
         self.dns_record_type_dropdown.connect("notify::selected", self._on_record_type_changed)  # type: ignore
+        if hasattr(self, "dns_resolver_mode_dropdown") and self.dns_resolver_mode_dropdown:
+            self.dns_resolver_mode_dropdown.connect("notify::selected", self._on_resolver_mode_changed)  # type: ignore
         if self.dns_clear_results_button:
             self.dns_clear_results_button.connect("clicked", self._on_clear_results_clicked)
         if self.dns_copy_all_results_button:
@@ -232,6 +241,16 @@ class DNSPage(Gtk.Box):
         :param _param_spec: The :class:`GObject.ParamSpec` of the property that changed (unused).
         """
         self._perform_lookup()
+
+    def _on_resolver_mode_changed(self, _dropdown: Any, _param_spec: Any) -> None:
+        """Handle changes in the selected DNS resolver mode."""
+        if hasattr(self, "dns_resolver_mode_dropdown") and self.dns_resolver_mode_dropdown:
+            selected_index = self.dns_resolver_mode_dropdown.get_selected()
+            is_custom = selected_index == 7
+            if hasattr(self, "dns_custom_endpoint_entry") and self.dns_custom_endpoint_entry:
+                self.dns_custom_endpoint_entry.set_visible(is_custom)
+            if self.domain_entry and self.domain_entry.get_text().strip():
+                self._perform_lookup()
 
     # --- Helper methods for building record rows ---
 
@@ -387,10 +406,11 @@ class DNSPage(Gtk.Box):
         """
         if self.dns_status_spinner:
             self.dns_status_spinner.set_visible(active)  # type: ignore
-            if active:
-                self.dns_status_spinner.start()  # type: ignore
-            else:
-                self.dns_status_spinner.stop()  # type: ignore
+            if hasattr(self.dns_status_spinner, "start"):
+                if active:
+                    self.dns_status_spinner.start()  # type: ignore
+                else:
+                    self.dns_status_spinner.stop()  # type: ignore
 
         if self.dns_status_row:
             current_subtitle = self.dns_status_row.get_subtitle()  # type: ignore
@@ -408,6 +428,10 @@ class DNSPage(Gtk.Box):
             self.dns_apply_button.set_sensitive(not active)  # type: ignore
         if self.dns_record_type_dropdown:
             self.dns_record_type_dropdown.set_sensitive(not active)  # type: ignore
+        if hasattr(self, "dns_resolver_mode_dropdown") and self.dns_resolver_mode_dropdown:
+            self.dns_resolver_mode_dropdown.set_sensitive(not active)  # type: ignore
+        if hasattr(self, "dns_custom_endpoint_entry") and self.dns_custom_endpoint_entry:
+            self.dns_custom_endpoint_entry.set_sensitive(not active)  # type: ignore
 
     def _validate_dns_input(self, user_input: str) -> bool:
         """Validate the DNS user input. Shows global error/toast if invalid.
@@ -477,7 +501,7 @@ class DNSPage(Gtk.Box):
         if is_valid_ip(user_input) and requested_record_type.upper() == "PTR":
             actual_record_type_displayed = self._update_ptr_dropdown(user_input, requested_record_type)
 
-        nameservers_used = dns_client.resolver.nameservers
+        nameservers_used = dns_client.nameservers
 
         # Store results for potential refresh
         self._current_result_records = result_data
@@ -520,7 +544,7 @@ class DNSPage(Gtk.Box):
             self._current_result_records = None  # No valid results to refresh
         elif isinstance(error, DnsNoAnswerError):
             logger.info("DNSPage: %s", error_message)
-            nameservers_used = dns_client.resolver.nameservers
+            nameservers_used = dns_client.nameservers
             # Store parameters for refresh, as _display_result will show "No records"
             self._current_result_records = []
             self._current_user_input = user_input
@@ -584,8 +608,34 @@ class DNSPage(Gtk.Box):
 
         self._clear_error()
 
+        mode_index = (
+            self.dns_resolver_mode_dropdown.get_selected()
+            if hasattr(self, "dns_resolver_mode_dropdown") and self.dns_resolver_mode_dropdown
+            else 0
+        )
         custom_dns_server = self.settings.get_string("custom-dns-server")
-        dns_client = DnsResolverClient(custom_dns_server=custom_dns_server or None)
+
+        if mode_index == 1:
+            dns_client = DnsResolverClient(resolver_mode=MODE_DOH, endpoint=DOH_PRESETS["Cloudflare"])
+        elif mode_index == 2:
+            dns_client = DnsResolverClient(resolver_mode=MODE_DOH, endpoint=DOH_PRESETS["Google"])
+        elif mode_index == 3:
+            dns_client = DnsResolverClient(resolver_mode=MODE_DOH, endpoint=DOH_PRESETS["Quad9"])
+        elif mode_index == 4:
+            dns_client = DnsResolverClient(resolver_mode=MODE_DOT, endpoint=DOT_PRESETS["Cloudflare"])
+        elif mode_index == 5:
+            dns_client = DnsResolverClient(resolver_mode=MODE_DOT, endpoint=DOT_PRESETS["Quad9"])
+        elif mode_index == 6:
+            dns_client = DnsResolverClient(resolver_mode=MODE_DOT, endpoint=DOT_PRESETS["Google"])
+        elif mode_index == 7:
+            custom_endpoint = (
+                self.dns_custom_endpoint_entry.get_text().strip()
+                if hasattr(self, "dns_custom_endpoint_entry") and self.dns_custom_endpoint_entry
+                else ""
+            ) or custom_dns_server
+            dns_client = DnsResolverClient(custom_dns_server=custom_endpoint or None)
+        else:
+            dns_client = DnsResolverClient(custom_dns_server=custom_dns_server or None)
 
         self.current_dns_cancellable = Gio.Cancellable.new()
         task = Gio.Task.new(self, self.current_dns_cancellable, self._on_dns_lookup_task_done, None)
@@ -931,6 +981,69 @@ class DNSPage(Gtk.Box):
         row.set_expanded(True)
         return row
 
+    def _build_https_record_row(
+        self, record_data: Dict[str, Any], name: str, base_subtitle: str, record_type: str
+    ) -> Adw.ActionRow:
+        """Build a UI row for HTTPS or SVCB records."""
+        priority = record_data.get("priority", 0)
+        target = record_data.get("target", ".")
+        subtitle = f"{base_subtitle} (Priority: {priority}, Target: {target})"
+        row = self._create_base_action_row(name, record_type, subtitle, "security-high-symbolic")
+        data_value = str(record_data.get("data", "N/A"))
+        summary_text = f"{name} {record_data.get('ttl', '')} {record_data.get('class', '')} {record_type} {data_value}"
+        self._add_standard_suffix_box_to_row(row, data_value, "Copy Params", summary_text)
+        return row
+
+    def _build_caa_record_row(
+        self, record_data: Dict[str, Any], name: str, base_subtitle: str
+    ) -> Adw.ActionRow:
+        """Build a UI row for a CAA record."""
+        tag = record_data.get("tag", "")
+        value = record_data.get("value", "")
+        flags = record_data.get("flags", 0)
+        subtitle = f"{base_subtitle} (Tag: {tag}, Flags: {flags})"
+        row = self._create_base_action_row(name, "CAA", subtitle, "dialog-information-symbolic")
+        data_value = f'{flags} {tag} "{value}"'
+        summary_text = f"{name} {record_data.get('ttl', '')} {record_data.get('class', '')} CAA {data_value}"
+        self._add_standard_suffix_box_to_row(row, str(value), "Copy CAA Value", summary_text)
+        return row
+
+    def _build_srv_record_row(
+        self, record_data: Dict[str, Any], name: str, base_subtitle: str
+    ) -> Adw.ActionRow:
+        """Build a UI row for an SRV record."""
+        target = record_data.get("target", "N/A")
+        port = record_data.get("port", "N/A")
+        priority = record_data.get("priority", 0)
+        weight = record_data.get("weight", 0)
+        subtitle = f"{base_subtitle} (Priority: {priority}, Weight: {weight}, Port: {port})"
+        row = self._create_base_action_row(name, "SRV", subtitle, "network-server-symbolic")
+        summary_text = (
+            f"{name} {record_data.get('ttl', '')} {record_data.get('class', '')} SRV "
+            f"{priority} {weight} {port} {target}"
+        )
+        self._add_standard_suffix_box_to_row(row, f"{target}:{port}", "Copy Endpoint", summary_text)
+        return row
+
+    def _build_dnssec_record_row(
+        self, record_data: Dict[str, Any], name: str, base_subtitle: str, record_type: str
+    ) -> Adw.ActionRow:
+        """Build a UI row for DNSSEC (DNSKEY, DS, RRSIG) records."""
+        extra_info = ""
+        if record_type == "DNSKEY":
+            extra_info = f"Flags: {record_data.get('flags', '')}, Algo: {record_data.get('algorithm', '')}"
+        elif record_type == "DS":
+            extra_info = f"KeyTag: {record_data.get('key_tag', '')}, Algo: {record_data.get('algorithm', '')}, Type: {record_data.get('digest_type', '')}"
+        elif record_type == "RRSIG":
+            extra_info = f"Covers: {record_data.get('type_covered', '')}, Signer: {record_data.get('signer', '')}"
+
+        subtitle = f"{base_subtitle} ({extra_info})" if extra_info else base_subtitle
+        row = self._create_base_action_row(name, record_type, subtitle, "dialog-password-symbolic")
+        data_value = str(record_data.get("data", "N/A"))
+        summary_text = f"{name} {record_data.get('ttl', '')} {record_data.get('class', '')} {record_type} {data_value}"
+        self._add_standard_suffix_box_to_row(row, data_value, f"Copy {record_type} Data", summary_text)
+        return row
+
     def _create_record_row(self, record_data: Dict[str, Any]) -> Optional[Gtk.Widget]:
         """Create a UI row for a single DNS record dictionary.
 
@@ -956,8 +1069,16 @@ class DNSPage(Gtk.Box):
             return self._build_txt_record_row(record_data, name, base_subtitle)
         elif record_type == "SOA":
             return self._build_soa_record_row(record_data, name, base_subtitle)
+        elif record_type in ("HTTPS", "SVCB"):
+            return self._build_https_record_row(record_data, name, base_subtitle, record_type)
+        elif record_type == "CAA":
+            return self._build_caa_record_row(record_data, name, base_subtitle)
+        elif record_type == "SRV":
+            return self._build_srv_record_row(record_data, name, base_subtitle)
+        elif record_type in ("DNSKEY", "DS", "RRSIG"):
+            return self._build_dnssec_record_row(record_data, name, base_subtitle, record_type)
         elif record_data.get("data"):
-            return self._build_generic_data_record_row(record_data, name, base_subtitle, record_type)  # Renamed
+            return self._build_generic_data_record_row(record_data, name, base_subtitle, record_type)
         else:
             logger.warning(
                 "Could not create row for unknown record_data type or missing data field: %s (Type: %s)",

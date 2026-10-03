@@ -7,10 +7,8 @@
     <property name="content">
       <object class="AdwToastOverlay" id="toast_overlay">
         <property name="child">
-          <object class="GtkBox" id="main_box">
-            <property name="halign">baseline-fill</property>
-            <property name="orientation">vertical</property>
-            <child>
+          <object class="AdwToolbarView" id="toolbar_view">
+            <child type="top">
               <object class="AdwHeaderBar" id="header_bar">
             <property name="title-widget">
               <object class="AdwViewSwitcherTitle" id="switcher_title">
@@ -28,7 +26,7 @@
             </child>
           </object>
         </child>
-        <child>
+        <child type="top">
           <object class="AdwBanner" id="main_error_banner">
             <property name="revealed">False</property>
             <property name="button_label" translatable="yes">Dismiss</property>
@@ -36,7 +34,7 @@
             <!-- No title property here, it will be set from code -->
           </object>
         </child>
-        <child>
+        <property name="content">
           <object class="AdwViewStack" id="stack">
             <property name="hexpand">true</property>
             <property name="hexpand-set">true</property>
@@ -163,14 +161,14 @@
               </object>
             </child>
           </object>
-        </child>
-        <child>
+        </property>
+        <child type="bottom">
           <object class="AdwViewSwitcherBar" id="switcher_bar">
             <property name="halign">baseline-fill</property>
             <property name="stack">stack</property>
           </object>
         </child>
-          </object> <!-- End of main_box -->
+      </object> <!-- End of toolbar_view -->
         </property> <!-- End of AdwToastOverlay child property -->
       </object> <!-- End of AdwToastOverlay -->
     </property>
